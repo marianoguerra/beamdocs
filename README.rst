@@ -1,7 +1,7 @@
 beamdocs
-=====
+========
 
-An escript
+An escript to generate a json file with module info for each erl file found
 
 Build
 -----
@@ -11,4 +11,11 @@ Build
 Run
 ---
 
-    $ _build/default/bin/beamdocs
+    $ ./_build/default/bin/beamdocs to-json ~/src/erl/otp/ ./out
+
+see out folder for results
+
+License
+-------
+
+MIT
