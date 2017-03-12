@@ -24,7 +24,13 @@ fn file_to_json @public
 
         ParseResult = epp.parse_file(FilePath, [], [])
 
-        BaseModState = {path: ShortPath, full_path: FilePath, fns: []}
+        BaseModState = {
+            path: ShortPath,
+            full_path: FilePath,
+            fns: [],
+            exports: []
+        }
+
         (_, Info) = match ParseResult:
             case ok, Ast:
                 ast_walk.walk(Ast, fn walker:2, BaseModState)
@@ -41,8 +47,24 @@ fn file_to_json @public
 end
 
 fn walker
+    case State={exports=Exps}, Node=(attribute, _Line, export, FunRefs):
+        Fns = for (FnName, Arity) in FunRefs:
+            {name: FnName, arity: Arity}
+        end
+        (Node, State#{exports=Fns ++ Exps})
     case State={fns=Fns}, Node=(function, Line, Name, Arity, Clauses):
-        Fn = {name: Name, line: Line, arity: Arity, clauses_count: length(Clauses)}
+        LastClause = lists.last(Clauses)
+        (clause, _, _, _, Body) = LastClause
+        LastLineAst = lists.last(Body)
+        LastLine = element(2, LastLineAst)
+
+        Fn = {
+            name: Name,
+            line: Line,
+            arity: Arity,
+            clauses_count: length(Clauses),
+            lines: LastLine - Line
+        }
         (Node, State#{fns=[Fn :: Fns]})
     case State, Node:
         (Node, State)
