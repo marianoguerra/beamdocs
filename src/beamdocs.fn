@@ -1,0 +1,49 @@
+
+
+fn main @public
+    case ["to-json", BasePath]:
+        to_json(filename.absname(BasePath), "./out")
+    case _Args:
+        io.format("Usage: beamdocs <cmd> [args]~n")
+        erlang.halt(0)
+end
+
+fn to_json @public case BasePath, OutPath:
+    AccIn = {files: [], base_path: BasePath, out_path: OutPath}
+    Fn = fn file_to_json:2
+    io.format("to-json ~p~n", [BasePath])
+    filelib.fold_files(BasePath, ".*\\.erl$", true, Fn, AccIn)
+end
+
+fn file_to_json @public
+    case FilePath, AccIn={files=Files, base_path=BasePath, out_path=OutPath}:
+        BaseLen = length(BasePath)
+        ShortPath = string.substr(FilePath, BaseLen + 2)
+
+        io.format("process ~p~n", [ShortPath])
+
+        ParseResult = epp.parse_file(FilePath, [], [])
+
+        BaseModState = {path: ShortPath, full_path: FilePath, fns: []}
+        (_, Info) = match ParseResult:
+            case ok, Ast:
+                ast_walk.walk(Ast, fn walker:2, BaseModState)
+            case error, Reason:
+                io.format("Error: parsing ~p: ~p~n", [FilePath, Reason])
+                BaseModState
+        end
+
+        FileOutPath = filename.join(OutPath, ShortPath ++ ".json")
+        filelib.ensure_dir(FileOutPath)
+        file.write_file(FileOutPath, jsone.encode(Info))
+
+        AccIn#{files: [Info :: Files]}
+end
+
+fn walker
+    case State={fns=Fns}, Node=(function, Line, Name, Arity, Clauses):
+        Fn = {name: Name, line: Line, arity: Arity, clauses_count: length(Clauses)}
+        (Node, State#{fns=[Fn :: Fns]})
+    case State, Node:
+        (Node, State)
+end
