@@ -53,10 +53,7 @@ fn walker
         end
         (Node, State#{exports=Fns ++ Exps})
     case State={fns=Fns}, Node=(function, Line, Name, Arity, Clauses):
-        LastClause = lists.last(Clauses)
-        (clause, _, _, _, Body) = LastClause
-        LastLineAst = lists.last(Body)
-        LastLine = element(2, LastLineAst)
+        LastLine = last_line(Node)
 
         Fn = {
             name: Name,
@@ -68,4 +65,93 @@ fn walker
         (Node, State#{fns=[Fn :: Fns]})
     case State, Node:
         (Node, State)
+end
+
+fn last_line
+    @doc("Totally ad-hoc function to get an approx last line for an ast")
+
+    case (function, _, _, _, Clauses):
+        LastClause = lists.last(Clauses)
+        (clause, _, _, _, Body) = LastClause
+        LastLineAst = lists.last(Body)
+        last_line(LastLineAst)
+    case (`case`, _, _, Clauses):
+        last_line(lists.last(Clauses))
+    case (`receive`, _, Clauses=[_ :: _]):
+        last_line(lists.last(Clauses))
+    case (`receive`, _, Clauses=[_ :: _], _, []):
+        last_line(lists.last(Clauses))
+    case (`receive`, _, _, _, Clauses):
+        last_line(lists.last(Clauses))
+    case (`if`, _, Clauses):
+        last_line(lists.last(Clauses))
+    case (`try`, _, Clauses=[_ :: _], [], [], []):
+        last_line(lists.last(Clauses))
+    case (`try`, _, _, Clauses=[_ :: _], [], []):
+        last_line(lists.last(Clauses))
+    case (`try`, _, _, _, Clauses=[_ :: _], []):
+        last_line(lists.last(Clauses))
+    case (`try`, _, _, _, _, Clauses=[_ :: _]):
+        last_line(lists.last(Clauses))
+    case (`catch`, _, Body):
+        last_line(Body)
+    case (`block`, _, Body):
+        last_line(Body)
+    case (`fun`, _, (clauses, Clauses)):
+        last_line(lists.last(Clauses))
+    case (`fun`, _, (function, _, _, Node)):
+        last_line(Node)
+    case (lc, _, _, Items):
+        last_line(lists.last(Items))
+    case (bc, _, _, Items):
+        last_line(lists.last(Items))
+    case (generate, _, _, Node):
+        last_line(Node)
+    case (b_generate, _, _, Node):
+        last_line(Node)
+    case (bin_element, _, Node, _, _):
+        last_line(Node)
+    case (op, _, _, Node):
+        last_line(Node)
+    case (op, _, _, _, Node):
+        last_line(Node)
+    case (`match`, _, _, Node):
+        last_line(Node)
+    case (record, Line, _, []):
+        Line
+    case (record, _, _, Fields):
+        last_line(lists.last(Fields))
+    case (record, _, _, _, Fields):
+        last_line(lists.last(Fields))
+    case (record_field, _, _, Node):
+        last_line(Node)
+    case (record_field, _, _, _, Node):
+        last_line(Node)
+    case (clause, _, _, Body):
+        last_line(lists.last(Body))
+    case (clause, _, _, _, Body):
+        last_line(lists.last(Body))
+    case (bin, Line, []):
+        Line
+    case (bin, _, Items):
+        last_line(lists.last(Items))
+    case (tuple, Line, []):
+        Line
+    case (tuple, _, Items):
+        last_line(lists.last(Items))
+    case (map, Line, []):
+        Line
+    case (map, _, Items):
+        last_line(lists.last(Items))
+    case (call, Line, _, []):
+        Line
+    case (call, _, _, Args):
+        last_line(lists.last(Args))
+    case (cons, _, _, Tail):
+        last_line(Tail)
+
+    case Nodes when is_list(Nodes):
+        last_line(lists.last(Nodes))
+    case Node:
+        element(2, Node)
 end
