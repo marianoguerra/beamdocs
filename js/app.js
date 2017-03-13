@@ -4,7 +4,7 @@
     var index, modToSrc, repoBase, commit, baseUrl;
 
     function loadIndex(data) {
-        var modName, funName, mod, fns, funInfo, line, isPublic, label,
+        var modName, funName, mod, fns, funInfo, line, isPublic, label, search,
             mods = data.mods;
 
         index = [];
@@ -23,7 +23,8 @@
                 line = funInfo[0];
                 isPublic = !!funInfo[1];
                 label = modName + ':' + funName;
-                index.push([modName, funName, isPublic, line, label]);
+                search = label.toLowerCase();
+                index.push([modName, funName, isPublic, line, label, search]);
             }
         }
 
@@ -39,6 +40,8 @@
     function search(text, onlyPublic) {
         var i, len, entry, results = [];
 
+        text = text.toLowerCase();
+
         for(i = 0, len = index.length; i < len; i += 1) {
             entry = index[i];
 
@@ -46,7 +49,7 @@
                 continue;
             }
 
-            if (contains(entry[1], text)) {
+            if (contains(entry[5], text)) {
                 results.push(entry);
             }
         }
