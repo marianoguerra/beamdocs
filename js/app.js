@@ -1,17 +1,25 @@
 /*globals window, console, document*/
 (function () {
     'use strict';
-    var index;
+    var index,
+        modToSrc,
+        repoBase = 'https://github.com/erlang/otp/tree/',
+        commit = 'a6073a25aae43d17c8afa9a976cbe310552cb811',
+        baseUrl = repoBase + commit + '/';
 
     function loadIndex(data) {
-        var modName, funName, mod, funInfo, line, isPublic, label;
+        var modName, funName, mod, fns, funInfo, line, isPublic, label;
 
         index = [];
+        modToSrc = {};
 
         for(modName in data) {
             mod = data[modName];
-            for(funName in mod) {
-                funInfo = mod[funName];
+            fns = mod.fns;
+            modToSrc[modName] = mod.path;
+
+            for(funName in fns) {
+                funInfo = fns[funName];
                 line = funInfo[0];
                 isPublic = !!funInfo[1];
                 label = modName + ':' + funName;
@@ -55,6 +63,11 @@
             node = document.createElement('li'),
             nodeText = document.createTextNode(label);
 
+        node.className = 'fn-result';
+        node.dataset.beamModule = modName;
+        node.dataset.beamFunction = fnName;
+        node.dataset.beamLine = line;
+
         node.appendChild(nodeText);
 
         return node;
@@ -72,6 +85,16 @@
             items.appendChild(item);
         }
 
+        resultList.addEventListener('click', function (event) {
+            var node = event.target,
+                module = node.dataset.beamModule,
+                line = node.dataset.beamLine,
+                sourcePath = modToSrc[module],
+                srcUrl = baseUrl + sourcePath + '#L' + line;
+
+            console.log('click', node, sourcePath, module, line);
+            window.open(srcUrl, '_blank');
+        });
         resultList.appendChild(items);
     }
 
