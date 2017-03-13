@@ -3,6 +3,8 @@
 fn main @public
     case ["to-json", BasePath, OutDir]:
         to_json(filename.absname(BasePath), OutDir)
+    case ["to-index", BasePath, OutPath]:
+        to_index(filename.absname(BasePath), OutPath)
     case _Args:
         io.format("Usage: beamdocs to-json BaseSrcPath OutDir~n")
         erlang.halt(0)
@@ -65,6 +67,37 @@ fn walker
         (Node, State#{fns=[Fn :: Fns]})
     case State, Node:
         (Node, State)
+end
+
+fn to_index @public case BasePath, OutPath:
+    AccIn = {}
+    Fn = fn file_to_index:2
+    io.format("to-index~p~n", [BasePath])
+    AccOut = filelib.fold_files(BasePath, ".*\\.erl\\.json$", true, Fn, AccIn)
+    Data = jsone.encode({mods: AccOut})
+    file.write_file(OutPath, Data)
+end
+
+fn file_to_index @public case FilePath, AccIn:
+    io.format("processing ~p~n", [FilePath])
+    (ok, Binary) = file.read_file(FilePath)
+    Info = jsone.decode(Binary)
+    Exports  = maps.get('exports', Info, [])
+    Fns = maps.get('fns', Info, [])
+
+    ExportsMap = maps.from_list((for {'arity'=Arity, 'name'=Name} in Exports:
+        ExportName = io_lib.format("~s/~p", [Name, Arity]) -> list_to_binary()
+        (ExportName, 1)
+    end))
+
+    FnsMap = maps.from_list((for {'arity'=Arity, 'name'=Name, 'line'=Line} in Fns:
+        FnName = io_lib.format("~s/~p", [Name, Arity]) -> list_to_binary()
+        IsPublic = maps.get(FnName, ExportsMap, 0)
+        (FnName, [Line, IsPublic])
+    end))
+
+    ModName = filename.basename(FilePath, ".erl.json") -> list_to_binary()
+    AccIn#{ModName: FnsMap}
 end
 
 fn last_line
