@@ -9,19 +9,21 @@ Build
 
 ::
 
-    $ rebar3 escriptize
+    rebar3 escriptize
 
 Run
 ---
 
 ::
 
-    $ ./_build/default/bin/beamdocs to-json ~/src/erl/otp/ ./out
+    CODE_PATH=$HOME/src/erl/otp
+    ./_build/default/bin/beamdocs to-json $CODE_PATH ./out
 
 clean up the out folder to leave only the ones you want and then generate the
 index::
 
-    $ ./_build/default/bin/beamdocs to-index ./out ./index.json
+    CODE_PATH=$HOME/src/erl/otp
+    ./_build/default/bin/beamdocs to-index ./out ./data/index.json https://github.com/erlang/otp/tree/ $(cd $CODE_PATH && git rev-parse HEAD)
 
 Web UI
 ------

@@ -3,8 +3,8 @@
 fn main @public
     case ["to-json", BasePath, OutDir]:
         to_json(filename.absname(BasePath), OutDir)
-    case ["to-index", BasePath, OutPath]:
-        to_index(filename.absname(BasePath), OutPath)
+    case ["to-index", BasePath, OutPath, RepoBaseUrl, Commit]:
+        to_index(filename.absname(BasePath), OutPath, RepoBaseUrl, Commit)
     case _Args:
         io.format("Usage: beamdocs to-json BaseSrcPath OutDir~n")
         erlang.halt(0)
@@ -69,12 +69,16 @@ fn walker
         (Node, State)
 end
 
-fn to_index @public case BasePath, OutPath:
+fn to_index @public case BasePath, OutPath, RepoBaseUrl, Commit:
     AccIn = {}
     Fn = fn file_to_index:2
     io.format("to-index~p~n", [BasePath])
     AccOut = filelib.fold_files(BasePath, ".*\\.erl\\.json$", true, Fn, AccIn)
-    Data = jsone.encode({mods: AccOut})
+    Data = jsone.encode({
+        mods: AccOut,
+        repository: list_to_binary(RepoBaseUrl),
+        commit: list_to_binary(Commit)
+    })
     file.write_file(OutPath, Data)
 end
 

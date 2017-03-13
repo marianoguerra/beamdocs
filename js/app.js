@@ -1,20 +1,20 @@
 /*globals window, console, document*/
 (function () {
     'use strict';
-    var index,
-        modToSrc,
-        repoBase = 'https://github.com/erlang/otp/tree/',
-        commit = 'a6073a25aae43d17c8afa9a976cbe310552cb811',
-        baseUrl = repoBase + commit + '/';
+    var index, modToSrc, repoBase, commit, baseUrl;
 
     function loadIndex(data) {
-        var modName, funName, mod, fns, funInfo, line, isPublic, label;
+        var modName, funName, mod, fns, funInfo, line, isPublic, label,
+            mods = data.mods;
 
         index = [];
         modToSrc = {};
+        repoBase = data.repository;
+        commit = data.commit;
+        baseUrl = repoBase + commit + '/';
 
-        for(modName in data) {
-            mod = data[modName];
+        for(modName in mods) {
+            mod = mods[modName];
             fns = mod.fns;
             modToSrc[modName] = mod.path;
 
@@ -85,7 +85,7 @@
             items.appendChild(item);
         }
 
-        resultList.addEventListener('click', function (event) {
+        items.addEventListener('click', function (event) {
             var node = event.target,
                 module = node.dataset.beamModule,
                 line = node.dataset.beamLine,
@@ -108,7 +108,7 @@
                 return response.json();
             })
             .then(function (data) {
-                loadIndex(data.mods);
+                loadIndex(data);
             })
             .catch(function (error) {
                 window.alert("Error fetching data");
