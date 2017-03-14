@@ -11,7 +11,7 @@
         modToSrc = {};
         repoBase = data.repository;
         commit = data.commit;
-        baseUrl = repoBase + commit + '/';
+        baseUrl = repoBase.replace("%COMMIT%", commit);
 
         for(modName in mods) {
             mod = mods[modName];
@@ -93,7 +93,9 @@
                 module = node.dataset.beamModule,
                 line = node.dataset.beamLine,
                 sourcePath = modToSrc[module],
-                srcUrl = baseUrl + sourcePath + '#L' + line;
+                srcUrl = baseUrl
+                    .replace("%SOURCE_PATH%", sourcePath)
+                    .replace("%LINE%", line);
 
             console.log('click', node, sourcePath, module, line);
             window.open(srcUrl, '_blank');

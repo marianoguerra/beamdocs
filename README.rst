@@ -24,7 +24,7 @@ index::
 
     CODE_PATH=$HOME/src/erl/otp
     COMMIT=$(cd $CODE_PATH && git rev-parse HEAD)
-    SOURCE_URL=https://github.com/erlang/otp/tree/
+    SOURCE_URL="https://github.com/erlang/otp/tree/%COMMIT%/%SOURCE_PATH%#L%LINE%"
     ./_build/default/bin/beamdocs to-index ./out ./data/index.json $SOURCE_URL $COMMIT
 
 Use in your Projects
@@ -33,6 +33,13 @@ Use in your Projects
 You can use it for your project simply by changing CODE_PATH, COMMIT and SOURCE_URL
 and copying index.html js/app.js css/style.css data/index.json and customizing
 it to your needs.
+
+in the source url string the following placeholders will be replaced when
+building the url to open the source code:
+
+* %COMMIT%: the commit hash passed as last parameter to to-index
+* %SOURCE_PATH%: the path to the source file inside the base directory
+* %LINE%: the line where the function is defined
 
 Web UI
 ------
