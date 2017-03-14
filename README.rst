@@ -1,7 +1,7 @@
 beamdocs
 ========
 
-An escript to generate a json file with module info for each erl file found
+escript to generate a json file with module info for each erl file found
 and then generate an index to make it easy to search functions.
 
 Build
@@ -23,7 +23,16 @@ clean up the out folder to leave only the ones you want and then generate the
 index::
 
     CODE_PATH=$HOME/src/erl/otp
-    ./_build/default/bin/beamdocs to-index ./out ./data/index.json https://github.com/erlang/otp/tree/ $(cd $CODE_PATH && git rev-parse HEAD)
+    COMMIT=$(cd $CODE_PATH && git rev-parse HEAD)
+    SOURCE_URL=https://github.com/erlang/otp/tree/
+    ./_build/default/bin/beamdocs to-index ./out ./data/index.json $SOURCE_URL $COMMIT
+
+Use in your Projects
+--------------------
+
+You can use it for your project simply by changing CODE_PATH, COMMIT and SOURCE_URL
+and copying index.html js/app.js css/style.css data/index.json and customizing
+it to your needs.
 
 Web UI
 ------
