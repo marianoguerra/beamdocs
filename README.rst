@@ -27,6 +27,15 @@ index::
     SOURCE_URL="https://github.com/erlang/otp/tree/%COMMIT%/%SOURCE_PATH%#L%LINE%"
     ./_build/default/bin/beamdocs to-index ./out ./data/index.json $SOURCE_URL $COMMIT
 
+Example for cowboy::
+
+    CODE_PATH=$HOME/soft/cowboy
+    rm -rf out
+    ./_build/default/bin/beamdocs to-json $CODE_PATH ./out
+    COMMIT=$(cd $CODE_PATH && git rev-parse HEAD)
+    SOURCE_URL="https://git.ninenines.eu/cowboy.git/tree/%SOURCE_PATH%?id=%COMMIT%#n%LINE%"
+    ./_build/default/bin/beamdocs to-index ./out ./data/cowboy.json $SOURCE_URL $COMMIT
+
 Use in your Projects
 --------------------
 

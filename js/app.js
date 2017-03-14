@@ -37,6 +37,62 @@
         return text.indexOf(substr) !== -1;
     }
 
+    var hasOwn = Object.prototype.hasOwnProperty;
+
+	function decodeQuery(string, escapeQuerySpace) {
+		string += '';
+		if (escapeQuerySpace === undefined) {
+			escapeQuerySpace = true;
+		}
+
+		try {
+			return decodeURIComponent(escapeQuerySpace ? string.replace(/\+/g, '%20') : string);
+		} catch(e) {
+			// we're not going to mess with weird encodings,
+			// give up and return the undecoded original string
+			// see https://github.com/medialize/URI.js/issues/87
+			// see https://github.com/medialize/URI.js/issues/92
+			return string;
+		}
+	}
+
+	function parseQuery(string, escapeQuerySpace) {
+		if (!string) {
+			return {};
+		}
+
+		// throw out the funky business - "?"[name"="value"&"]+
+		string = string.replace(/&+/g, '&').replace(/^\?*&*|&+$/g, '');
+
+		if (!string) {
+			return {};
+		}
+
+		var items = {};
+		var splits = string.split('&');
+		var length = splits.length;
+		var v, name, value;
+
+		for (var i = 0; i < length; i += 1) {
+			v = splits[i].split('=');
+			name = decodeQuery(v.shift(), escapeQuerySpace);
+			// no "=" is null according to http://dvcs.w3.org/hg/url/raw-file/tip/Overview.html#collect-url-parameters
+			value = v.length ? decodeQuery(v.join('='), escapeQuerySpace) : null;
+
+			if (hasOwn.call(items, name)) {
+				if (typeof items[name] === 'string' || items[name] === null) {
+					items[name] = [items[name]];
+				}
+
+				items[name].push(value);
+			} else {
+				items[name] = value;
+			}
+		}
+
+		return items;
+	}
+
     function search(text, onlyPublic) {
         var i, len, entry, results = [];
 
@@ -107,8 +163,8 @@
         fillResults([]);
     }
 
-    function fetchIndex() {
-        window.fetch('data/index.json')
+    function fetchIndex(indexName) {
+        window.fetch('data/' + indexName + '.json')
             .then(function (response) {
                 return response.json();
             })
@@ -176,9 +232,10 @@
 
     function init() {
         var searchInput = document.getElementById('search-input'),
-            searchPublic= document.getElementById('search-public');
+            searchPublic= document.getElementById('search-public'),
+            query = parseQuery(window.location.search);
 
-        fetchIndex();
+        fetchIndex(query.indexName || "index");
 
         function doSearch() {
             var onlyPublic = searchPublic.checked,
