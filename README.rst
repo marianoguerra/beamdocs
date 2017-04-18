@@ -36,6 +36,13 @@ Example for cowboy::
     SOURCE_URL="https://git.ninenines.eu/cowboy.git/tree/%SOURCE_PATH%?id=%COMMIT%#n%LINE%"
     ./_build/default/bin/beamdocs to-index ./out ./data/cowboy.json $SOURCE_URL $COMMIT
 
+Generate JSON from xml otp docs
+-------------------------------
+
+::
+
+    for i in $(ls -d path-to-otp-src/lib/*/doc/src/); do ./_build/default/bin/beamdocs docs-to-json $i out; done
+
 Use in your Projects
 --------------------
 
