@@ -1,0 +1,227 @@
+
+fn file_to_rst @public case Path:
+  (ok, BData) = file.read_file(Path)
+  Data = jsone.decode(BData)
+  Result = to_rst(Data)
+  io.format("~s~n", [Result])
+end
+
+fn to_rst @public case Data:
+  Module = maps.get('module', Data, '?')
+  ModuleSummary = maps.get('modulesummary', Data, '')
+  Nl = '\n'
+
+  Description = maps.get('description', Data, '')
+  TDescription = descs(drop_blank_strings(Description), '', 0)
+
+  Sections = maps.get('sections', Data, [])
+  TSections = sections(Sections)
+
+  DataTypes = maps.get('datatypes', Data, {})
+  TDataTypes = datatypes(map_to_sorted_list(DataTypes))
+    ->> section_if_content('Data Types', '-')
+
+  Funcs = maps.get('funcs', Data, {})
+  TFuncs = funcs(map_to_sorted_list(Funcs))
+    ->> section_if_content('Functions', '-')
+
+  Hdr = maps.get('header', Data, {})
+  LegalNotice = maps.get('legalnotice', Hdr, '')
+  TLegalNotice = section_if_content('Legal Notice', '-', LegalNotice)
+
+  Copyright = maps.get('copyright', Hdr, {})
+  TCopyright = copyright(Copyright)
+
+  [to_title(Module, '='),
+  Nl,
+  ModuleSummary, Nl, Nl,
+  TDescription, Nl,
+  TSections, Nl,
+  TDataTypes, Nl,
+  TFuncs, Nl,
+  TLegalNotice, Nl,
+  TCopyright, Nl]
+end
+
+
+fn to_title case Title, SChar:
+  Len = str_len(Title)
+  [Title, '\n', lists.duplicate(Len, SChar), '\n']
+end
+
+fn str_len
+case Str when is_binary(Str):
+  str_len(to_lstr(Str))
+case Str when is_list(Str):
+  string.len(Str)
+end
+
+fn to_lstr
+case Str when is_binary(Str):
+  unicode.characters_to_list(Str)
+case Str when is_list(Str):
+  Str
+case Num when is_integer(Num):
+  integer_to_list(Num)
+end
+
+fn section_if_content
+case _Title, _SChar, '': ''
+case Title, SChar, Content:
+  [to_title(Title, SChar), '\n', Content, '\n']
+end
+
+fn copyright
+case {'holder'=Holder, 'years'=[From, To]}:
+  [Holder, ' ', From, ' - ', To, '\n']
+case _: ''
+end
+
+fn datatypes
+case []: ''
+case DTs:
+  for (_Id, DataType) in DTs:
+    [datatype(DataType), '\n']
+  end
+end
+
+fn datatype case DataType={'name'=Name}:
+  Description = func_desc(DataType)
+  [to_title(Name, ':'), '\n\n', Description]
+end
+
+fn funcs
+case []: ''
+case DTs:
+  for (_Id, Func) in DTs:
+    [func(Func), '\n']
+  end
+end
+
+fn func_summary
+case {'fsummary'=Summary}: [Summary, '\n\n']
+case _: ''
+end
+
+fn func_desc
+case {'desc'=Desc}: [descs(drop_blank_strings(Desc), '', 0), '\n\n']
+case _: ''
+end
+
+fn func
+case Func={'name'=Name, 'arity'=[]}:
+  Summary = func_summary(Func)
+  Description = func_desc(Func)
+  [to_title(Name, ':'), '\n\n', Summary, Description]
+case Func={'name'=Name, 'arity'=Arities}:
+  TArities = lists.join(',', (for Arity in Arities: to_lstr(Arity) end))
+  Title = iolist_to_binary([Name, '/', TArities])
+  Summary = func_summary(Func)
+  Description = func_desc(Func)
+  [to_title(Title, ':'), '\n\n', Summary, Description]
+end
+
+fn sections
+case []: ''
+case Sections:
+  for Section in Sections:
+    [section(drop_blank_strings(Section)), '\n\n']
+  end
+end
+
+fn section case ['title', {}, [Title]] :: Body:
+  TContent = descs(Body, '', 0)
+  [to_title(Title, '-'), '\n\n', TContent]
+end
+
+fn drop_blank_strings case Items:
+  for Item in Items; when not is_binary(Item):
+    Item
+  end
+end
+
+fn descs
+case Items, Sep, Level when is_list(Items):
+  RawDescs = (for Item in Items: desc(Level, Item) end) ->> lists.join(Sep)
+  RawDescs
+    -> iolist_to_binary()
+    -> binary_to_list()
+    -> indent(Level)
+case Item, _Sep, Level:
+  desc(Level, Item)
+end
+
+fn indent case Descs, Level:
+  re.replace(Descs, "\n\s*", nl_indent(Level), [global])
+end
+
+fn desc
+case _Level, Text when is_binary(Text): Text
+case Level, ['p', {}, Body]: [descs(Body, '', Level), '\n\n']
+case _Level, ['em', {}, [Text]]: ['*', Text, '*']
+case _Level, ['anno', {}, [Text]]: ['_', Text, '_']
+case Level, ['c', {}, Text]: ['**', descs(Text, '', Level), '**']
+case _Level, ['marker', {'id'=Id}, []]: [':ref:', Id, ' ']
+case Level, ['seealso', {'marker'=Id}, Body]:
+  [':ref:(', Id , ')', descs(drop_blank_strings(Body), ' ', Level), ' ']
+case Level, ['list', _, Items]: list(Items, Level)
+case Level, ['taglist', _, Items]: taglist(Items, Level, [])
+case Level, ['note', _, Items]: note(drop_blank_strings(Items), Level)
+case _Level, Other: [jsone.encode(Other), '\n']
+end
+
+fn note case Body, Level:
+  NLevel = Level + 1
+  #_ "note is reindented from it's surounding paragraph to 0"
+  ['.. note::', nl_indent(NLevel), descs(Body,  '', NLevel)]
+end
+
+fn taglist
+case ['tag', {}, Tag] :: ['item', {}, Item] :: T, Level, Accum:
+  Text = [descs(Tag, '', Level), '\n\t', descs(Item, '', Level + 1), '\n\n']
+  taglist(T, Level, Text :: Accum)
+case Bin :: T, Level, Accum when is_binary(Bin):
+  taglist(T, Level, Accum)
+case H :: Bin :: T, Level, Accum when is_binary(Bin):
+  taglist(H :: T, Level, Accum)
+case [], _Level, Accum:
+  lists.reverse(Accum)
+end
+
+fn list case Items, Level:
+  for Item in drop_blank_strings(Items):
+    list_item(Item, Level)
+  end
+end
+
+fn bullet
+case 0: '* '
+case 1: ' + '
+case 2: '  - '
+case 3: '   * '
+case 4: '    + '
+case 5: '     - '
+end
+
+fn nl_indent
+case 0: "\n"
+case 1: "\n "
+case 2: "\n  "
+case 3: "\n   "
+case 4: "\n    "
+case 5: "\n     "
+case 6: "\n      "
+end
+
+fn list_item
+case ['item', {}, Body], Level:
+  [bullet(Level), descs(drop_blank_strings(Body), ' ', Level + 1), '\n']
+case Other, Level:
+  [bullet(Level), jsone.encode(Other)]
+end
+
+fn map_to_sorted_list case Map:
+  lists.sort(maps.to_list(Map)) <<- case A, B:
+    A <= B
+  end
+end
