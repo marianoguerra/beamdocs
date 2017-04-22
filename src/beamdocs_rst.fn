@@ -27,7 +27,7 @@ fn to_rst @public case Data:
 
   Hdr = maps.get('header', Data, {})
   LegalNotice = maps.get('legalnotice', Hdr, '')
-  TLegalNotice = section_if_content('Legal Notice', '-', LegalNotice)
+  TLegalNotice = section_if_content('Legal Notice', '-', '::\n\n' :: LegalNotice)
 
   Copyright = maps.get('copyright', Hdr, {})
   TCopyright = copyright(Copyright)
@@ -129,12 +129,17 @@ case Sections:
   end
 end
 
-fn section case ['title', {}, [Title]] :: Body:
+fn section
+case ['marker', {'id'=Id}, []] :: Rest:
+  ['.. _', Id, ':\n\n'] :: section(Rest)
+case ['title', {}, [Title]] :: Body:
   TContent = descs(Body, '', 0)
   [to_title(Title, '-'), '\n\n', TContent]
 end
 
-fn drop_blank_strings case Items:
+fn drop_blank_strings
+case Bin when is_binary(Bin): Bin
+case Items:
   for Item in Items; when not is_binary(Item):
     Item
   end
@@ -152,28 +157,43 @@ case Item, _Sep, Level:
 end
 
 fn indent case Descs, Level:
-  re.replace(Descs, "\n\s*", nl_indent(Level), [global])
+  #_ re.replace(Descs, "\n\s*", nl_indent(Level), [global])
+  Descs
 end
 
 fn desc
 case _Level, Text when is_binary(Text): Text
 case Level, ['p', {}, Body]: [descs(Body, '', Level), '\n\n']
 case _Level, ['em', {}, [Text]]: ['*', Text, '*']
+case _Level, ['input', {}, [Text]]: ['`', Text, '`']
 case _Level, ['anno', {}, [Text]]: ['_', Text, '_']
 case Level, ['c', {}, Text]: ['**', descs(Text, '', Level), '**']
-case _Level, ['marker', {'id'=Id}, []]: [':ref:', Id, ' ']
+case _Level, ['url', {'href'=Url}, [Title]]: ['`', Title, ' <', Url, '>`_']
+case _Level, ['marker', {'id'=Id}, []]: ['\n.. _', Id, ':\n']
 case Level, ['seealso', {'marker'=Id}, Body]:
-  [':ref:(', Id , ')', descs(drop_blank_strings(Body), ' ', Level), ' ']
+  ['`', descs(drop_blank_strings(Body), ' ', Level), ' <', Id, '>`_']
 case Level, ['list', _, Items]: list(Items, Level)
 case Level, ['taglist', _, Items]: taglist(Items, Level, [])
-case Level, ['note', _, Items]: note(drop_blank_strings(Items), Level)
+case Level, [Type='note', _, Items]: note(Type, drop_blank_strings(Items), Level)
+case Level, [Type='warning', _, Items]: note(Type, drop_blank_strings(Items), Level)
+case Level, ['code', Attrs, Items]:
+  Type = maps.get('type', Attrs, 'none')
+  code(Items, Type, Level)
+case Level, ['pre', _Attrs, Items]:
+  NLevel = Level + 1
+  [':: ', nl_indent(NLevel), descs(Items,  '', NLevel), '\n\n']
 case _Level, Other: [jsone.encode(Other), '\n']
 end
 
-fn note case Body, Level:
+fn note case Type, Body, Level:
   NLevel = Level + 1
   #_ "note is reindented from it's surounding paragraph to 0"
-  ['.. note::', nl_indent(NLevel), descs(Body,  '', NLevel)]
+  ['.. ', Type, '::', nl_indent(NLevel), descs(Body,  '', NLevel), '\n\n']
+end
+
+fn code case Items, Type, Level:
+  NLevel = Level + 1
+  ['.. code-block:: ', Type, nl_indent(NLevel), descs(Items,  '', NLevel), '\n\n']
 end
 
 fn taglist
@@ -214,6 +234,8 @@ case 6: "\n      "
 end
 
 fn list_item
+case ['item', {}, [Text]], Level when is_binary(Text):
+  [bullet(Level), Text, '\n']
 case ['item', {}, Body], Level:
   [bullet(Level), descs(drop_blank_strings(Body), ' ', Level + 1), '\n']
 case Other, Level:
