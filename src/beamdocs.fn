@@ -6,8 +6,9 @@ fn main @public
     DtdPaths = [filename.join(DocgenDir, "dtd"),
       filename.join(DocgenDir, "dtd_html_entities")]
     docs_to_json(filename.absname(BasePath), DtdPaths, OutDir)
-  case ["docs-to-rst", Path]:
-    beamdocs_rst.file_to_rst(Path)
+  case ["docs-to-rst", Path, OutDir]:
+    Data = beamdocs_rst.file_to_rst(Path)
+    write_to_file(Data, Path, OutDir, ".rst")
   case ["to-json", BasePath, OutDir]:
     to_json(filename.absname(BasePath), OutDir)
   case ["to-index", BasePath, OutPath, RepoBaseUrl, Commit]:
@@ -73,7 +74,7 @@ fn xml_doc_to_json
   case #r.xmlElement {name: module, content: [#r.xmlText {value: Name}]}, State:
     State#{module: to_bstr(Name)}
   case #r.xmlElement {name: modulesummary, content: [#r.xmlText {value: Value}]}, State:
-    State#{modulesummary: to_bstr(Value)}
+    State#{modulesummary: dedent(Value)}
   case #r.xmlElement {name: description, content: Content}, State:
     Desc = for Node in Content: xml_desc_to_json(Node) end
     State#{description: Desc}
@@ -88,15 +89,30 @@ fn xml_doc_to_json
     State
 end
 
+fn dedent
+case Value:
+  Value -> re.replace("\n(\s|\\t)*", "\n", [global, unicode, (return, binary)])
+end
+
+fn attrs_to_map case Attrs:
+  lists.foldl({}, Attrs)
+  <<- case #r.xmlAttribute {name: AName, value: AValue}, AIn:
+    AIn#{to_bstr(AName): to_bstr(AValue)}
+  end
+end
+
 fn xml_desc_to_json
   case #r.xmlText {value: Value}:
-    to_bstr(Value)
+    dedent(Value)
+  case #r.xmlElement {name: (Name=code), attributes: Attrs, content: [#r.xmlText {value: Code}]}:
+    MAttrs = attrs_to_map(Attrs)
+    [to_bstr(Name), MAttrs, to_bstr(Code)]
+  case #r.xmlElement {name: (Name=pre), attributes: Attrs, content: [#r.xmlText {value: Code}]}:
+    MAttrs = attrs_to_map(Attrs)
+    [to_bstr(Name), MAttrs, to_bstr(Code)]
   case #r.xmlElement {name: Name, attributes: Attrs, content: Content}:
     Body = (for Node in Content: xml_desc_to_json(Node) end)
-    MAttrs = lists.foldl({}, Attrs)
-    <<- case #r.xmlAttribute {name: AName, value: AValue}, AIn:
-      AIn#{to_bstr(AName): to_bstr(AValue)}
-    end
+    MAttrs = attrs_to_map(Attrs)
     [to_bstr(Name), MAttrs, Body]
   case #r.xmlComment {value: Value}:
     ['//', {}, to_bstr(Value)]
@@ -182,7 +198,7 @@ fn xml_func_to_json
     FnArity = attr_value(Attrs, arity, "0")
     State#{name: to_bstr(FnName), arity: list_to_integer(FnArity) :: Arity}
   case #r.xmlElement {name: fsummary, content: [#r.xmlText {value: Value}]}, State:
-    State#{fsummary: to_bstr(Value)}
+    State#{fsummary: dedent(Value)}
   case #r.xmlElement {name: desc, content: Content}, State:
     Desc = for Node in Content: xml_desc_to_json(Node) end
     State#{desc: Desc}
@@ -271,6 +287,13 @@ fn file_to_json @public
     file.write_file(FileOutPath, jsone.encode(Info))
 
     AccIn#{files: Info :: Files}
+end
+
+fn write_to_file case Data, InPath, OutDir, Extension:
+  FileName = filename.basename(InPath)
+  FileOutPath = filename.join(OutDir, FileName ++ Extension)
+  filelib.ensure_dir(FileOutPath)
+  file.write_file(FileOutPath, Data)
 end
 
 fn walker
