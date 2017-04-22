@@ -9,9 +9,6 @@ end
 fn child_nodes case Nodes, Fn: child_nodes(Nodes, Fn, []) end
 
 fn child_nodes
-case Bin, _Fn, [] when is_binary(Bin):
-  io.format("~p~n~p~n", [Bin, erlang.get_stacktrace()])
-  [Bin]  
 case [], _Fn, Accum:
   lists.reverse(Accum)
 case (comment, _, _) :: Nodes, Fn, Accum:
@@ -26,23 +23,23 @@ case (header, _, Nodes):
   IGNORED = child_nodes(Nodes, fn header_nodes:1)
   ''
 case (module, _, Text):
-  ['Module\n\t', Text, '\n']
+  title(Text, '=')
 case (modulesummary, _, Text):
   ['\n', Text, '\n\n']
 case (lib, _, Text):
-  ['Module\n\t', Text, '\n']
+  title(Text, '=')
 case (libsummary, _, Text):
   ['\n', Text, '\n\n']
 case (com, _, Text):
-  ['Module\n\t', Text, '\n']
+  title(Text, '=')
 case (comsummary, _, Text):
   ['\n', Text, '\n\n']
 case (app, _, Text):
-  ['Module\n\t', Text, '\n']
+  title(Text, '=')
 case (appsummary, _, Text):
   ['\n', Text, '\n\n']
 case (file, _, Text):
-  ['Module\n\t', Text, '\n']
+  title(Text, '=')
 case (filesummary, _, Text):
   ['\n', Text, '\n\n']
 
@@ -68,11 +65,11 @@ end
 
 fn datatype_nodes
 case (name, {name=Name}, ''):
-  [to_one_line(Name), '\n']
+  ['* ', to_one_line(Name), '\n']
 case (name, {}, Name):
-  [to_one_line(Name), '\n']
+  ['* ', to_one_line(Name), '\n']
 case (desc, _, Nodes):
-  ['\t', to_one_line(child_nodes(Nodes, fn markup:1)), '\n']
+  ['  + ', to_one_line(child_nodes(Nodes, fn markup:1)), '\n']
 end
 
 fn author case (author, _, Nodes):
@@ -93,10 +90,16 @@ case (name, {name=Name, arity=Arity}, ''):
   title([Name, '/', Arity], '.')
 case (name, {}, Text): title(Text, '.')
 case (fsummary, _, Text): [Text, '\n\n']
+case (type, {name=Name}, []):
+  ['\n::\n\n\t', Name, '\n\n']
+case (type, {variable=Name}, []):
+  ['\n::\n\n\t', Name, '\n\n']
 case (type, _, Nodes):
-  ['\n::\n\n', child_nodes(Nodes, fn type:1), '\n\n']
+  ['\n::\n\n\t', child_nodes(Nodes, fn type:1), '\n\n']
+case (type_desc, {variable=Name}, Nodes):
+  ['\n::\n\n\t', Name, ': ', child_nodes(Nodes, fn markup:1), '\n\n']
 case (type_desc, _, Nodes):
-  ['\n::\n\n', child_nodes(Nodes, fn markup:1), '\n\n']
+  ['\n::\n\n\t', child_nodes(Nodes, fn markup:1), '\n\n']
 case (desc, _, Nodes):
   child_nodes(Nodes, fn markup:1)
 end
@@ -113,6 +116,9 @@ case (marker, {id=Id}, _):
 case (title, _, Text):
   #_ "TODO: thread level to support nested sections"
   title(Text, '-')
+case (section, _, Nodes):
+  #_ "seen in appup.xml"
+  child_nodes(Nodes, fn section_nodes: 1)
 case Node:
   markup(Node)
 end
@@ -122,17 +128,17 @@ fn to_one_line case IOList:
 end
 
 fn markup
-case (text, _, Text): Text
+case (text, _, Text): escape_chars(Text)
 case (input, _, Text): ['`', Text, '`']
 case (pre, _, Nodes): ['\n::\n', indent(child_nodes(Nodes, fn markup:1), 1), '\n\n']
 case (code, Attrs, Nodes):
   Type0 = maps.get(type, Attrs, 'erl')
   Type = when Type0 is 'none': 'erl' else: Type0 end
   ['\n.. code-block:: ', Type, '\n\n', indent(Nodes, 1), '\n\n']
-case (em, _, Text): [' *', Text, '* ']
-case (c, _, Nodes): [' *', child_nodes(Nodes, fn markup:1), '* ']
+case (em, _, Nodes): ['*', strip(child_nodes(Nodes, fn markup:1)), '*']
+case (c, _, Nodes): ['**', strip(child_nodes(Nodes, fn markup:1)), '**']
 case (anno, _, Text): Text
-case (i, _, Text): [' *', Text, '* ']
+case (i, _, Text): ['*', strip(Text), '*']
 case (br, _, _): '\n\n'
 case (list, _, Items):
   #_ "TODO: thread list nesting to support nested lists"
@@ -153,7 +159,7 @@ case (taglist, _, Items):
   ['\n', R, '\n']
 case (p, _, Nodes):
   ['\n\n', child_nodes(Nodes, fn markup:1), '\n\n']
-case (marker, {id=Id}, _): [':marker:', Id, '\n']
+case (marker, {id=Id}, _): ['\n.. _', Id, ':\n']
 case (seealso, {marker=Id}, _): [':seealso:', Id,]
 case (warning, _, Nodes):
   ['\n.. warning::\n\n\t', indent(child_nodes(Nodes, fn markup:1), 1), '\n\n']
@@ -205,7 +211,7 @@ fn title case Text, Char:
   #_ "TODO: make it work for unicode"
   OLText = to_one_line(Text)
   Len = size(OLText)
-  [OLText, '\n', lists.duplicate(Len, Char), '\n\n']
+  ['\n', OLText, '\n', lists.duplicate(Len, Char), '\n\n']
 end
 
 fn accum_text case Tag, Nodes:
@@ -217,6 +223,8 @@ fn indent case IOList, Count:
   re.replace(IOList, "\n", Indent, [global, unicode, (return, binary)])
 end
 
+fn strip case IOList: strip(IOList, binary) end
+
 fn strip case IOList, RetType:
   re.replace(IOList, "(^(\n|\\s)+|(\n|\\s)+$)", "",
     [global, unicode, (return, RetType)])
@@ -224,4 +232,8 @@ end
 
 fn nl_to_space case IOList:
   re.replace(IOList, "(\n|\\s)+", " ", [global, unicode, (return, binary)])
+end
+
+fn escape_chars case Text:
+  re.replace(Text, "(\\*|`)", "\\&", [global, unicode, (return, binary)])
 end
