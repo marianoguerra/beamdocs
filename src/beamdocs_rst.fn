@@ -25,23 +25,23 @@ case (header, _, Nodes):
 case (module, _, Text):
   title(Text, '=')
 case (modulesummary, _, Text):
-  ['\n', Text, '\n\n']
+  ['\n', normalize_nls(Text), '\n\n']
 case (lib, _, Text):
   title(Text, '=')
 case (libsummary, _, Text):
-  ['\n', Text, '\n\n']
+  ['\n', normalize_nls(Text), '\n\n']
 case (com, _, Text):
   title(Text, '=')
 case (comsummary, _, Text):
-  ['\n', Text, '\n\n']
+  ['\n', normalize_nls(Text), '\n\n']
 case (app, _, Text):
   title(Text, '=')
 case (appsummary, _, Text):
-  ['\n', Text, '\n\n']
+  ['\n', normalize_nls(Text), '\n\n']
 case (file, _, Text):
   title(Text, '=')
 case (filesummary, _, Text):
-  ['\n', Text, '\n\n']
+  ['\n', normalize_nls(Text), '\n\n']
 
 case (description, _, Nodes):
   markup(Nodes)
@@ -83,7 +83,7 @@ case (name, {name=Name}, ''):
 case (name, {}, Name):
   ['* ', to_one_line(Name), '\n']
 case (desc, _, Nodes):
-  ['  + ', to_one_line(markup(Nodes)), '\n']
+  ['\n', markup(Nodes), '\n']
 end
 
 fn author case (author, _, Nodes):
@@ -141,25 +141,36 @@ fn to_one_line case IOList:
   nl_to_space(strip(IOList, iodata))
 end
 
+fn marker_text case Text0, Default:
+  match strip(nl_to_space(Text0)):
+    case '': Default
+    case Text: Text
+  end
+end
+
 fn markup_node
-case (text, _, Text): escape_chars(Text)
+case (text, _, Text): nl_to_space(escape_chars(Text))
 case (input, _, Text):
   #_ "TODO: add backticks to this but not on code examples"
   Text
 case (pre, _, Nodes): ['\n::\n', indent(markup(Nodes), 1), '\n\n']
+case (url, {href=HRef}, Text): ['`', strip(nl_to_space(Text)), ' <', HRef, '>`_ ']
 case (code, Attrs, Nodes):
-  Type0 = maps.get(type, Attrs, 'erlang')
-  Type = when Type0 is 'none': 'erlang' else: Type0 end
+  Type = match maps.get(type, Attrs, 'erl'):
+    case 'erl': 'erlang'
+    case 'none': 'erlang'
+    case Other: Other
+  end
   ['\n.. code-block:: ', Type, '\n\n', indent(Nodes, 1), '\n\n']
-case (em, _, Nodes): ['*', strip(markup(Nodes)), '*']
-case (c, _, Nodes): ['**', strip(markup(Nodes)), '**']
-case (anno, _, Text): Text
-case (i, _, Text): ['*', strip(Text), '*']
+case (em, _, Nodes): ['*', strip(nl_to_space(markup(Nodes))), '*']
+case (c, _, Nodes): ['**', strip(nl_to_space(markup(Nodes))), '**']
+case (anno, _, Text): nl_to_space(Text)
+case (i, _, Text): ['*', strip(nl_to_space(Text)), '*']
 case (br, _, _): '\n\n'
 case (list, _, Items):
   #_ "TODO: thread list nesting to support nested lists"
   R = for (list_item, _, LINodes) in Items:
-    ['* ', to_one_line(markup(LINodes)), '\n']
+    ['* ', strip(markup(LINodes)), '\n']
   end
   [R, '\n']
 case (taglist, _, Items):
@@ -168,7 +179,7 @@ case (taglist, _, Items):
       case (tag, _, TagNodes):
         ['\n', strip(markup(TagNodes)), '\n']
       case (tagitem, _, TINodes):
-        ['\t', to_one_line(markup(TINodes)), '\n']
+        ['\t', indent(markup(TINodes), 1), '\n']
       case (comment, _, _): ''
     end
   end
@@ -176,7 +187,18 @@ case (taglist, _, Items):
 case (p, _, Nodes):
   ['\n\n', strip(normalize_nls(markup(Nodes))), '\n\n']
 case (marker, {id=Id}, _): ['\n.. _', Id, ':\n\n']
-case (seealso, {marker=Id}, _): [':seealso:', Id,]
+case (seealso, {marker=(mod, Id)}, Text0):
+  Text = marker_text(Text0, Id)
+  [':doc:`', Text, ' <./', Id ,'>`']
+case (seealso, {marker=(mod_anchor, (Page, Id))}, Text0):
+  Text = marker_text(Text0, [Page, '#', Id])
+  ['`', Text , ' <./', Page ,'.html#', Id, '>`_']
+case (seealso, {marker=(app_anchor, (App, Page, Id))}, Text0):
+  Text = marker_text(Text0, [App, '/', Page, '#', Id])
+  ['`', Text , ' <../', App, '/', Page ,'.html#', Id, '>`_']
+case (seealso, {marker=(anchor, Id)}, Text0):
+  Text = marker_text(Text0, Id)
+  [':ref:`', Text, ' <', Id ,'>`']
 case (warning, _, Nodes):
   ['\n.. warning::\n\n\t', indent(markup(Nodes), 1), '\n\n']
 case (note, _, Nodes):
@@ -236,7 +258,7 @@ end
 
 fn indent case IOList, Count:
   Indent = (#c "\n") :: lists.duplicate(Count, (#c "\t"))
-  re.replace(["\n", strip(IOList)], "\n", Indent,
+  re.replace(["\n", normalize_nls(strip(IOList))], "\n", Indent,
     [global, unicode, (return, binary)])
 end
 

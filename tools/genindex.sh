@@ -19,5 +19,7 @@ do
     done
 done
 
+rm docs/index.rst.rst
+
 echo "" >> docs/index.rst
 

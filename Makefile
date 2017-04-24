@@ -2,8 +2,13 @@
 build:
 	rebar3 escriptize
 
+.PHONY: docs
+docs: build
+	./tools/gendocs.sh
+	./tools/genindex.sh
+
 clean:
-	rm -rf out
+	rm -rf out docs
 
 clean-out:
 	rm -rf out/bootstrap

@@ -254,6 +254,23 @@ case H :: T, Fn, Accum:
   all_child_nodes(T, Fn, Result :: Accum)
 end
 
+fn parse_mark
+case #c "#" :: MarkRef:
+  (anchor, MarkRef)
+case MarkRef:
+  match string.tokens(MarkRef, "#"):
+    case [Id, Ref]:
+      match string.tokens(Id, ":"):
+        case [App, Mod]:
+          (app_anchor, (App, Mod, Ref))
+        case [Mod]:
+          (mod_anchor, (Mod, Ref))
+      end
+    case [Mod]:
+      (mod, Mod)
+  end
+end
+
 fn inline_tags
 @ref("http://erlang.org/doc/apps/erl_docgen/inline_tags.html")
 case #r.xmlElement {name: br}: (br, {}, '')
@@ -267,9 +284,9 @@ case #r.xmlElement {name: em, content: Nodes}:
   (em, {}, all_child_nodes(Nodes, fn inline_tags:1))
 case #r.xmlElement {name: marker, attributes: Attrs}:
   (marker, attrs(Attrs), '')
-case #r.xmlElement {name: seealso, attributes: Attrs,
-    content: RText}:
-  (seealso, attrs(Attrs), titext(RText))
+case #r.xmlElement {name: seealso, attributes: Attrs, content: RText}:
+  Mark = maps.get(marker, attrs(Attrs), '#unknown') -> binary_to_list()
+  (seealso, {marker: parse_mark(Mark)}, titext(RText))
 case #r.xmlElement {name: url, attributes: Attrs, content: RText}:
   (url, attrs(Attrs), titext(RText))
 case #r.xmlElement {name: term, attributes: Attrs,
