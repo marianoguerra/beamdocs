@@ -15,14 +15,14 @@ case #r.xmlElement {name: application, content: Nodes}:
   child_nodes(Nodes, fn application_tags:1)
 case #r.xmlElement {name: chapter, content: Nodes}:
   child_nodes(Nodes, fn chapter_tags:1)
+case #r.xmlElement {name: part, content: Nodes}:
+  child_nodes(Nodes, fn chapter_tags:1)
 case #r.xmlElement {name: bookinsidecover}:
   (bookinsidecover, {}, 'NOT IMPLEMENTED')
 case #r.xmlElement {name: specs}:
   (specs, {}, 'NOT IMPLEMENTED')
 case #r.xmlElement {name: fascicules}:
   (fascicules, {}, 'NOT IMPLEMENTED')
-case #r.xmlElement {name: part}:
-  (part, {}, 'NOT IMPLEMENTED')
 case #r.xmlElement {name: book}:
   (book, {}, 'NOT IMPLEMENTED')
 case #r.xmlElement {name: section}:
@@ -116,6 +116,9 @@ case #r.xmlElement {name: include, attributes: Attrs}:
   (include, attrs(Attrs), '')
 case #r.xmlElement {name: `xi:include`, attributes: Attrs}:
   (include, attrs(Attrs), '')
+case #r.xmlElement {name: `xi:lude`, attributes: Attrs}:
+  #_ "https://bugs.erlang.org/browse/ERL-409"
+  (include, attrs(Attrs), '')
 case Other:
   (unknown, {}, Other)
 end
@@ -148,7 +151,7 @@ end
 
 fn func_content
 case #r.xmlElement {name: name, attributes: Attrs, content: Nodes}:
-  (name, attrs(Attrs), all_child_nodes(Nodes, fn name_content:1))
+  (name, attrs(Attrs), remove_blank_text(all_child_nodes(Nodes, fn name_content:1)))
 case #r.xmlElement {name: fsummary, content: Nodes}:
   (fsummary, {}, all_child_nodes(Nodes, fn inline_tags:1))
 case #r.xmlElement {name: type, attributes: Attrs, content: []}:
@@ -161,6 +164,17 @@ case #r.xmlElement {name: type_desc, attributes: Attrs, content: Nodes}:
   (type_desc, attrs(Attrs), all_child_nodes(Nodes, fn inline_tags:1))
 end
 
+fn remove_blank_text case Nodes:
+  lists.filter(Nodes) <<-
+  case (text, _, Node) when is_binary(Node):
+    match strip(Node):
+      case '': false
+      else: true
+    end
+  else: true
+  end
+end
+
 fn name_content
 case #r.xmlElement {name: ret, attributes: Attrs, content: NText}:
   (ret, attrs(Attrs), ntext(NText))
@@ -170,7 +184,7 @@ case Node=#r.xmlElement {name: seealso}:
   #_ "seen in diameter.xml: <name>origin_state_id() -> &dict_Unsigned32;</name>"
   seealso(Node)
 case NText=#r.xmlText {}:
-  ntext([NText])
+  (text, {}, ntext([NText]))
 end
 
 fn type_tags
@@ -398,7 +412,7 @@ end
 
 fn row_content
 case #r.xmlElement {name: cell, attributes: Attrs, content: Nodes}:
-  (cell, attrs(Attrs), child_nodes(Nodes, fn cell_content:1))
+  (cell, attrs(Attrs), all_child_nodes(Nodes, fn cell_content:1))
 end
 
 fn cell_content case Node: inline_tags(Node) end
@@ -486,3 +500,10 @@ fn indents_to_space case Val:
 end
 
 fn trim case Val: string.strip(Val) end
+
+fn strip case IOList: strip(IOList, binary) end
+
+fn strip case IOList, RetType:
+  re.replace(IOList, "(^(\n|\\s)+|(\n|\\s)+$)", "",
+    [global, unicode, (return, RetType)])
+end

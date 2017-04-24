@@ -198,6 +198,9 @@ case (text, _, Text): nl_to_space(escape_chars(Text))
 case (term, {id=Text}, ''):
   #_ "TODO: make a reference to the term"
   ['`', nl_to_space(escape_chars(Text)), '`']
+case (term, {id=_Id}, Text):
+  #_ "TODO: make a reference to the term"
+  ['`', nl_to_space(escape_chars(Text)), '`']
 case (cite, {id=Text}, ''):
   #_ "TODO: make a reference to the term"
   ['`', nl_to_space(escape_chars(Text)), '`']
@@ -207,6 +210,7 @@ case (input, _, Text):
   #_ "TODO: add backticks to this but not on code examples"
   Text
 case (pre, _, Nodes): ['\n::\n', indent(pre_markup(Nodes), 1), '\n\n']
+case (quote, _, Nodes): ['\n::\n', indent(markup(Nodes), 1), '\n\n']
 case Node=(url, _, _): url_node(Node)
 case (code, Attrs, Nodes):
   Type = match maps.get(type, Attrs, 'erl'):
@@ -219,6 +223,9 @@ case (em, _, Nodes): ['*', strip(nl_to_space(markup(Nodes))), '*']
 case Node=(c, _, _): c_node(Node)
 case (anno, _, Text): nl_to_space(Text)
 case (i, _, Text): ['*', strip(nl_to_space(Text)), '*']
+case (image, {file=Path}, [(icaption, {}, Caption)]):
+  ['\n.. image:: ', Path, '\n\n\t', Caption, '\n\n']
+case (table, _, Nodes): ['\n', format_table(Nodes), '\n']
 case (br, _, _): '\n\n'
 case (list, _, Items):
   #_ "TODO: thread list nesting to support nested lists"
@@ -316,7 +323,7 @@ fn strip case IOList, RetType:
 end
 
 fn nl_to_space case IOList:
-  re.replace(IOList, "(\n|\\s)+", " ", [global, unicode, (return, binary)])
+  re.replace(IOList, "(\n|\\s)+", "  ", [global, unicode, (return, binary)])
 end
 
 fn normalize_nls case IOList:
@@ -326,3 +333,82 @@ end
 fn escape_chars case Text:
   re.replace(Text, "(\\*|`|\\|)", "\\\\&", [global, unicode, (return, binary)])
 end
+
+fn format_table case Nodes:
+  State0 = {max_col_sizes: {}, max_cols: 1, rows: [], caption: '', row_num: 0}
+  R = format_table(Nodes, State0)
+  {caption=Caption, max_col_sizes=MaxColSizes, max_cols=MaxCols, rows=Rows} = R
+  Delim = format_cols(MaxCols, MaxColSizes, '=')
+  ['\n.. table:: ', Caption, '\n\t:widths: auto\n\n',
+    Delim, '\n', format_rows(MaxColSizes, Rows), Delim, '\n\n']
+end
+
+fn format_cols
+case MaxCols, MaxColSizes, Char:
+  for I in lists.seq(1, MaxCols):
+    MaxSize = match maps.get(I, MaxColSizes, 0):
+      case 0: 1
+      case MS: MS
+    end
+    [lists.duplicate(MaxSize, Char), ' ']
+  end
+end
+
+fn format_rows case MaxColSizes, Rows:
+  for Cells in Rows:
+    (_, OCells) = lists.foldl((1, []), Cells) <<- case (CLen, CText), (I, ICells):
+      MaxSize = match maps.get(I, MaxColSizes, 0):
+        case 0: 1
+        case MS: MS
+      end
+      RemSpace = MaxSize - CLen + 1
+      (I + 1, [CText, lists.duplicate(RemSpace, #c " ")] :: ICells)
+    end
+    
+    [lists.reverse(OCells), '\n']
+  end
+end
+
+fn format_table
+case [], State0={rows=RRows}:
+  State0#{rows: lists.reverse(RRows)}
+case (row, _, Cells) :: T,
+State={rows=Rows0, row_num=RowNum0, max_cols=MaxCols0, max_col_sizes=MaxColSizes0}:
+  RowNum = RowNum0 + 1
+  Row = row_cells(Cells, [])
+  Cols = length(Row)
+  MaxCols = max(Cols, MaxCols0)
+  Rows = Row :: Rows0
+  MaxColSizes = update_max_col_sizes(Row, MaxColSizes0, 1)
+  format_table(T, State#{
+    rows: Rows,
+    row_num: RowNum,
+    max_col_sizes: MaxColSizes,
+    max_cols: MaxCols
+  })
+case (tcaption, _, Text) :: T, State:
+  format_table(T, State#{caption: Text})
+end
+
+fn row_cells
+case [], Accum:
+  lists.reverse(Accum)
+case (comment, _, _) :: T, Accum:
+  row_cells(T, Accum)
+case (cell, _, Nodes) :: T, Accum:
+  LStr = lists.flatten(io_lib.format("~s", [strip(to_one_line(markup(Nodes)))]))
+  Len = length(LStr)
+  Cell = (Len, list_to_binary(LStr))
+  row_cells(T, Cell :: Accum)
+end
+
+fn update_max_col_sizes
+case [], State, _I: State
+case (Len, _) :: T, State, I:
+  CurLen = maps.get(I, State, 0)
+  NewSize = max(Len, CurLen)
+  update_max_col_sizes(T, State#{I: NewSize}, I + 1)
+end
+
+  
+
