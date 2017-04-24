@@ -13,14 +13,14 @@ case #r.xmlElement {name: fileref, content: Nodes}:
   child_nodes(Nodes, fn fileref_tags:1)
 case #r.xmlElement {name: application, content: Nodes}:
   child_nodes(Nodes, fn application_tags:1)
+case #r.xmlElement {name: chapter, content: Nodes}:
+  child_nodes(Nodes, fn chapter_tags:1)
 case #r.xmlElement {name: bookinsidecover}:
   (bookinsidecover, {}, 'NOT IMPLEMENTED')
 case #r.xmlElement {name: specs}:
   (specs, {}, 'NOT IMPLEMENTED')
 case #r.xmlElement {name: fascicules}:
   (fascicules, {}, 'NOT IMPLEMENTED')
-case #r.xmlElement {name: chapter}:
-  (chapter, {}, 'NOT IMPLEMENTED')
 case #r.xmlElement {name: part}:
   (part, {}, 'NOT IMPLEMENTED')
 case #r.xmlElement {name: book}:
@@ -88,6 +88,17 @@ case Other:
   ref_tags(Other)
 end
 
+fn chapter_tags
+@ref("http://erlang.org/doc/apps/erl_docgen/user_guide_dtds.html#chapterDTD")
+case Node:
+  match ref_tags(Node):
+    case unknown, _, _:
+      block_tags(Node)
+    case Result:
+      Result
+  end
+end
+
 fn ref_tags
 case #r.xmlElement {name: header, content: Nodes}:
   (header, {}, child_nodes(Nodes, fn header_tags:1))
@@ -105,6 +116,8 @@ case #r.xmlElement {name: include, attributes: Attrs}:
   (include, attrs(Attrs), '')
 case #r.xmlElement {name: `xi:include`, attributes: Attrs}:
   (include, attrs(Attrs), '')
+case Other:
+  (unknown, {}, Other)
 end
 
 fn datatypes_tags
@@ -314,10 +327,12 @@ case #r.xmlElement {name: url, attributes: Attrs, content: RText}:
 case #r.xmlElement {name: term, attributes: Attrs,
   content: [#r.xmlElement {name: termdef, content: RText}]}:
     (term, attrs(Attrs), titext(RText))
-case #r.xmlElement {name: term, attributes: Attrs, content: []}:
-    (term, attrs(Attrs), '')
+case #r.xmlElement {name: term, attributes: Attrs, content: RText}:
+    (term, attrs(Attrs), titext(RText))
 case #r.xmlElement {name: cite, attributes: Attrs,
   content: [#r.xmlElement {name: citedef, content: RText}]}:
+    (cite, attrs(Attrs), titext(RText))
+case #r.xmlElement {name: cite, attributes: Attrs, content: RText}:
     (cite, attrs(Attrs), titext(RText))
 case #r.xmlElement {name: path, attributes: Attrs, content: NText}:
   (path, attrs(Attrs), ntext(NText))
@@ -343,14 +358,18 @@ case #r.xmlElement {name: marker, attributes: Attrs}:
   (marker, attrs(Attrs), '')
 case XN=#r.xmlElement {name: p}:
   p(XN)
-case #r.xmlElement {name: note, content: Nodes}:
-  (note, {}, child_nodes(Nodes, fn block_tags:1))
 case #r.xmlElement {name: pre, content: Nodes}:
   (pre, {}, all_child_nodes(Nodes, fn pre_content:1))
 case #r.xmlElement {name: quote, content: Nodes}:
   (quote, {}, child_nodes(Nodes, fn p:1))
 case #r.xmlElement {name: taglist, content: Nodes}:
   (taglist, {}, child_nodes(Nodes, fn taglist_tags:1))
+case #r.xmlElement {name: note, content: Nodes}:
+  (note, {}, child_nodes(Nodes, fn block_tags:1))
+case #r.xmlElement {name: dont, content: Nodes}:
+  (dont, {}, child_nodes(Nodes, fn block_tags:1))
+case #r.xmlElement {name: `do`, content: Nodes}:
+  (`do`, {}, child_nodes(Nodes, fn block_tags:1))
 case #r.xmlElement {name: warning, content: Nodes}:
   (warning, {}, child_nodes(Nodes, fn block_tags:1))
 case #r.xmlElement {name: image, attributes: Attrs, content: Nodes}:
@@ -361,6 +380,10 @@ case #r.xmlElement {name: table, attributes: Attrs, content: Nodes}:
 case #r.xmlElement {name: section, content: Nodes}:
   #_ "found in appup docs"
   (section, {}, child_nodes(Nodes, fn section_tags:1))
+
+case #r.xmlElement {name: `xi:include`, attributes: Attrs}:
+  #_ "seen in diameter chapter"
+  (include, attrs(Attrs), '')
 
 case Other:
   inline_tags(Other)

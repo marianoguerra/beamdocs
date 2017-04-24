@@ -56,7 +56,7 @@ case (section, _, Nodes):
 case (include, {href=FilePath}, _):
   [':include:', FilePath, '\n\n']
 case Other:
-  io_lib.format("(unknown_tag ~p)", [Other])
+  io_lib.format("(unknown_tag rn ~p)", [Other])
 end
 
 fn markup case Nodes:
@@ -162,6 +162,9 @@ case (input, _, Text):
   Text
 case Node=(seealso, _, _): seealso_node(Node)
 case Node=(url, _, _): url_node(Node)
+case Node=(c, _, _):
+  #_ "seen in common_test chapter"
+  c_node(Node)
 end
 
 fn url_node case (url, {href=HRef}, Text):
@@ -186,9 +189,16 @@ case (seealso, {marker=(anchor, Id)}, Text0):
   [':ref:`', Text, ' <', Id ,'>`']
 end
 
+fn c_node case (c, _, Nodes):
+  ['**', strip(nl_to_space(markup(Nodes))), '**']
+end
+
 fn markup_node
 case (text, _, Text): nl_to_space(escape_chars(Text))
 case (term, {id=Text}, ''):
+  #_ "TODO: make a reference to the term"
+  ['`', nl_to_space(escape_chars(Text)), '`']
+case (cite, {id=Text}, ''):
   #_ "TODO: make a reference to the term"
   ['`', nl_to_space(escape_chars(Text)), '`']
 case (path, _, Text):
@@ -206,7 +216,7 @@ case (code, Attrs, Nodes):
   end
   ['\n.. code-block:: ', Type, '\n\n', indent(Nodes, 1), '\n\n']
 case (em, _, Nodes): ['*', strip(nl_to_space(markup(Nodes))), '*']
-case (c, _, Nodes): ['**', strip(nl_to_space(markup(Nodes))), '**']
+case Node=(c, _, _): c_node(Node)
 case (anno, _, Text): nl_to_space(Text)
 case (i, _, Text): ['*', strip(nl_to_space(Text)), '*']
 case (br, _, _): '\n\n'
@@ -233,11 +243,15 @@ case (marker, {id=Id}, _): ['\n.. _', Id, ':\n\n']
 case Node=(seealso, _, _): seealso_node(Node)
 case (warning, _, Nodes):
   ['\n.. warning::\n\n\t', indent(markup(Nodes), 1), '\n\n']
+case (`do`, _, Nodes):
+  ['\n.. tip::\n\n\t', indent(markup(Nodes), 1), '\n\n']
+case (dont, _, Nodes):
+  ['\n.. attention::\n\n\t', indent(markup(Nodes), 1), '\n\n']
 case (note, _, Nodes):
   ['\n.. note::\n\n\t', indent(markup(Nodes), 1), '\n\n']
 
 case Other:
-  io_lib.format("(unknown_tag ~p)", [Other])
+  io_lib.format("(unknown_tag mn ~p)", [Other])
 end
 
 fn header_nodes
