@@ -134,8 +134,8 @@ case #r.xmlElement {name: func, content: Nodes}:
 end
 
 fn func_content
-case #r.xmlElement {name: name, attributes: Attrs, content: NText}:
-  (name, attrs(Attrs), ntext(NText))
+case #r.xmlElement {name: name, attributes: Attrs, content: Nodes}:
+  (name, attrs(Attrs), child_nodes(Nodes, fn name_content:1))
 case #r.xmlElement {name: fsummary, content: Nodes}:
   (fsummary, {}, all_child_nodes(Nodes, fn inline_tags:1))
 case #r.xmlElement {name: type, attributes: Attrs, content: []}:
@@ -146,6 +146,18 @@ case #r.xmlElement {name: desc, content: Nodes}:
   (desc, {}, child_nodes(Nodes, fn block_tags:1))
 case #r.xmlElement {name: type_desc, attributes: Attrs, content: Nodes}:
   (type_desc, attrs(Attrs), all_child_nodes(Nodes, fn inline_tags:1))
+end
+
+fn name_content
+case #r.xmlElement {name: ret, attributes: Attrs, content: NText}:
+  (ret, attrs(Attrs), ntext(NText))
+case #r.xmlElement {name: nametext, attributes: Attrs, content: NText}:
+  (nametext, attrs(Attrs), ntext(NText))
+case Node=#r.xmlElement {name: seealso}:
+  #_ "seen in diameter.xml: <name>origin_state_id() -> &dict_Unsigned32;</name>"
+  seealso(Node)
+case NText=#r.xmlText {}:
+  ntext([NText])
 end
 
 fn type_tags
@@ -276,6 +288,12 @@ case MarkRef:
   end
 end
 
+fn seealso
+case #r.xmlElement {name: seealso, attributes: Attrs, content: RText}:
+  Mark = maps.get(marker, attrs(Attrs), '#unknown') -> binary_to_list()
+  (seealso, {marker: parse_mark(Mark)}, titext(RText))
+end
+
 fn inline_tags
 @ref("http://erlang.org/doc/apps/erl_docgen/inline_tags.html")
 case #r.xmlElement {name: br}: (br, {}, '')
@@ -289,9 +307,8 @@ case #r.xmlElement {name: em, content: Nodes}:
   (em, {}, all_child_nodes(Nodes, fn inline_tags:1))
 case #r.xmlElement {name: marker, attributes: Attrs}:
   (marker, attrs(Attrs), '')
-case #r.xmlElement {name: seealso, attributes: Attrs, content: RText}:
-  Mark = maps.get(marker, attrs(Attrs), '#unknown') -> binary_to_list()
-  (seealso, {marker: parse_mark(Mark)}, titext(RText))
+case Node=#r.xmlElement {name: seealso}:
+  seealso(Node)
 case #r.xmlElement {name: url, attributes: Attrs, content: RText}:
   (url, attrs(Attrs), titext(RText))
 case #r.xmlElement {name: term, attributes: Attrs,
