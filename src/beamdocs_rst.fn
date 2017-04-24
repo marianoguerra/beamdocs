@@ -63,12 +63,16 @@ fn markup case Nodes:
   child_nodes(fix_markup(Nodes, []), fn markup_node:1)
 end
 
+fn pre_markup case Nodes:
+  child_nodes(Nodes, fn pre_markup_node:1)
+end
+
 fn fix_markup
 case [], Accum:
   lists.reverse(Accum)
 case (N1=(Tag, _, _)) :: N2 :: T, Accum
 when Tag is c or Tag is em or Tag is i or Tag is input:
-  fix_markup(N2 :: T, (text, {}, ' ') :: N1 :: Accum)
+  fix_markup(N2 :: T, (text, {}, '\\ ') :: N1 :: Accum)
 case H :: T, Accum:
   fix_markup(T, H :: Accum)
 end
@@ -120,8 +124,8 @@ end
 
 
 fn type
-case (v, _, Text): ['\t', Text, '\n']
-case (d, _, Nodes): ['\t\t', markup(Nodes), '\n']
+case (v, _, Text): [indent(Text, 1), '\n']
+case (d, _, Nodes): [indent(markup(Nodes), 2), '\n']
 end
 
 fn section_nodes
@@ -148,6 +152,37 @@ fn marker_text case Text0, Default:
   end
 end
 
+fn pre_markup_node
+case (text, _, Text): Text
+case (input, _, Text):
+  #_ "TODO: add backticks to this but not on code examples"
+  Text
+case Node=(seealso, _, _): seealso_node(Node)
+case Node=(url, _, _): url_node(Node)
+end
+
+fn url_node case (url, {href=HRef}, Text):
+  ['`', strip(nl_to_space(Text)), ' <', HRef, '>`_ ']
+end
+
+fn seealso_node
+case (seealso, {marker=(mod, Id)}, Text0):
+  Text = marker_text(Text0, Id)
+  [':doc:`', Text, ' <./', Id ,'>`']
+case (seealso, {marker=(mod_anchor, (Page, Id))}, Text0):
+  Text = marker_text(Text0, [Page, '#', Id])
+  ['`', Text , ' <./', Page ,'.html#', Id, '>`_']
+case (seealso, {marker=(app_anchor, (App, Page, Id))}, Text0):
+  Text = marker_text(Text0, [App, '/', Page, '#', Id])
+  ['`', Text , ' <../', App, '/', Page ,'.html#', Id, '>`_']
+case (seealso, {marker=(app_mod, (App, Page))}, Text0):
+  Text = marker_text(Text0, [App, '/', Page])
+  [':doc:`', Text , ' <../', App, '/', Page, '>`']
+case (seealso, {marker=(anchor, Id)}, Text0):
+  Text = marker_text(Text0, Id)
+  [':ref:`', Text, ' <', Id ,'>`']
+end
+
 fn markup_node
 case (text, _, Text): nl_to_space(escape_chars(Text))
 case (term, {id=Text}, ''):
@@ -158,8 +193,8 @@ case (path, _, Text):
 case (input, _, Text):
   #_ "TODO: add backticks to this but not on code examples"
   Text
-case (pre, _, Nodes): ['\n::\n', indent(markup(Nodes), 1), '\n\n']
-case (url, {href=HRef}, Text): ['`', strip(nl_to_space(Text)), ' <', HRef, '>`_ ']
+case (pre, _, Nodes): ['\n::\n', indent(pre_markup(Nodes), 1), '\n\n']
+case Node=(url, _, _): url_node(Node)
 case (code, Attrs, Nodes):
   Type = match maps.get(type, Attrs, 'erl'):
     case 'erl': 'erlang'
@@ -177,7 +212,7 @@ case (list, _, Items):
   R = for (list_item, _, LINodes) in Items:
     ['* ', strip(markup(LINodes)), '\n']
   end
-  [R, '\n']
+  ['\n', R, '\n']
 case (taglist, _, Items):
   R = for Node in Items:
     match Node:
@@ -192,18 +227,7 @@ case (taglist, _, Items):
 case (p, _, Nodes):
   ['\n\n', strip(normalize_nls(markup(Nodes))), '\n\n']
 case (marker, {id=Id}, _): ['\n.. _', Id, ':\n\n']
-case (seealso, {marker=(mod, Id)}, Text0):
-  Text = marker_text(Text0, Id)
-  [':doc:`', Text, ' <./', Id ,'>`']
-case (seealso, {marker=(mod_anchor, (Page, Id))}, Text0):
-  Text = marker_text(Text0, [Page, '#', Id])
-  ['`', Text , ' <./', Page ,'.html#', Id, '>`_']
-case (seealso, {marker=(app_anchor, (App, Page, Id))}, Text0):
-  Text = marker_text(Text0, [App, '/', Page, '#', Id])
-  ['`', Text , ' <../', App, '/', Page ,'.html#', Id, '>`_']
-case (seealso, {marker=(anchor, Id)}, Text0):
-  Text = marker_text(Text0, Id)
-  [':ref:`', Text, ' <', Id ,'>`']
+case Node=(seealso, _, _): seealso_node(Node)
 case (warning, _, Nodes):
   ['\n.. warning::\n\n\t', indent(markup(Nodes), 1), '\n\n']
 case (note, _, Nodes):
