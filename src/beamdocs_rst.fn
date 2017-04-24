@@ -44,7 +44,7 @@ case (filesummary, _, Text):
   ['\n', Text, '\n\n']
 
 case (description, _, Nodes):
-  child_nodes(Nodes, fn markup:1)
+  markup(Nodes)
 case (funcs, _, Items):
   [title('Functions', '-'), child_nodes(Items, fn func:1)]
 case (datatypes, _, Items):
@@ -59,6 +59,20 @@ case Other:
   io_lib.format(" ~p ", [Other])
 end
 
+fn markup case Nodes:
+  child_nodes(fix_markup(Nodes, []), fn markup_node:1)
+end
+
+fn fix_markup
+case [], Accum:
+  lists.reverse(Accum)
+case (N1=(Tag, _, _)) :: N2 :: T, Accum
+when Tag is c or Tag is em or Tag is i or Tag is input:
+  fix_markup(N2 :: T, (text, {}, ' ') :: N1 :: Accum)
+case H :: T, Accum:
+  fix_markup(T, H :: Accum)
+end
+
 fn datatype case (datatype, _, Nodes):
   child_nodes(Nodes, fn datatype_nodes:1)
 end
@@ -69,7 +83,7 @@ case (name, {name=Name}, ''):
 case (name, {}, Name):
   ['* ', to_one_line(Name), '\n']
 case (desc, _, Nodes):
-  ['  + ', to_one_line(child_nodes(Nodes, fn markup:1)), '\n']
+  ['  + ', to_one_line(markup(Nodes)), '\n']
 end
 
 fn author case (author, _, Nodes):
@@ -89,7 +103,7 @@ fn func_nodes
 case (name, {name=Name, arity=Arity}, ''):
   title([Name, '/', Arity], '.')
 case (name, {}, Text): title(Text, '.')
-case (fsummary, _, Text): [Text, '\n\n']
+case (fsummary, _, Nodes): [markup(Nodes), '\n\n']
 case (type, {name=Name}, []):
   ['\n::\n\n\t', Name, '\n\n']
 case (type, {variable=Name}, []):
@@ -97,22 +111,22 @@ case (type, {variable=Name}, []):
 case (type, _, Nodes):
   ['\n::\n\n\t', child_nodes(Nodes, fn type:1), '\n\n']
 case (type_desc, {variable=Name}, Nodes):
-  ['\n::\n\n\t', Name, ': ', child_nodes(Nodes, fn markup:1), '\n\n']
+  ['\n::\n\n\t', Name, ': ', markup(Nodes), '\n\n']
 case (type_desc, _, Nodes):
-  ['\n::\n\n\t', child_nodes(Nodes, fn markup:1), '\n\n']
+  ['\n::\n\n\t', markup(Nodes), '\n\n']
 case (desc, _, Nodes):
-  child_nodes(Nodes, fn markup:1)
+ markup(Nodes) 
 end
 
 
 fn type
 case (v, _, Text): ['\t', Text, '\n']
-case (d, _, Text): ['\t\t', Text, '\n']
+case (d, _, Nodes): ['\t\t', markup(Nodes), '\n']
 end
 
 fn section_nodes
 case (marker, {id=Id}, _):
-  ['\n.. _', Id, ':\n']
+  ['\n.. _', Id, ':\n\n']
 case (title, _, Text):
   #_ "TODO: thread level to support nested sections"
   title(Text, '-')
@@ -120,51 +134,51 @@ case (section, _, Nodes):
   #_ "seen in appup.xml"
   child_nodes(Nodes, fn section_nodes: 1)
 case Node:
-  markup(Node)
+  markup_node(Node)
 end
 
 fn to_one_line case IOList:
   nl_to_space(strip(IOList, iodata))
 end
 
-fn markup
+fn markup_node
 case (text, _, Text): escape_chars(Text)
 case (input, _, Text): ['`', Text, '`']
-case (pre, _, Nodes): ['\n::\n', indent(child_nodes(Nodes, fn markup:1), 1), '\n\n']
+case (pre, _, Nodes): ['\n::\n', indent(markup(Nodes), 1), '\n\n']
 case (code, Attrs, Nodes):
   Type0 = maps.get(type, Attrs, 'erl')
   Type = when Type0 is 'none': 'erl' else: Type0 end
   ['\n.. code-block:: ', Type, '\n\n', indent(Nodes, 1), '\n\n']
-case (em, _, Nodes): ['*', strip(child_nodes(Nodes, fn markup:1)), '*']
-case (c, _, Nodes): ['**', strip(child_nodes(Nodes, fn markup:1)), '**']
+case (em, _, Nodes): ['*', strip(markup(Nodes)), '*']
+case (c, _, Nodes): ['**', strip(markup(Nodes)), '**']
 case (anno, _, Text): Text
 case (i, _, Text): ['*', strip(Text), '*']
 case (br, _, _): '\n\n'
 case (list, _, Items):
   #_ "TODO: thread list nesting to support nested lists"
   R = for (list_item, _, LINodes) in Items:
-    ['* ', to_one_line(child_nodes(LINodes, fn markup:1)), '\n']
+    ['* ', to_one_line(markup(LINodes)), '\n']
   end
   [R, '\n']
 case (taglist, _, Items):
   R = for Node in Items:
     match Node:
       case (tag, _, TagNodes):
-        [child_nodes(TagNodes, fn markup:1), '\n']
+        ['\n', strip(markup(TagNodes)), '\n']
       case (tagitem, _, TINodes):
-        ['\t', to_one_line(child_nodes(TINodes, fn markup:1)), '\n']
-      case _: ''
+        ['\t', to_one_line(markup(TINodes)), '\n']
+      case (comment, _, _): ''
     end
   end
   ['\n', R, '\n']
 case (p, _, Nodes):
-  ['\n\n', child_nodes(Nodes, fn markup:1), '\n\n']
-case (marker, {id=Id}, _): ['\n.. _', Id, ':\n']
+  ['\n\n', strip(markup(Nodes)), '\n\n']
+case (marker, {id=Id}, _): ['\n.. _', Id, ':\n\n']
 case (seealso, {marker=Id}, _): [':seealso:', Id,]
 case (warning, _, Nodes):
-  ['\n.. warning::\n\n\t', indent(child_nodes(Nodes, fn markup:1), 1), '\n\n']
+  ['\n.. warning::\n\n\t', indent(markup(Nodes), 1), '\n\n']
 case (note, _, Nodes):
-  ['\n.. note::\n\n\t', indent(child_nodes(Nodes, fn markup:1), 1), '\n\n']
+  ['\n.. note::\n\n\t', indent(markup(Nodes), 1), '\n\n']
 
 case Other:
   io_lib.format(" ~p ", [Other])
@@ -220,7 +234,8 @@ end
 
 fn indent case IOList, Count:
   Indent = (#c "\n") :: lists.duplicate(Count, (#c "\t"))
-  re.replace(IOList, "\n", Indent, [global, unicode, (return, binary)])
+  re.replace(["\n", strip(IOList)], "\n", Indent,
+    [global, unicode, (return, binary)])
 end
 
 fn strip case IOList: strip(IOList, binary) end
