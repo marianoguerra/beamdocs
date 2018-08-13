@@ -9,9 +9,15 @@ end
 fn child_nodes case Nodes, Fn: child_nodes(Nodes, Fn, []) end
 
 fn child_nodes
+case (ignore, {node_name=Name}, _), _Fn, Accum:
+  io.format("Ignoring tag: ~p~n", [Name])
+  lists.reverse(Accum)
 case [], _Fn, Accum:
   lists.reverse(Accum)
 case (comment, _, _) :: Nodes, Fn, Accum:
+  child_nodes(Nodes, Fn, Accum)
+case (ignore, {node_name=Name}, _) :: Nodes, Fn, Accum:
+  io.format("Ignoring tag: ~p~n", [Name])
   child_nodes(Nodes, Fn, Accum)
 case Node :: Nodes, Fn, Accum:
   Result = Fn(Node)
@@ -77,7 +83,10 @@ case H :: T, Accum:
   fix_markup(T, H :: Accum)
 end
 
-fn datatype case (datatype, _, Nodes):
+fn datatype
+case (datatype_title, _, Title):
+  title(Title, '.')
+case (datatype, _, Nodes):
   child_nodes(Nodes, fn datatype_nodes:1)
 end
 
@@ -223,6 +232,7 @@ case (em, _, Nodes): ['*', strip(nl_to_space(markup(Nodes))), '*']
 case Node=(c, _, _): c_node(Node)
 case (anno, _, Text): nl_to_space(Text)
 case (i, _, Text): ['*', strip(nl_to_space(Text)), '*']
+case (strong, _, Text): ['**', strip(nl_to_space(Text)), '**']
 case (image, {file=Path}, [(icaption, {}, Caption)]):
   ['\n.. image:: ', Path, '\n\n\t', Caption, '\n\n']
 case (table, _, Nodes): ['\n', format_table(Nodes), '\n']
@@ -372,6 +382,8 @@ end
 fn format_table
 case [], State0={rows=RRows}:
   State0#{rows: lists.reverse(RRows)}
+case (comment, _, _) :: T, State:
+  format_table(T, State)
 case (row, _, Cells) :: T,
 State={rows=Rows0, row_num=RowNum0, max_cols=MaxCols0, max_col_sizes=MaxColSizes0}:
   RowNum = RowNum0 + 1

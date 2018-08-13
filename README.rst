@@ -11,6 +11,10 @@ Build
 
     rebar3 escriptize
 
+or::
+
+    make
+
 Run
 ---
 

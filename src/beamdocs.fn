@@ -25,12 +25,24 @@ end
 fn doc_to_rst @public
 case FilePath, AccIn={base_path=BasePath, dtd_paths=DtdPaths, out_path=OutPath}:
   BaseLen = length(BasePath)
-  _ShortPath = string.substr(FilePath, BaseLen + 2)
-  #_ io.format("process ~p ~p~n", [ShortPath, FilePath])
-  (ParsResult, _Misc) = xmerl_scan.file(FilePath, [(fetch_path, DtdPaths)])
-  Info = beamdocs_xml.parse(ParsResult, {path: FilePath, dtd_paths: DtdPaths})
-  Text = beamdocs_rst.to_rst(Info)
-  write_to_file(Text, FilePath, OutPath, ".rst")
+  ShortPath = string.substr(FilePath, BaseLen + 2)
+  io.format("process ~p ~p~n", [ShortPath, FilePath])
+  (ParsResult, _Misc) = try
+    xmerl_scan.file(FilePath, [(fetch_path, DtdPaths)])
+  catch case Type, Error:
+    io.format("error parsing ~p: ~p ~p", [ShortPath, Type, Error])
+    (nil, nil)
+  end
+
+  match ParsResult:
+    case nil:
+      AccIn
+    else:
+      Info = beamdocs_xml.parse(ParsResult, {path: FilePath, dtd_paths: DtdPaths})
+      Text = beamdocs_rst.to_rst(Info)
+      write_to_file(Text, FilePath, OutPath, ".rst")
+  end
+
   AccIn
 end
 
