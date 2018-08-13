@@ -15,6 +15,12 @@ or::
 
     make
 
+Translate OTP XML docs to restructured text (experimental)::
+
+    CODE_PATH=$HOME/src/erl/otp/
+    mkdir -p rst-docs
+    ./_build/default/bin/beamdocs docs-to-rst $CODE_PATH rst-docs
+
 Run
 ---
 

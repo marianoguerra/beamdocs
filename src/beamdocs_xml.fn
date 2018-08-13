@@ -109,14 +109,20 @@ fn handle_include case Attrs, Info={path=Path, dtd_paths=DtdPaths}:
   end
   DirName = filename.dirname(Path)
   IncludePath = filename.join(DirName, HRef)
-  match xmerl_scan.file(IncludePath, [(fetch_path, DtdPaths)]):
-    case error, Reason:
-      io.format("Error: ~p~nincluder: ~p~nincluded: ~p~n~n", [Reason, Path, IncludePath])
-      (error, {}, Reason)
-    case ParseResult, _Misc:
-      (include,
-        {file: HRef, path: Path, parent: Path},
-        parse(ParseResult, Info#{path: IncludePath}))
+  try
+    match xmerl_scan.file(IncludePath, [(fetch_path, DtdPaths)]):
+      case error, Reason:
+        io.format("Error: ~p~nincluder: ~p~nincluded: ~p~n~n", [Reason, Path, IncludePath])
+        (error, {}, Reason)
+      case ParseResult, _Misc:
+        (include,
+          {file: HRef, path: Path, parent: Path},
+          parse(ParseResult, Info#{path: IncludePath}))
+    end
+  catch case Type, Error:
+    io.format("Error: ~p ~p~nincluder: ~p~nincluded: ~p~n~n",
+      [Type, Error, Path, IncludePath])
+    (error, {}, Error)
   end
 end
 
