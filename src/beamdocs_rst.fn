@@ -9,9 +9,8 @@ end
 fn child_nodes case Nodes, Fn: child_nodes(Nodes, Fn, []) end
 
 fn child_nodes
-case (ignore, {node_name=Name}, _), _Fn, Accum:
-  io.format("Ignoring tag: ~p~n", [Name])
-  lists.reverse(Accum)
+case Node, Fn, Accum when is_tuple(Node):
+  child_nodes([Node], Fn, Accum)
 case [], _Fn, Accum:
   lists.reverse(Accum)
 case (comment, _, _) :: Nodes, Fn, Accum:
@@ -25,6 +24,8 @@ case Node :: Nodes, Fn, Accum:
 end
 
 fn root_nodes
+case (book, _, Nodes):
+  child_nodes(Nodes, fn book_nodes:1)
 case (header, _, Nodes):
   IGNORED = child_nodes(Nodes, fn header_nodes:1)
   ''
@@ -237,6 +238,8 @@ case (image, {file=Path}, [(icaption, {}, Caption)]):
   ['\n.. image:: ', Path, '\n\n\t', Caption, '\n\n']
 case (table, _, Nodes): ['\n', format_table(Nodes), '\n']
 case (br, _, _): '\n\n'
+case (vfill, _, _): ''
+case (tt, _, Text): ['tt: ', Text]
 case (list, _, Items):
   #_ "TODO: thread list nesting to support nested lists"
   R = for (list_item, _, LINodes) in Items:
@@ -268,6 +271,31 @@ case (note, _, Nodes):
   ['\n.. note::\n\n\t', indent(markup(Nodes), 1), '\n\n']
 
 case Other:
+  io_lib.format("(unknown_tag ~p)", [Other])
+end
+
+fn book_nodes
+case (header, _, Nodes):
+  IGNORED = child_nodes(Nodes, fn header_nodes:1)
+  ''
+case (insidecover, _, Nodes):
+  child_nodes(Nodes, fn root_nodes:1)
+case (preamble, _, Nodes):
+  ''
+case (pagetext, _, Nodes):
+  title(strip(nl_to_space(Nodes)), '=')
+case (parts, _, Nodes):
+  child_nodes(Nodes, fn root_nodes:1)
+case (applications, _, Nodes):
+  child_nodes(Nodes, fn root_nodes:1)
+case (releasenotes, _, Nodes):
+  child_nodes(Nodes, fn root_nodes:1)
+case (index, _, []):
+  ''
+case (listofterms, _, []):
+  ''
+case Other:
+  io.format("unkown book tag: ~p~n", [Other])
   io_lib.format("(unknown_tag ~p)", [Other])
 end
 

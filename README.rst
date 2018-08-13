@@ -21,6 +21,13 @@ Translate OTP XML docs to restructured text (experimental)::
     mkdir -p rst-docs
     ./_build/default/bin/beamdocs docs-to-rst $CODE_PATH rst-docs
 
+Generate index::
+
+    cp tools/index.head.rst rst-docs/index.rst
+    cd rst-docs
+    for i in */book.rst; do echo "   $i" >> index.rst; done
+    cd ..
+
 Run
 ---
 
