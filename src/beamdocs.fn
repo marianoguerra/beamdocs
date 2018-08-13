@@ -31,29 +31,49 @@ fn doc_to_rst @public
 case FilePath, AccIn={base_path=BasePath, dtd_paths=DtdPaths, out_path=OutPath}:
   BaseLen = length(BasePath)
   ShortPath = string.substr(FilePath, BaseLen + 2)
-  io.format("process ~p ~p~n", [ShortPath, FilePath])
-  (ParsResult, _Misc) = try
-    xmerl_scan.file(FilePath, [(fetch_path, DtdPaths)])
-  catch case Type, Error:
-    io.format("error parsing ~p: ~p ~p", [ShortPath, Type, Error])
-    (nil, nil)
-  end
+  match extract_doc_path_parts(ShortPath):
+    case ok, Lib, BaseName:
+      io.format("~p ~p~n", [Lib, BaseName])
+      (ParsResult, _Misc) = try
+        xmerl_scan.file(FilePath, [(fetch_path, DtdPaths)])
+      catch case Type, Error:
+        io.format("error parsing ~p: ~p ~p", [ShortPath, Type, Error])
+        (nil, nil)
+      end
 
-  match ParsResult:
-    case nil:
-      AccIn
-    else:
-      Info = beamdocs_xml.parse(ParsResult, {path: FilePath, dtd_paths: DtdPaths})
-      Text = beamdocs_rst.to_rst(Info)
-      write_to_file(Text, FilePath, OutPath, ".rst")
+      match ParsResult:
+        case nil:
+          AccIn
+        else:
+          Info = beamdocs_xml.parse(ParsResult, {path: FilePath, dtd_paths: DtdPaths})
+          Text = beamdocs_rst.to_rst(Info)
+          write_to_file(Text, OutPath, Lib, BaseName ++ ".rst")
+      end
+    case bad, _:
+      io.format("ignoring ~p~n", [ShortPath])
   end
 
   AccIn
 end
 
-fn write_to_file case Data, InPath, OutDir, Extension:
-  FileName = filename.basename(InPath)
-  FileOutPath = filename.join(OutDir, filename.rootname(FileName) ++ Extension)
+fn extract_doc_path_parts case Path:
+  match filename.split(Path):
+    case ["lib", Lib, "doc", "src", Filename]:
+      BaseName = filename.rootname(Filename)
+      (ok, Lib, BaseName)
+    case [Lib="erts", "doc", "src", Filename]:
+      BaseName = filename.rootname(Filename)
+      (ok, Lib, BaseName)
+    case [Lib="system", "doc", Name, Filename]:
+      BaseName = filename.rootname(Filename)
+      (ok, Lib ++ "-" ++ Name, BaseName)
+    case Other:
+      (bad, Other)
+  end
+end
+
+fn write_to_file case Data, OutDir, Lib, FileName:
+  FileOutPath = filename.join([OutDir, Lib, FileName])
   filelib.ensure_dir(FileOutPath)
   match file.write_file(FileOutPath, Data):
     case error, Reason:
