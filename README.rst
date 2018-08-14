@@ -15,7 +15,7 @@ or::
 
     make
 
-Translate OTP XML docs to restructured text (experimental)::
+Translate OTP XML docs to restructured text (experimental), first you need to build the docs, so it generates the dynamic XML files (follow instructions here http://marianoguerra.org/posts/improving-official-erlang-documentation/), then::
 
     CODE_PATH=$HOME/src/erl/otp/
     mkdir -p rst-docs

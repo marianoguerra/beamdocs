@@ -128,7 +128,7 @@ fn chapter_tags
 case Node, Info:
   match ref_tags(Node, Info):
     case unknown, _, _:
-      block_tags(Node)
+      block_tags(Node, Info)
     case Result:
       Result
   end
@@ -142,11 +142,18 @@ fn handle_include case Attrs, Info={path=Path, dtd_paths=DtdPaths}:
   end
   DirName = filename.dirname(Path)
   IncludePath = filename.join(DirName, HRef)
+  match filelib.is_file(IncludePath):
+    case true:
+      ok
+    else:
+      io.format("Error Including ~p from ~p~n", [IncludePath, Path])
+  end 
+
   try
     match xmerl_scan.file(IncludePath, [(fetch_path, DtdPaths)]):
       case error, Reason:
         io.format("Error: ~p~nincluder: ~p~nincluded: ~p~n~n", [Reason, Path, IncludePath])
-        (error, {}, Reason)
+        (error, {type: include_error, source: Path, target: IncludePath, reason: Reason}, '')
       case ParseResult, _Misc:
         (include,
           {file: HRef, path: Path, parent: Path},
@@ -155,23 +162,23 @@ fn handle_include case Attrs, Info={path=Path, dtd_paths=DtdPaths}:
   catch case Type, Error:
     io.format("Error: ~p ~p~nincluder: ~p~nincluded: ~p~n~n",
       [Type, Error, Path, IncludePath])
-    (error, {}, Error)
+    (error, {type: include_error, source: Path, target: IncludePath, reason: Error}, '')
   end
 end
 
 fn ref_tags
 case #r.xmlElement {name: header, content: Nodes}, _Info:
   (header, {}, child_nodes(Nodes, fn header_tags:1))
-case #r.xmlElement {name: description, content: Nodes}, _Info:
-  (description, {}, child_nodes(Nodes, fn block_tags:1))
-case #r.xmlElement {name: section, content: Nodes}, _Info:
-  (section, {}, child_nodes(Nodes, fn section_tags:1))
-case #r.xmlElement {name: funcs, content: Nodes}, _Info:
-  (funcs, {}, child_nodes(Nodes, fn func_tags:1))
+case #r.xmlElement {name: description, content: Nodes}, Info:
+  (description, {}, child_nodes(Nodes, Info, fn block_tags:2))
+case #r.xmlElement {name: section, content: Nodes}, Info:
+  (section, {}, child_nodes(Nodes, Info, fn section_tags:2))
+case #r.xmlElement {name: funcs, content: Nodes}, Info:
+  (funcs, {}, child_nodes(Nodes, Info, fn func_tags:2))
 case #r.xmlElement {name: authors, content: Nodes}, _Info:
   (authors, {}, child_nodes(Nodes, fn authors_tags:1))
-case #r.xmlElement {name: datatypes, content: Nodes}, _Info:
-  (datatypes, {}, child_nodes(Nodes, fn datatypes_tags:1))
+case #r.xmlElement {name: datatypes, content: Nodes}, Info:
+  (datatypes, {}, child_nodes(Nodes, Info, fn datatypes_tags:2))
 case #r.xmlElement {name: include, attributes: Attrs}, Info:
   handle_include(Attrs, Info)
 case #r.xmlElement {name: `xi:include`, attributes: Attrs}, Info:
@@ -184,45 +191,46 @@ case Other, _Info:
 end
 
 fn datatypes_tags
-case #r.xmlElement {name: datatype_title, attributes: Attrs, content: NText}:
+case #r.xmlElement {name: datatype_title, attributes: Attrs, content: NText},
+     _Info:
   (datatype_title, attrs(Attrs), ntext(NText))
-case #r.xmlElement {name: datatype, attributes: Attrs, content: Nodes}:
-  (datatype, attrs(Attrs), child_nodes(Nodes, fn datatype_content:1))
+case #r.xmlElement {name: datatype, attributes: Attrs, content: Nodes}, Info:
+  (datatype, attrs(Attrs), child_nodes(Nodes, Info, fn datatype_content:2))
 end
 
 fn datatype_content
-case #r.xmlElement {name: name, attributes: Attrs, content: NText}:
+case #r.xmlElement {name: name, attributes: Attrs, content: NText}, _Info:
   (name, attrs(Attrs), ntext(NText))
-case #r.xmlElement {name: desc, content: Nodes}:
-  (desc, {}, child_nodes(Nodes, fn block_tags:1))
+case #r.xmlElement {name: desc, content: Nodes}, Info:
+  (desc, {}, child_nodes(Nodes, Info, fn block_tags:2))
 end
 
 fn section_tags
-case #r.xmlElement {name: marker, attributes: Attrs}:
+case #r.xmlElement {name: marker, attributes: Attrs}, _Info:
   (marker, attrs(Attrs), '')
-case #r.xmlElement {name: title, content: NText}:
+case #r.xmlElement {name: title, content: NText}, _Info:
   (title, {}, ntext(NText))
-case Other:
-  block_tags(Other)
+case Other, Info:
+  block_tags(Other, Info)
 end
 
 fn func_tags
-case #r.xmlElement {name: func, content: Nodes}:
-  (func, {}, child_nodes(Nodes, fn func_content: 1))
+case #r.xmlElement {name: func, content: Nodes}, Info:
+  (func, {}, child_nodes(Nodes, Info, fn func_content: 2))
 end
 
 fn func_content
-case #r.xmlElement {name: name, attributes: Attrs, content: Nodes}:
+case #r.xmlElement {name: name, attributes: Attrs, content: Nodes}, _Info:
   (name, attrs(Attrs), remove_blank_text(all_child_nodes(Nodes, fn name_content:1)))
-case #r.xmlElement {name: fsummary, content: Nodes}:
+case #r.xmlElement {name: fsummary, content: Nodes}, _Info:
   (fsummary, {}, all_child_nodes(Nodes, fn inline_tags:1))
-case #r.xmlElement {name: type, attributes: Attrs, content: []}:
+case #r.xmlElement {name: type, attributes: Attrs, content: []}, _Info:
   (type, attrs(Attrs), [])
-case #r.xmlElement {name: type, content: Nodes}:
+case #r.xmlElement {name: type, content: Nodes}, _Info:
   (type, {}, child_nodes(Nodes, fn type_tags:1))
-case #r.xmlElement {name: desc, content: Nodes}:
-  (desc, {}, child_nodes(Nodes, fn block_tags:1))
-case #r.xmlElement {name: type_desc, attributes: Attrs, content: Nodes}:
+case #r.xmlElement {name: desc, content: Nodes}, Info:
+  (desc, {}, child_nodes(Nodes, Info, fn block_tags:2))
+case #r.xmlElement {name: type_desc, attributes: Attrs, content: Nodes}, _Info:
   (type_desc, attrs(Attrs), all_child_nodes(Nodes, fn inline_tags:1))
 end
 
@@ -259,6 +267,8 @@ end
 fn authors_tags
 case #r.xmlElement {name: authors, content: Nodes}:
   (authors, {}, child_nodes(Nodes, fn authors_content:1))
+case Other:
+  authors_content(Other)
 end
 
 fn authors_content
@@ -348,18 +358,23 @@ case H :: T, Info, Fn, Accum:
 end
 
 fn all_child_nodes case Nodes, Fn:
-  all_child_nodes(Nodes, Fn, [])
+  WrapFn = fn case V, _: Fn(V) end
+  all_child_nodes_h(Nodes, nil, WrapFn, [])
 end
 
-fn all_child_nodes
-case [], _Fn, Accum:
+fn all_child_nodes case Nodes, Info, Fn:
+  all_child_nodes_h(Nodes, Info, Fn, [])
+end
+
+fn all_child_nodes_h
+case [], _Info, _Fn, Accum:
   lists.reverse(Accum)
-case #r.xmlComment {value: Value} :: T, Fn, Accum:
+case #r.xmlComment {value: Value} :: T, Info, Fn, Accum:
   Result = (comment, {}, to_bstr(Value))
-  all_child_nodes(T, Fn, Result :: Accum)
-case H :: T, Fn, Accum:
-  Result = Fn(H)
-  all_child_nodes(T, Fn, Result :: Accum)
+  all_child_nodes_h(T, Info, Fn, Result :: Accum)
+case H :: T, Info, Fn, Accum:
+  Result = Fn(H, Info)
+  all_child_nodes_h(T, Info, Fn, Result :: Accum)
 end
 
 fn parse_mark
@@ -432,49 +447,49 @@ end
 
 fn block_tags
 @ref("http://erlang.org/doc/apps/erl_docgen/block_tags.html")
-case #r.xmlElement {name: br}: (br, {}, '')
-case #r.xmlElement {name: terms, attributes: Attrs, content: Nodes}:
+case #r.xmlElement {name: br}, _Info: (br, {}, '')
+case #r.xmlElement {name: terms, attributes: Attrs, content: Nodes}, _Info:
   (terms, attrs(Attrs), child_nodes(Nodes, fn terms_content:1))
-case #r.xmlElement {name: code, content: RText, attributes: Attrs}:
+case #r.xmlElement {name: code, content: RText, attributes: Attrs}, _Info:
   (code, attrs(Attrs), rtext(RText))
-case #r.xmlElement {name: codeinclude, attributes: Attrs}:
+case #r.xmlElement {name: codeinclude, attributes: Attrs}, _Info:
   (codeinclude, attrs(Attrs), '')
-case #r.xmlElement {name: erleval, attributes: Attrs}:
+case #r.xmlElement {name: erleval, attributes: Attrs}, _Info:
   (erleval, attrs(Attrs), '')
-case #r.xmlElement {name: list, attributes: Attrs, content: Nodes}:
-  (list, attrs(Attrs), child_nodes(Nodes, fn list_content:1))
-case #r.xmlElement {name: marker, attributes: Attrs}:
+case #r.xmlElement {name: list, attributes: Attrs, content: Nodes}, Info:
+  (list, attrs(Attrs), child_nodes(Nodes, Info, fn list_content:2))
+case #r.xmlElement {name: marker, attributes: Attrs}, _Info:
   (marker, attrs(Attrs), '')
-case XN=#r.xmlElement {name: p}:
+case XN=#r.xmlElement {name: p}, _Info:
   p(XN)
-case #r.xmlElement {name: pre, content: Nodes}:
+case #r.xmlElement {name: pre, content: Nodes}, _Info:
   (pre, {}, all_child_nodes(Nodes, fn pre_content:1))
-case #r.xmlElement {name: quote, content: Nodes}:
+case #r.xmlElement {name: quote, content: Nodes}, _Info:
   (quote, {}, child_nodes(Nodes, fn p:1))
-case #r.xmlElement {name: taglist, content: Nodes}:
-  (taglist, {}, child_nodes(Nodes, fn taglist_tags:1))
-case #r.xmlElement {name: note, content: Nodes}:
-  (note, {}, child_nodes(Nodes, fn block_tags:1))
-case #r.xmlElement {name: dont, content: Nodes}:
-  (dont, {}, child_nodes(Nodes, fn block_tags:1))
-case #r.xmlElement {name: `do`, content: Nodes}:
-  (`do`, {}, child_nodes(Nodes, fn block_tags:1))
-case #r.xmlElement {name: warning, content: Nodes}:
-  (warning, {}, child_nodes(Nodes, fn block_tags:1))
-case #r.xmlElement {name: image, attributes: Attrs, content: Nodes}:
+case #r.xmlElement {name: taglist, content: Nodes}, Info:
+  (taglist, {}, child_nodes(Nodes, Info, fn taglist_tags:2))
+case #r.xmlElement {name: note, content: Nodes}, Info:
+  (note, {}, child_nodes(Nodes, Info, fn block_tags:2))
+case #r.xmlElement {name: dont, content: Nodes}, Info:
+  (dont, {}, child_nodes(Nodes, Info, fn block_tags:2))
+case #r.xmlElement {name: `do`, content: Nodes}, Info:
+  (`do`, {}, child_nodes(Nodes, Info, fn block_tags:2))
+case #r.xmlElement {name: warning, content: Nodes}, Info:
+  (warning, {}, child_nodes(Nodes, Info, fn block_tags:2))
+case #r.xmlElement {name: image, attributes: Attrs, content: Nodes}, _Info:
   (image, attrs(Attrs), child_nodes(Nodes, fn image_content:1))
-case #r.xmlElement {name: table, attributes: Attrs, content: Nodes}:
+case #r.xmlElement {name: table, attributes: Attrs, content: Nodes}, _Info:
   (table, attrs(Attrs), child_nodes(Nodes, fn table_content:1))
 
-case #r.xmlElement {name: section, content: Nodes}:
+case #r.xmlElement {name: section, content: Nodes}, Info:
   #_ "found in appup docs"
-  (section, {}, child_nodes(Nodes, fn section_tags:1))
+  (section, {}, child_nodes(Nodes, Info, fn section_tags:2))
 
-case #r.xmlElement {name: `xi:include`, attributes: Attrs}:
+case #r.xmlElement {name: `xi:include`, attributes: Attrs}, Info:
   #_ "seen in diameter chapter"
-  (include, attrs(Attrs), '')
+  handle_include(Attrs, Info)
 
-case Other:
+case Other, _Info:
   inline_tags(Other)
 end
 
@@ -513,26 +528,28 @@ case #r.xmlElement {name: icaption, content: NText}:
   (icaption, {}, ntext(NText))
 end
 
-fn list_content case #r.xmlElement {name: item, content: Nodes}:
-  (list_item, {}, all_child_nodes(Nodes, fn list_item_content:1))
+fn list_content case #r.xmlElement {name: item, content: Nodes}, Info:
+  (list_item, {}, all_child_nodes(Nodes, Info, fn list_item_content:2))
 end
 
 fn list_item_content
-case #r.xmlText {value: Text}: (text, {}, indents_to_space(Text))
-case Other: block_tags(Other)
+case #r.xmlText {value: Text}, _Info:
+  (text, {}, indents_to_space(Text))
+case Other, Info:
+  block_tags(Other, Info)
 end
 
 fn taglist_tags
-case #r.xmlElement {name: tag, content: TagNodes}:
+case #r.xmlElement {name: tag, content: TagNodes}, _Info:
   (tag, {}, child_nodes(TagNodes, fn taglist_tag_content:1))
-case #r.xmlElement {name: item, content: ItemNodes}:
-  (tagitem, {}, all_child_nodes(ItemNodes, fn taglist_item_content:1))
+case #r.xmlElement {name: item, content: ItemNodes}, Info:
+  (tagitem, {}, all_child_nodes(ItemNodes, Info, fn taglist_item_content:2))
 end
 
 fn taglist_tag_content case Node: inline_tags(Node) end
 
-fn taglist_item_content case Node:
-  list_item_content(Node)
+fn taglist_item_content case Node, Info:
+  list_item_content(Node, Info)
 end
 
 fn p case #r.xmlElement {name: p, content: Nodes}:
