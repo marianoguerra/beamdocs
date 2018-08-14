@@ -19,13 +19,18 @@ Translate OTP XML docs to restructured text (experimental), first you need to bu
 
     CODE_PATH=$HOME/src/erl/otp/
     mkdir -p rst-docs
-    ./_build/default/bin/beamdocs docs-to-rst $CODE_PATH rst-docs
+    ./_build/default/bin/beamdocs docs-to-rst $CODE_PATH rst-docs > result.txt
+
+    # remove heavy files to speed up sphinx build
+    rm -rf rst-docs/*/part.rst rst-docs/*/specs.rst rst-docs/wx/
 
 Generate index::
 
     cp tools/index.head.rst rst-docs/index.rst
     cd rst-docs
     for i in */book.rst; do echo "   $i" >> index.rst; done
+    echo "\n\n.. toctree::\n   :maxdepth: 1\n   :caption: Reference Manuals:\n" >> index.rst
+    for i in */ref_man.rst; do echo "   $i" >> index.rst; done
     cd ..
 
 Run
