@@ -13,9 +13,9 @@ case [], _State, _Fn, Accum:
   lists.reverse(Accum)
 case (comment, _, _) :: Nodes, State, Fn, Accum:
   child_nodes(Nodes, State, Fn, Accum)
-case (ignore, {node_name=Name}, _) :: Nodes, State, Fn, Accum:
-  io.format("Ignoring tag: ~p~n", [Name])
-  child_nodes(Nodes, State, Fn, Accum)
+case V=(T=ignore, _, _) :: Nodes, State, Fn, Accum:
+  Result = (ignore, {t: T, v: V})
+  child_nodes(Nodes, State, Fn, Result :: Accum)
 case Node :: Nodes, State, Fn, Accum:
   Result = Fn(Node, State)
   child_nodes(Nodes, State, Fn, Result :: Accum)
@@ -24,8 +24,9 @@ end
 fn root_nodes
 case (T=book, _, Nodes), State:
   (section, {t: T}, child_nodes(Nodes, State, fn book_nodes:2))
-case (T=header, _, Nodes), State:
-  (ignore, {t: T}, child_nodes(Nodes, State, fn header_nodes:2))
+case V=(T=header, _, _Nodes), _State:
+  #_ child_nodes(Nodes, State, fn header_nodes:2)
+  (ignore, {t: T, v: V})
 case (T=module, _, Text), State:
   title({t: T}, State, Text)
 case (T=modulesummary, _, Nodes), State:
@@ -119,9 +120,9 @@ end
 
 fn func_nodes
 case (T=name, {name=Name, arity=Arity}, []), State:
-  title({t: T, pt: func}, State, [Name, '/', Arity])
+  title({t: T, pt: func}, State, list_to_binary([Name, '/', Arity]))
 case (T=name, {}, [(ret, {}, Ret), (nametext, {}, Name)]), State:
-  title({t: T, pt: func}, State, [Name, ':', Ret])
+  title({t: T, pt: func}, State, list_to_binary([Name, ':', Ret]))
 case (T=name, {}, [Name]), State when is_binary(Name):
   title({t: T, pt: func}, State, Name)
 case (T=name, {}, Nodes), State:
@@ -154,9 +155,9 @@ case (T=marker, {id=Id}, _), _State:
   (marker, {t: T}, Id)
 case (T=title, _, Text), State:
   title({t: T}, State, Text)
-case (section, _, Nodes), State:
+case (T=section, _, Nodes), State:
   #_ "seen in appup.xml"
-  child_nodes(Nodes, State, fn section_nodes:2)
+  (section, {t: T}, child_nodes(Nodes, State, fn section_nodes:2))
 case Node, State:
   markup_node(Node, State)
 end
@@ -227,19 +228,19 @@ case (T=quote, _, Nodes), State:
   p({t: T}, State, markup(Nodes, State))
 case Node=(url, _, _), State:
   url_node(Node, State)
-case (T=code, Attrs, Nodes), _State:
+case (T=code, Attrs, Nodes), State:
   Type = maps.get(type, Attrs, 'none')
-  (t, {t: T, type: Type}, Nodes)
-case (T=em, _, Nodes), _State:
-  (t, {t: T}, Nodes)
+  (t, {t: T, type: Type}, markup(Nodes, State))
+case (T=em, _, Nodes), State:
+  (t, {t: T}, markup(Nodes, State))
 case Node=(c, _, _), State:
   c_node(Node, State)
-case (T=anno, _, Text), _State:
-  (t, {t: T}, Text)
-case (T=i, _, Text), _State:
-  (t, {t: T}, Text)
-case (T=strong, _, Text), _State:
-  (t, {t: T}, Text)
+case (T=anno, _, Nodes), State:
+  (t, {t: T}, markup(Nodes, State))
+case (i, _, Nodes), State:
+  (t, {t: em}, markup(Nodes, State))
+case (T=strong, _, Nodes), State:
+  (t, {t: T}, markup(Nodes, State))
 case (T=image, {file=Path}, [(icaption, {}, Caption)]), _State:
   (img, {t: T, path: Path, caption: Caption})
 case (table, _, Nodes), State:
@@ -248,8 +249,8 @@ case (T=br, _, _), _State:
   (br, {t: T})
 case (T=vfill, _, _), _State:
   (br, {t: T})
-case (T=tt, _, Text), _State:
-  (t, {t: T}, Text)
+case (T=tt, _, Nodes), State:
+  (t, {t: T}, markup(Nodes, State))
 case (TT=list, _, Items), State:
   R = for (T=list_item, _, LINodes) in Items:
     (li, {t: T}, markup(LINodes, State))
@@ -342,8 +343,8 @@ case (T=file, _, Text), State:
   p({t: T}, State, Text)
 end
 
-fn title case Attrs, {level=Level}, Text:
-  (title, Attrs # {level: Level}, Text)
+fn title case Attrs, State={level=Level}, Nodes:
+  (title, Attrs # {level: Level}, markup(Nodes, State))
 end
 
 fn p case Attrs, _, Text:

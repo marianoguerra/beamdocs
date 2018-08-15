@@ -1,0 +1,151 @@
+
+fn transform @public case Nodes:
+  for Node in beamdocs_data.transform(Nodes):
+    to_md(Node)
+  end
+end
+
+fn has_tuple
+case []:
+  false
+case H :: _ when is_tuple(H):
+  true
+case _ :: T:
+  has_tuple(T)
+end
+
+fn to_md
+case (title, {level=Level}, Text):
+  ['\n\n', lists.duplicate(Level, (#c "#")), ' ', clean_title_text(Text), '\n\n']
+
+case (section, _, Items) when is_list(Items):
+  for Item in Items: to_md(Item) end
+case (section, _, Node):
+  to_md(Node)
+case Items when is_list(Items):
+  match has_tuple(lists.flatten(Items)):
+    case true:
+      for Item in lists.flatten(Items): to_md(Item) end
+    else:
+      Items
+  end
+
+case Other:
+  p_node(Other)
+end
+
+fn p_node
+case Other:
+  text_node(Other)
+end
+
+fn text_node
+case (list, _, Items):
+  ['\n\n',
+  (for Item in Items:
+    match Item:
+    case li, _, Content:
+      ['* ', inline_text(Content), '\n']
+    case Other:
+      ['* ', inline_text(Other), '\n']
+    end
+  end),
+  '\n\n']
+case (li, _, Content):
+  io.format("WARNING: Raw List Item: ~p~n", [Content])
+  ['\n* ', inline_text(Content), '\n']
+
+case Text when is_binary(Text):
+  Text
+case (br, _):
+  '\n\n'
+
+case (t, {t=pre}, Text):
+  ['\n\n```\n', text_nodes(Text), '\n```\n\n']
+case (t, {t=code}, Text):
+  ['\n\n```\n', text_nodes(Text), '\n```\n\n']
+case (t, {t=em}, Text):
+  ['*', stripped_inline_text(Text), '*']
+case (t, _, Nodes):
+  inline_text(Nodes)
+
+case (p, _, Nodes):
+  [strip(text_nodes(Nodes)), '\n\n']
+case (link, {t=url, href=Link}, Text):
+  ['[', Text, '](', Link, ')']
+case (link, {mod=Link}, Text):
+  ['[', Text, '](', Link, ')']
+case (link, {app=App, page=Page, id=Id}, Text):
+  Link = ['../', App, '/', Page, '#', Id]
+  ['[', Text, '](', Link, ')']
+case (link, {page=Page, id=Id}, Text):
+  Link = ['./', Page, '#', Id]
+  ['[', Text, '](', Link, ')']
+case (link, {page=Page}, Text):
+  Link = ['./', Page]
+  ['[', Text, '](', Link, ')']
+case (link, {anchor=Anchor}, Text):
+  Link = ['#', Anchor]
+  ['[', Text, '](', Link, ')']
+
+case (img, {path=Path, caption=Caption}):
+  ['[', Caption, '](', Path, ')']
+
+case (strong, _, Text):
+  ['**', stripped_inline_text(Text), '**']
+case (marker, _, Id):
+  ['<a name="', Id, '"></a>']
+case Items when is_list(Items):
+  Items
+case (ignore, {t=releasenotes}):
+  ''
+case (ignore, {t=preamble}):
+  ''
+case (ignore, {t=header}):
+  ''
+case (ignore, {t=T}):
+  io.format("ignoring: ~p~n", [T])
+  ''
+case (table, _, _):
+  io.format("ignoring table~n")
+  ''
+case Other:
+  io.format("text_node ignoring: ~p~n", [Other])
+  ''
+
+end
+
+fn text_nodes
+case Items when is_list(Items):
+  for Item in Items: text_node(Item) end
+case Item:
+  text_node(Item)
+end
+
+fn stripped_inline_text case Nodes:
+  #_ "in case it's a binary with surrounding spaces"
+  clean_title_text(inline_text(Nodes))
+end
+
+fn inline_text
+case Text when is_binary(Text):
+  Text
+case (t, _, Nodes):
+  inline_text(Nodes)
+case Items:
+  clean_title_text(text_nodes(Items))
+end
+
+fn clean_title_text case Text:
+  strip(nl_to_space(text_nodes(Text)))
+end
+
+fn strip case IOList: strip(IOList, binary) end
+fn strip case IOList, RetType:
+  re.replace(IOList, "(^(\n|\\s)+|(\n|\\s)+$)", "",
+    [global, unicode, (return, RetType)])
+end
+
+fn nl_to_space case IOList:
+  re.replace(IOList, "(\n|\\s)+", "  ", [global, unicode, (return, binary)])
+end
