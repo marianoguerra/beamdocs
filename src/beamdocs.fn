@@ -4,6 +4,17 @@ fn main @public
   case ["to-json", BasePath, OutDir]:
     to_json(filename.absname(BasePath), OutDir)
   case ["docs-to-rst", BasePath, OutDir]:
+    docs_to_x(filename.absname(BasePath), OutDir, beamdocs_rst, ".rst", fn file.write_file:2)
+  case ["docs-to-data", BasePath, OutDir]:
+    docs_to_x(filename.absname(BasePath), OutDir, beamdocs_data, ".erldata", fn write_data:2)
+  case ["to-index", BasePath, OutPath, RepoBaseUrl, Commit]:
+    to_index(filename.absname(BasePath), OutPath, RepoBaseUrl, Commit)
+  case _Args:
+    io.format("Usage: beamdocs to-json BaseSrcPath OutDir~n")
+    erlang.halt(0)
+end
+
+fn docs_to_x @public case BasePath, OutPath, Mod, Extension, WriteFn:
     DocgenDir = code.priv_dir(erl_docgen)
     DtdPaths = [
       filename.join([BasePath, "lib", "erl_docgen", "priv", "dtd"]),
@@ -12,23 +23,15 @@ fn main @public
       filename.join(DocgenDir, "dtd_html_entities"),
     ]
     io.format("dtd paths: ~p", [DtdPaths])
-    docs_to_rst(filename.absname(BasePath), DtdPaths, OutDir)
-  case ["to-index", BasePath, OutPath, RepoBaseUrl, Commit]:
-    to_index(filename.absname(BasePath), OutPath, RepoBaseUrl, Commit)
-  case _Args:
-    io.format("Usage: beamdocs to-json BaseSrcPath OutDir~n")
-    erlang.halt(0)
-end
-
-fn docs_to_rst @public case BasePath, DtdPaths, OutPath:
-  AccIn = {base_path: BasePath, out_path: OutPath, dtd_paths: DtdPaths}
-  Fn = fn doc_to_rst:2
-  io.format("docs-to-json ~p~n", [BasePath])
+  AccIn = {base_path: BasePath, out_path: OutPath, dtd_paths: DtdPaths, mod: Mod, ext: Extension, write_fn: WriteFn}
+  Fn = fn doc_to_x:2
+  io.format("docs-to ~p ~p~n", [Extension, BasePath])
   filelib.fold_files(BasePath, ".*\\.xml$", true, Fn, AccIn)
 end
 
-fn doc_to_rst @public
-case FilePath, AccIn={base_path=BasePath, dtd_paths=DtdPaths, out_path=OutPath}:
+fn doc_to_x @public
+case FilePath, AccIn={base_path=BasePath, dtd_paths=DtdPaths, out_path=OutPath,
+                      mod=Mod, ext=Extension, write_fn=WriteFn}:
   BaseLen = length(BasePath)
   ShortPath = string.substr(FilePath, BaseLen + 2)
   match extract_doc_path_parts(ShortPath):
@@ -46,8 +49,8 @@ case FilePath, AccIn={base_path=BasePath, dtd_paths=DtdPaths, out_path=OutPath}:
           AccIn
         else:
           Info = beamdocs_xml.parse(ParsResult, {path: FilePath, dtd_paths: DtdPaths})
-          Text = beamdocs_rst.to_rst(Info)
-          write_to_file(Text, OutPath, Lib, BaseName ++ ".rst")
+          Text = Mod.transform(Info)
+          write_to_file(Text, OutPath, Lib, BaseName ++ Extension, WriteFn)
       end
     case bad, _:
       io.format("ignoring ~p~n", [ShortPath])
@@ -72,10 +75,14 @@ fn extract_doc_path_parts case Path:
   end
 end
 
-fn write_to_file case Data, OutDir, Lib, FileName:
+fn write_data case Path, Data:
+  file.write_file(Path, io_lib.format("~p~n", [Data]))
+end
+
+fn write_to_file case Data, OutDir, Lib, FileName, WriteFn:
   FileOutPath = filename.join([OutDir, Lib, FileName])
   filelib.ensure_dir(FileOutPath)
-  match file.write_file(FileOutPath, Data):
+  match WriteFn(FileOutPath, Data):
     case error, Reason:
       io.format("ERROR ~p:~n~p~n~n", [Reason, Data])
     else: ok
