@@ -18,8 +18,17 @@ or::
 Translate OTP XML docs to restructured text (experimental), first you need to build the docs, so it generates the dynamic XML files (follow instructions here http://marianoguerra.org/posts/improving-official-erlang-documentation/), then::
 
     CODE_PATH=$HOME/src/erl/otp/
-    mkdir -p rst-docs
+
     ./_build/default/bin/beamdocs docs-to-rst $CODE_PATH rst-docs > result.txt
+
+    ./_build/default/bin/beamdocs docs-to-md $CODE_PATH md-docs > result.txt
+
+    ./_build/default/bin/beamdocs doc-to-md $CODE_PATH $CODE_PATH/erts/doc/xml/book.xml md-docs > result.txt
+
+    ./_build/default/bin/beamdocs docs-to-data $CODE_PATH data-docs > result.txt
+
+    ./_build/default/bin/beamdocs doc-to-data $CODE_PATH $CODE_PATH/erts/doc/xml/book.xml data-docs > result.txt
+    ./_build/default/bin/beamdocs doc-to-data $CODE_PATH $CODE_PATH/erts/doc/xml/match_spec.xml data-docs > result.txt
 
     # remove heavy files to speed up sphinx build
     rm -rf rst-docs/*/part.rst rst-docs/*/specs.rst rst-docs/wx/

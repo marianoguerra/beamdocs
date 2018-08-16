@@ -9,6 +9,19 @@ fn main @public
     docs_to_x(filename.absname(BasePath), OutDir, beamdocs_md, ".md", fn file.write_file:2)
   case ["docs-to-data", BasePath, OutDir]:
     docs_to_x(filename.absname(BasePath), OutDir, beamdocs_data, ".erldata", fn write_data:2)
+
+  case ["doc-to-rst", BasePath, FilePath, OutDir]:
+    AbsFileName= filename.absname(FilePath)
+    doc_to_x(filename.absname(BasePath), AbsFileName, OutDir, beamdocs_rst,
+      ".rst", fn file.write_file:2)
+  case ["doc-to-md", BasePath, FilePath, OutDir]:
+    AbsFileName= filename.absname(FilePath)
+    doc_to_x(filename.absname(BasePath), AbsFileName, OutDir, beamdocs_md,
+      ".md", fn file.write_file:2)
+  case ["doc-to-data", BasePath, FilePath, OutDir]:
+    AbsFileName= filename.absname(FilePath)
+    doc_to_x(filename.absname(BasePath), AbsFileName, OutDir, beamdocs_data,
+      ".erldata", fn write_data:2)
   case ["to-index", BasePath, OutPath, RepoBaseUrl, Commit]:
     to_index(filename.absname(BasePath), OutPath, RepoBaseUrl, Commit)
   case _Args:
@@ -16,19 +29,37 @@ fn main @public
     erlang.halt(0)
 end
 
+fn dtd_paths case BasePath:
+  DocgenDir = code.priv_dir(erl_docgen)
+  DtdPaths = [
+    filename.join([BasePath, "lib", "erl_docgen", "priv", "dtd"]),
+    filename.join([BasePath, "lib", "erl_docgen", "priv", "dtd_html_entities"]),
+    filename.join(DocgenDir, "dtd"),
+    filename.join(DocgenDir, "dtd_html_entities"),
+  ]
+  DtdPaths
+end
+
+fn fold_file_base_state case BasePath, OutPath, Mod, Extension, WriteFn, DtdPaths:
+  {base_path: BasePath, out_path: OutPath, dtd_paths: DtdPaths, mod: Mod,
+   ext: Extension, write_fn: WriteFn}
+end
+
 fn docs_to_x @public case BasePath, OutPath, Mod, Extension, WriteFn:
-    DocgenDir = code.priv_dir(erl_docgen)
-    DtdPaths = [
-      filename.join([BasePath, "lib", "erl_docgen", "priv", "dtd"]),
-      filename.join([BasePath, "lib", "erl_docgen", "priv", "dtd_html_entities"]),
-      filename.join(DocgenDir, "dtd"),
-      filename.join(DocgenDir, "dtd_html_entities"),
-    ]
-    io.format("dtd paths: ~p", [DtdPaths])
-  AccIn = {base_path: BasePath, out_path: OutPath, dtd_paths: DtdPaths, mod: Mod, ext: Extension, write_fn: WriteFn}
+  DtdPaths = dtd_paths(BasePath)
+  io.format("dtd paths: ~p", [DtdPaths])
+  AccIn = fold_file_base_state(BasePath, OutPath, Mod, Extension, WriteFn, DtdPaths)
   Fn = fn doc_to_x:2
   io.format("docs-to ~p ~p~n", [Extension, BasePath])
   filelib.fold_files(BasePath, ".*\\.xml$", true, Fn, AccIn)
+end
+
+fn doc_to_x @public case BasePath, FilePath, OutPath, Mod, Extension, WriteFn:
+  DtdPaths = dtd_paths(BasePath)
+  io.format("dtd paths: ~p", [DtdPaths])
+  AccIn = fold_file_base_state(BasePath, OutPath, Mod, Extension, WriteFn, DtdPaths)
+  io.format("docs-to ~p ~p~n", [Extension, BasePath])
+  doc_to_x(FilePath, AccIn)
 end
 
 fn doc_to_x @public
@@ -88,6 +119,13 @@ fn write_to_file case Data, OutDir, Lib, FileName, WriteFn:
     case error, Reason:
       io.format("ERROR ~p:~n~p~n~n", [Reason, Data])
     else: ok
+  end
+end
+
+fn remove_binaries case Items:
+  lists.filter(lists.flatten(Items)) <<-
+  case Item when is_binary(Item): false
+  else: true
   end
 end
 

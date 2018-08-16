@@ -23,9 +23,10 @@ case (section, _, Items) when is_list(Items):
 case (section, _, Node):
   to_md(Node)
 case Items when is_list(Items):
-  match has_tuple(lists.flatten(Items)):
+  FlatItems = lists.flatten(Items)
+  match has_tuple(FlatItems):
     case true:
-      for Item in lists.flatten(Items): to_md(Item) end
+      for Item in FlatItems: to_md(Item) end
     else:
       Items
   end
@@ -39,60 +40,106 @@ case Other:
   text_node(Other)
 end
 
-fn text_node
-case (list, _, Items):
+fn escape_chars case Text:
+  Text
+    -> xmerl_lib.export_text()
+    -> re.replace("(\\*|`|\\|)", "\\\\&", [global, unicode, (return, binary)])
+end
+
+fn taglist case Items:
+  ['\n<dl>\n',
+  (for Item in Items:
+    match Item:
+      case t, {t=tag}, Nodes:
+        RNodes = stripped_remove_format(Nodes)
+        ['<dt>', RNodes, '</dt>\n']
+      case t, {t=tagitem}, Nodes:
+        ['<dd>', to_light_html(Nodes), '</dd>\n']
+      case Other:
+        io.format("ignoring node in taglist: ~p~n", [Other])
+        ''
+      end
+  end),
+  '\n</dl>\n']
+end
+
+fn html_list case Items:
   ['\n\n',
   (for Item in Items:
     match Item:
     case li, _, Content:
-      ['* ', inline_text(Content), '\n']
+      ['<li>', to_light_html(Content), '</li>\n']
+    case _, _, []: ''
+    case _, _, '': ''
     case Other:
-      ['* ', inline_text(Other), '\n']
+      ['<li>', to_light_html(Other), '</li>\n']
     end
   end),
   '\n\n']
+end
+
+fn md_list case Items:
+  ['\n\n',
+  (for Item in Items:
+    match Item:
+    case li, _, Content:
+      ['* ', text_nodes(Content), '\n']
+    case _, _, []: ''
+    case _, _, '': ''
+    case Other:
+      ['* ', text_nodes(Other), '\n']
+    end
+  end),
+  '\n\n']
+end
+
+fn text_node
+case (list, {t=taglist}, Items):
+  taglist(Items)
+case (list, _, Items):
+  md_list(Items)
 case (li, _, Content):
   io.format("WARNING: Raw List Item: ~p~n", [Content])
-  ['\n* ', inline_text(Content), '\n']
+  ['\n* ', text_nodes(Content), '\n']
 
 case Text when is_binary(Text):
-  Text
+  escape_chars(Text)
 case (br, _):
   '\n\n'
 
 case (t, {t=pre}, Text):
   ['\n\n```\n', text_nodes(Text), '\n```\n\n']
-case (t, {t=code}, Text):
-  ['\n\n```\n', text_nodes(Text), '\n```\n\n']
+case (t, Attrs={t=code}, Text):
+  Lang = match maps.get(type, Attrs, 'none'):
+    case 'none': ''
+    case V: V
+  end
+
+  ['\n\n```', Lang, '\n', text_nodes(Text), '\n```\n\n']
 case (t, {t=em}, Text):
-  ['*', stripped_inline_text(Text), '*']
+  ['_', stripped_text_nodes(Text), '_']
 case (t, _, Nodes):
-  inline_text(Nodes)
+  text_nodes(Nodes)
 
 case (p, _, Nodes):
   [strip(text_nodes(Nodes)), '\n\n']
-case (link, {t=url, href=Link}, Text):
-  ['[', Text, '](', Link, ')']
-case (link, {mod=Link}, Text):
-  ['[', Text, '](', Link, ')']
-case (link, {app=App, page=Page, id=Id}, Text):
-  Link = ['../', App, '/', Page, '#', Id]
-  ['[', Text, '](', Link, ')']
-case (link, {page=Page, id=Id}, Text):
-  Link = ['./', Page, '#', Id]
-  ['[', Text, '](', Link, ')']
-case (link, {page=Page}, Text):
-  Link = ['./', Page]
-  ['[', Text, '](', Link, ')']
-case (link, {anchor=Anchor}, Text):
-  Link = ['#', Anchor]
+
+case (dd, _, (Term, Desc)):
+  ['\n<dl><dt>', stripped_text_nodes(Term), '</dt><dd>',
+   text_nodes(Desc), '</dd></dl>\n']
+case (table, {caption=Caption}, Rows):
+  ['\n<table><caption>', Caption, '</caption><tbody>',
+    table_rows(Rows), '</tbody></table>\n']
+
+case Node=(link, _, _):
+  (Text, Link) = link_info(Node)
   ['[', Text, '](', Link, ')']
 
 case (img, {path=Path, caption=Caption}):
   ['[', Caption, '](', Path, ')']
 
 case (strong, _, Text):
-  ['**', stripped_inline_text(Text), '**']
+  ['**', stripped_text_nodes(Text), '**']
 case (marker, _, Id):
   ['<a name="', Id, '"></a>']
 case Items when is_list(Items):
@@ -115,6 +162,46 @@ case Other:
 
 end
 
+fn link_info
+case (link, {t=url, href=Link}, Text):
+  (Text, Link)
+case (link, {mod=Link}, Text):
+  (Text, Link)
+case (link, {app=App, page=Page, id=Id}, Text):
+  Link = ['../', App, '/', Page, '#', Id]
+  (Text, Link)
+case (link, {page=Page, id=Id}, Text):
+  Link = ['./', Page, '#', Id]
+  (Text, Link)
+case (link, {page=Page}, Text):
+  Link = ['./', Page]
+  (Text, Link)
+case (link, {anchor=Anchor}, Text):
+  Link = ['#', Anchor]
+  (Text, Link)
+end
+
+fn table_rows case Rows:
+  for Row in Rows: table_row(Row) end
+end
+
+fn table_row case Row:
+  ['<tr>', table_cells(Row), '</tr>\n']
+end
+
+fn table_cells case Cells:
+  for Cell in Cells:
+    ['<td>', to_light_html(flatten(Cell)), '</td>']
+  end
+end
+
+fn flatten
+case Items when is_list(Items):
+  lists.flatten(Items)
+case Other:
+  Other
+end
+
 fn text_nodes
 case Items when is_list(Items):
   for Item in Items: text_node(Item) end
@@ -122,18 +209,45 @@ case Item:
   text_node(Item)
 end
 
-fn stripped_inline_text case Nodes:
+fn stripped_text_nodes case Nodes:
   #_ "in case it's a binary with surrounding spaces"
-  clean_title_text(inline_text(Nodes))
+  clean_title_text(text_nodes(Nodes))
 end
 
-fn inline_text
+fn stripped_remove_format case Nodes:
+  #_ "in case it's a binary with surrounding spaces"
+  strip(nl_to_space(to_light_html(Nodes)))
+end
+
+fn to_light_html
 case Text when is_binary(Text):
-  Text
+  escape_chars(Text)
 case (t, _, Nodes):
-  inline_text(Nodes)
+  to_light_html(Nodes)
+case (p, _, Nodes):
+  to_light_html(Nodes)
+case (strong, _, Nodes):
+  to_light_html(Nodes)
+case (ignore, _, _):
+  ''
+case (list, {t=taglist}, Items):
+  taglist(Items)
+case (list, _, Items):
+  html_list(Items)
+case Node=(link, _, _):
+  (Text, Link) = link_info(Node)
+  ['<a href="', Link, '">', escape_chars(Text), '</a>']
+case (marker, _, Id):
+  ['<a name="', Id, '"></a>']
+case (br, _):
+  '\n\n'
 case Items:
-  clean_title_text(text_nodes(Items))
+  match has_tuple(Items):
+  case true:
+    for Item in Items: to_light_html(Item) end
+  else:
+    Items
+  end
 end
 
 fn clean_title_text case Text:
