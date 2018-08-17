@@ -28,6 +28,18 @@ fn top_level_title case Items:
   for (Item=(title, _, _)) in Items: Item end
 end
 
+fn table @public case (table, Attrs, Rows):
+  Caption = maps.get(caption, Attrs, '')
+  TBody =
+  for (row, Row) in Rows:
+    Tr = for (cell, Cell) in Row: wrap('td', to_html(Cell)) end
+    wrap('tr', Tr)
+  end
+  wrap('table', 'class="table table-bordered table-hover table-striped"',
+  [wrap_non_empty('caption', Caption), wrap('tbody', TBody)])
+end
+
+
 fn to_html
 case (section, {t=T}, Nodes)
 when T is warning or T is `do` or T is dont or T is note:
@@ -65,15 +77,8 @@ case Node=(list, _, _):
   list(Node)
 case Node=(dl, _, _):
   dl(Node)
-case (table, Attrs, Rows):
-  Caption = maps.get(caption, Attrs, '')
-  TBody =
-  for (row, Row) in Rows:
-    Tr = for (cell, Cell) in Row: wrap('td', to_html(Cell)) end
-    wrap('tr', Tr)
-  end
-  wrap('table', 'class="table table-bordered table-hover table-striped"',
-  [wrap_non_empty('caption', Caption), wrap('tbody', TBody)])
+case Node=(table, _, _):
+  table(Node)
 case (ignore, _, _):
   ''
 case Items when is_list(Items):
@@ -151,23 +156,23 @@ case _, Nodes:
   title(6, Nodes)
 end
 
-fn wrap_non_empty
+fn wrap_non_empty @public
 case _Tag, '': ''
 case Tag, Content:
   wrap(Tag, Content)
 end
 
-fn wrap_non_empty
+fn wrap_non_empty @public
 case _Tag, _, '': ''
 case Tag, Attrs, Content:
   wrap(Tag, Attrs, Content)
 end
 
-fn wrap case Tag, Content:
+fn wrap @public case Tag, Content:
   bs(['<', Tag, '>', Content, '</', Tag, '>'])
 end
 
-fn wrap case Tag, Attrs, Content:
+fn wrap @public case Tag, Attrs, Content:
   bs(['<', Tag, ' ', Attrs, '>', Content, '</', Tag, '>'])
 end
 
