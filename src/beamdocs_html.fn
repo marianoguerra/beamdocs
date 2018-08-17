@@ -1,0 +1,218 @@
+
+fn transform @public case Nodes:
+    ['<!doctype html>\n<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous"></head><body style="margin: 4em 10%">',
+  (for Node in beamdocs_aft.transform(Nodes): to_html(Node) end),
+  '</body></html>']
+end
+
+fn dl case (dl, _, Items):
+  wrap('dl', (for (dd, _, (Name, Desc)) in Items:
+    [wrap('dt', inline(Name)), wrap('dd', to_html(Desc))]
+    end))
+end
+
+fn list case (list, _, Items):
+  wrap('ul', (for (li, _, Item) in Items: wrap_non_empty('li', to_html(Item)) end))
+end
+
+fn pre case (pre, _, Nodes):
+  wrap_non_empty('pre', plain_text(Nodes))
+end
+
+fn code case (code, {lang=Lang}, Nodes):
+  wrap_non_empty('pre',
+    wrap_non_empty('code', ['class="', Lang, '"'], plain_text(Nodes)))
+end
+
+fn top_level_title case Items:
+  for (Item=(title, _, _)) in Items: Item end
+end
+
+fn to_html
+case (section, {t=T}, Nodes)
+when T is warning or T is `do` or T is dont or T is note:
+  (AlertType, Title) =
+  match T:
+    case warning: ('warning', 'Warning')
+    case `do`: ('success', 'Do')
+    case dont: ('danger', 'Don\'t')
+    case note: ('info', 'Note')
+  end
+
+  wrap('div', ['class="alert alert-', AlertType, '"'],
+    [wrap('h4', 'class="alert-heading"', Title), to_html(Nodes)])
+ 
+case (section, {t=header}, Items):
+  match top_level_title(Items):
+    case [Title]:
+      to_html(Title)
+    case []:
+      ''
+  end
+
+case (section, _, Nodes):
+  for Node in Nodes: to_html(Node) end
+case (p, _, Nodes):
+  Content = p_childs(Nodes)
+  wrap_non_empty('p', Content)
+case Node=(pre, _, _):
+  pre(Node)
+case Node=(code, _, _):
+  code(Node)
+case (title, {level=Level}, Nodes):
+  title(Level, Nodes)
+case Node=(list, _, _):
+  list(Node)
+case Node=(dl, _, _):
+  dl(Node)
+case (table, Attrs, Rows):
+  Caption = maps.get(caption, Attrs, '')
+  TBody =
+  for (row, Row) in Rows:
+    Tr = for (cell, Cell) in Row: wrap('td', to_html(Cell)) end
+    wrap('tr', Tr)
+  end
+  wrap('table', 'class="table table-bordered table-hover table-striped"',
+  [wrap_non_empty('caption', Caption), wrap('tbody', TBody)])
+case (ignore, _, _):
+  ''
+case Items when is_list(Items):
+  for Item in Items: to_html(Item) end
+case Other:
+  inline(Other)
+end
+
+fn inline
+case (br, _):
+  '<br/>'
+case (img, {ref=Ref}, Title):
+  wrap('img', ['src="', Ref, '" title="', Title, '"'], '')
+
+case (p, _, Nodes):
+  inline(Nodes)
+case (marker, {ref=Id}, _):
+  wrap('a', ['name="', Id, '"'], '')
+case (link, {ref=Ref}, Nodes):
+  wrap_non_empty('a', ['href="', Ref, '"'], plain_text(Nodes))
+case (em, _, Nodes):
+  Content = em_childs(Nodes)
+  wrap('em', Content)
+case (strong, _, Nodes):
+  Content = filter_childs(Nodes, fn strong_child:1)
+  wrap('strong', Content)
+case Text when is_binary(Text):
+  escape_chars(Text)
+case List when is_list(List):
+  match io_lib.deep_char_list(List):
+    case true:
+      bs(List)
+    else:
+      for Item in List: inline(Item) end
+  end
+case (ignore, _, _):
+  ''
+case (span, {t=T}, Nodes):
+  wrap_non_empty('span', ['class="', atom_to_list(T), '"'], plain_text(Nodes))
+case Other:
+  io.format("inline: ~p~n~n", [Other])
+  plain_text(Other)
+end
+
+fn plain_text
+case (p, _, Nodes):
+  plain_text(Nodes)
+case (em, _, Nodes):
+  plain_text(Nodes)
+case (strong, _, Nodes):
+  plain_text(Nodes)
+case (span, {t=T}, Nodes):
+  wrap_non_empty('span', ['class="', atom_to_list(T), '"'], plain_text(Nodes))
+case Text when is_binary(Text):
+  escape_chars(Text)
+case (ignore, _, _):
+  ''
+case List when is_list(List):
+  match io_lib.deep_char_list(List):
+    case true:
+      bs(List)
+    else:
+      for Item in List: plain_text(Item) end
+  end
+case Other:
+  io.format("plain_text: ~p~n~n", [Other])
+  ''
+end
+
+fn title
+case Level, Nodes when Level > 0 and Level <= 6:
+  LevelChar = ((#c "0") + Level)
+  wrap_non_empty(['h', LevelChar], plain_text(Nodes))
+case _, Nodes:
+  title(6, Nodes)
+end
+
+fn wrap_non_empty
+case _Tag, '': ''
+case Tag, Content:
+  wrap(Tag, Content)
+end
+
+fn wrap_non_empty
+case _Tag, _, '': ''
+case Tag, Attrs, Content:
+  wrap(Tag, Attrs, Content)
+end
+
+fn wrap case Tag, Content:
+  bs(['<', Tag, '>', Content, '</', Tag, '>'])
+end
+
+fn wrap case Tag, Attrs, Content:
+  bs(['<', Tag, ' ', Attrs, '>', Content, '</', Tag, '>'])
+end
+
+fn filter_childs
+case Nodes, Fn when is_list(Nodes):
+  RItems =
+  lists.foldl([], Nodes) <<- case Node, AccumIn:
+    match Fn(Node):
+      case ignore: AccumIn
+      case ok, Res: Res :: AccumIn
+    end
+  end
+
+  bs(lists.reverse(RItems))
+case Node, Fn:
+  filter_childs([Node], Fn)
+end
+
+fn em_childs case Nodes:
+  filter_childs(Nodes, fn em_child:1)
+end
+
+fn p_childs case Nodes:
+  filter_childs(Nodes, fn p_child:1)
+end
+
+fn em_child case Nodes: (ok, plain_text(Nodes)) end
+fn strong_child case Nodes: (ok, plain_text(Nodes)) end
+fn p_child
+  case Node=(dl, _, _):
+    (ok, dl(Node))
+  case Node=(list, _, _):
+    (ok, list(Node))
+  case Node=(pre, _, _):
+    (ok, pre(Node))
+  case Node=(code, _, _):
+    (ok, code(Node))
+  case List when is_list(List):
+    (ok, p_childs(List))
+  case Nodes:
+    (ok, inline(Nodes))
+end
+
+fn bs case V: unicode.characters_to_binary(V) end
+
+fn escape_chars case Text:
+  xmerl_lib.export_text(bs(Text))
+end

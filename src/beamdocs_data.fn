@@ -24,9 +24,9 @@ end
 fn root_nodes
 case (T=book, _, Nodes), State:
   (section, {t: T}, child_nodes(Nodes, State, fn book_nodes:2))
-case V=(T=header, _, _Nodes), _State:
-  #_ child_nodes(Nodes, State, fn header_nodes:2)
-  (ignore, {t: T, v: V})
+case (T=header, _, Nodes), State:
+  V = child_nodes(Nodes, State, fn header_nodes:2)
+  (section, {t: T}, V)
 case (T=module, _, Text), State:
   title({t: T}, State, Text)
 case (T=modulesummary, _, Nodes), State:
@@ -93,11 +93,11 @@ end
 
 fn datatype_nodes
 case (T=name, {name=Name}, ''), _State:
-  (li, {t: T}, Name)
+  (t, {t: T}, Name)
 case (T=name, {}, Name), _State:
-  (li, {t: T}, Name)
+  (t, {t: T}, Name)
 case (T=desc, _, Nodes), State:
-  (p, {t: T}, markup(Nodes, State))
+  section({t: T}, State, Nodes)
 end
 
 fn author
@@ -128,26 +128,26 @@ case (T=name, {}, [Name]), State when is_binary(Name):
 case (T=name, {}, Nodes), State:
   title({t: T, pt: func}, State, Nodes)
 case (T=fsummary, _, Nodes), State:
-  p({t: T, pt: func}, State, markup(Nodes, State))
+  section({t: T}, State, Nodes)
 case (T=type, {name=Name}, []), _State:
-  (li, {t: T, pt: func, a: name}, Name)
+  (t, {t: T, pt: func, a: name}, Name)
 case (T=type, {variable=Name}, []), _State:
-  (li, {t: T, pt: func, a: variable}, Name)
+  (t, {t: T, pt: func, a: variable}, Name)
 case (T=type, _, Nodes), State:
   (list, {t: T, pt: func, a: list}, child_nodes(Nodes, State, fn type:2))
 case (T=type_desc, {variable=Name}, Nodes), State:
   (dd, {t: T, pt: func}, (Name, markup(Nodes, State)))
 case (T=type_desc, _, Nodes), State:
-  (p, {t: T, pt: func}, markup(Nodes, State))
+  section({t: T}, State, Nodes)
 case (T=desc, _, Nodes), State:
-  (p, {t: T, pt: func}, markup(Nodes, State) )
+  section({t: T}, State, Nodes)
 end
 
 fn type
 case (T=v, _, Nodes), State:
-  p({t: T, pt: type}, State, markup(Nodes, State))
+  t({t: T, pt: type}, State, Nodes)
 case (T=d, _, Nodes), State:
-  p({t: T, pt: type}, State, markup(Nodes, State))
+  t({t: T, pt: type}, State, Nodes)
 end
 
 fn section_nodes
@@ -192,13 +192,13 @@ case (T=seealso, {marker=(mod, Id)}, Text0), _State:
   Text = marker_text(Text0, Id)
   (link, {t: T, mod: Id}, Text)
 case (T=seealso, {marker=(mod_anchor, (Page, Id))}, Text0), _State:
-  Text = marker_text(Text0, [Page, '#', Id])
+  Text = marker_text(Text0, bs([Page, '#', Id]))
   (link, {t: T, page: Page, id: Id}, Text)
 case (T=seealso, {marker=(app_anchor, (App, Page, Id))}, Text0), _State:
-  Text = marker_text(Text0, [App, '/', Page, '#', Id])
+  Text = marker_text(Text0, bs([App, '/', Page, '#', Id]))
   (link, {t: T, app: App, page: Page, id: Id}, Text)
 case (T=seealso, {marker=(app_mod, (App, Page))}, Text0), _State:
-  Text = marker_text(Text0, [App, '/', Page])
+  Text = marker_text(Text0, bs([App, '/', Page]))
   (link, {t: T, app: App, page: Page}, Text)
 case (T=seealso, {marker=(anchor, Id)}, Text0), _State:
   Text = marker_text(Text0, Id)
@@ -225,7 +225,7 @@ case (T=input, _, Text), _State:
 case (T=pre, _, Nodes), State:
   (t, {t: T}, pre_markup(Nodes, State))
 case (T=quote, _, Nodes), State:
-  p({t: T}, State, markup(Nodes, State))
+  section({t: T}, State, Nodes)
 case Node=(url, _, _), State:
   url_node(Node, State)
 case (T=code, Attrs, Nodes), State:
@@ -277,32 +277,32 @@ case (T=marker, {id=Id}, _), _State:
 case Node=(seealso, _, _), State:
   seealso_node(Node, State)
 case (T=warning, _, Nodes), State:
-  p({t: T}, State, markup(Nodes, State))
+  section({t: T}, State, Nodes)
 case (T=`do`, _, Nodes), State:
-  p({t: T}, State, markup(Nodes, State))
+  section({t: T}, State, Nodes)
 case (T=dont, _, Nodes), State:
-  p({t: T}, State, markup(Nodes, State))
+  section({t: T}, State, Nodes)
 case (T=note, _, Nodes), State:
-  p({t: T}, State, markup(Nodes, State))
+  section({t: T}, State, Nodes)
 
 case V=(T=error, {type=include_error, source=_Source, target=_Target}, _), _State:
   (ignore, {t: T, v: V})
 case V, _State:
-  (ignore, {t: unknown, v: V})
+  (ignore, {t: unknown, v: V, st: markup_node})
 end
 
 fn book_nodes
 case (T=header, _, Nodes), State:
   V = child_nodes(Nodes, State, fn header_nodes:2)
-  (ignore, {t: T, v: V})
+  (section, {t: T}, V)
 case (insidecover, _, Nodes), State:
   child_nodes(Nodes, State, fn root_nodes:2)
 case V=(T=preamble, _, _Nodes), _State:
   (ignore, {t: T, v: V})
 case (T=pagetext, _, Nodes), State:
   title({t: T}, State, Nodes)
-case (parts, _, Nodes), State:
-  child_nodes(Nodes, State, fn root_nodes:2)
+case (T=parts, _, Nodes), State:
+  (section, {t: T}, child_nodes(Nodes, State, fn root_nodes:2))
 case (applications, _, Nodes), State:
   child_nodes(Nodes, State, fn root_nodes:2)
 case V=(T=releasenotes, _, _Nodes), _State:
@@ -312,7 +312,7 @@ case V=(T=index, _, []), _State:
 case V=(T=listofterms, _, []), _State:
   (ignore, {t: T, v: V})
 case V, _State:
-  (ignore, {t: unknown, v: V})
+  (ignore, {t: unknown, v: V, st: book})
 end
 
 fn header_nodes
@@ -321,28 +321,28 @@ case (T=copyright, _, Nodes), _State:
   THolders = lists.join(', ', Holders)
   Years = accum_text(year, Nodes)
   TYears = lists.join(' - ', Years)
-  (p, {t: T}, ['Copyright ', THolders, ' ', TYears])
+  (p, {t: T}, bs(['Copyright ', THolders, ' ', TYears]))
 case (T=legalnotice, _, Nodes), State:
   [title({t: T}, State, 'Legal Notice'),
    p({t: T}, State, markup(Nodes, State))]
 case (T=title, _, Text), State:
   title({t: T, pt: header}, State, Text)
 case (T=prepared, _, Text), State:
-  p({t: T}, State, Text)
+  t({t: T}, State, Text)
 case (T=responsible, _, Text), State:
-  p({t: T}, State, Text)
+  t({t: T}, State, Text)
 case (T=docno, _, Text), State:
-  p({t: T}, State, Text)
+  t({t: T}, State, Text)
 case (T=approved, _, Text), State:
-  p({t: T}, State, Text)
+  t({t: T}, State, Text)
 case (T=checked, _, Text), State:
-  p({t: T}, State, Text)
+  t({t: T}, State, Text)
 case (T=date, _, Text), State:
-  p({t: T}, State, Text)
+  t({t: T}, State, Text)
 case (T=rev, _, Text), State:
-  p({t: T}, State, Text)
+  t({t: T}, State, Text)
 case (T=file, _, Text), State:
-  p({t: T}, State, Text)
+  t({t: T}, State, Text)
 end
 
 fn title case Attrs, State={level=Level}, Nodes:
@@ -351,6 +351,14 @@ end
 
 fn p case Attrs, _, Text:
   (p, Attrs, Text)
+end
+
+fn t case Attrs, _, Text:
+  (t, Attrs, Text)
+end
+
+fn section case Attrs, State, Nodes:
+  (section, Attrs, markup(Nodes, State))
 end
 
 fn accum_text case Tag, Nodes:
@@ -404,3 +412,5 @@ case (cell, _, Nodes) :: T, Accum, State:
   Cell = markup(Nodes, State)
   row_cells(T, Cell :: Accum, State)
 end
+
+fn bs case V: unicode.characters_to_binary(V) end

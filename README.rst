@@ -19,23 +19,33 @@ Translate OTP XML docs to restructured text (experimental), first you need to bu
 
     CODE_PATH=$HOME/src/erl/otp/
 
-    ./_build/default/bin/beamdocs docs-to-rst $CODE_PATH rst-docs > result.txt
+    ./_build/default/bin/beamdocs docs-to-rst $CODE_PATH docs/rst/ > result.txt
 
-    ./_build/default/bin/beamdocs docs-to-md $CODE_PATH md-docs > result.txt
+    ./_build/default/bin/beamdocs docs-to-md $CODE_PATH docs/md/ > result.txt
 
-    ./_build/default/bin/beamdocs doc-to-md $CODE_PATH $CODE_PATH/erts/doc/xml/book.xml md-docs > result.txt
+    ./_build/default/bin/beamdocs doc-to-md $CODE_PATH $CODE_PATH/erts/doc/xml/book.xml docs/md/ > result.txt
 
-    ./_build/default/bin/beamdocs docs-to-data $CODE_PATH data-docs > result.txt
+    ./_build/default/bin/beamdocs docs-to-data $CODE_PATH docs/data/ > result.txt
 
-    ./_build/default/bin/beamdocs doc-to-data $CODE_PATH $CODE_PATH/erts/doc/xml/book.xml data-docs > result.txt
-    ./_build/default/bin/beamdocs doc-to-data $CODE_PATH $CODE_PATH/erts/doc/xml/match_spec.xml data-docs > result.txt
+
+    ./_build/default/bin/beamdocs doc-to-data $CODE_PATH $CODE_PATH/erts/doc/xml/book.xml docs/data/ > result.txt
+    ./_build/default/bin/beamdocs doc-to-data $CODE_PATH $CODE_PATH/erts/doc/xml/match_spec.xml docs/data/ > result.txt
+
+    ./_build/default/bin/beamdocs docs-to-aft $CODE_PATH docs/aft/ > result.txt
+
+    ./_build/default/bin/beamdocs doc-to-aft $CODE_PATH $CODE_PATH/erts/doc/xml/book.xml docs/aft/ > result.txt
+    ./_build/default/bin/beamdocs doc-to-aft $CODE_PATH $CODE_PATH/erts/doc/xml/match_spec.xml docs/aft/ > result.txt
+
+    ./_build/default/bin/beamdocs docs-to-html $CODE_PATH docs/html/ > result.txt
+
+    ./_build/default/bin/beamdocs doc-to-html $CODE_PATH $CODE_PATH/erts/doc/xml/book.xml docs/html/ > result.txt
 
     # remove heavy files to speed up sphinx build
-    rm -rf rst-docs/*/part.rst rst-docs/*/specs.rst rst-docs/wx/
+    rm -rf docs/rst/*/part.rst docs/rst/*/specs.rst docs/rst/wx/
 
     # Generate index
 
-    cd rst-docs
+    cd docs/rst/
     echo "Erlang OTP documentation" > index.rst
     echo "========================" >> index.rst
     echo "\n\n.. toctree::\n   :maxdepth: 1\n   :caption: User Guides:\n" >> index.rst

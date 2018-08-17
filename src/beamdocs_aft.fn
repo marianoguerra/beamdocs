@@ -1,0 +1,183 @@
+
+fn transform @public case Nodes:
+  for Node in beamdocs_data.transform(Nodes): to_aft(Node) end
+end
+
+fn has_tuple
+case []:
+  false
+case H :: _ when is_tuple(H):
+  true
+case _ :: T:
+  has_tuple(T)
+end
+
+fn to_aft
+case (title, {level=Level}, Nodes):
+  (title, {level: Level}, text_nodes(Nodes))
+
+case (section, Attrs, Items) when is_list(Items):
+  (section, Attrs, (for Item in Items: to_aft(Item) end))
+case (section, Attrs, Node):
+  (section, Attrs, [to_aft(Node)])
+case Items when is_list(Items):
+  FlatItems = lists.flatten(Items)
+  match has_tuple(FlatItems):
+    case true:
+      for Item in FlatItems: to_aft(Item) end
+    else:
+      Items
+  end
+
+case Other:
+  text_node(Other)
+end
+
+fn taglist case Items:
+  (RItems, _) =
+  lists.foldl(([], {next: tag, tag: nil}), Items) <<-
+  case (t, {t=tag}, Nodes), (ItemsIn, StateIn={next=tag}):
+    Tag = text_nodes(Nodes)
+    (ItemsIn, StateIn # {next=desc, tag=Tag})
+  case (t, {t=tag}, Nodes), (ItemsIn, StateIn={next=desc, tag=CurTag}):
+    io.format("mislaced tag in taglist, expecting desc: ~p~n", [Nodes])
+    NewTag = text_nodes(Nodes)
+    ((dd, nil, (CurTag, '')) :: ItemsIn, StateIn # {tag=NewTag})
+
+  case (t, {t=tagitem}, Nodes), (ItemsIn, StateIn={next=desc, tag=CurTag}):
+    NewDesc = text_nodes(Nodes)
+    ((dd, nil, (CurTag, NewDesc)) :: ItemsIn, StateIn # {next=tag, tag=nil})
+  case (t, {t=tagitem}, Nodes), (ItemsIn, StateIn={next=tag}):
+    io.format("mislaced tagitem in taglist, expecting tag: ~p~n", [Nodes])
+    NewDesc = text_nodes(Nodes)
+    ((dd, nil, ('', NewDesc)) :: ItemsIn, StateIn)
+
+  case Other, (ItemsIn, StateIn):
+    io.format("ignoring node in taglist: ~p~n", [Other])
+    (ItemsIn, StateIn)
+  end
+
+  (dl, nil, lists.reverse(RItems))
+end
+
+fn list_items case Items:
+  AllItems =
+  for Item in Items:
+    match Item:
+    case li, _, Content:
+      (li, nil, text_nodes(Content))
+    case _, _, []: nil
+    case _, _, '': nil
+    case Other:
+      (li, nil, text_nodes(Other))
+    end
+  end
+
+  for Item in AllItems; when Item isnt nil: Item end
+end
+
+fn text_node
+case (list, {t=taglist}, Items):
+  taglist(Items)
+case (list, _, Items):
+  (list, nil, list_items(Items))
+case Node=(li, _, _):
+  io.format("WARNING: Raw List Item: ~p~n", [Node])
+  (list, nil, [Node])
+
+case Text when is_binary(Text):
+  Text
+case (br, _):
+  (br, nil)
+
+case (t, _, ''):
+  (ignore, nil, empty_t)
+case (t, {t=(T=term), id=Id}, Text):
+  (span, {t: T, id: Id}, text_nodes(Text))
+case (t, {t=pre}, Text):
+  (pre, nil, text_nodes(Text))
+case (t, Attrs={t=code}, Text):
+  Lang = match maps.get(type, Attrs, 'none'):
+    case 'none': ''
+    case V: V
+  end
+
+  (code, {lang: Lang}, text_nodes(Text))
+case (t, {t=em}, Text):
+  (em, nil, text_nodes(Text))
+case (t, {t=T}, Text):
+  (span, {t: T}, text_nodes(Text))
+
+case (p, _, []):
+  (ignore, nil, empty_p)
+case (p, _, Nodes):
+  (p, nil, text_nodes(Nodes))
+
+case (dd, _, (Term, Desc)):
+  (dl, nil, [(dd, nil, (text_nodes(Term), text_nodes(Desc)))])
+
+case (table, {caption=Caption}, Rows):
+  (table, {caption: Caption}, table_rows(Rows))
+
+case Node=(link, _, _):
+  (Text, Link) = link_info(Node)
+  (link, {ref: Link}, Text)
+
+case (img, {path=Path, caption=Caption}):
+  (img, {ref: Path}, Caption)
+
+case (strong, _, Nodes):
+  (strong, nil, text_nodes(Nodes))
+
+case (marker, _, Id):
+  (marker, {ref: Id}, '')
+
+case []:
+  (ignore, nil, empty_list)
+case Items when is_list(Items):
+  Items
+
+case Other:
+  (ignore, {t: unk}, Other)
+
+end
+
+fn link_info
+case (link, {t=url, href=Link}, Text):
+  (Text, Link)
+case (link, {mod=Link}, Text):
+  (Text, Link)
+case (link, {app=App, page=Page, id=Id}, Text):
+  Link = bs(['../', App, '/', Page, '#', Id])
+  (Text, Link)
+case (link, {page=Page, id=Id}, Text):
+  Link = bs(['./', Page, '#', Id])
+  (Text, Link)
+case (link, {page=Page}, Text):
+  Link = bs(['./', Page])
+  (Text, Link)
+case (link, {anchor=Anchor}, Text):
+  Link = bs(['#', Anchor])
+  (Text, Link)
+end
+
+fn table_rows case Rows:
+  for Row in Rows: table_row(Row) end
+end
+
+fn table_row case Row:
+  (row, table_cells(Row))
+end
+
+fn table_cells case Cells:
+  for Cell in Cells: (cell, text_nodes(Cell)) end
+end
+
+fn text_nodes
+case Items when is_list(Items):
+  for Item in Items: text_node(Item) end
+case Item:
+  text_node(Item)
+end
+
+fn bs case V: unicode.characters_to_binary(V) end
