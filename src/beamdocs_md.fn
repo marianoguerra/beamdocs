@@ -12,9 +12,13 @@ fn dl case (dl, _, Items):
 end
 
 fn list case (list, _, Items):
+  mk_list(Items, '* ')
+end
+
+fn mk_list case Items, Bullet:
   bs(['\n',
   (for (li, _, Item) in Items:
-    ['* ', inline(Item), '\n']
+    [Bullet, inline(Item), '\n']
   end),
   '\n'])
 end
@@ -24,7 +28,7 @@ fn pre case (pre, _, Nodes):
 end
 
 fn code case (code, {lang=Lang}, Nodes):
-  bs(['\n```', Lang, '\n', plain_text(Nodes), '\n```\n'])
+  bs(['\n```', Lang, '\n', plain_text_no_escape(Nodes), '\n```\n'])
 end
 
 fn top_level_title case Items:
@@ -116,6 +120,9 @@ case (span, {t=T}, Nodes) when T is term or T is path or T is input:
   wrap_non_empty('`', plain_text(Nodes))
 case (span, _, Nodes):
   inline(Nodes)
+case (list, _, Items):
+  io.format("List in an inline element, assuming second level list: ~p~n", [Items])
+  mk_list(Items, '  + ')
 case Other:
   io.format("inline: ~p~n~n", [Other])
   plain_text(Other)
@@ -148,9 +155,36 @@ case Other:
   ''
 end
 
+fn plain_text_no_escape
+case (p, _, Nodes):
+  plain_text_no_escape(Nodes)
+case (em, _, Nodes):
+  plain_text_no_escape(Nodes)
+case (strong, _, Nodes):
+  plain_text_no_escape(Nodes)
+case (span, _, Nodes):
+  plain_text_no_escape(Nodes)
+case (link, {ref=Ref}, Nodes):
+  bs(['[', plain_text_no_escape(Nodes), '](', Ref, ')'])
+case Text when is_binary(Text):
+  Text
+case (ignore, _, _):
+  ''
+case List when is_list(List):
+  match io_lib.deep_char_list(List):
+    case true:
+      bs(List)
+    else:
+      for Item in List: plain_text_no_escape(Item) end
+  end
+case Other:
+  io.format("plain_text_no_escape: ~p~n~n", [Other])
+  ''
+end
+
 fn title
 case Level, Nodes when Level > 0 and Level <= 6:
-  bs([lists.duplicate(Level, '#'), ' ', plain_text(Nodes), '\n\n'])
+  bs(['\n', lists.duplicate(Level, '#'), ' ', plain_text(Nodes), '\n\n'])
 case _, Nodes:
   title(6, Nodes)
 end
@@ -209,7 +243,7 @@ fn bs case V: unicode.characters_to_binary(V) end
 
 fn escape_chars case Text:
   Text
-    -> re.replace("(\\*|`|\\|)", "\\\\&", [global, unicode, (return, binary)])
+    -> re.replace("(\\*|`)", "\\\\&", [global, unicode, (return, binary)])
     -> xmerl_lib.export_text()
 end
 
