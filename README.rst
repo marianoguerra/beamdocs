@@ -19,10 +19,15 @@ Translate OTP XML docs to restructured text (experimental), first you need to bu
 
     CODE_PATH=$HOME/src/erl/otp/
 
+    ./_build/default/bin/beamdocs copy-resources $CODE_PATH docs/rst/ > result.txt
+
     ./_build/default/bin/beamdocs docs-to-rst $CODE_PATH docs/rst/ > result.txt
 
     ./_build/default/bin/beamdocs docs-to-md $CODE_PATH docs/md/ > result.txt
 
+    ./_build/default/bin/beamdocs copy-resources $CODE_PATH docs/md/
+
+    ./_build/default/bin/beamdocs doc-to-md $CODE_PATH $CODE_PATH/lib/asn1/doc/xml/asn1_getting_started.xml docs/md/ > result.txt
     ./_build/default/bin/beamdocs doc-to-md $CODE_PATH $CODE_PATH/erts/doc/xml/book.xml docs/md/ > result.txt
 
     ./_build/default/bin/beamdocs docs-to-data $CODE_PATH docs/data/ > result.txt
@@ -33,6 +38,7 @@ Translate OTP XML docs to restructured text (experimental), first you need to bu
 
     ./_build/default/bin/beamdocs docs-to-aft $CODE_PATH docs/aft/ > result.txt
 
+    ./_build/default/bin/beamdocs doc-to-aft $CODE_PATH $CODE_PATH/lib/asn1/doc/xml/asn1_getting_started.xml docs/aft/ > result.txt
     ./_build/default/bin/beamdocs doc-to-aft $CODE_PATH $CODE_PATH/erts/doc/xml/book.xml docs/aft/ > result.txt
     ./_build/default/bin/beamdocs doc-to-aft $CODE_PATH $CODE_PATH/erts/doc/xml/match_spec.xml docs/aft/ > result.txt
 
