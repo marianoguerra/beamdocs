@@ -254,7 +254,7 @@ case Node=#r.xmlElement {name: seealso}:
   #_ "seen in diameter.xml: <name>origin_state_id() -> &dict_Unsigned32;</name>"
   seealso(Node)
 case NText=#r.xmlText {}:
-  (text, {}, ntext([NText]))
+  text(ntext([NText]))
 end
 
 fn type_tags
@@ -278,18 +278,13 @@ case #r.xmlElement {name: email, content: NText}:
   (email, {}, ntext(NText))
 end
 
-fn text case Nodes:
+fn rtext case Nodes:
   Texts = for #r.xmlText {value: Text} in Nodes: Text end
   Texts -> to_bstr() 
 end
 
 fn ntext case Nodes:
   Texts = for #r.xmlText {value: Text} in Nodes: trim(Text) end
-  Texts -> to_bstr() 
-end
-
-fn rtext case Nodes:
-  Texts = for #r.xmlText {value: Text} in Nodes: Text end
   Texts -> to_bstr() 
 end
 
@@ -303,7 +298,7 @@ fn header_tags
 case #r.xmlElement {name: copyright, content: Nodes}:
   (copyright, {}, child_nodes(Nodes, fn copyright_content:1))
 case #r.xmlElement {name: legalnotice, content: Text}:
-  (legalnotice, {}, text(Text))
+  (legalnotice, {}, rtext(Text))
 case #r.xmlElement {name: title, content: NText}:
   (title, {}, ntext(NText))
 case #r.xmlElement {name: shorttitle, content: NText}:
@@ -442,7 +437,7 @@ case #r.xmlElement {name: path, attributes: Attrs, content: NText}:
   (path, attrs(Attrs), ntext(NText))
 
 case #r.xmlText {value: Text}:
-  (text, {}, indents_to_space(Text))
+  text(indents_to_space(Text))
 end
 
 fn block_tags
@@ -450,9 +445,10 @@ fn block_tags
 case #r.xmlElement {name: br}, _Info: (br, {}, '')
 case #r.xmlElement {name: terms, attributes: Attrs, content: Nodes}, _Info:
   (terms, attrs(Attrs), child_nodes(Nodes, fn terms_content:1))
-case #r.xmlElement {name: code, content: RText, attributes: Attrs}, _Info:
-  (code, attrs(Attrs), rtext(RText))
+case #r.xmlElement {name: code, content: Nodes, attributes: Attrs}, _Info:
+  (code, attrs(Attrs), all_child_nodes(Nodes, fn pre_content:1))
 case #r.xmlElement {name: codeinclude, attributes: Attrs}, _Info:
+  io.format("TODO: codeinclude: ~p~n", [Attrs])
   (codeinclude, attrs(Attrs), '')
 case #r.xmlElement {name: erleval, attributes: Attrs}, _Info:
   (erleval, attrs(Attrs), '')
@@ -535,7 +531,7 @@ end
 
 fn list_item_content
 case #r.xmlText {value: Text}, _Info:
-  (text, {}, indents_to_space(Text))
+  text(indents_to_space(Text))
 case Other, Info:
   block_tags(Other, Info)
 end
@@ -559,17 +555,28 @@ end
 
 fn p_content
 case #r.xmlText {value: Text}:
-  (text, {}, trim_indents(Text))
+  text(trim_indents(Text))
 case Other:
   inline_tags(Other)
 end
 
-fn pre_content
-case #r.xmlText {value: Text}: (text, {}, Text)
+fn code_content
+case #r.xmlText {value: Text}: text(Text)
 case #r.xmlElement {name: input, content: RText}:
   (input, {}, titext(RText))
 case Other: inline_tags(Other)
 end
+
+fn pre_content
+case #r.xmlText {value: Text}: text(Text)
+case #r.xmlElement {name: input, content: RText}:
+  (input, {}, titext(RText))
+case Other: inline_tags(Other)
+end
+
+fn text case Text: (text, {}, bs(Text)) end
+
+fn bs case V: unicode.characters_to_binary(V) end
 
 fn attrs case Attrs:
   AList = for #r.xmlAttribute {name: Name, value: Value} in Attrs:

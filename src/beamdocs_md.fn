@@ -15,7 +15,10 @@ fn list case (list, _, Items):
   mk_list(Items, '* ')
 end
 
-fn mk_list case Items, Bullet:
+fn mk_list
+case [(li, _, Item)], Bullet:
+    ['\n', Bullet, inline(Item), '\n']
+case Items, Bullet:
   bs(['\n',
   (for (li, _, Item) in Items:
     [Bullet, inline(Item), '\n']
@@ -28,7 +31,7 @@ fn pre case (pre, _, Nodes):
 end
 
 fn code case (code, {lang=Lang}, Nodes):
-  bs(['\n```', Lang, '\n', plain_text_no_escape(Nodes), '\n```\n'])
+  bs(['\n```', Lang, '\n', strip(plain_text_no_escape(Nodes)), '\n```\n'])
 end
 
 fn top_level_title case Items:
@@ -106,7 +109,7 @@ case (strong, _, Nodes):
   Content = filter_childs(Nodes, fn strong_child:1)
   wrap('**', Content)
 case Text when is_binary(Text):
-  escape_chars(Text)
+  escape_chars(replace_nbsp(Text))
 case List when is_list(List):
   match io_lib.deep_char_list(List):
     case true:
@@ -123,6 +126,9 @@ case (span, _, Nodes):
 case (list, _, Items):
   io.format("List in an inline element, assuming second level list: ~p~n", [Items])
   mk_list(Items, '  + ')
+case Node=(li, _, _):
+  io.format("inline: ~p~n~n", [Node])
+  mk_list([Node], '* ')
 case Other:
   io.format("inline: ~p~n~n", [Other])
   plain_text(Other)
@@ -140,7 +146,7 @@ case (span, _, Nodes):
 case (link, {ref=Ref}, Nodes):
   bs(['[', plain_text(Nodes), '](', Ref, ')'])
 case Text when is_binary(Text):
-  escape_chars(Text)
+  escape_chars(replace_nbsp(Text))
 case (ignore, _, _):
   ''
 case List when is_list(List):
@@ -150,6 +156,9 @@ case List when is_list(List):
     else:
       for Item in List: plain_text(Item) end
   end
+case Node=(li, _, _):
+  io.format("plain_text: ~p~n~n", [Node])
+  mk_list([Node], '* ')
 case Other:
   io.format("plain_text: ~p~n~n", [Other])
   ''
@@ -167,7 +176,7 @@ case (span, _, Nodes):
 case (link, {ref=Ref}, Nodes):
   bs(['[', plain_text_no_escape(Nodes), '](', Ref, ')'])
 case Text when is_binary(Text):
-  Text
+  replace_nbsp(Text)
 case (ignore, _, _):
   ''
 case List when is_list(List):
@@ -241,10 +250,15 @@ end
 
 fn bs case V: unicode.characters_to_binary(V) end
 
-fn escape_chars case Text:
+fn escape_chars
+case Text:
   Text
     -> re.replace("(\\*|`)", "\\\\&", [global, unicode, (return, binary)])
     -> xmerl_lib.export_text()
+end
+
+fn replace_nbsp case Str:
+  re.replace(Str, "\\x{A0}", " ", [global, unicode])
 end
 
 fn remove_starting_indent case Str:
