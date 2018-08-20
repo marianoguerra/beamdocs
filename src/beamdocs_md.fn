@@ -6,22 +6,29 @@ end
 fn dl case (dl, _, Items):
   DDs =
   for (dd, _, (Name, Desc)) in Items:
-    [inline(Name), '\n\t', to_md(Desc)]
+    [strip(inline(Name)), '\n\t', strip(to_md(Desc))]
   end
   bs(lists.join('\n\n', DDs))
 end
 
 fn list case (list, _, Items):
-  mk_list(Items, '* ')
+  mk_list(Items, '* ', '  + ')
 end
 
 fn mk_list
-case [(li, _, Item)], Bullet:
-    ['\n', Bullet, inline(Item), '\n']
-case Items, Bullet:
+case [(li, _, (span, {t=d}, Item))], _Bullet, ChildBullet:
+  [ChildBullet, inline(Item), '\n']
+case [(li, _, Item)], Bullet, _ChildBullet:
+  ['\n', Bullet, inline(Item), '\n']
+case Items, Bullet, ChildBullet:
   bs(['\n',
   (for (li, _, Item) in Items:
-    [Bullet, inline(Item), '\n']
+    match Item:
+    case span, {t=d}, SItem:
+      [ChildBullet, inline(SItem), '\n']
+    else:
+      [Bullet, inline(Item), '\n']
+    end
   end),
   '\n'])
 end
@@ -45,6 +52,11 @@ fn indent case IOList, Count:
 end
 
 fn to_md
+case (section, {t=datatype}, Nodes):
+  Names = for (span, {t=name}, Name) in Nodes: ['**', plain_text(Name), '()**'] end
+  Descs = for (section, {t=desc}, Child) in Nodes: to_md(Child) end
+  bs([lists.join('\n\n', Names), '\n\n', strip(Descs), '\n\n'])
+  
 case (section, {t=T}, Nodes)
 when T is warning or T is `do` or T is dont or T is note:
   (AlertType, Title) =
@@ -125,10 +137,10 @@ case (span, _, Nodes):
   inline(Nodes)
 case (list, _, Items):
   io.format("List in an inline element, assuming second level list: ~p~n", [Items])
-  mk_list(Items, '  + ')
+  mk_list(Items, '  + ', '    - ')
 case Node=(li, _, _):
   io.format("inline: ~p~n~n", [Node])
-  mk_list([Node], '* ')
+  mk_list([Node], '* ', '  + ')
 case Other:
   io.format("inline: ~p~n~n", [Other])
   plain_text(Other)
@@ -158,7 +170,7 @@ case List when is_list(List):
   end
 case Node=(li, _, _):
   io.format("plain_text: ~p~n~n", [Node])
-  mk_list([Node], '* ')
+  mk_list([Node], '* ', '  + ')
 case Other:
   io.format("plain_text: ~p~n~n", [Other])
   ''
@@ -193,7 +205,7 @@ end
 
 fn title
 case Level, Nodes when Level > 0 and Level <= 6:
-  bs(['\n', lists.duplicate(Level, '#'), ' ', plain_text(Nodes), '\n\n'])
+  bs(['\n', lists.duplicate(Level, '#'), ' ', nl_to_space(plain_text(Nodes)), '\n\n'])
 case _, Nodes:
   title(6, Nodes)
 end
@@ -270,4 +282,8 @@ fn strip case IOList: strip(IOList, binary) end
 fn strip case IOList, RetType:
   re.replace(IOList, "(^(\n|\\s)+|(\n|\\s)+$)", "",
     [global, unicode, (return, RetType)])
+end
+
+fn nl_to_space case IOList:
+  re.replace(IOList, "(\n|\\s)+", "  ", [global, unicode, (return, binary)])
 end
