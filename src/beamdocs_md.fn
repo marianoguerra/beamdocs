@@ -29,45 +29,45 @@ case (span, _Attrs, ['']), Ctx:
 case (span, _Attrs, Childs), Ctx:
   layout_items_beside(Childs, Ctx)
 case (p, _Attrs, Childs), Ctx:
-  above(raw_txt("\n"), layout_items_beside(Childs, Ctx))
+  clear_both(layout_items_beside(Childs, Ctx))
 case (hr, _Attrs, _Childs), _Ctx:
-  text("\n\n***\n\n")
+  clear_both(clear_both(text("***")))
 case (br, _Attrs, _Childs), _Ctx:
-  text("\n\n")
+  break(break(empty()))
 case (empty, _Attrs, _Childs), _Ctx:
   empty()
 case (h1, _Attrs, Childs), Ctx:
-  wrap(Childs, Ctx, "\n# ", "\n", fn besidel:1)
+  clear_both(wrap(Childs, Ctx, "# ", "", fn besidel:1))
 case (h2, _Attrs, Childs), Ctx:
-  wrap(Childs, Ctx, "\n## ", "\n", fn besidel:1)
+  clear_both(wrap(Childs, Ctx, "## ", "", fn besidel:1))
 case (h3, _Attrs, Childs), Ctx:
-  wrap(Childs, Ctx, "\n### ", "\n", fn besidel:1)
+  clear_both(wrap(Childs, Ctx, "### ", "", fn besidel:1))
 case (h4, _Attrs, Childs), Ctx:
-  wrap(Childs, Ctx, "\n#### ", "\n", fn besidel:1)
+  clear_both(wrap(Childs, Ctx, "#### ", "", fn besidel:1))
 case (h5, _Attrs, Childs), Ctx:
-  wrap(Childs, Ctx, "\n##### ", "\n", fn besidel:1)
+  clear_both(wrap(Childs, Ctx, "##### ", "", fn besidel:1))
 case (h6, _Attrs, Childs), Ctx:
-  wrap(Childs, Ctx, "\n###### ", "\n", fn besidel:1)
+  clear_both(wrap(Childs, Ctx, "###### ", "", fn besidel:1))
 case (em, _Attrs, Childs), Ctx:
-  wrap(Childs, Ctx, "**", "**")
+  wrap(Childs, Ctx, " **", "** ")
 case (strong, _Attrs, Childs), Ctx:
-  wrap(Childs, Ctx, "*", "*")
+  wrap(Childs, Ctx, " *", "* ")
 case (u, _Attrs, Childs), Ctx:
-  wrap(Childs, Ctx, "_", "_")
+  wrap(Childs, Ctx, " _", "_ ")
 case (a, {name=Ref}, Childs), Ctx:
-  wrap(Childs, Ctx, iol2b(["<a name=\"", Ref, "\">"]), "</a>")
+  wrap(Childs, Ctx, iol2b([" <a name=\"", Ref, "\">"]), "</a> ")
 case (a, {href=Ref}, Childs), Ctx:
-  wrap(Childs, Ctx, "[", iol2b(["](", Ref, ")"]))
+  wrap(Childs, Ctx, " [", iol2b(["](", Ref, ") "]))
 case (img, {src=Src, alt=Alt}, _Childs), Ctx:
-  wrap([Alt], Ctx, "![", iol2b(["](", Src, ")"]))
+  wrap([Alt], Ctx, " ![", iol2b(["](", Src, ") "]))
 case (img, {src=Src}, _Childs), Ctx:
-  wrap(["image"], Ctx, "![", iol2b(["](", Src, ")"]))
+  wrap(["image"], Ctx, " ![", iol2b(["](", Src, ") "]))
 case (code, Attrs, Childs), Ctx:
   Lang = maps.get(lang, Attrs, "")
-  Prefix = iol2b(["\n```", Lang, "\n"])
-  mdt(Childs, Ctx # {escape=false, plain=true}, Prefix, "\n```\n")
+  Prefix = iol2b(["```", Lang, ""])
+  mdt(Childs, Ctx # {escape=false, plain=true}, Prefix, "```")
 case (pre, _Attrs, Childs), Ctx:
-  mdt(Childs, Ctx # {escape=false, plain=true}, "\n```\n", "\n```\n")
+  mdt(Childs, Ctx # {escape=false, plain=true}, "```", "```")
 case (ul, _Attrs, Childs), Ctx:
   abovel(layout_items(Childs, Ctx))
 case (ol, _Attrs, Childs), Ctx:
@@ -85,10 +85,10 @@ case (dialog, {type=Type, title=Title}, Childs), Ctx:
   else: "info"
   end
 
-  abovel([
-    raw_txt(iol2b(["\n!!! ", AlertType, " \"", Title, "\""])),
+  clear_both(abovel([
+    raw_txt(iol2b(["!!! ", AlertType, " \"", Title, "\""])),
     nestc(par(layout_items(Childs, Ctx)), Ctx),
-    raw_txt("")])
+    raw_txt("")]))
 
 case (dl, _Attrs, Childs), Ctx:
   abovel([
@@ -97,9 +97,9 @@ case (dl, _Attrs, Childs), Ctx:
     raw_txt("</dl>"),
   ])
 case (dt, _Attrs, Childs), Ctx:
-  besidel([raw_txt("\n<dt>"), layout_items_beside(Childs, Ctx # {plain=true, escape=false}), raw_txt("</dt>\n")])
+  clear_both(besidel([raw_txt("<dt>"), layout_items_beside(Childs, Ctx # {plain=true, escape=false}), raw_txt("</dt>")]))
 case (dd, _Attrs, Childs), Ctx:
-  besidel([raw_txt("\n<dd>"), layout_items_beside(Childs, Ctx # {plain=true, escape=false}), raw_txt("</dd>\n")])
+  clear_both(besidel([raw_txt("<dd>"), layout_items_beside(Childs, Ctx # {plain=true, escape=false}), raw_txt("</dd>")]))
 
 case (table, _, _), _Ctx:
   text("TODO: TABLE")
@@ -114,7 +114,7 @@ end
 
 fn mdt
 case Childs, Ctx, Prefix, Suffix:
-  besidel([raw_txt(Prefix), layout_items_beside(Childs, Ctx), raw_txt(Suffix)])
+  clear_both(besidel([raw_txt(Prefix), layout_items_beside(Childs, Ctx), raw_txt(Suffix)]))
 end
 
 fn wrap case Childs, Ctx, Prefix, Suffix:
@@ -206,11 +206,15 @@ case V, _Ctx when is_list(V):
 end
 
 fn escape_md case Str:
-  re.replace(Str, "[*_]", "\\\\&", [global, (return, list)])
+  re.replace(Str, "[*]", "\\\\&", [global, (return, list)])
 end
 
 fn iol2b case IOList:
   list_to_binary(lists.flatten(IOList))
+end
+
+fn clear_both case V:
+  above(break(break(raw_txt(""))),  break(break(V)))
 end
 
 fn new_ctx case:

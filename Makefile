@@ -12,9 +12,13 @@ md-all: build clean
 
 md: build clean
 	mkdir -p docs/md
-	./_build/default/bin/beamdocs docs-to-mdast $$CODE_PATH docs/md
 	./_build/default/bin/beamdocs docs-to-md $$CODE_PATH docs/md
+	./_build/default/bin/beamdocs docs-to-mdast $$CODE_PATH docs/md
 	./_build/default/bin/beamdocs copy-resources $$CODE_PATH docs/md
+
+md-ets: build clean
+	mkdir -p docs/md
+	./_build/default/bin/beamdocs doc-to-all $$CODE_PATH $$CODE_PATH/lib/stdlib/doc/xml/ets.xml docs/md
 
 html: build clean
 	mkdir -p docs/html
