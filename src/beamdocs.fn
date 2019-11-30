@@ -1,20 +1,32 @@
 @include_lib("xmerl/include/xmerl.hrl")
 
 fn main @public
+  case ["test"]:
+    beamdocs_ast.test()
   case ["to-json", BasePath, OutDir]:
     to_json(filename.absname(BasePath), OutDir)
+  case ["format-ppast", Path]:
+    format_ppast(Path)
   case ["copy-resources", BasePath, OutDir]:
     copy_resources(filename.absname(BasePath), OutDir)
   case ["docs-to-rst", BasePath, OutDir]:
     docs_to_x(filename.absname(BasePath), OutDir, beamdocs_rst, ".rst", fn file.write_file:2)
   case ["docs-to-md", BasePath, OutDir]:
     docs_to_x(filename.absname(BasePath), OutDir, beamdocs_md, ".md", fn file.write_file:2)
+  case ["docs-to-mdast", BasePath, OutDir]:
+    docs_to_x(filename.absname(BasePath), OutDir, beamdocs_md_ast, ".mdast", fn write_data:2)
+  case ["docs-to-ast", BasePath, OutDir]:
+    docs_to_x(filename.absname(BasePath), OutDir, beamdocs_ast, ".ast", fn write_data:2)
   case ["docs-to-html", BasePath, OutDir]:
     docs_to_x(filename.absname(BasePath), OutDir, beamdocs_html, ".html", fn file.write_file:2)
   case ["docs-to-aft", BasePath, OutDir]:
     docs_to_x(filename.absname(BasePath), OutDir, beamdocs_aft, ".aft", fn write_data:2)
   case ["docs-to-data", BasePath, OutDir]:
     docs_to_x(filename.absname(BasePath), OutDir, beamdocs_data, ".erldata", fn write_data:2)
+  case ["docs-to-all", BasePath, OutDir]:
+    main(["docs-to-data", BasePath, OutDir])
+    main(["docs-to-aft", BasePath, OutDir])
+    main(["docs-to-md", BasePath, OutDir])
 
   case ["doc-to-all", BasePath, FilePath, OutDir]:
     main(["doc-to-data", BasePath, FilePath, OutDir])
@@ -33,6 +45,10 @@ fn main @public
     AbsFileName= filename.absname(FilePath)
     doc_to_x(filename.absname(BasePath), AbsFileName, OutDir, beamdocs_html,
       ".html", fn file.write_file:2)
+  case ["doc-to-ast", BasePath, FilePath, OutDir]:
+    AbsFileName= filename.absname(FilePath)
+    doc_to_x(filename.absname(BasePath), AbsFileName, OutDir, beamdocs_ast,
+      ".ast", fn write_data:2)
   case ["doc-to-aft", BasePath, FilePath, OutDir]:
     AbsFileName= filename.absname(FilePath)
     doc_to_x(filename.absname(BasePath), AbsFileName, OutDir, beamdocs_aft,
@@ -88,7 +104,7 @@ case FilePath, AccIn={base_path=BasePath, dtd_paths=DtdPaths, out_path=OutPath,
   ShortPath = string.substr(FilePath, BaseLen + 2)
   match extract_doc_path_parts(ShortPath):
     case ok, Lib, BaseName:
-      io.format("~p ~p~n", [Lib, BaseName])
+      io.format("processing ~p ~p~n", [Lib, BaseName])
       (ParsResult, _Misc) = try
         xmerl_scan.file(FilePath, [(fetch_path, DtdPaths), (encoding, `utf-8`)])
       catch case Type, Error:
@@ -104,7 +120,7 @@ case FilePath, AccIn={base_path=BasePath, dtd_paths=DtdPaths, out_path=OutPath,
           Text = Mod.transform(Info)
           write_to_file(Text, OutPath, Lib, BaseName ++ Extension, WriteFn)
       end
-    case bad, _:
+    case ignore, _:
       io.format("ignoring ~p~n", [ShortPath])
   end
 
@@ -174,6 +190,13 @@ end
 
 fn extract_doc_path_parts case Path:
   match filename.split(Path):
+    case V=["lib", L, "doc", "xml", F] when (L is "wx" and F is "gl.xml"):
+      #_ "XXX: ignore heavy files for now"
+      (ignore, V)
+    case V=["lib", _Lib, "doc", "xml", F] when F is "part.xml" or F is "book.xml" or F is "chapter.xml" or F is "ref_man.xml":
+      (ignore, V)
+    case V=[_, "doc", "xml", F] when F is "part.xml" or F is "book.xml" or F is "chapter.xml" or F is "ref_man.xml":
+      (ignore, V)
     case ["lib", Lib, "doc", "xml", Filename]:
       BaseName = filename.rootname(Filename)
       (ok, Lib, BaseName)
@@ -184,12 +207,12 @@ fn extract_doc_path_parts case Path:
       BaseName = filename.rootname(Filename)
       (ok, Lib ++ "/" ++ Name, BaseName)
     case Other:
-      (bad, Other)
+      (ignore, Other)
   end
 end
 
 fn write_data case Path, Data:
-  file.write_file(Path, io_lib.format("~p~n", [Data]))
+  file.write_file(Path, io_lib.format("~p~n", [Data]), [(encoding, utf8)])
 end
 
 fn write_to_file case Data, OutDir, Lib, FileName, WriteFn:
@@ -391,4 +414,14 @@ fn last_line
     last_line(lists.last(Nodes))
   case Node:
     element(2, Node)
+end
+
+fn format_ppast case Path:
+  match file.consult(Path):
+  case ok, Layout:
+    Text = prettypr.format(Layout)
+    io.format("~s~n", [Text])
+  case error, Reason:
+    io.format("Error reading file ~p: ~p", [Path, Reason])
+  end
 end

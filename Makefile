@@ -2,18 +2,42 @@
 build:
 	rebar3 escriptize
 
-.PHONY: docs
-docs: build
-	./tools/gendocs.sh
-	./tools/genindex.sh
-
 clean:
 	rm -rf out docs
 
-clean-out:
-	rm -rf out/bootstrap
-	rm -rf out/erts/etc/ out/erts/example out/erts/emulator/internal_doc
-	cd out && find -type d -name test -exec rm -rf {} +
-	cd out && find -type d -name tutorial -exec rm -rf {} +
-	cd out && find -type d -name examples -exec rm -rf {} +
-	cd out && find -type d -name doc -exec rm -rf {} +
+md-all: build clean
+	mkdir -p docs/md
+	./_build/default/bin/beamdocs docs-to-all $$CODE_PATH docs/all
+	./_build/default/bin/beamdocs copy-resources $$CODE_PATH docs/all
+
+md: build clean
+	mkdir -p docs/md
+	./_build/default/bin/beamdocs docs-to-mdast $$CODE_PATH docs/md
+	./_build/default/bin/beamdocs docs-to-md $$CODE_PATH docs/md
+	./_build/default/bin/beamdocs copy-resources $$CODE_PATH docs/md
+
+html: build clean
+	mkdir -p docs/html
+	./_build/default/bin/beamdocs docs-to-html $$CODE_PATH docs/html
+
+mkdocs: md mkdocs-only mkdocs-build
+
+mkdocs-serve:
+	cd mkdocs-site/site && python3 -m http.server
+
+mkdocs-all: md-all mkdocs-all-only mkdocs-build
+
+mkdocs-only-common:
+	rm -rf mkdocs-site
+	mkdir -p mkdocs-site/docs
+	cp resources/mkdocs.yml mkdocs-site
+	cp resources/mkdocs-index.md mkdocs-site/docs/index.md
+
+mkdocs-only: mkdocs-only-common
+	cp -r docs/md/* mkdocs-site/docs/
+
+mkdocs-all-only: mkdocs-only-common
+	cp -r docs/all/* mkdocs-site/docs/
+
+mkdocs-build:
+	cd mkdocs-site && mkdocs build

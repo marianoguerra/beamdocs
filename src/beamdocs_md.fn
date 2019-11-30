@@ -1,289 +1,218 @@
+@import(prettypr, [above/2, beside/2, break/1, empty/0, nest/2, text/1, sep/1, par/1, follow/3])
+
+fn from_ast @public case Doc:
+  prettypr.format(layout_from_ast(Doc))
+end
+
+fn layout_from_ast @public case Doc:
+  Ctx = new_ctx()
+  to_layout(Doc, Ctx)
+end
+
+fn transform_pre @public case Nodes:
+  Ctx = new_ctx()
+  abovel((for Node in beamdocs_ast.transform(Nodes): to_layout(Node, Ctx) end))
+end
 
 fn transform @public case Nodes:
-  for Node in beamdocs_aft.transform(Nodes): to_md(Node) end
+  Layout = transform_pre(Nodes)
+  prettypr.format(Layout)
 end
 
-fn dl case (dl, _, Items):
-  DDs =
-  for (dd, _, (Name, Desc)) in Items:
-    [strip(inline(Name)), '\n\t', strip(to_md(Desc))]
-  end
-  bs(lists.join('\n\n', DDs))
-end
+fn to_layout @public
+case (div, _Attrs, Childs), Ctx:
+  layout_items_beside(Childs, Ctx)
+case (span, _Attrs, ''), Ctx:
+  empty()
+case (span, _Attrs, ['']), Ctx:
+  empty()
+case (span, _Attrs, Childs), Ctx:
+  layout_items_beside(Childs, Ctx)
+case (p, _Attrs, Childs), Ctx:
+  above(raw_txt("\n"), layout_items_beside(Childs, Ctx))
+case (hr, _Attrs, _Childs), _Ctx:
+  text("\n\n***\n\n")
+case (br, _Attrs, _Childs), _Ctx:
+  text("\n\n")
+case (empty, _Attrs, _Childs), _Ctx:
+  empty()
+case (h1, _Attrs, Childs), Ctx:
+  wrap(Childs, Ctx, "\n# ", "\n", fn besidel:1)
+case (h2, _Attrs, Childs), Ctx:
+  wrap(Childs, Ctx, "\n## ", "\n", fn besidel:1)
+case (h3, _Attrs, Childs), Ctx:
+  wrap(Childs, Ctx, "\n### ", "\n", fn besidel:1)
+case (h4, _Attrs, Childs), Ctx:
+  wrap(Childs, Ctx, "\n#### ", "\n", fn besidel:1)
+case (h5, _Attrs, Childs), Ctx:
+  wrap(Childs, Ctx, "\n##### ", "\n", fn besidel:1)
+case (h6, _Attrs, Childs), Ctx:
+  wrap(Childs, Ctx, "\n###### ", "\n", fn besidel:1)
+case (em, _Attrs, Childs), Ctx:
+  wrap(Childs, Ctx, "**", "**")
+case (strong, _Attrs, Childs), Ctx:
+  wrap(Childs, Ctx, "*", "*")
+case (u, _Attrs, Childs), Ctx:
+  wrap(Childs, Ctx, "_", "_")
+case (a, {name=Ref}, Childs), Ctx:
+  wrap(Childs, Ctx, iol2b(["<a name=\"", Ref, "\">"]), "</a>")
+case (a, {href=Ref}, Childs), Ctx:
+  wrap(Childs, Ctx, "[", iol2b(["](", Ref, ")"]))
+case (img, {src=Src, alt=Alt}, _Childs), Ctx:
+  wrap([Alt], Ctx, "![", iol2b(["](", Src, ")"]))
+case (img, {src=Src}, _Childs), Ctx:
+  wrap(["image"], Ctx, "![", iol2b(["](", Src, ")"]))
+case (code, Attrs, Childs), Ctx:
+  Lang = maps.get(lang, Attrs, "")
+  Prefix = iol2b(["\n```", Lang, "\n"])
+  mdt(Childs, Ctx # {escape=false, plain=true}, Prefix, "\n```\n")
+case (pre, _Attrs, Childs), Ctx:
+  mdt(Childs, Ctx # {escape=false, plain=true}, "\n```\n", "\n```\n")
+case (ul, _Attrs, Childs), Ctx:
+  abovel(layout_items(Childs, Ctx))
+case (ol, _Attrs, Childs), Ctx:
+  #_ "TODO: number items"
+  abovel(layout_items(Childs, Ctx))
+case (li, _Attrs, Childs), Ctx:
+  mdli(Childs, Ctx)
 
-fn list case (list, _, Items):
-  mk_list(Items, '* ', '  + ')
-end
-
-fn mk_list
-case [(li, _, (span, {t=d}, Item))], _Bullet, ChildBullet:
-  [ChildBullet, inline(Item), '\n']
-case [(li, _, Item)], Bullet, _ChildBullet:
-  ['\n', Bullet, inline(Item), '\n']
-case Items, Bullet, ChildBullet:
-  bs(['\n',
-  (for (li, _, Item) in Items:
-    match Item:
-    case span, {t=d}, SItem:
-      [ChildBullet, inline(SItem), '\n']
-    else:
-      [Bullet, inline(Item), '\n']
-    end
-  end),
-  '\n'])
-end
-
-fn pre case (pre, _, Nodes):
-  bs(['\n```\n', strip(plain_text_no_escape(Nodes)), '\n```\n'])
-end
-
-fn code case (code, {lang=Lang}, Nodes):
-  bs(['\n```', Lang, '\n', strip(plain_text_no_escape(Nodes)), '\n```\n'])
-end
-
-fn top_level_title case Items:
-  for (Item=(title, _, _)) in Items: Item end
-end
-
-fn indent case IOList, Count:
-  Indent = (#c "\n") :: lists.duplicate(Count, (#c "\t"))
-  re.replace(["\n", IOList], "\n", Indent,
-    [global, unicode, (return, binary)])
-end
-
-fn to_md
-case (section, {t=datatype}, Nodes):
-  Names = for (span, {t=name}, Name) in Nodes: ['**', plain_text(Name), '()**'] end
-  Descs = for (section, {t=desc}, Child) in Nodes: to_md(Child) end
-  bs([lists.join('\n\n', Names), '\n\n', strip(Descs), '\n\n'])
-  
-case (section, {t=T}, Nodes)
-when T is warning or T is `do` or T is dont or T is note:
-  (AlertType, Title) =
-  match T:
-    case warning: ('warning', 'Warning')
-    case `do`: ('success', 'Do')
-    case dont: ('danger', 'Don\'t')
-    case note: ('info', 'Note')
-  end
-
-  bs(['\n!!! ', AlertType, ' "', Title, '"', indent(strip(remove_starting_indent(to_md(Nodes))), 1), '\n\n'])
-
-case (section, {t=header}, Items):
-  match top_level_title(Items):
-    case [Title]:
-      to_md(Title)
-    case []:
-      ''
+case (dialog, {type=Type, title=Title}, Childs), Ctx:
+  AlertType = match Type:
+  case danger: "danger"
+  case warning: "warning"
+  case success: "success"
+  case info: "info"
+  else: "info"
   end
 
-case (section, _, Nodes):
-  for Node in Nodes: to_md(Node) end
-case (p, _, Nodes):
-  Content = p_childs(Nodes)
-  wrap_non_empty('\n\n', Content)
-case Node=(pre, _, _):
-  pre(Node)
-case Node=(code, _, _):
-  code(Node)
-case (title, {level=Level}, Nodes):
-  title(Level, Nodes)
-case Node=(list, _, _):
-  list(Node)
-case Node=(dl, _, _):
-  dl(Node)
-case Node=(table, _, _):
-  beamdocs_html.table(Node)
-case (ignore, _, _):
-  ''
-case Items when is_list(Items):
-  for Item in Items: to_md(Item) end
-case Other:
-  inline(Other)
+  abovel([
+    raw_txt(iol2b(["\n!!! ", AlertType, " \"", Title, "\""])),
+    nestc(par(layout_items(Childs, Ctx)), Ctx),
+    raw_txt("")])
+
+case (dl, _Attrs, Childs), Ctx:
+  abovel([
+    raw_txt("<dl>"),
+    nestc(abovel(layout_items(Childs, Ctx)), Ctx),
+    raw_txt("</dl>"),
+  ])
+case (dt, _Attrs, Childs), Ctx:
+  besidel([raw_txt("\n<dt>"), layout_items_beside(Childs, Ctx # {plain=true, escape=false}), raw_txt("</dt>\n")])
+case (dd, _Attrs, Childs), Ctx:
+  besidel([raw_txt("\n<dd>"), layout_items_beside(Childs, Ctx # {plain=true, escape=false}), raw_txt("</dd>\n")])
+
+case (table, _, _), _Ctx:
+  text("TODO: TABLE")
+
+case Item, Ctx when is_binary(Item):
+  txt(Item, Ctx)
 end
 
-fn inline
-case (br, _):
-  '\n\n'
-case (p, _, Nodes):
-  inline(Nodes)
-case (img, {ref=Ref}, Title):
-  bs(['![', strip(Title), '](', strip(Ref), ')'])
+fn mdli case Childs, Ctx:
+  beside(raw_txt("* "), nestc(par(layout_items(Childs, Ctx)), Ctx))
+end
 
-case (marker, {ref=Id}, _):
-  wrap('\n', beamdocs_html.wrap('a', ['name="', Id, '"'], ''))
-case (link, {ref=Ref}, Nodes):
-  bs(['[', strip(plain_text(Nodes)), '](', strip(Ref), ')'])
-case (em, _, Nodes):
-  Content = em_childs(Nodes)
-  wrap('_', Content)
-case (strong, _, Nodes):
-  Content = filter_childs(Nodes, fn strong_child:1)
-  wrap('**', Content)
-case Text when is_binary(Text):
-  escape_chars(replace_nbsp(Text))
-case List when is_list(List):
-  match io_lib.deep_char_list(List):
-    case true:
-      bs(List)
-    else:
-      for Item in List: inline(Item) end
+fn mdt
+case Childs, Ctx, Prefix, Suffix:
+  besidel([raw_txt(Prefix), layout_items_beside(Childs, Ctx), raw_txt(Suffix)])
+end
+
+fn wrap case Childs, Ctx, Prefix, Suffix:
+  wrap(Childs, Ctx, Prefix, Suffix, fn sepl:1)
+end
+
+fn wrap
+case Childs, Ctx={plain=true}, _, _, JoinFn:
+  JoinFn(layout_items(Childs, Ctx))
+case Childs, Ctx, Prefix, Suffix, JoinFn:
+  besidel([raw_txt(Prefix), JoinFn(layout_items(Childs, Ctx)), raw_txt(Suffix)])
+end
+
+fn sepl
+case []: empty()
+case Items: sep(Items)
+end
+
+fn joinl
+case Items:
+  besidel(lists.join(raw_txt(" "), Items))
+end
+
+fn layout_items
+case Childs, Ctx when is_list(Childs):
+  for Child in Childs: to_layout(Child, Ctx) end
+case Child, Ctx:
+  [to_layout(Child, Ctx)]
+end
+
+fn layout_items_beside
+case Child, Ctx:
+  besidel(layout_items(Child, Ctx))
+end
+
+fn abovel
+case [Item]:
+  Item
+case Items:
+  fnl(Items, fn prettypr.above:2)
+end
+
+fn besidel
+case [Item]:
+  Item
+case Items:
+  fnl(Items, fn prettypr.beside:2)
+end
+
+fn followl
+case [Item]:
+  Item
+case Items:
+  fnl(Items, fn prettypr.follow:2)
+end
+
+fn fnl
+case [], _Fn:
+  empty()
+case Items, Fn:
+  lists.foldl(nothing, Items) <<-
+  case Item, nothing:
+    Item
+  case Item, AccumIn:
+    Fn(AccumIn, Item)
   end
-case (ignore, _, _):
-  ''
-case (span, {t=T}, Nodes) when T is term or T is path or T is input:
-  wrap_non_empty('`', plain_text(Nodes))
-case (span, _, Nodes):
-  inline(Nodes)
-case (list, _, Items):
-  io.format("List in an inline element, assuming second level list: ~p~n", [Items])
-  mk_list(Items, '  + ', '    - ')
-case Node=(li, _, _):
-  io.format("inline: ~p~n~n", [Node])
-  mk_list([Node], '* ', '  + ')
-case Other:
-  io.format("inline: ~p~n~n", [Other])
-  plain_text(Other)
 end
 
-fn plain_text
-case (p, _, Nodes):
-  plain_text(Nodes)
-case (em, _, Nodes):
-  plain_text(Nodes)
-case (strong, _, Nodes):
-  plain_text(Nodes)
-case (span, _, Nodes):
-  plain_text(Nodes)
-case (link, {ref=Ref}, Nodes):
-  bs(['[', plain_text(Nodes), '](', Ref, ')'])
-case Text when is_binary(Text):
-  escape_chars(replace_nbsp(Text))
-case (ignore, _, _):
-  ''
-case List when is_list(List):
-  match io_lib.deep_char_list(List):
-    case true:
-      bs(List)
-    else:
-      for Item in List: plain_text(Item) end
-  end
-case Node=(li, _, _):
-  io.format("plain_text: ~p~n~n", [Node])
-  mk_list([Node], '* ', '  + ')
-case Other:
-  io.format("plain_text: ~p~n~n", [Other])
-  ''
+fn nestc case Doc, _Ctx:
+  nest(4, Doc)
 end
 
-fn plain_text_no_escape
-case (p, _, Nodes):
-  plain_text_no_escape(Nodes)
-case (em, _, Nodes):
-  plain_text_no_escape(Nodes)
-case (strong, _, Nodes):
-  plain_text_no_escape(Nodes)
-case (span, _, Nodes):
-  plain_text_no_escape(Nodes)
-case (link, {ref=Ref}, Nodes):
-  bs(['[', plain_text_no_escape(Nodes), '](', Ref, ')'])
-case Text when is_binary(Text):
-  replace_nbsp(Text)
-case (ignore, _, _):
-  ''
-case List when is_list(List):
-  match io_lib.deep_char_list(List):
-    case true:
-      bs(List)
-    else:
-      for Item in List: plain_text_no_escape(Item) end
-  end
-case Other:
-  io.format("plain_text_no_escape: ~p~n~n", [Other])
-  ''
+fn raw_txt
+case V when is_binary(V):
+  text(binary_to_list(V))
+case V when is_list(V):
+  text(V)
 end
 
-fn title
-case Level, Nodes when Level > 0 and Level <= 6:
-  bs(['\n', lists.duplicate(Level, '#'), ' ', nl_to_space(plain_text(Nodes)), '\n\n'])
-case _, Nodes:
-  title(6, Nodes)
+fn txt
+case V, {escape=false} when is_binary(V):
+  text(binary_to_list(V))
+case V, {escape=false} when is_list(V):
+  text(V)
+case V, _Ctx when is_binary(V):
+  text(escape_md(binary_to_list(V)))
+case V, _Ctx when is_list(V):
+  text(escape_md(V))
 end
 
-fn wrap_non_empty
-case _Wrap, '': ''
-case Wrap, Content:
-  wrap(Wrap, Content)
+fn escape_md case Str:
+  re.replace(Str, "[*_]", "\\\\&", [global, (return, list)])
 end
 
-fn wrap case Wrap, Content:
-  bs([Wrap, Content, Wrap])
+fn iol2b case IOList:
+  list_to_binary(lists.flatten(IOList))
 end
 
-fn filter_childs
-case Nodes, Fn when is_list(Nodes):
-  RItems =
-  lists.foldl([], Nodes) <<- case Node, AccumIn:
-    match Fn(Node):
-      case ignore: AccumIn
-      case ok, Res: Res :: AccumIn
-    end
-  end
-
-  bs(lists.reverse(RItems))
-case Node, Fn:
-  filter_childs([Node], Fn)
-end
-
-fn em_childs case Nodes:
-  filter_childs(Nodes, fn em_child:1)
-end
-
-fn p_childs case Nodes:
-  filter_childs(Nodes, fn p_child:1)
-end
-
-fn em_child case Nodes: (ok, plain_text(Nodes)) end
-fn strong_child case Nodes: (ok, plain_text(Nodes)) end
-fn p_child
-  case Node=(dl, _, _):
-    (ok, dl(Node))
-  case Node=(list, _, _):
-    (ok, list(Node))
-  case Node=(pre, _, _):
-    (ok, pre(Node))
-  case Node=(code, _, _):
-    (ok, code(Node))
-  case List when is_list(List):
-    (ok, p_childs(List))
-  case Nodes:
-    (ok, inline(Nodes))
-end
-
-fn bs case V: unicode.characters_to_binary(V) end
-
-fn escape_chars
-case Text:
-  Text
-    -> re.replace("(\\*|`)", "\\\\&", [global, unicode, (return, binary)])
-    -> xmerl_lib.export_text()
-end
-
-fn replace_nbsp case Str:
-  re.replace(Str, "\\x{A0}", " ", [global, unicode])
-end
-
-fn remove_starting_indent case Str:
-  re.replace(Str, "\n\n*\\s*", "\n", [global, unicode, (return, binary)])
-end
-
-fn strip case IOList: strip(IOList, binary) end
-
-fn strip case IOList, RetType:
-  re.replace(IOList, "(^(\n|\\s)+|(\n|\\s)+$)", "",
-    [global, unicode, (return, RetType)])
-end
-
-fn nl_to_space case IOList:
-  re.replace(IOList, "(\n|\\s)+", "  ", [global, unicode, (return, binary)])
+fn new_ctx case:
+  {escape: true, plain: false}
 end

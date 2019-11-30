@@ -1,0 +1,64 @@
+@include_lib("edoc/src/edoc_types.hrl")
+
+fn parse_file @public case Path:
+  (Module, XmlDocs) = edoc.get_doc(Path)
+  Docs = xmerl_lib.simplify_element(XmlDocs)
+  State = {module: Module, path: Path, encoding: nil, funs: {}, types: {}}
+  parse(Docs, State)
+end
+
+fn parse
+case (module, _Attrs, Childs), State:
+  parse_childs(Childs, State, fn module_childs:2)
+end
+
+fn module_childs
+case (typedecls, _Attrs, Childs), State:
+  parse_childs(Childs, State, fn typedecl_childs:2)
+case (functions, _Attrs, Childs), State:
+  parse_childs(Childs, State, fn functions_childs:2)
+case Other, State:
+  unk(#i function_name, Other, State)
+end
+
+fn typedecl_childs
+case Other, State:
+  unk(#i function_name, Other, State)
+end
+
+fn functions_childs
+case (function, Attrs, Childs), State={funs=Funs0}:
+  MAttrs = attrs(Attrs)
+  {name=Name, arity=Arity}=MAttrs
+  #_ "not sure if this is right"
+  Key = Name
+  Funs = Funs0 # {Key: MAttrs}
+  State # {funs=Funs}
+case Other, State:
+  unk(#i function_name, Other, State)
+end
+
+fn unk case FnName, Data, State:
+  io.format("Unknown node in ~p: ~p~n", [FnName, Data])
+  State
+end
+
+fn attrs case PList0:
+  PList = for (K, V0) in PList0:
+    V1 = match (K, V0):
+    case arity, S: list_to_integer(S)
+    case exported, "yes": true
+    case exported, "no": false
+    case Other:
+      Other
+    end
+
+    (K, V1)
+  end
+
+  maps.from_list(PList)
+end
+
+fn parse_childs case Childs, State0, Fn:
+  lists.foldl(State0, Childs, Fn)
+end
