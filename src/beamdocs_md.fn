@@ -1,4 +1,4 @@
-@import(prettypr, [above/2, beside/2, break/1, empty/0, nest/2, text/1, sep/1, par/1, follow/3])
+@import(prettypr, [above/2, beside/2, break/1, empty/0, nest/2, text/1, text_par/1, sep/1, par/1, follow/3])
 
 fn layout_from_ast @public case Doc:
   Ctx = new_ctx()
@@ -17,33 +17,33 @@ end
 
 fn to_layout @public
 case (div, _Attrs, Childs), Ctx:
-  layout_items_sep(Childs, Ctx)
+  clear_indent(layout_items_sep_fixed(Childs, Ctx))
 case (span, _Attrs, ''), Ctx:
   empty()
 case (span, _Attrs, ['']), Ctx:
   empty()
 case (span, _Attrs, Childs), Ctx:
-  layout_items_sep(Childs, Ctx)
+  layout_items_beside(Childs, Ctx)
 case (p, _Attrs, Childs), Ctx:
-  clear_both(layout_items_par(Childs, Ctx))
+  clear_both(layout_items_beside(Childs, Ctx))
 case (hr, _Attrs, _Childs), _Ctx:
-  clear_both(clear_both(text("***")))
+  clear_both(clear_both(markup("***")))
 case (br, _Attrs, _Childs), _Ctx:
   break(break(empty()))
 case (empty, _Attrs, _Childs), _Ctx:
   empty()
 case (h1, _Attrs, Childs), Ctx:
-  clear_both(wrap(Childs, Ctx, "# ", "", fn sepl:1))
+  clear_both(wrap(Childs, Ctx, "# ", ""))
 case (h2, _Attrs, Childs), Ctx:
-  clear_both(wrap(Childs, Ctx, "## ", "", fn sepl:1))
+  clear_both(wrap(Childs, Ctx, "## ", ""))
 case (h3, _Attrs, Childs), Ctx:
-  clear_both(wrap(Childs, Ctx, "### ", "", fn sepl:1))
+  clear_both(wrap(Childs, Ctx, "### ", ""))
 case (h4, _Attrs, Childs), Ctx:
-  clear_both(wrap(Childs, Ctx, "#### ", "", fn sepl:1))
+  clear_both(wrap(Childs, Ctx, "#### ", ""))
 case (h5, _Attrs, Childs), Ctx:
-  clear_both(wrap(Childs, Ctx, "##### ", "", fn sepl:1))
+  clear_both(wrap(Childs, Ctx, "##### ", ""))
 case (h6, _Attrs, Childs), Ctx:
-  clear_both(wrap(Childs, Ctx, "###### ", "", fn sepl:1))
+  clear_both(wrap(Childs, Ctx, "###### ", ""))
 case (em, _Attrs, Childs), Ctx:
   wrap(Childs, Ctx, "**", "**")
 case (strong, _Attrs, Childs), Ctx:
@@ -72,10 +72,10 @@ case (code, Attrs, Childs), Ctx:
 case (pre, _Attrs, Childs), Ctx:
   mdt(Childs, Ctx # {escape=false, plain=true}, "```", "```")
 case (ul, _Attrs, Childs), Ctx:
-  abovel(layout_items(Childs, Ctx))
+  clear_both(abovel(layout_items(Childs, Ctx)))
 case (ol, _Attrs, Childs), Ctx:
   #_ "TODO: number items"
-  abovel(layout_items(Childs, Ctx))
+  clear_both(abovel(layout_items(Childs, Ctx)))
 case (li, _Attrs, Childs), Ctx:
   mdli(Childs, Ctx)
 
@@ -90,7 +90,7 @@ case (dialog, {type=Type, title=Title}, Childs), Ctx:
 
   clear_both(abovel([
     raw_txt(iol2b(["!!! ", AlertType, " \"", Title, "\""])),
-    sep([raw_txt("    "), layout_items_par(Childs, Ctx)]),
+    nestc(layout_items_par(Childs, Ctx), Ctx),
     raw_txt("")]))
 
 case (dl, _Attrs, Childs), Ctx:
@@ -133,16 +133,16 @@ case Other: Other
 end
 
 fn mdli case Childs, Ctx:
-  sepl([raw_txt("*"), layout_items_beside(unwrap_groupers(Childs), Ctx)])
+  beside(raw_txt("* "), layout_items_beside(unwrap_groupers(Childs), Ctx))
 end
 
 fn mdt
 case Childs, Ctx, Prefix, Suffix:
-  clear_both(abovel([raw_txt(Prefix), layout_items_par(Childs, Ctx), raw_txt(Suffix)]))
+  clear_both(abovel([markup(Prefix), layout_items_par(Childs, Ctx), markup(Suffix)]))
 end
 
 fn wrap case Childs, Ctx, Prefix, Suffix:
-  wrap(Childs, Ctx, Prefix, Suffix, fn sepl:1)
+  wrap(Childs, Ctx, Prefix, Suffix, fn besidel:1)
 end
 
 fn wrap
@@ -156,18 +156,13 @@ case Child, Ctx, Prefix, Suffix, JoinFn when is_binary(Child):
 case [Child], Ctx, Prefix, Suffix, JoinFn when is_binary(Child):
   raw_txt(iol2b([Prefix, Child, Suffix]))
 case Childs, Ctx, Prefix, Suffix, JoinFn:
-  sepl([raw_txt(Prefix), JoinFn(layout_items(Childs, Ctx)), raw_txt(Suffix)])
+  besidel([markup(Prefix), JoinFn(layout_items(Childs, Ctx)), markup(Suffix)])
 end
 
 fn sepl
 case []: empty()
 case [Item]: Item
 case Items: sep(Items)
-end
-
-fn joinl
-case Items:
-  sepl(lists.join(raw_txt(" "), Items))
 end
 
 fn layout_items
@@ -195,7 +190,14 @@ fn layout_items_sep
 case [], _Ctx:
   empty()
 case Child, Ctx:
-  sep(layout_items(Child, Ctx))
+  sepl(layout_items(Child, Ctx))
+end
+
+fn layout_items_sep_fixed
+case [], _Ctx:
+  empty()
+case Child, Ctx:
+  besidel(lists.join(text(" "), layout_items(Child, Ctx)))
 end
 
 fn parl
@@ -240,15 +242,12 @@ fn nestc case Doc, _Ctx:
   nest(4, Doc)
 end
 
-fn unestc case Doc, _Ctx:
-  nest(-4, Doc)
-end
+fn raw_txt case V: text(to_ls(V)) end
+fn markup case V: text_par(to_ls(V)) end
 
-fn raw_txt
-case V when is_binary(V):
-  text(binary_to_list(V))
-case V when is_list(V):
-  text(V)
+fn to_ls
+case T when is_list(T): T
+case T when is_binary(T): b2l(T)
 end
 
 fn txt
@@ -266,12 +265,15 @@ fn escape_md case Str:
   re.replace(Str, "[*]", "\\\\&", [global, (return, list)])
 end
 
-fn iol2b case IOList:
-  list_to_binary(lists.flatten(IOList))
-end
+fn iol2b case IOList: list_to_binary(lists.flatten(IOList)) end
+fn b2l case V: binary_to_list(V) end
 
 fn clear_both case V:
-  above(break(break(raw_txt(""))),  break(break(V)))
+  clear_indent(above(break(break(raw_txt(""))),  break(break(V))))
+end
+
+fn clear_indent case V:
+  nest(-10000, V)
 end
 
 fn new_ctx case:
