@@ -1,0 +1,354 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>The Abstract Format</h1><p>This section describes the standard representation of parse trees for Erlang
+programs as Erlang terms. This representation is known as the <em>abstract format</em>. Functions dealing with such parse trees are
+<a href="../compiler/compile#forms/1">compiler/compile#forms/1</a> and functions in the following
+modules:</p><ul><li><a href="./epp">stdlib/epp</a></li><li><a href="./erl_eval">stdlib/erl_eval</a></li><li><a href="./erl_lint">stdlib/erl_lint</a></li><li><a href="./erl_parse">stdlib/erl_parse</a></li><li><a href="./erl_pp">stdlib/erl_pp</a></li><li><a href="./io">stdlib/io</a></li></ul><p>The functions are also used as input and output for parse transforms, see
+the <a href="./compile">compiler/compile</a>
+module.</p><p>We use the function <strong>Rep</strong> to denote the mapping from an Erlang source
+construct <strong>C</strong> to its abstract format representation <strong>R</strong>, and write
+<strong>R = Rep(C)</strong>.</p><p>The word <strong>LINE</strong> in this section represents an integer, and denotes the
+number of the line in the source file where the construction occurred.
+Several instances of <strong>LINE</strong> in the same construction can denote
+different lines.</p><p>As operators are not terms in their own right, when operators are
+mentioned below, the representation of an operator is to be taken to
+be the atom with a printname consisting of the same characters as the
+operator.</p><h2>Module Declarations and Forms</h2><p>A module declaration consists of a sequence of forms, which are either
+function declarations or attributes.</p><ul><li> <p>If D is a module declaration consisting of the forms
+<strong>F_1</strong>, ..., <strong>F_k</strong>, then
+Rep(D) = <strong>[Rep(F_1), ..., Rep(F_k)]</strong>.</p> </li><li> <p>If F is an attribute <strong>-export([Fun_1/A_1, ..., Fun_k/A_k])</strong>,
+then Rep(F) =
+<strong>{attribute,LINE,export,[{Fun_1,A_1}, ..., {Fun_k,A_k}]}</strong>.</p> </li><li> <p>If F is an attribute <strong>-import(Mod,[Fun_1/A_1, ..., Fun_k/A_k])</strong>,
+then Rep(F) =
+<strong>{attribute,LINE,import,{Mod,[{Fun_1,A_1}, ..., {Fun_k,A_k}]}}</strong>.</p> </li><li> <p>If F is an attribute <strong>-module(Mod)</strong>, then
+Rep(F) = <strong>{attribute,LINE,module,Mod}</strong>.</p> </li><li> <p>If F is an attribute <strong>-file(File,Line)</strong>, then
+Rep(F) = <strong>{attribute,LINE,file,{File,Line}}</strong>.</p> </li><li> <p>If F is a function declaration <strong>Name Fc_1 ; ... ; Name Fc_k</strong>,
+where each <strong>Fc_i</strong> is a function clause with a pattern sequence of
+the same length <strong>Arity</strong>, then Rep(F) =
+<strong>{function,LINE,Name,Arity,[Rep(Fc_1), ...,Rep(Fc_k)]}</strong>.</p> </li><li> <p>If F is a function specification <strong>-Spec Name Ft_1; ...; Ft_k</strong>,
+where <strong>Spec</strong> is either the atom <strong>spec</strong> or the atom
+<strong>callback</strong>, and each <strong>Ft_i</strong> is a possibly constrained
+function type with an argument sequence of the same length
+<strong>Arity</strong>, then Rep(F) =
+<strong>{attribute,Line,Spec,{{Name,Arity},[Rep(Ft_1), ..., Rep(Ft_k)]}}</strong>.</p> </li><li> <p>If F is a function specification
+<strong>-spec Mod:Name Ft_1; ...; Ft_k</strong>, where each <strong>Ft_i</strong> is a
+possibly constrained function type with an argument sequence of the
+same length <strong>Arity</strong>, then Rep(F) =
+<strong>{attribute,Line,spec,{{Mod,Name,Arity},[Rep(Ft_1), ..., Rep(Ft_k)]}}</strong>.</p> </li><li> <p>If F is a record declaration <strong>-record(Name,{V_1, ..., V_k})</strong>,
+where each <strong>V_i</strong> is a record field, then Rep(F) =
+<strong>{attribute,LINE,record,{Name,[Rep(V_1), ..., Rep(V_k)]}}</strong>.
+For Rep(V), see below.</p> </li><li> <p>If F is a type declaration <strong>-Type Name(V_1, ..., V_k) :: T</strong>,
+where <strong>Type</strong> is either the atom <strong>type</strong> or the atom
+<strong>opaque</strong>, each <strong>V_i</strong> is a variable, and <strong>T</strong> is a type,
+then Rep(F) =
+<strong>{attribute,LINE,Type,{Name,Rep(T),[Rep(V_1), ..., Rep(V_k)]}}</strong>.</p> </li><li> <p>If F is a wild attribute <strong>-A(T)</strong>, then
+Rep(F) = <strong>{attribute,LINE,A,T}</strong>.</p> </li></ul><h2>Record Fields</h2><p>Each field in a record declaration can have an optional,
+explicit, default initializer expression, and an
+optional type.</p><ul><li> <p>If V is <strong>A</strong>, then
+Rep(V) = <strong>{record_field,LINE,Rep(A)}</strong>.</p> </li><li> <p>If V is <strong>A = E</strong>, where <strong>E</strong> is an expression, then
+Rep(V) = <strong>{record_field,LINE,Rep(A),Rep(E)}</strong>.</p> </li><li> <p>If V is <strong>A :: T</strong>, where <strong>T</strong> is a type, then Rep(V) =
+<strong>{typed_record_field,{record_field,LINE,Rep(A)},Rep(T)}</strong>.</p> </li><li> <p>If V is <strong>A = E :: T</strong>, where
+<strong>E</strong> is an expression and <strong>T</strong> is a type, then Rep(V) =
+<strong>{typed_record_field,{record_field,LINE,Rep(A),Rep(E)},Rep(T)}</strong>.
+</p> </li></ul><h2>Representation of Parse Errors and End-of-File</h2><p>In addition to the representations of forms, the list that represents
+a module declaration (as returned by functions in
+<a href="./epp">stdlib/epp</a> and
+<a href="./erl_parse">stdlib/erl_parse</a>)
+can contain the following:</p><ul><li> <p>Tuples <strong>{error,E}</strong> and <strong>{warning,W}</strong>, denoting
+syntactically incorrect forms and warnings.
+</p> </li><li> <p><strong>{eof,LOCATION}</strong>, denoting an end-of-stream
+encountered before a complete form had been parsed.
+The word <strong>LOCATION</strong> represents an integer, and denotes the
+number of the last line in the source file.
+</p> </li></ul><h2>Atomic Literals</h2><p>There are five kinds of atomic literals, which are represented in the
+same way in patterns, expressions, and guards:</p><ul><li> <p>If L is an atom literal, then Rep(L) = <strong>{atom,LINE,L}</strong>.</p> </li><li> <p>If L is a character literal, then Rep(L) = <strong>{char,LINE,L}</strong>.</p> </li><li> <p>If L is a float literal, then Rep(L) = <strong>{float,LINE,L}</strong>.</p> </li><li> <p>If L is an integer literal, then
+Rep(L) = <strong>{integer,LINE,L}</strong>.</p> </li><li> <p>If L is a string literal consisting of the characters
+<strong>C_1</strong>, ..., <strong>C_k</strong>, then
+Rep(L) = <strong>{string,LINE,[C_1, ..., C_k]}</strong>.</p> </li></ul><p>Notice that negative integer and float literals do not occur as such;
+they are parsed as an application of the unary negation operator.</p><h2>Patterns</h2><p>If Ps is a sequence of patterns <strong>P_1, ..., P_k</strong>, then
+Rep(Ps) = <strong>[Rep(P_1), ..., Rep(P_k)]</strong>. Such sequences occur as the
+list of arguments to a function or fun.</p><p>Individual patterns are represented as follows:</p><ul><li> <p>If P is an atomic literal <strong>L</strong>, then Rep(P) = Rep(L).</p> </li><li> <p>If P is a bitstring pattern
+<strong>&lt;&lt;P_1:Size_1/TSL_1, ..., P_k:Size_k/TSL_k&gt;&gt;</strong>, where each
+<strong>Size_i</strong> is an expression that can be evaluated to an integer,
+and each <strong>TSL_i</strong> is a type specificer list, then Rep(P) =
+<strong>{bin,LINE,[{bin_element,LINE,Rep(P_1),Rep(Size_1),Rep(TSL_1)}, ..., {bin_element,LINE,Rep(P_k),Rep(Size_k),Rep(TSL_k)}]}</strong>.
+For Rep(TSL), see below.
+An omitted <strong>Size_i</strong> is represented by <strong>default</strong>.
+An omitted <strong>TSL_i</strong> is represented by <strong>default</strong>.</p> </li><li> <p>If P is a compound pattern <strong>P_1 = P_2</strong>, then Rep(P) =
+<strong>{match,LINE,Rep(P_1),Rep(P_2)}</strong>.</p> </li><li> <p>If P is a cons pattern <strong>[P_h | P_t]</strong>, then Rep(P) =
+<strong>{cons,LINE,Rep(P_h),Rep(P_t)}</strong>.</p> </li><li> <p>If P is a map pattern <strong>#{A_1, ..., A_k}</strong>, where each
+<strong>A_i</strong> is an association <strong>P_i_1 := P_i_2</strong>, then Rep(P) =
+<strong>{map,LINE,[Rep(A_1), ..., Rep(A_k)]}</strong>.
+For Rep(A), see below.</p> </li><li> <p>If P is a nil pattern <strong>[]</strong>, then Rep(P) =
+<strong>{nil,LINE}</strong>.</p> </li><li> <p>If P is an operator pattern <strong>P_1 Op P_2</strong>, where <strong>Op</strong> is a
+binary operator (this is either an occurrence of <strong>++</strong> applied to
+a literal string or character list, or an occurrence of an expression
+that can be evaluated to a number at compile time), then Rep(P) =
+<strong>{op,LINE,Op,Rep(P_1),Rep(P_2)}</strong>.</p> </li><li> <p>If P is an operator pattern <strong>Op P_0</strong>, where <strong>Op</strong> is a
+unary operator (this is an occurrence of an expression that can be
+evaluated to a number at compile time), then Rep(P) =
+<strong>{op,LINE,Op,Rep(P_0)}</strong>.</p> </li><li> <p>If P is a parenthesized pattern <strong>( P_0 )</strong>, then Rep(P) =
+<strong>Rep(P_0)</strong>, that is, parenthesized patterns cannot be
+distinguished from their bodies.</p> </li><li> <p>If P is a record field index pattern <strong>#Name.Field</strong>,
+where <strong>Field</strong> is an atom, then Rep(P) =
+<strong>{record_index,LINE,Name,Rep(Field)}</strong>.</p> </li><li> <p>If P is a record pattern <strong>#Name{Field_1=P_1, ..., Field_k=P_k}</strong>,
+where each <strong>Field_i</strong> is an atom or <strong>_</strong>, then Rep(P) =
+<strong>{record,LINE,Name,[{record_field,LINE,Rep(Field_1),Rep(P_1)}, ..., {record_field,LINE,Rep(Field_k),Rep(P_k)}]}</strong>.</p> </li><li> <p>If P is a tuple pattern <strong>{P_1, ..., P_k}</strong>, then Rep(P) =
+<strong>{tuple,LINE,[Rep(P_1), ..., Rep(P_k)]}</strong>.</p> </li><li> <p>If P is a universal pattern <strong>_</strong>, then Rep(P) =
+<strong>{var,LINE,'_'}</strong>.</p></li><li> <p>If P is a variable pattern <strong>V</strong>, then Rep(P) =
+<strong>{var,LINE,A}</strong>, where A is an atom with a printname consisting
+of the same characters as <strong>V</strong>.</p> </li></ul><p>Notice that every pattern has the same source form as some expression,
+and is represented in the same way as the corresponding expression.</p><h2>Expressions</h2><p>A body B is a non-empty sequence of expressions <strong>E_1, ..., E_k</strong>,
+and Rep(B) = <strong>[Rep(E_1), ..., Rep(E_k)]</strong>.</p><p>An expression E is one of the following:</p><ul><li> <p>If E is an atomic literal <strong>L</strong>, then Rep(E) = Rep(L).</p> </li><li> <p>If E is a bitstring comprehension
+<strong>&lt;&lt;E_0 || Q_1, ..., Q_k&gt;&gt;</strong>,
+where each <strong>Q_i</strong> is a qualifier, then Rep(E) =
+<strong>{bc,LINE,Rep(E_0),[Rep(Q_1), ..., Rep(Q_k)]}</strong>.
+For Rep(Q), see below.</p> </li><li> <p>If E is a bitstring constructor
+<strong>&lt;&lt;E_1:Size_1/TSL_1, ..., E_k:Size_k/TSL_k&gt;&gt;</strong>,
+where each <strong>Size_i</strong> is an expression and each
+<strong>TSL_i</strong> is a type specificer list, then Rep(E) =
+<strong>{bin,LINE,[{bin_element,LINE,Rep(E_1),Rep(Size_1),Rep(TSL_1)}, ..., {bin_element,LINE,Rep(E_k),Rep(Size_k),Rep(TSL_k)}]}</strong>.
+For Rep(TSL), see below.
+An omitted <strong>Size_i</strong> is represented by <strong>default</strong>.
+An omitted <strong>TSL_i</strong> is represented by <strong>default</strong>.</p> </li><li> <p>If E is a block expression <strong>begin B end</strong>,
+where <strong>B</strong> is a body, then Rep(E) =
+<strong>{block,LINE,Rep(B)}</strong>.</p> </li><li> <p>If E is a case expression <strong>case E_0 of Cc_1 ; ... ; Cc_k end</strong>,
+where <strong>E_0</strong> is an expression and each <strong>Cc_i</strong> is a
+case clause, then Rep(E) =
+<strong>{'case',LINE,Rep(E_0),[Rep(Cc_1), ..., Rep(Cc_k)]}</strong>.</p> </li><li> <p>If E is a catch expression <strong>catch E_0</strong>, then Rep(E) =
+<strong>{'catch',LINE,Rep(E_0)}</strong>.</p> </li><li> <p>If E is a cons skeleton <strong>[E_h | E_t]</strong>, then Rep(E) =
+<strong>{cons,LINE,Rep(E_h),Rep(E_t)}</strong>.</p> </li><li> <p>If E is a fun expression <strong>fun Name/Arity</strong>, then Rep(E) =
+<strong>{'fun',LINE,{function,Name,Arity}}</strong>.</p> </li><li> <p>If E is a fun expression <strong>fun Module:Name/Arity</strong>, then Rep(E) =
+<strong>{'fun',LINE,{function,Rep(Module),Rep(Name),Rep(Arity)}}</strong>.
+(Before Erlang/OTP R15: Rep(E) =
+<strong>{'fun',LINE,{function,Module,Name,Arity}}</strong>.)</p> </li><li> <p>If E is a fun expression <strong>fun Fc_1 ; ... ; Fc_k end</strong>,
+where each <strong>Fc_i</strong> is a function clause, then Rep(E) =
+<strong>{'fun',LINE,{clauses,[Rep(Fc_1), ..., Rep(Fc_k)]}}</strong>.</p> </li><li> <p>If E is a fun expression <strong>fun Name Fc_1 ; ... ; Name Fc_k end</strong>,
+where <strong>Name</strong> is a variable and each
+<strong>Fc_i</strong> is a function clause, then Rep(E) =
+<strong>{named_fun,LINE,Name,[Rep(Fc_1), ..., Rep(Fc_k)]}</strong>.</p> </li><li> <p>If E is a function call <strong>E_0(E_1, ..., E_k)</strong>, then Rep(E) =
+<strong>{call,LINE,Rep(E_0),[Rep(E_1), ..., Rep(E_k)]}</strong>.</p> </li><li> <p>If E is a function call <strong>E_m:E_0(E_1, ..., E_k)</strong>, then Rep(E) =
+<strong>{call,LINE,{remote,LINE,Rep(E_m),Rep(E_0)},[Rep(E_1), ..., Rep(E_k)]}</strong>.</p> </li><li> <p>If E is an if expression <strong>if Ic_1 ; ... ; Ic_k  end</strong>,
+where each <strong>Ic_i</strong> is an if clause, then Rep(E) =
+<strong>{'if',LINE,[Rep(Ic_1), ..., Rep(Ic_k)]}</strong>.</p> </li><li> <p>If E is a list comprehension <strong>[E_0 || Q_1, ..., Q_k]</strong>,
+where each <strong>Q_i</strong> is a qualifier, then Rep(E) =
+<strong>{lc,LINE,Rep(E_0),[Rep(Q_1), ..., Rep(Q_k)]}</strong>.
+For Rep(Q), see below.</p> </li><li> <p>If E is a map creation <strong>#{A_1, ..., A_k}</strong>,
+where each <strong>A_i</strong> is an association <strong>E_i_1 =&gt; E_i_2</strong>,
+then Rep(E) = <strong>{map,LINE,[Rep(A_1), ..., Rep(A_k)]}</strong>.
+For Rep(A), see below.</p> </li><li> <p>If E is a map update <strong>E_0#{A_1, ..., A_k}</strong>,
+where each <strong>A_i</strong> is an association <strong>E_i_1 =&gt; E_i_2</strong>
+or <strong>E_i_1 := E_i_2</strong>, then Rep(E) =
+<strong>{map,LINE,Rep(E_0),[Rep(A_1), ..., Rep(A_k)]}</strong>.
+For Rep(A), see below.</p> </li><li> <p>If E is a match operator expression <strong>P = E_0</strong>,
+where <strong>P</strong> is a pattern, then Rep(E) =
+<strong>{match,LINE,Rep(P),Rep(E_0)}</strong>.</p> </li><li> <p>If E is nil, <strong>[]</strong>, then Rep(E) = <strong>{nil,LINE}</strong>.</p> </li><li> <p>If E is an operator expression <strong>E_1 Op E_2</strong>,
+where <strong>Op</strong> is a binary operator other than match operator
+<strong>=</strong>, then Rep(E) =
+<strong>{op,LINE,Op,Rep(E_1),Rep(E_2)}</strong>.</p> </li><li> <p>If E is an operator expression <strong>Op E_0</strong>,
+where <strong>Op</strong> is a unary operator, then Rep(E) =
+<strong>{op,LINE,Op,Rep(E_0)}</strong>.</p> </li><li> <p>If E is a parenthesized expression <strong>( E_0 )</strong>, then Rep(E) =
+<strong>Rep(E_0)</strong>, that is, parenthesized expressions cannot be
+distinguished from their bodies.</p> </li><li> <p>If E is a receive expression <strong>receive Cc_1 ; ... ; Cc_k end</strong>,
+where each <strong>Cc_i</strong> is a case clause, then Rep(E) =
+<strong>{'receive',LINE,[Rep(Cc_1), ..., Rep(Cc_k)]}</strong>.</p> </li><li> <p>If E is a receive expression
+<strong>receive Cc_1 ; ... ; Cc_k after E_0 -&gt; B_t end</strong>,
+where each <strong>Cc_i</strong> is a case clause, <strong>E_0</strong> is an expression,
+and <strong>B_t</strong> is a body, then Rep(E) =
+<strong>{'receive',LINE,[Rep(Cc_1), ..., Rep(Cc_k)],Rep(E_0),Rep(B_t)}</strong>.</p> </li><li> <p>If E is a record creation
+<strong>#Name{Field_1=E_1, ..., Field_k=E_k}</strong>,
+where each <strong>Field_i</strong> is an atom or <strong>_</strong>, then Rep(E) =
+<strong>{record,LINE,Name,[{record_field,LINE,Rep(Field_1),Rep(E_1)}, ..., {record_field,LINE,Rep(Field_k),Rep(E_k)}]}</strong>.</p> </li><li> <p>If E is a record field access <strong>E_0#Name.Field</strong>,
+where <strong>Field</strong> is an atom, then Rep(E) =
+<strong>{record_field,LINE,Rep(E_0),Name,Rep(Field)}</strong>.</p> </li><li> <p>If E is a record field index <strong>#Name.Field</strong>,
+where <strong>Field</strong> is an atom, then Rep(E) =
+<strong>{record_index,LINE,Name,Rep(Field)}</strong>.</p></li><li> <p>If E is a record update
+<strong>E_0#Name{Field_1=E_1, ..., Field_k=E_k}</strong>,
+where each <strong>Field_i</strong> is an atom, then Rep(E) =
+<strong>{record,LINE,Rep(E_0),Name,[{record_field,LINE,Rep(Field_1),Rep(E_1)}, ..., {record_field,LINE,Rep(Field_k),Rep(E_k)}]}</strong>.</p> </li><li> <p>If E is a tuple skeleton <strong>{E_1, ..., E_k}</strong>, then Rep(E) =
+<strong>{tuple,LINE,[Rep(E_1), ..., Rep(E_k)]}</strong>.</p> </li><li> <p>If E is a try expression <strong>try B catch Tc_1 ; ... ; Tc_k end</strong>,
+where <strong>B</strong> is a body and each <strong>Tc_i</strong> is a catch clause,
+then Rep(E) =
+<strong>{'try',LINE,Rep(B),[],[Rep(Tc_1), ..., Rep(Tc_k)],[]}</strong>.</p> </li><li> <p>If E is a try expression
+<strong>try B of Cc_1 ; ... ; Cc_k catch Tc_1 ; ... ; Tc_n end</strong>,
+where <strong>B</strong> is a body, each <strong>Cc_i</strong> is a case clause, and
+each <strong>Tc_j</strong> is a catch clause, then Rep(E) =
+<strong>{'try',LINE,Rep(B),[Rep(Cc_1), ..., Rep(Cc_k)],[Rep(Tc_1), ..., Rep(Tc_n)],[]}</strong>.</p> </li><li> <p>If E is a try expression <strong>try B after A end</strong>,
+where <strong>B</strong> and <strong>A</strong> are bodies, then Rep(E) =
+<strong>{'try',LINE,Rep(B),[],[],Rep(A)}</strong>.</p> </li><li> <p>If E is a try expression
+<strong>try B of Cc_1 ; ... ; Cc_k after A end</strong>,
+where <strong>B</strong> and <strong>A</strong> are a bodies,
+and each <strong>Cc_i</strong> is a case clause, then Rep(E) =
+<strong>{'try',LINE,Rep(B),[Rep(Cc_1), ..., Rep(Cc_k)],[],Rep(A)}</strong>.</p> </li><li> <p>If E is a try expression
+<strong>try B catch Tc_1 ; ... ; Tc_k after A end</strong>,
+where <strong>B</strong> and <strong>A</strong> are bodies,
+and each <strong>Tc_i</strong> is a catch clause, then Rep(E) =
+<strong>{'try',LINE,Rep(B),[],[Rep(Tc_1), ..., Rep(Tc_k)],Rep(A)}</strong>.</p> </li><li> <p>If E is a try expression
+<strong>try B of Cc_1 ; ... ; Cc_k  catch Tc_1 ; ... ; Tc_n after A end</strong>, where <strong>B</strong> and <strong>A</strong> are a bodies,
+each <strong>Cc_i</strong> is a case clause,
+and each <strong>Tc_j</strong> is a catch clause, then Rep(E) =
+<strong>{'try',LINE,Rep(B),[Rep(Cc_1), ..., Rep(Cc_k)],[Rep(Tc_1), ..., Rep(Tc_n)],Rep(A)}</strong>.</p> </li><li> <p>If E is a variable <strong>V</strong>, then Rep(E) = <strong>{var,LINE,A}</strong>,
+where <strong>A</strong> is an atom with a printname consisting of the same
+characters as <strong>V</strong>.</p> </li></ul><h2>Qualifiers</h2><p>A qualifier Q is one of the following:</p><ul><li> <p>If Q is a filter <strong>E</strong>, where <strong>E</strong> is an expression, then
+Rep(Q) = <strong>Rep(E)</strong>.</p> </li><li> <p>If Q is a generator <strong>P &lt;- E</strong>, where <strong>P</strong> is
+a pattern and <strong>E</strong> is an expression, then Rep(Q) =
+<strong>{generate,LINE,Rep(P),Rep(E)}</strong>.</p> </li><li> <p>If Q is a bitstring generator <strong>P &lt;= E</strong>, where <strong>P</strong> is
+a pattern and <strong>E</strong> is an expression, then Rep(Q) =
+<strong>{b_generate,LINE,Rep(P),Rep(E)}</strong>.</p> </li></ul><h2>Bitstring Element Type Specifiers</h2><p>A type specifier list TSL for a bitstring element is a sequence
+of type specifiers <strong>TS_1 - ... - TS_k</strong>, and
+Rep(TSL) = <strong>[Rep(TS_1), ..., Rep(TS_k)]</strong>.</p><ul><li> <p>If TS is a type specifier <strong>A</strong>, where <strong>A</strong> is an atom,
+then Rep(TS) = <strong>A</strong>.</p> </li><li> <p>If TS is a type specifier <strong>A:Value</strong>,
+where <strong>A</strong> is an atom and <strong>Value</strong> is an integer,
+then Rep(TS) = <strong>{A,Value}</strong>.</p> </li></ul><h2>Associations</h2><p>An association A is one of the following:</p><ul><li> <p>If A is an association <strong>K =&gt; V</strong>,
+then Rep(A) = <strong>{map_field_assoc,LINE,Rep(K),Rep(V)}</strong>.</p> </li><li> <p>If A is an association <strong>K := V</strong>,
+then Rep(A) = <strong>{map_field_exact,LINE,Rep(K),Rep(V)}</strong>.</p> </li></ul><h2>Clauses</h2><p>There are function clauses, if clauses, case clauses,
+and catch clauses.</p><p>A clause C is one of the following:</p><ul><li> <p>If C is a case clause <strong>P -&gt; B</strong>,
+where <strong>P</strong> is a pattern and <strong>B</strong> is a body, then
+Rep(C) = <strong>{clause,LINE,[Rep(P)],[],Rep(B)}</strong>.</p> </li><li> <p>If C is a case clause <strong>P when Gs -&gt; B</strong>,
+where <strong>P</strong> is a pattern,
+<strong>Gs</strong> is a guard sequence, and <strong>B</strong> is a body, then
+Rep(C) = <strong>{clause,LINE,[Rep(P)],Rep(Gs),Rep(B)}</strong>.</p> </li><li> <p>If C is a catch clause <strong>P -&gt; B</strong>,
+where <strong>P</strong> is a pattern and <strong>B</strong> is a body, then
+Rep(C) = <strong>{clause,LINE,[Rep({throw,P,_})],[],Rep(B)}</strong>,
+that is, a catch clause with an explicit exception class
+<strong>throw</strong> and with or without an explicit stacktrace
+variable <strong>_</strong> cannot be distinguished from a catch clause
+without an explicit exception class and without an explicit
+stacktrace variable.</p> </li><li> <p>If C is a catch clause <strong>X : P -&gt; B</strong>,
+where <strong>X</strong> is an atomic literal or a variable pattern,
+<strong>P</strong> is a pattern, and <strong>B</strong> is a body, then
+Rep(C) = <strong>{clause,LINE,[Rep({X,P,_})],[],Rep(B)}</strong>,
+that is, a catch clause with an explicit exception class and
+with an explicit stacktrace variable <strong>_</strong> cannot be
+distinguished from a catch clause with an explicit exception
+class and without an explicit stacktrace variable.</p> </li><li> <p>If C is a catch clause <strong>X : P : S -&gt; B</strong>,
+where <strong>X</strong> is an atomic literal or a variable pattern,
+<strong>P</strong> is a pattern, <strong>S</strong> is a variable, and <strong>B</strong>
+is a body, then
+Rep(C) = <strong>{clause,LINE,[Rep({X,P,S})],[],Rep(B)}</strong>.</p> </li><li> <p>If C is a catch clause <strong>P when Gs -&gt; B</strong>,
+where <strong>P</strong> is a pattern, <strong>Gs</strong> is a guard sequence,
+and <strong>B</strong> is a body, then
+Rep(C) = <strong>{clause,LINE,[Rep({throw,P,_})],Rep(Gs),Rep(B)}</strong>,
+that is, a catch clause with an explicit exception class
+<strong>throw</strong> and with or without an explicit stacktrace
+variable <strong>_</strong> cannot be distinguished from a catch clause
+without an explicit exception class and without an explicit
+stacktrace variable.</p> </li><li> <p>If C is a catch clause <strong>X : P when Gs -&gt; B</strong>,
+where <strong>X</strong> is an atomic literal or a variable pattern,
+<strong>P</strong> is a pattern, <strong>Gs</strong> is a guard sequence,
+and <strong>B</strong> is a body, then
+Rep(C) = <strong>{clause,LINE,[Rep({X,P,_})],Rep(Gs),Rep(B)}</strong>,
+that is, a catch clause with an explicit exception class and
+with an explicit stacktrace variable <strong>_</strong> cannot be
+distinguished from a catch clause with an explicit exception
+class and without an explicit stacktrace variable.</p> </li><li> <p>If C is a catch clause <strong>X : P : S when Gs -&gt; B</strong>,
+where <strong>X</strong> is an atomic literal or a variable pattern,
+<strong>P</strong> is a pattern, <strong>Gs</strong> is a guard sequence,
+<strong>S</strong> is a variable, and <strong>B</strong> is a body, then
+Rep(C) = <strong>{clause,LINE,[Rep({X,P,S})],Rep(Gs),Rep(B)}</strong>.</p> </li><li> <p>If C is a function clause <strong>( Ps ) -&gt; B</strong>,
+where <strong>Ps</strong> is a pattern sequence and <strong>B</strong> is a body, then
+Rep(C) = <strong>{clause,LINE,Rep(Ps),[],Rep(B)}</strong>.</p> </li><li> <p>If C is a function clause <strong>( Ps ) when Gs -&gt; B</strong>,
+where <strong>Ps</strong> is a pattern sequence,
+<strong>Gs</strong> is a guard sequence and <strong>B</strong> is a body, then
+Rep(C) = <strong>{clause,LINE,Rep(Ps),Rep(Gs),Rep(B)}</strong>.</p> </li><li> <p>If C is an if clause <strong>Gs -&gt; B</strong>,
+where <strong>Gs</strong> is a guard sequence and <strong>B</strong> is a body, then
+Rep(C) = <strong>{clause,LINE,[],Rep(Gs),Rep(B)}</strong>.</p> </li></ul><h2>Guards</h2><p>A guard sequence Gs is a sequence of guards <strong>G_1; ...; G_k</strong>, and
+Rep(Gs) = <strong>[Rep(G_1), ..., Rep(G_k)]</strong>. If the guard sequence is
+empty, then Rep(Gs) = <strong>[]</strong>.</p><p>A guard G is a non-empty sequence of guard tests
+<strong>Gt_1, ..., Gt_k</strong>, and Rep(G) =
+<strong>[Rep(Gt_1), ..., Rep(Gt_k)]</strong>.</p><p>A guard test Gt is one of the following:</p><ul><li> <p>If Gt is an atomic literal <strong>L</strong>, then Rep(Gt) = Rep(L).</p> </li><li> <p>If Gt is a bitstring constructor
+<strong>&lt;&lt;Gt_1:Size_1/TSL_1, ..., Gt_k:Size_k/TSL_k&gt;&gt;</strong>,
+where each <strong>Size_i</strong> is a guard test and each
+<strong>TSL_i</strong> is a type specificer list, then Rep(Gt) =
+<strong>{bin,LINE,[{bin_element,LINE,Rep(Gt_1),Rep(Size_1),Rep(TSL_1)}, ..., {bin_element,LINE,Rep(Gt_k),Rep(Size_k),Rep(TSL_k)}]}</strong>.
+For Rep(TSL), see above.
+An omitted <strong>Size_i</strong> is represented by <strong>default</strong>.
+An omitted <strong>TSL_i</strong> is represented by <strong>default</strong>.</p> </li><li> <p>If Gt is a cons skeleton <strong>[Gt_h | Gt_t]</strong>, then Rep(Gt) =
+<strong>{cons,LINE,Rep(Gt_h),Rep(Gt_t)}</strong>.</p> </li><li> <p>If Gt is a function call <strong>A(Gt_1, ..., Gt_k)</strong>,
+where <strong>A</strong> is an atom, then Rep(Gt) =
+<strong>{call,LINE,Rep(A),[Rep(Gt_1), ..., Rep(Gt_k)]}</strong>.</p> </li><li> <p>If Gt is a function call <strong>A_m:A(Gt_1, ..., Gt_k)</strong>,
+where <strong>A_m</strong> is the atom <strong>erlang</strong> and <strong>A</strong> is
+an atom or an operator, then Rep(Gt) =
+<strong>{call,LINE,{remote,LINE,Rep(A_m),Rep(A)},[Rep(Gt_1), ..., Rep(Gt_k)]}</strong>.</p> </li><li> <p>If Gt is a map creation <strong>#{A_1, ..., A_k}</strong>,
+where each <strong>A_i</strong> is an association <strong>Gt_i_1 =&gt; Gt_i_2</strong>,
+then Rep(Gt) = <strong>{map,LINE,[Rep(A_1), ..., Rep(A_k)]}</strong>.
+For Rep(A), see above.</p> </li><li> <p>If Gt is a map update <strong>Gt_0#{A_1, ..., A_k}</strong>,
+where each <strong>A_i</strong> is an association <strong>Gt_i_1 =&gt; Gt_i_2</strong>
+or <strong>Gt_i_1 := Gt_i_2</strong>, then Rep(Gt) =
+<strong>{map,LINE,Rep(Gt_0),[Rep(A_1), ..., Rep(A_k)]}</strong>.
+For Rep(A), see above.</p> </li><li> <p>If Gt is nil, <strong>[]</strong>, then Rep(Gt) = <strong>{nil,LINE}</strong>.</p> </li><li> <p>If Gt is an operator guard test <strong>Gt_1 Op Gt_2</strong>,
+where <strong>Op</strong> is a binary operator other than match
+operator <strong>=</strong>, then Rep(Gt) =
+<strong>{op,LINE,Op,Rep(Gt_1),Rep(Gt_2)}</strong>.</p> </li><li> <p>If Gt is an operator guard test <strong>Op Gt_0</strong>,
+where <strong>Op</strong> is a unary operator, then Rep(Gt) =
+<strong>{op,LINE,Op,Rep(Gt_0)}</strong>.</p> </li><li> <p>If Gt is a parenthesized guard test <strong>( Gt_0 )</strong>, then Rep(Gt) =
+<strong>Rep(Gt_0)</strong>, that is, parenthesized
+guard tests cannot be distinguished from their bodies.</p> </li><li> <p>If Gt is a record creation
+<strong>#Name{Field_1=Gt_1, ..., Field_k=Gt_k}</strong>,
+where each <strong>Field_i</strong> is an atom or <strong>_</strong>, then Rep(Gt) =
+<strong>{record,LINE,Name,[{record_field,LINE,Rep(Field_1),Rep(Gt_1)}, ..., {record_field,LINE,Rep(Field_k),Rep(Gt_k)}]}</strong>.</p> </li><li> <p>If Gt is  a record field access <strong>Gt_0#Name.Field</strong>,
+where <strong>Field</strong> is an atom, then Rep(Gt) =
+<strong>{record_field,LINE,Rep(Gt_0),Name,Rep(Field)}</strong>.</p> </li><li> <p>If Gt is a record field index <strong>#Name.Field</strong>,
+where <strong>Field</strong> is an atom, then Rep(Gt) =
+<strong>{record_index,LINE,Name,Rep(Field)}</strong>.</p> </li><li> <p>If Gt is a tuple skeleton <strong>{Gt_1, ..., Gt_k}</strong>, then Rep(Gt) =
+<strong>{tuple,LINE,[Rep(Gt_1), ..., Rep(Gt_k)]}</strong>.</p> </li><li> <p>If Gt is a variable pattern <strong>V</strong>, then Rep(Gt) =
+<strong>{var,LINE,A}</strong>, where A is an atom with
+a printname consisting of the same characters as <strong>V</strong>.</p> </li></ul><p>Notice that every guard test has the same source form as some expression,
+and is represented in the same way as the corresponding expression.</p><h2>Types</h2><ul><li> <p>If T is an annotated type <strong>A :: T_0</strong>,
+where <strong>A</strong> is a variable, then Rep(T) =
+<strong>{ann_type,LINE,[Rep(A),Rep(T_0)]}</strong>.</p> </li><li> <p>If T is an atom, a character, or an integer literal L,
+then Rep(T) = Rep(L).</p> </li><li> <p>If T is a bitstring type <strong>&lt;&lt;_:M,_:_*N&gt;&gt;</strong>,
+where <strong>M</strong> and <strong>N</strong> are singleton integer types, then Rep(T) =
+<strong>{type,LINE,binary,[Rep(M),Rep(N)]}</strong>.</p> </li><li> <p>If T is the empty list type <strong>[]</strong>, then Rep(T) =
+<strong>{type,Line,nil,[]}</strong>, that is, the empty list type
+<strong>[]</strong> cannot be distinguished from the predefined type
+<strong>nil()</strong>.</p> </li><li> <p>If T is a fun type <strong>fun()</strong>, then Rep(T) =
+<strong>{type,LINE,'fun',[]}</strong>.</p> </li><li> <p>If T is a fun type <strong>fun((...) -&gt; T_0)</strong>, then Rep(T) =
+<strong>{type,LINE,'fun',[{type,LINE,any},Rep(T_0)]}</strong>.</p> </li><li> <p>If T is a fun type <strong>fun(Ft)</strong>, where
+<strong>Ft</strong> is a function type, then Rep(T) = <strong>Rep(Ft)</strong>.
+For Rep(Ft), see below.</p> </li><li> <p>If T is an integer range type <strong>L .. H</strong>,
+where <strong>L</strong> and <strong>H</strong> are singleton integer types, then Rep(T) =
+<strong>{type,LINE,range,[Rep(L),Rep(H)]}</strong>.</p> </li><li> <p>If T is a map type <strong>map()</strong>, then Rep(T) =
+<strong>{type,LINE,map,any}</strong>.</p> </li><li> <p>If T is a map type <strong>#{A_1, ..., A_k}</strong>, where each
+<strong>A_i</strong> is an association type, then Rep(T) =
+<strong>{type,LINE,map,[Rep(A_1), ..., Rep(A_k)]}</strong>.
+For Rep(A), see below.</p> </li><li> <p>If T is an operator type <strong>T_1 Op T_2</strong>,
+where <strong>Op</strong> is a binary operator (this is an occurrence of
+an expression that can be evaluated to an integer at compile
+time), then Rep(T) =
+<strong>{op,LINE,Op,Rep(T_1),Rep(T_2)}</strong>.</p> </li><li> <p>If T is an operator type <strong>Op T_0</strong>, where <strong>Op</strong> is a
+unary operator (this is an occurrence of an expression that can
+be evaluated to an integer at compile time), then Rep(T) =
+<strong>{op,LINE,Op,Rep(T_0)}</strong>.</p> </li><li> <p>If T is <strong>( T_0 )</strong>, then Rep(T) = <strong>Rep(T_0)</strong>, that is,
+parenthesized types cannot be distinguished from their bodies.</p> </li><li> <p>If T is a predefined (or built-in) type <strong>N(T_1, ..., T_k)</strong>,
+then Rep(T) = <strong>{type,LINE,N,[Rep(T_1), ..., Rep(T_k)]}</strong>.</p> </li><li> <p>If T is a record type <strong>#Name{F_1, ..., F_k}</strong>,
+where each <strong>F_i</strong> is a record field type, then Rep(T) =
+<strong>{type,LINE,record,[Rep(Name),Rep(F_1), ..., Rep(F_k)]}</strong>.
+For Rep(F), see below.</p> </li><li> <p>If T is a remote type <strong>M:N(T_1, ..., T_k)</strong>, then Rep(T) =
+<strong>{remote_type,LINE,[Rep(M),Rep(N),[Rep(T_1), ..., Rep(T_k)]]}</strong>.</p> </li><li> <p>If T is a tuple type <strong>tuple()</strong>, then Rep(T) =
+<strong>{type,LINE,tuple,any}</strong>.</p> </li><li> <p>If T is a tuple type <strong>{T_1, ..., T_k}</strong>, then Rep(T) =
+<strong>{type,LINE,tuple,[Rep(T_1), ..., Rep(T_k)]}</strong>.</p> </li><li> <p>If T is a type union <strong>T_1 | ... | T_k</strong>, then Rep(T) =
+<strong>{type,LINE,union,[Rep(T_1), ..., Rep(T_k)]}</strong>.</p> </li><li> <p>If T is a type variable <strong>V</strong>, then Rep(T) =
+<strong>{var,LINE,A}</strong>, where <strong>A</strong> is an atom with a printname
+consisting of the same characters as <strong>V</strong>. A type variable
+is any variable except underscore (<strong>_</strong>).</p> </li><li> <p>If T is a user-defined type <strong>N(T_1, ..., T_k)</strong>, then Rep(T) =
+<strong>{user_type,LINE,N,[Rep(T_1), ..., Rep(T_k)]}</strong>.</p> </li></ul><h2>Function Types</h2><p>A function type Ft is one of the following:</p><ul><li> <p>If Ft is a constrained function type <strong>Ft_1 when Fc</strong>,
+where <strong>Ft_1</strong> is a function type and
+<strong>Fc</strong> is a function constraint, then Rep(T) =
+<strong>{type,LINE,bounded_fun,[Rep(Ft_1),Rep(Fc)]}</strong>.
+For Rep(Fc), see below.</p> </li><li> <p>If Ft is a function type <strong>(T_1, ..., T_n) -&gt; T_0</strong>,
+where each <strong>T_i</strong> is a type, then Rep(Ft) =
+<strong>{type,LINE,'fun',[{type,LINE,product,[Rep(T_1), ..., Rep(T_n)]},Rep(T_0)]}</strong>.</p> </li></ul><h2>Function Constraints</h2><p>A function constraint Fc is a non-empty sequence of constraints
+<strong>C_1, ..., C_k</strong>, and
+Rep(Fc) = <strong>[Rep(C_1), ..., Rep(C_k)]</strong>.</p><ul><li>If C is a constraint <strong>V :: T</strong>, where <strong>V</strong> is a type variable and <strong>T</strong> is a type, then Rep(C) = <strong>{type,LINE,constraint,[{atom,LINE,is_subtype},[Rep(V),Rep(T)]]}</strong>. </li></ul><h2>Association Types</h2><ul><li> <p>If A is an association type <strong>K =&gt; V</strong>,
+where <strong>K</strong> and <strong>V</strong> are types, then Rep(A) =
+<strong>{type,LINE,map_field_assoc,[Rep(K),Rep(V)]}</strong>.</p> </li><li> <p>If A is an association type <strong>K := V</strong>,
+where <strong>K</strong> and <strong>V</strong> are types, then Rep(A) =
+<strong>{type,LINE,map_field_exact,[Rep(K),Rep(V)]}</strong>.</p> </li></ul><h2>Record Field Types</h2><ul><li>If F is a record field type <strong>Name :: Type</strong>, where <strong>Type</strong> is a type, then Rep(F) = <strong>{type,LINE,field_type,[Rep(Name),Rep(Type)]}</strong>. </li></ul><h2>The Abstract Format after Preprocessing</h2><p>The compilation option <strong>debug_info</strong> can be specified to the
+compiler to have the abstract code stored in
+the <strong>abstract_code</strong> chunk in the Beam file
+(for debugging purposes).</p><p>As from Erlang/OTP R9C, the <strong>abstract_code</strong> chunk contains
+<strong>{raw_abstract_v1,AbstractCode}</strong>, where <strong>AbstractCode</strong> is the
+abstract code as described in this section.</p><p>In OTP releases before R9C, the abstract code after some more
+processing was stored in the Beam file. The first element of the
+tuple would be either <strong>abstract_v1</strong> (in OTP R7B) or
+<strong>abstract_v2</strong> (in OTP R8B).</p></body></html>

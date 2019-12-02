@@ -1,0 +1,73 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>win32reg</h1><h1>win32reg</h1><p>Provides access to the registry on Windows.</p><p>This module provides read and write access to the
+registry on Windows. It is essentially a port driver wrapped around the
+Win32 API calls for accessing the registry.The registry is a hierarchical database, used to store various system
+and software information in Windows.
+It contains installation data, and is updated by installers
+and system programs. The Erlang installer updates the registry by adding
+data that Erlang needs.The registry contains keys and values. Keys are like the directories
+in a file system, they form a hierarchy. Values are like files, they have
+a name and a value, and also a type.Paths to keys are left to right, with subkeys to the right and backslash
+between keys. (Remember that backslashes must be doubled in Erlang
+strings.) Case is preserved but not significant.For example,
+<strong>"\\hkey_local_machine\\software\\Ericsson\\Erlang\\5.0"</strong> is the key
+for the installation data for the latest Erlang release.There are six entry points in the Windows registry, top-level keys.
+They can be abbreviated in this module as follows:<pre>
+Abbreviation     Registry key
+============     ============
+hkcr             HKEY_CLASSES_ROOT
+current_user     HKEY_CURRENT_USER
+hkcu             HKEY_CURRENT_USER
+local_machine    HKEY_LOCAL_MACHINE
+hklm             HKEY_LOCAL_MACHINE
+users            HKEY_USERS
+hku              HKEY_USERS
+current_config   HKEY_CURRENT_CONFIG
+hkcc             HKEY_CURRENT_CONFIG
+dyn_data         HKEY_DYN_DATA
+hkdd             HKEY_DYN_DATA</pre>The key above can be written as
+<strong>"\\hklm\\software\\ericsson\\erlang\\5.0"</strong>.This module uses a current key. It works much like the
+current directory. From the current key, values can be fetched, subkeys
+can be listed, and so on.Under a key, any number of named values can be stored. They have names,
+types, and data.<strong>win32reg</strong> supports storing of the following types:<ul><li><strong>REG_DWORD</strong>, which is an integer</li><li><strong>REG_SZ</strong>, which is a string</li><li><strong>REG_BINARY</strong>, which is a binary</li></ul>Other types can be read, and are returned as binaries.There is also a "default" value, which has the empty string as name. It
+is read and written with the atom <strong>default</strong> instead of the name.Some registry values are stored as strings with references to environment
+variables, for example, <strong>%SystemRoot%Windows</strong>. <strong>SystemRoot</strong> is
+an environment variable, and is to be replaced with its value. Function
+<a href="#expand/1">expand/1</a> is provided so that
+environment variables surrounded by <strong>%</strong> can be expanded to their
+values.For more information on the Windows registry, see consult the Win32
+Programmer's Reference.</p><h1>Data Types</h1><span class="name">reg_handle</span><p>As returned by
+<a href="#open/1">open/1</a>.</p><span class="name">name</span><span class="name">value</span><h1>Functions</h1><h2>change_key/2</h2><p>Move to a key in the registry.</p><p>Changes the current key to another key. Works like <strong>cd</strong>.
+The key can be specified as a relative path or as an
+absolute path, starting with <strong>\.</strong></p><h2>change_key_create/2</h2><p>Move to a key, create it if it is not there.</p><p>Creates a key, or just changes to it, if it is already there. Works
+like a combination of <strong>mkdir</strong> and <strong>cd</strong>.
+Calls the Win32 API function <strong>RegCreateKeyEx()</strong>.</p><p>The registry must have been opened in write mode.</p><h2>close/1</h2><p>Close the registry.</p><p>Closes the registry. After that, the <strong><span class="anno">RegHandle</span></strong>
+cannot be used.</p><h2>current_key/1</h2><p>Return the path to the current key.</p><p>Returns the path to the current key. This is the equivalent of
+<strong>pwd</strong>.</p><p>Notice that the current key is stored in the driver, and can be
+invalid (for example, if the key has been removed).</p><h2>delete_key/1</h2><p>Delete the current key.</p><p>Deletes the current key, if it is valid. Calls the Win32 API
+function <strong>RegDeleteKey()</strong>. Notice that this call does not change
+the current key (unlike
+<a href="#change_key_create/2">change_key_create/2</a>).
+This means that after the call, the current key is invalid.</p><h2>delete_value/2</h2><p>Delete the named value on the current key.</p><p>Deletes a named value on the current key. The atom <strong>default</strong> is
+used for the default value.</p><p>The registry must have been opened in write mode.</p><h2>expand/1</h2><p>Expand a string with environment variables.</p><p>Expands a string containing environment variables between percent
+characters. Anything between two <strong>%</strong> is taken for an environment
+variable, and is replaced by the value. Two consecutive <strong>%</strong> are
+replaced by one <strong>%</strong>.</p><p>A variable name that is not in the environment results in an
+error.</p><h2>format_error/1</h2><p>Convert a POSIX error code to a string.</p><p>Converts a POSIX error code to a string
+(by calling <strong>erl_posix_msg:message/1</strong>).</p><h2>open/1</h2><p>Open the registry for reading or writing.</p><p>Opens the registry for reading or writing. The current key is the
+root (<strong>HKEY_CLASSES_ROOT</strong>). Flag <strong>read</strong> in the mode list
+can be omitted.</p><p>Use <a href="#change_key/2">change_key/2</a>
+with an absolute path after
+<a href="#open/1">open/1</a>.</p><h2>set_value/3</h2><p>Set value at the current registry key with specified name. </p><p>Sets the named (or default) value to <strong>value</strong>. Calls the Win32
+API function <strong>RegSetValueEx()</strong>. The value can be of three types,
+and the corresponding registry type is used. The supported types
+are the following:</p><ul><li><strong>REG_DWORD</strong> for integers</li><li><strong>REG_SZ</strong> for strings</li><li><strong>REG_BINARY</strong> for binaries</li></ul><p>Other types cannot be added or changed.</p><p>The registry must have been opened in write mode.</p><h2>sub_keys/1</h2><p>Get subkeys to the current key.</p><p>Returns a list of subkeys to the current key. Calls the Win32
+API function <strong>EnumRegKeysEx()</strong>.</p><p>Avoid calling this on the root keys, as it can be slow.</p><h2>value/2</h2><p>Get the named value on the current key.</p><p>Retrieves the named value (or default) on the current key.
+Registry values of type <strong>REG_SZ</strong> are returned as strings.
+Type <strong>REG_DWORD</strong> values are returned as integers. All other
+types are returned as binaries.</p><h2>values/1</h2><p>Get all values on the current key.</p><p>Retrieves a list of all values on the current key. The values
+have types corresponding to the registry types, see
+<a href="#value/2">value/2</a>.
+Calls the Win32 API function <strong>EnumRegValuesEx()</strong>.</p><h2>See Also</h2><p><strong>erl_posix_msg</strong>,
+The Windows 95 Registry (book from O'Reilly),
+Win32 Programmer's Reference (from Microsoft)</p></body></html>

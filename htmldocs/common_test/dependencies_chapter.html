@@ -1,0 +1,195 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Dependencies between Test Cases and Suites</h1><h2>General</h2><p>When creating test suites, it is strongly recommended to not
+create dependencies between test cases, that is, letting test cases
+depend on the result of previous test cases. There are various
+reasons for this, such as, the following:</p><ul><li>It makes it impossible to run test cases individually.</li><li>It makes it impossible to run test cases in a different order.</li><li>It makes debugging difficult (as a fault can be the result of a problem in a different test case than the one failing).</li><li>There are no good and explicit ways to declare dependencies, so  it can be difficult to see and understand these in test suite  code and in test logs.</li><li>Extending, restructuring, and maintaining test suites with  test case dependencies is difficult.</li></ul><p>There are often sufficient means to work around the need for test 
+case dependencies. Generally, the problem is related to the state of 
+the System Under Test (SUT). The action of one test case can change the 
+system state. For some other test case to run properly, this new state 
+must be known.</p><p>Instead of passing data between test cases, it is recommended
+that the test cases read the state from the SUT and perform assertions
+(that is, let the test case run if the state is as expected, otherwise reset or fail).
+It is also recommended to use the state to set variables necessary for the 
+test case to execute properly. Common actions can often be implemented as 
+library functions for test cases to call to set the SUT in a required state. 
+(Such common actions can also be separately tested, if necessary,
+to ensure that they work as expected). It is sometimes also possible, 
+but not always desirable, to group tests together in one test case, that is,
+let a test case perform a "scenario" test (a test consisting of subtests).</p><p>Consider, for example, a server application under test. The following 
+functionality is to be tested:</p><ul><li>Starting the server</li><li>Configuring the server</li><li>Connecting a client to the server</li><li>Disconnecting a client from the server</li><li>Stopping the server</li></ul><p>There are obvious dependencies between the listed functions. The server cannot 
+be configured if it has not first been started, a client connot be connectd until 
+the server is properly configured, and so on. If we want to have one test 
+case for each function, we might be tempted to try to always run the
+test cases in the stated order and carry possible data (identities, handles,
+and so on) between the cases and therefore introduce dependencies between them.</p><p>To avoid this, we can consider starting and stopping the server for every test.
+We can thus implement the start and stop action as common functions to be 
+called from 
+<a href="./common_test#Module:init_per_testcase-2">common_test#Module:init_per_testcase-2</a> and 
+<a href="./common_test#Module:end_per_testcase-2">common_test#Module:end_per_testcase-2</a>. 
+(Remember to test the start and stop functionality separately.) 
+The configuration can also be implemented as a common function, maybe grouped 
+with the start function. Finally, the testing of connecting and disconnecting a 
+client can be grouped into one test case. The resulting suite can look as
+follows:</p><pre>      
+ -module(my_server_SUITE).
+ -compile(export_all).
+ -include_lib("ct.hrl").
+
+ %%% init and end functions...
+
+ suite() -&gt; [{require,my_server_cfg}].
+
+ init_per_testcase(start_and_stop, Config) -&gt;
+     Config;
+
+ init_per_testcase(config, Config) -&gt;
+     [{server_pid,start_server()} | Config];
+
+ init_per_testcase(_, Config) -&gt;
+     ServerPid = start_server(),
+     configure_server(),
+     [{server_pid,ServerPid} | Config].
+
+ end_per_testcase(start_and_stop, _) -&gt;
+     ok;
+
+ end_per_testcase(_, _) -&gt;
+     ServerPid = ?config(server_pid),
+     stop_server(ServerPid).
+
+ %%% test cases...
+
+ all() -&gt; [start_and_stop, config, connect_and_disconnect].
+
+ %% test that starting and stopping works
+ start_and_stop(_) -&gt;
+     ServerPid = start_server(),
+     stop_server(ServerPid).
+
+ %% configuration test
+ config(Config) -&gt;
+     ServerPid = ?config(server_pid, Config),
+     configure_server(ServerPid).
+
+ %% test connecting and disconnecting client
+ connect_and_disconnect(Config) -&gt;
+     ServerPid = ?config(server_pid, Config),
+     {ok,SessionId} = my_server:connect(ServerPid),
+     ok = my_server:disconnect(ServerPid, SessionId).
+
+ %%% common functions...
+
+ start_server() -&gt;
+     {ok,ServerPid} = my_server:start(),
+     ServerPid.
+
+ stop_server(ServerPid) -&gt;
+     ok = my_server:stop(),
+     ok.
+
+ configure_server(ServerPid) -&gt;
+     ServerCfgData = ct:get_config(my_server_cfg),
+     ok = my_server:configure(ServerPid, ServerCfgData),
+     ok.</pre><a name="save_config"></a><h2>Saving Configuration Data</h2><p>Sometimes it is impossible, or infeasible, to
+implement independent test cases. Maybe it is not possible to read the 
+SUT state. Maybe resetting the SUT is impossible and it takes too long time
+to restart the system. In situations where test case dependency is necessary,
+CT offers a structured way to carry data from one test case to the next. The
+same mechanism can also be used to carry data from one test suite to the next.</p><p>The mechanism for passing data is called <strong>save_config</strong>. The idea is that
+one test case (or suite) can save the current value of <strong>Config</strong>, or any list of
+key-value tuples, so that the next executing test case (or test suite) can read it. 
+The configuration data is not saved permanently but can only be passed from one 
+case (or suite) to the next.</p><p>To save <strong>Config</strong> data, return tuple <strong>{save_config,ConfigList}</strong>
+from <strong>end_per_testcase</strong> or from the main test case function.</p><p>To read data saved by a previous test case, use macro <strong>config</strong> with a 
+<strong>saved_config</strong> key as follows:</p><p><strong>{Saver,ConfigList} = ?config(saved_config, Config)</strong></p><p><strong>Saver</strong> (<strong>atom()</strong>) is the name of the previous test case (where the
+data was saved). The <strong>config</strong> macro can be used to extract particular data
+also from the recalled <strong>ConfigList</strong>. It is strongly recommended that 
+<strong>Saver</strong> is always matched to the expected name of the saving test case. 
+This way, problems because of restructuring of the test suite can be avoided. 
+Also, it makes the dependency more explicit and the test suite easier to read 
+and maintain.</p><p>To pass data from one test suite to another, the same mechanism is used. The data
+is to be saved by finction
+<a href="./common_test#Module:end_per_suite-1">common_test#Module:end_per_suite-1</a> 
+and read by function
+<a href="./common_test#Module:init_per_suite-1">common_test#Module:init_per_suite-1</a>
+in the suite that follows. When passing data between suites, <strong>Saver</strong> carries the 
+name of the test suite.</p><p><em>Example:</em></p><pre>
+ -module(server_b_SUITE).
+ -compile(export_all).
+ -include_lib("ct.hrl").
+
+ %%% init and end functions...
+
+ init_per_suite(Config) -&gt;
+     %% read config saved by previous test suite
+     {server_a_SUITE,OldConfig} = ?config(saved_config, Config),
+     %% extract server identity (comes from server_a_SUITE)
+     ServerId = ?config(server_id, OldConfig),
+     SessionId = connect_to_server(ServerId),
+     [{ids,{ServerId,SessionId}} | Config].
+
+ end_per_suite(Config) -&gt;
+     %% save config for server_c_SUITE (session_id and server_id)
+     {save_config,Config}
+
+ %%% test cases...
+
+ all() -&gt; [allocate, deallocate].
+
+ allocate(Config) -&gt;
+     {ServerId,SessionId} = ?config(ids, Config),
+     {ok,Handle} = allocate_resource(ServerId, SessionId),
+     %% save handle for deallocation test
+     NewConfig = [{handle,Handle}],
+     {save_config,NewConfig}.
+
+ deallocate(Config) -&gt;
+     {ServerId,SessionId} = ?config(ids, Config),
+     {allocate,OldConfig} = ?config(saved_config, Config),
+     Handle = ?config(handle, OldConfig),
+     ok = deallocate_resource(ServerId, SessionId, Handle).</pre><p>To save <strong>Config</strong> data from a test case that is to be
+skipped, return tuple 
+<strong>{skip_and_save,Reason,ConfigList}</strong>.</p><p>The result is that the test case is skipped with <strong>Reason</strong> printed to
+the log file (as described earlier) and <strong>ConfigList</strong> is saved 
+for the next test case. <strong>ConfigList</strong> can be read using 
+<strong>?config(saved_config, Config)</strong>, as described earlier. <strong>skip_and_save</strong>
+can also be returned from <strong>init_per_suite</strong>. In this case, the saved data can
+be read by <strong>init_per_suite</strong> in the suite that follows.</p><a name="sequences"></a><h2>Sequences</h2><p>Sometimes test cases depend on each other so that
+if one case fails, the following tests are not to be executed.
+Typically, if the <strong>save_config</strong> facility is used and a test 
+case that is expected to save data crashes, the following 
+case cannot run. <strong>Common Test</strong> offers a way to declare such dependencies, 
+called sequences.</p><p>A sequence of test cases is defined as a test case group
+with a <strong>sequence</strong> property. Test case groups are defined
+through function <strong>groups/0</strong> in the test suite (for details, see section
+<a href="./write_test_chapter#test_case_groups">Test Case Groups</a>.</p><p>For example, to ensure that if <strong>allocate</strong>
+in <strong>server_b_SUITE</strong> crashes, <strong>deallocate</strong> is skipped,
+the following sequence can be defined:</p><pre>
+ groups() -&gt; [{alloc_and_dealloc, [sequence], [alloc,dealloc]}].</pre><p>Assume that the suite contains the test case <strong>get_resource_status</strong> 
+that is independent of the other two cases, then function <strong>all</strong> can 
+look as follows:</p><pre>
+ all() -&gt; [{group,alloc_and_dealloc}, get_resource_status].</pre><p>If <strong>alloc</strong> succeeds, <strong>dealloc</strong> is also executed. If <strong>alloc</strong> fails
+however, <strong>dealloc</strong> is not executed but marked as <strong>SKIPPED</strong> in the HTML log. 
+<strong>get_resource_status</strong> runs no matter what happens to the <strong>alloc_and_dealloc</strong>
+cases.</p><p>Test cases in a sequence are executed in order until all succeed or 
+one fails. If one fails, all following cases in the sequence are skipped.
+The cases in the sequence that have succeeded up to that point are reported as 
+successful in the log. Any number of sequences can be specified.</p><p><em>Example:</em></p><pre>
+ groups() -&gt; [{scenarioA, [sequence], [testA1, testA2]}, 
+              {scenarioB, [sequence], [testB1, testB2, testB3]}].
+
+ all() -&gt; [test1, 
+           test2, 
+           {group,scenarioA}, 
+	   test3, 
+           {group,scenarioB}, 
+           test4].</pre><p>A sequence group can have subgroups. Such subgroups can have 
+any property, that is, they are not required to also be sequences. If you want the 
+status of the subgroup to affect the sequence on the level above, return 
+<strong>{return_group_result,Status}</strong> from 
+<a href="./common_test#Module:end_per_group-2">common_test#Module:end_per_group-2</a>, 
+as described in section
+<a href="./write_test_chapter#repeated_groups">Repeated Groups</a>
+in Writing Test Suites.
+A failed subgroup (<strong>Status == failed</strong>) causes the execution of a 
+sequence to fail in the	same way a test case does.</p></body></html>

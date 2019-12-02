@@ -1,0 +1,87 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>global_group</h1><h1>global_group</h1><p>Grouping nodes to global name registration groups.</p><p>This module makes it possible to partition the nodes of a
+system into <em>global groups</em>. Each global group has its own
+global namespace, see <a href="global">global</a>.The main advantage of dividing systems into global groups is that
+the background load decreases while the number of nodes to be
+updated is reduced when manipulating globally registered names.The Kernel configuration parameter <strong>global_groups</strong> defines
+the global groups (see also
+<a href="./kernel_app#global_groups">kernel_app#global_groups</a>
+and <a href="config">config</a>):<pre><code class="">
+{global_groups, [GroupTuple :: group_tuple()]}</code></pre>For the processes and nodes to run smoothly using the global
+group functionality, the following criteria must be met:<ul><li> <p>An instance of the global group server, <strong>global_group</strong>,
+must be running on each node. The processes are automatically
+started and synchronized when a node is started.</p> </li><li> <p>All involved nodes must agree on the global group definition,
+otherwise the behavior of the system is undefined.</p> </li><li> <p><em>All</em> nodes in the system must belong to exactly
+one global group.</p> </li></ul>In the following descriptions, a <em>group node</em> is a node
+belonging to the same global group as the local node.</p><h1>Data Types</h1><span class="name">group_tuple</span><p>A <strong>GroupTuple</strong> without <strong>PublishType</strong> is the same as a
+<strong>GroupTuple</strong> with <strong>PublishType</strong> equal to <strong>normal</strong>.
+</p><span class="name">group_name</span><span class="name">publish_type</span><p>A node started with command-line flag <strong>-hidden</strong> (see
+<a href="./erl">erts/erl</a>) is said
+to be a <em>hidden</em> node. A hidden node establishes hidden
+connections to nodes not part of the same global group, but
+normal (visible) connections to nodes part of the same global
+group.</p><p>A global group defined with <strong>PublishType</strong> equal to
+<strong>hidden</strong> is said to be a hidden global group.
+All nodes in a hidden global
+group are hidden nodes, whether they are started with
+command-line flag <strong>-hidden</strong> or not.</p><span class="name">name</span><p>A registered name.</p><span class="name">where</span><h1>Functions</h1><h2>global_groups/0</h2><p>Return the global group names.</p><p>Returns a tuple containing the name of the global group that
+the local node belongs to, and the list of all other known
+group names. Returns <strong>undefined</strong> if no global groups are
+defined.</p><h2>info/0</h2><p>Information about global groups.</p><ul><li>info_item</li></ul><ul><li>sync_state</li></ul><p>Returns a list containing information about the global
+groups. Each list element is a tuple. The order of
+the tuples is undefined.</p><dl><dt><strong>{state, <span class="anno">State</span>}</strong></dt><dd> <p>If the local node is part of a global group,
+<strong><span class="anno">State</span></strong> is equal to <strong>synced</strong>.
+If no global groups are defined,
+<strong><span class="anno">State</span></strong> is equal to <strong>no_conf</strong>.</p> </dd><dt><strong>{own_group_name, <span class="anno">GroupName</span>}</strong></dt><dd> <p>The name (atom) of the group that the local node belongs
+to.</p> </dd><dt><strong>{own_group_nodes, <span class="anno">Nodes</span>}</strong></dt><dd> <p>A list of node names (atoms), the group nodes.</p> </dd><dt><strong>{synced_nodes, <span class="anno">Nodes</span>}</strong></dt><dd> <p>A list of node names, the group nodes currently
+synchronized with the local node.</p> </dd><dt><strong>{sync_error, <span class="anno">Nodes</span>}</strong></dt><dd> <p>A list of node names, the group nodes with which
+the local node has failed to synchronize.</p> </dd><dt><strong>{no_contact, <span class="anno">Nodes</span>}</strong></dt><dd> <p>A list of node names, the group nodes to which there are
+currently no connections.</p> </dd><dt><strong>{other_groups, <span class="anno">Groups</span>}</strong></dt><dd> <p><strong><span class="anno">Groups</span></strong> is a list of tuples
+<strong>{<span class="anno">GroupName</span>, <span class="anno">Nodes</span>}</strong>,
+specifying the name and nodes
+of the other global groups.</p> </dd><dt><strong>{monitoring, <span class="anno">Pids</span>}</strong></dt><dd> <p>A list of pids, specifying the processes that have
+subscribed to <strong>nodeup</strong> and <strong>nodedown</strong> messages.</p> </dd></dl><h2>monitor_nodes/1</h2><p>Subscribe to node status changes.</p><p>Depending on <strong><span class="anno">Flag</span></strong>, the calling process
+starts subscribing (<strong><span class="anno">Flag</span></strong> equal to
+<strong>true</strong>) or stops subscribing (<strong><span class="anno">Flag</span></strong>
+equal to <strong>false</strong>) to node status change messages.</p><p>A process that has subscribed receives the messages
+<strong>{nodeup, Node}</strong> and <strong>{nodedown, Node}</strong> when a
+group node connects or disconnects, respectively.</p><h2>own_nodes/0</h2><p>Return the group nodes.</p><p>Returns the names of all group nodes, regardless of their
+current status.</p><h2>registered_names/1</h2><p>Return globally registered names.</p><p>Returns a list of all names that are globally registered
+on the specified node or in the specified global group.</p><h2>send/2</h2><h2>send/3</h2><p>Send a message to a globally registered pid.</p><p>Searches for <strong><span class="anno">Name</span></strong>, globally registered on
+the specified node or in the specified global group, or
+(if argument <strong><span class="anno">Where</span></strong> is not provided) in any
+global group. The global groups are searched in the order that
+they appear in the value of configuration parameter
+<strong>global_groups</strong>.</p><p>If <strong><span class="anno">Name</span></strong> is found, message
+<strong><span class="anno">Msg</span></strong> is sent to
+the corresponding pid. The pid is also the return value of
+the function. If the name is not found, the function returns
+<strong>{badarg, {<span class="anno">Name</span>, <span class="anno">Msg</span>}}</strong>.</p><h2>sync/0</h2><p>Synchronize the group nodes.</p><p>Synchronizes the group nodes, that is, the global name
+servers on the group nodes. Also checks the names globally
+registered in the current global group and unregisters them
+on any known node not part of the group.</p><p>If synchronization is not possible, an error report is sent
+to the error logger (see also
+<a href="error_logger">error_logger</a>.
+</p><p>Returns <strong>{error, {'invalid global_groups definition', Bad}}</strong>
+if configuration parameter <strong>global_groups</strong> has an
+invalid value <strong>Bad</strong>.</p><h2>whereis_name/1</h2><h2>whereis_name/2</h2><p>Get the pid with a specified globally registered name.</p><p>Searches for <strong><span class="anno">Name</span></strong>, globally registered on
+the specified node or in the specified global group, or
+(if argument <strong><span class="anno">Where</span></strong> is not provided) in any global
+group. The global groups are searched in the order that
+they appear in the value of configuration parameter
+<strong>global_groups</strong>.</p><p>If <strong><span class="anno">Name</span></strong> is found, the corresponding pid is
+returned. If the name is not found, the function returns
+<strong>undefined</strong>.</p><h2>Notes</h2><ul><li><p>In the situation where a node has lost its connections to other
+nodes in its global group, but has connections to nodes in other
+global groups, a request from another global group can produce an
+incorrect or misleading result. For example, the isolated node can
+have inaccurate information about registered names in its
+global group.</p></li><li><p>Function
+<a href="#send/2">send/2</a>
+is not secure.</p></li><li><p>Distribution of applications is highly dependent of the global
+group definitions. It is not recommended that an application is
+distributed over many global groups, as
+the registered names can be moved to another global group at
+failover/takeover. Nothing prevents this to be done, but
+the application code must then handle the situation.</p></li></ul><h2>See Also</h2><p><a href="global">global</a>,
+<a href="./erl">erts/erl</a></p></body></html>

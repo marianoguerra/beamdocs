@@ -1,0 +1,230 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>error_logger</h1><h1>error_logger</h1><p>Erlang error logger.</p><p>The Erlang <em>error logger</em> is an event manager (see
+<a href="./des_princ">OTP Design Principles</a> and
+<a href="./gen_event">stdlib/gen_event</a>),
+registered as <strong>error_logger</strong>.Error logger is no longer started by default, but is
+automatically started when an event handler is added
+with <a href="#add_report_handler/1">add_report_handler/1</a>. The <strong>error_logger</strong>
+module is then also added as a handler to the new logger,
+causing log events to be forwarded from logger to error logger,
+and consequently to all installed error logger event
+handlers.User-defined event handlers can be added to handle application-specific
+events.Existing event handlers provided by STDLIB and SASL are still
+available, but are no longer used by OTP.Warning events were introduced in Erlang/OTP R9C and are enabled
+by default as from Erlang/OTP 18.0. To retain backwards compatibility
+with existing user-defined event handlers, the warning events can be
+tagged as <strong>errors</strong> or <strong>info</strong> using command-line flag
+<strong>+W &lt;e | i | w&gt;</strong>, thus showing up as
+<strong>ERROR REPORT</strong> or <strong>INFO REPORT</strong> in the logs.</p><h1>Data Types</h1><span class="name">report</span><h1>Functions</h1><h2>add_report_handler/1</h2><h2>add_report_handler/2</h2><p>Add an event handler to the error logger.</p><p>Adds a new event handler to the error logger. The event
+handler must be implemented as a <strong>gen_event</strong> callback
+module, see
+<a href="./gen_event">stdlib/gen_event</a>.</p><p><strong><span class="anno">Handler</span></strong> is typically the name of the callback module
+and <strong><span class="anno">Args</span></strong> is an optional term (defaults to []) passed
+to the initialization callback function <strong><span class="anno">Handler</span>:init/1</strong>.
+The function returns <strong>ok</strong> if successful.</p><p>The event handler must be able to handle the events in this module, see
+section <a href="#events">Events</a>.</p><p>The first time this function is called,
+<strong>error_logger</strong> is added as a Logger handler, and
+the <strong>error_logger</strong> process is started.</p><h2>delete_report_handler/1</h2><p>Delete an event handler from the error logger.</p><p>Deletes an event handler from the error logger by calling
+<strong>gen_event:delete_handler(error_logger, <span class="anno">Handler</span>, [])</strong>,
+see <a href="./gen_event">stdlib/gen_event</a>.</p><p>If no more event handlers exist after the deletion,
+<strong>error_logger</strong> is removed as a Logger handler, and
+the <strong>error_logger</strong> process is stopped.</p><h2>error_msg/1</h2><h2>error_msg/2</h2><h2>format/2</h2><p>Log a standard error event.</p><p>Log a standard error event. The <strong><span class="anno">Format</span></strong>
+and <strong><span class="anno">Data</span></strong> arguments are the same as the
+arguments of
+<a href="../stdlib/io#format/2">stdlib/io#format/2</a>
+in STDLIB.</p><p>Error logger forwards the event to Logger, including
+metadata that allows backwards compatibility with legacy
+error logger event handlers.</p><p>The event is handled by the default Logger handler.</p><p>These functions are kept for backwards compatibility and
+must not be used by new code. Use the <a href="./logger#macros">logger#macros</a> macro or
+<a href="./logger#error-1">logger#error-1</a>
+instead.</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">error_logger:error_msg("An error occurred in ~p", [a_module]).</span>
+=ERROR REPORT==== 22-May-2018::11:18:43.376917 ===
+An error occurred in a_module
+ok</pre><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>If the Unicode translation modifier (<strong>t</strong>) is used in
+the format string, all event handlers must ensure that the
+formatted output is correctly encoded for the I/O
+device.</p></div><h2>error_report/1</h2><p>Log a standard error event.</p><p>Log a standard error event. Error logger forwards the event
+to Logger, including metadata that allows backwards
+compatibility with legacy error logger event handlers.</p><p>The event is handled by the default Logger handler.</p><p>This functions is kept for backwards compatibility and
+must not be used by new code. Use the <a href="./logger#macros">logger#macros</a> macro or
+<a href="./logger#error-1">logger#error-1</a>
+instead.</p><p><em>Example:</em></p><pre>
+2&gt; <span class="input">error_logger:error_report([{tag1,data1},a_term,{tag2,data}]).</span>
+=ERROR REPORT==== 22-May-2018::11:24:23.699306 ===
+    tag1: data1
+    a_term
+    tag2: data
+ok
+3&gt; <span class="input">error_logger:error_report("Serious error in my module").</span>
+=ERROR REPORT==== 22-May-2018::11:24:45.972445 ===
+Serious error in my module
+ok</pre><h2>error_report/2</h2><p>Log a user-defined error event.</p><p>Log a user-defined error event. Error logger forwards the
+event to Logger, including metadata that allows backwards
+compatibility with legacy error logger event handlers.</p><p>Error logger also adds a <strong>domain</strong> field with
+value <strong>[<span class="anno">Type</span>]</strong> to this event's metadata,
+causing the filters of the default Logger handler to discard
+the event. A different Logger handler, or an error logger
+event handler, must be added to handle this event.</p><p>It is recommended that <strong><span class="anno">Report</span></strong> follows the same
+structure as for
+<a href="#error_report/1">error_report/1</a>.</p><p>This functions is kept for backwards compatibility and
+must not be used by new code. Use the <a href="./logger#macros">logger#macros</a> macro or
+<a href="./logger#error-1">logger#error-1</a>
+instead.</p><h2>get_format_depth/0</h2><p>Get the value of the Kernel application variable <strong>error_logger_format_depth</strong>.</p><p>Returns <strong>max(10, Depth)</strong>, where <strong>Depth</strong> is the
+value of <strong>error_logger_format_depth</strong>
+in the Kernel application, if Depth is an integer. Otherwise,
+<strong>unlimited</strong> is returned.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The <strong>error_logger_format_depth</strong> variable
+is <a href="./kernel_app#deprecated-configuration-parameters"> deprecated</a> since
+the <a href="logger">Logger API</a> was
+introduced in Erlang/OTP 21.0. The variable, and this
+function, are kept for backwards compatibility since they
+still might be used by legacy report handlers.</p></div><h2>info_msg/1</h2><h2>info_msg/2</h2><p>Log a standard information event.</p><p>Log a standard information event. The <strong><span class="anno">Format</span></strong>
+and <strong><span class="anno">Data</span></strong> arguments are the same as the
+arguments of
+<a href="../stdlib/io#format/2">stdlib/io#format/2</a>
+in STDLIB.</p><p>Error logger forwards the event to Logger, including
+metadata that allows backwards compatibility with legacy
+error logger event handlers.</p><p>The event is handled by the default Logger handler.</p><p>These functions are kept for backwards compatibility and
+must not be used by new code. Use the <a href="./logger#macros">logger#macros</a> macro or
+<a href="./logger#info-1">logger#info-1</a>
+instead.</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">error_logger:info_msg("Something happened in ~p", [a_module]).</span>
+=INFO REPORT==== 22-May-2018::12:03:32.612462 ===
+Something happened in a_module
+ok</pre><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>If the Unicode translation modifier (<strong>t</strong>) is used in
+the format string, all event handlers must ensure that the
+formatted output is correctly encoded for the I/O
+device.</p></div><h2>info_report/1</h2><p>Log a standard information event.</p><p>Log a standard information event. Error logger forwards the
+event to Logger, including metadata that allows backwards
+compatibility with legacy error logger event handlers.</p><p>The event is handled by the default Logger handler.</p><p>This functions is kept for backwards compatibility and
+must not be used by new code. Use the <a href="./logger#macros">logger#macros</a> macro or
+<a href="./logger#info-1">logger#info-1</a>
+instead.</p><p><em>Example:</em></p><pre>
+2&gt; <span class="input">error_logger:info_report([{tag1,data1},a_term,{tag2,data}]).</span>
+=INFO REPORT==== 22-May-2018::12:06:35.994440 ===
+    tag1: data1
+    a_term
+    tag2: data
+ok
+3&gt; <span class="input">error_logger:info_report("Something strange happened").</span>
+=INFO REPORT==== 22-May-2018::12:06:49.066872 ===
+Something strange happened
+ok</pre><h2>info_report/2</h2><p>Log a user-defined information event.</p><p>Log a user-defined information event. Error logger forwards
+the event to Logger, including metadata that allows
+backwards compatibility with legacy error logger event
+handlers.</p><p>Error logger also adds a <strong>domain</strong> field with
+value <strong>[<span class="anno">Type</span>]</strong> to this event's metadata,
+causing the filters of the default Logger handler to discard
+the event. A different Logger handler, or an error logger
+event handler, must be added to handle this event.</p><p>It is recommended that <strong><span class="anno">Report</span></strong> follows the same
+structure as for
+<a href="#info_report/1">info_report/1</a>.</p><p>This functions is kept for backwards compatibility and
+must not be used by new code. Use the <a href="./logger#macros">logger#macros</a> macro or
+<a href="./logger#info-1">logger#info-1</a>
+instead.</p><h2>logfile/1</h2><h2>logfile/1</h2><h2>logfile/1</h2><p>Enable or disable error printouts to a file.</p><ul><li>Filename</li></ul><ul><li>OpenReason</li></ul><ul><li>CloseReason</li></ul><ul><li>FilenameReason</li></ul><ul><li>open_error</li></ul><p>Enables or disables printout of standard events to a file.</p><p>This is done by adding or deleting
+the <strong>error_logger_file_h</strong> event handler, and thus
+indirectly adding <strong>error_logger</strong> as a Logger
+handler.</p><p>Notice that this function does not manipulate the Logger
+configuration directly, meaning that if the default Logger
+handler is already logging to a file, this function can
+potentially cause logging to a second file.</p><p>This function is useful as a shortcut during development
+and testing, but must not be used in a production
+system. See
+section <a href="logger_chapter">Logging</a>
+in the Kernel User's Guide, and
+the <a href="logger">logger</a>
+manual page for information about how to configure Logger
+for live systems.</p><p><strong>Request</strong> is one of the following:</p><dl><dt><strong>{open, <span class="anno">Filename</span>}</strong></dt><dd> <p>Opens log file <strong><span class="anno">Filename</span></strong>. Returns <strong>ok</strong> if
+successful, or <strong>{error, allready_have_logfile}</strong> if
+logging to file is already enabled, or an error tuple if
+another error occurred (for example, if <strong><span class="anno">Filename</span></strong>
+cannot be opened). The file is opened with encoding UTF-8.</p> </dd><dt><strong>close</strong></dt><dd> <p>Closes the current log file. Returns <strong>ok</strong>, or
+<strong>{error, module_not_found}</strong>.</p> </dd><dt><strong>filename</strong></dt><dd> <p>Returns the name of the log file <strong><span class="anno">Filename</span></strong>, or
+<strong>{error, no_log_file}</strong> if logging to file is not
+enabled.</p> </dd></dl><h2>tty/1</h2><p>Enable or disable printouts to the terminal.</p><p>Enables (<strong><span class="anno">Flag</span> == true</strong>) or disables
+(<strong><span class="anno">Flag</span> == false</strong>) printout of standard events
+to the terminal.</p><p>This is done by manipulating the Logger configuration. The
+function is useful as a shortcut during development and
+testing, but must not be used in a production system. See
+section <a href="logger_chapter">Logging</a>
+in the Kernel User's Guide, and
+the <a href="logger">logger</a>
+manual page for information about how to configure Logger
+for live systems.</p><h2>warning_map/0</h2><p>Return the current mapping for warning events.</p><p>Returns the current mapping for warning events. Events sent
+using <strong>warning_msg/1,2</strong> or <strong>warning_report/1,2</strong>
+are tagged as errors, warnings (default), or info, depending
+on the value of command-line flag <strong>+W</strong>.</p><p><em>Example:</em></p><pre>
+os$ <span class="input">erl</span>
+Erlang (BEAM) emulator version 5.4.8 [hipe] [threads:0] [kernel-poll]
+
+Eshell V5.4.8  (abort with ^G)
+1&gt; <span class="input">error_logger:warning_map().</span>
+warning
+2&gt; <span class="input">error_logger:warning_msg("Warnings tagged as: ~p~n", [warning]).</span>
+
+=WARNING REPORT==== 11-Aug-2005::15:31:55 ===
+Warnings tagged as: warning
+ok
+3&gt;
+User switch command
+ --&gt; q
+os$ <span class="input">erl +W e</span>
+Erlang (BEAM) emulator version 5.4.8 [hipe] [threads:0] [kernel-poll]
+
+Eshell V5.4.8  (abort with ^G)
+1&gt; <span class="input">error_logger:warning_map().</span>
+error
+2&gt; <span class="input">error_logger:warning_msg("Warnings tagged as: ~p~n", [error]).</span>
+
+=ERROR REPORT==== 11-Aug-2005::15:31:23 ===
+Warnings tagged as: error
+ok</pre><h2>warning_msg/1</h2><h2>warning_msg/2</h2><p>Log a standard warning event.</p><p>Log a standard warning event. The <strong><span class="anno">Format</span></strong>
+and <strong><span class="anno">Data</span></strong> arguments are the same as the
+arguments of
+<a href="../stdlib/io#format/2">stdlib/io#format/2</a>
+in STDLIB.</p><p>Error logger forwards the event to Logger, including
+metadata that allows backwards compatibility with legacy
+error logger event handlers.</p><p>The event is handled by the default Logger handler. The log
+level can be changed to error or info, see
+<a href="#warning_map/0">warning_map/0</a>.</p><p>These functions are kept for backwards compatibility and
+must not be used by new code. Use the <a href="./logger#macros">logger#macros</a> macro or
+<a href="./logger#warning-1">logger#warning-1</a>
+instead.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>If the Unicode translation modifier (<strong>t</strong>) is used in
+the format string, all event handlers must ensure that the
+formatted output is correctly encoded for the I/O
+device.</p></div><h2>warning_report/1</h2><p>Log a standard warning event.</p><p>Log a standard warning event. Error logger forwards the event
+to Logger, including metadata that allows backwards
+compatibility with legacy error logger event handlers.</p><p>The event is handled by the default Logger handler. The log
+level can be changed to error or info, see
+<a href="#warning_map/0">warning_map/0</a>.</p><p>This functions is kept for backwards compatibility and
+must not be used by new code. Use the <a href="./logger#macros">logger#macros</a> macro or
+<a href="./logger#warning-1">logger#warning-1</a>
+instead.</p><h2>warning_report/2</h2><p>Log a user-defined warning event.</p><p>Log a user-defined warning event. Error logger forwards the
+event to Logger, including metadata that allows backwards
+compatibility with legacy error logger event handlers.</p><p>Error logger also adds a <strong>domain</strong> field with
+value <strong>[<span class="anno">Type</span>]</strong> to this event's metadata,
+causing the filters of the default Logger handler to discard
+the event. A different Logger handler, or an error logger
+event handler, must be added to handle this event.</p><p>The log level can be changed to error or info, see
+<a href="#warning_map/0">warning_map/0</a>.</p><p>It is recommended that <strong><span class="anno">Report</span></strong> follows the same
+structure as for
+<a href="#warning_report/1">warning_report/1</a>.</p><p>This functions is kept for backwards compatibility and
+must not be used by new code. Use the <a href="./logger#macros">logger#macros</a> macro or
+<a href="./logger#warning-1">logger#warning-1</a>
+instead.</p><a name="events"></a><h2>Events</h2><p>All event handlers added to the error logger must handle
+the following events. <strong>Gleader</strong> is the group leader pid of
+the process that sent the event, and <strong>Pid</strong> is the process
+that sent the event.</p><dl><dt><strong>{error, Gleader, {Pid, Format, Data}}</strong></dt><dd> <p>Generated when <strong>error_msg/1,2</strong> or <strong>format</strong> is
+called.</p> </dd><dt><strong>{error_report, Gleader, {Pid, std_error, Report}}</strong></dt><dd> <p>Generated when <strong>error_report/1</strong> is called.</p> </dd><dt><strong>{error_report, Gleader, {Pid, Type, Report}}</strong></dt><dd> <p>Generated when <strong>error_report/2</strong> is called.</p> </dd><dt><strong>{warning_msg, Gleader, {Pid, Format, Data}}</strong></dt><dd> <p>Generated when <strong>warning_msg/1,2</strong> is called
+if warnings are set to be tagged as warnings.</p> </dd><dt><strong>{warning_report, Gleader, {Pid, std_warning, Report}}</strong></dt><dd> <p>Generated when <strong>warning_report/1</strong> is called
+if warnings are set to be tagged as warnings.</p> </dd><dt><strong>{warning_report, Gleader, {Pid, Type, Report}}</strong></dt><dd> <p>Generated when <strong>warning_report/2</strong> is called
+if warnings are set to be tagged as warnings.</p> </dd><dt><strong>{info_msg, Gleader, {Pid, Format, Data}}</strong></dt><dd> <p>Generated when <strong>info_msg/1,2</strong> is called.</p> </dd><dt><strong>{info_report, Gleader, {Pid, std_info, Report}}</strong></dt><dd> <p>Generated when <strong>info_report/1</strong> is called.</p> </dd><dt><strong>{info_report, Gleader, {Pid, Type, Report}}</strong></dt><dd> <p>Generated when <strong>info_report/2</strong> is called.</p> </dd></dl><p>Notice that some system-internal events can also be
+received. Therefore a catch-all clause last in the definition of
+the event handler callback function <strong>Module:handle_event/2</strong>
+is necessary. This also applies for
+<strong>Module:handle_info/2</strong>, as the event handler must also take care of
+some system-internal messages.</p><h2>See Also</h2><p><a href="./gen_event">stdlib/gen_event</a>,
+<a href="./logger">kernel/logger</a>,
+<a href="./log_mf_h">stdlib/log_mf_h</a>,
+<a href="kernel_app">kernel_app</a>,
+<a href="./sasl_app">sasl/sasl_app</a></p></body></html>

@@ -1,0 +1,159 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>proc_lib</h1><h1>proc_lib</h1><p>Functions for asynchronous and synchronous start of processes
+    adhering to the OTP design principles.</p><p>This module is used to start processes adhering to
+the <a href="./des_princ"> OTP Design Principles</a>. Specifically, the functions in this
+module are used by the OTP standard behaviors (for example,
+<strong>gen_server</strong> and <strong>gen_statem</strong>)
+when starting new processes. The functions
+can also be used to start <em>special processes</em>, user-defined
+processes that comply to the OTP design principles. For an example,
+see section <a href="./spec_proc"> sys and proc_lib</a> in OTP Design Principles.Some useful information is initialized when a process starts.
+The registered names, or the process identifiers, of the parent
+process, and the parent ancestors, are stored together with
+information about the function initially called in the process.While in "plain Erlang", a process is said to terminate normally
+only for exit reason <strong>normal</strong>, a process started
+using <strong>proc_lib</strong> is also said to terminate normally if it
+exits with reason <strong>shutdown</strong> or <strong>{shutdown,Term}</strong>.
+<strong>shutdown</strong> is the reason used when
+an application (supervision tree) is stopped.When a process that is started using <strong>proc_lib</strong> terminates
+abnormally (that is, with another exit reason than <strong>normal</strong>,
+<strong>shutdown</strong>, or <strong>{shutdown,Term}</strong>), a <em>crash report</em>
+is generated, which is written to terminal by the default logger
+handler setup by Kernel. For more information about how crash reports
+were logged prior to Erlang/OTP 21.0, see
+<a href="./error_logging">SASL Error Logging</a>
+in the SASL User's Guide.Unlike in "plain Erlang", <strong>proc_lib</strong> processes will not generate
+<em>error reports</em>, which are written to the terminal by the
+emulator. All exceptions are
+converted to <em>exits</em> which are ignored by the default
+<strong>logger</strong> handler.The crash report contains the previously stored information, such
+as ancestors and initial function, the termination reason, and
+information about other processes that terminate as a result
+of this process terminating.</p><h1>Data Types</h1><span class="name">spawn_option</span><p>See <a href="../erts/erlang#spawn_opt/4">erts/erlang#spawn_opt/4</a>.</p><span class="name">priority_level</span><span class="name">max_heap_size</span><p>See <a href="../erts/erlang#process_flag_max_heap_size"> erlang:process_flag(max_heap_size, MaxHeapSize)</a>.</p><span class="name">dict_or_pid</span><h1>Functions</h1><h2>format/1</h2><p>Format a crash report.</p><p>Equivalent to <a href="#format/2">format/2</a>.</p><h2>format/2</h2><p>Format a crash report.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This function is deprecated in the sense that
+the <strong>error_logger</strong> is no longer the preferred
+interface for logging in Erlang/OTP. A
+new <a href="./logger_chapter">logging API</a> was added in Erlang/OTP 21.0, but
+legacy <strong>error_logger</strong> handlers can still be used. New
+Logger handlers do not need to use this function, since
+the formatting callback (<strong>report_cb</strong>) is included as
+metadata in the log event.</p></div><p>This function can be used by a user-defined legacy
+<strong>error_logger</strong> event handler to
+format a crash report. The crash report is sent using
+<a href="./logger">kernel/logger</a>, and the event to be handled is of the format
+<strong>{error_report, GL, {Pid, crash_report, <span class="anno">CrashReport</span>}}</strong>,
+where <strong>GL</strong> is the group leader pid of process
+<strong>Pid</strong> that sent the crash report.</p><h2>format/3</h2><p>Format a crash report.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This function is deprecated in the sense that
+the <strong>error_logger</strong> is no longer the preferred
+interface for logging in Erlang/OTP. A
+new <a href="./logger_chapter">logging API</a> was added in Erlang/OTP 21.0, but
+legacy <strong>error_logger</strong> handlers can still be used. New
+Logger handlers do not need to used this function, since
+the formatting callback (<strong>report_cb</strong>) is included as
+metadata in the log event.</p></div><p>This function can be used by a user-defined legacy
+<strong>error_logger</strong> event handler to
+format a crash report. When <span class="anno">Depth</span> is specified as a
+positive integer, it is used in the format string to
+limit the output as follows: <strong>io_lib:format("~P", [Term,<span class="anno">Depth</span>])</strong>.</p><h2>hibernate/3</h2><p>Hibernate a process until a message is sent to it.</p><p>This function does the same as (and does call) the
+<a href="../erts/erlang#hibernate/3">erts/erlang#hibernate/3</a> BIF,
+but ensures that exception handling and logging continues to
+work as expected when the process wakes up.</p><p>Always use this function instead of the BIF for processes started
+using <strong>proc_lib</strong> functions.</p><h2>init_ack/1</h2><h2>init_ack/2</h2><p>Used by a process when it has started.</p><p>This function must be used by a process that has been started by
+a <a href="#start/3">start/3</a>
+function. It tells <strong><span class="anno">Parent</span></strong> that the process has
+initialized itself, has started, or has failed to initialize
+itself.</p><p>Function <strong>init_ack/1</strong> uses the parent value
+previously stored by the start function used.</p><p>If this function is not called, the start function
+returns an error tuple (if a link and/or a time-out is used) or
+hang otherwise.</p><p>The following example illustrates how this function and
+<strong>proc_lib:start_link/3</strong> are used:</p><pre><code class="">
+-module(my_proc).
+-export([start_link/0]).
+-export([init/1]).
+
+start_link() -&gt;
+    proc_lib:start_link(my_proc, init, [self()]).
+
+init(Parent) -&gt;
+    case do_initialization() of
+        ok -&gt;
+            proc_lib:init_ack(Parent, {ok, self()});
+        {error, Reason} -&gt;
+            exit(Reason)
+    end,
+    loop().
+
+...</code></pre><h2>initial_call/1</h2><p>Extract the initial call of a <strong>proc_lib</strong>spawned process. </p><p>Extracts the initial call of a process that was started
+using one of the spawn or start functions in this module.
+<strong><span class="anno">Process</span></strong> can either be a pid, an integer tuple
+(from which a pid can be created), or the process information of a
+process <strong>Pid</strong> fetched through an
+<strong>erlang:process_info(Pid)</strong> function call.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The list <strong><span class="anno">Args</span></strong> no longer contains the
+arguments, but the same number of atoms as the number of arguments;
+the first atom is <strong>'Argument__1'</strong>, the second
+<strong>'Argument__2'</strong>, and so on. The reason is that the argument
+list could waste a significant amount of memory, and if the
+argument list contained funs, it could be impossible to upgrade the
+code for the module.</p><p>If the process was spawned using a fun, <strong>initial_call/1</strong> no
+longer returns the fun, but the module, function for the
+local function implementing the fun, and the arity, for example,
+<strong>{some_module,-work/3-fun-0-,0}</strong> (meaning that the fun was
+created in function <strong>some_module:work/3</strong>). The reason is that
+keeping the fun would prevent code upgrade for the module, and that
+a significant amount of memory could be wasted.</p></div><h2>spawn/1</h2><h2>spawn/2</h2><h2>spawn/3</h2><h2>spawn/4</h2><p>Spawn a new process.</p><ul><li>Node</li></ul><ul><li>Fun</li></ul><ul><li>Module</li></ul><ul><li>Function</li></ul><ul><li>Args</li></ul><p>Spawns a new process and initializes it as described in the
+beginning of this manual page. The process is spawned using the
+<a href="../erts/erlang#spawn/1">erts/erlang#spawn/1</a> BIFs.</p><h2>spawn_link/1</h2><h2>spawn_link/2</h2><h2>spawn_link/3</h2><h2>spawn_link/4</h2><p>Spawn and link to a new process.</p><ul><li>Node</li></ul><ul><li>Fun</li></ul><ul><li>Module</li></ul><ul><li>Function</li></ul><ul><li>Args</li></ul><p>Spawns a new process and initializes it as described in the
+beginning of this manual page. The process is spawned using the
+<a href="../erts/erlang#spawn_link/1">erts/erlang#spawn_link/1</a>
+BIFs.</p><h2>spawn_opt/2</h2><h2>spawn_opt/3</h2><h2>spawn_opt/4</h2><h2>spawn_opt/5</h2><p>Spawn a new process with specified options.</p><ul><li>Node</li></ul><ul><li>Fun</li></ul><ul><li>Module</li></ul><ul><li>Function</li></ul><ul><li>Args</li></ul><ul><li>SpawnOpts</li></ul><p>Spawns a new process and initializes it as described in the
+beginning of this manual page. The process is spawned using the
+<a href="../erts/erlang#spawn_opt/2">erts/erlang#spawn_opt/2</a>
+BIFs.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Using spawn option <strong>monitor</strong> is not
+allowed. It causes the function to fail with reason
+<strong>badarg</strong>.</p></div><h2>start/3</h2><h2>start/4</h2><h2>start/5</h2><h2>start_link/3</h2><h2>start_link/4</h2><h2>start_link/5</h2><p>Start a new process synchronously.</p><p>Starts a new process synchronously. Spawns the process and
+waits for it to start. When the process has started, it
+<em>must</em> call
+<a href="#init_ack/2">init_ack/2</a>
+or <a href="#init_ack/1">init_ack/1</a>,
+where <strong>Parent</strong> is the process that evaluates this
+function. At this time, <strong>Ret</strong> is returned.</p><p>If function <strong>start_link/3,4,5</strong> is used and
+the process crashes before it has called <strong>init_ack/1,2</strong>,
+<strong>{error, <span class="anno">Reason</span>}</strong> is returned if the calling
+process traps exits.</p><p>If <strong><span class="anno">Time</span></strong> is specified as an integer, this
+function waits for <strong><span class="anno">Time</span></strong> milliseconds for the
+new process to call <strong>init_ack</strong>, or <strong>{error, timeout}</strong> is
+returned, and the process is killed.</p><p>Argument <strong><span class="anno">SpawnOpts</span></strong>, if specified, is passed
+as the last argument to the <a href="../erts/erlang#spawn_opt/2">erts/erlang#spawn_opt/2</a> BIF.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Using spawn option <strong>monitor</strong> is not
+allowed. It causes the function to fail with reason
+<strong>badarg</strong>.</p></div><h2>stop/1</h2><p>Terminate a process synchronously.</p><ul><li>Process</li></ul><p>Equivalent to <a href="#stop/3">stop/3</a>.</p><h2>stop/3</h2><p>Terminate a process synchronously.</p><ul><li>Process</li></ul><ul><li>Reason</li></ul><ul><li>Timeout</li></ul><p>Orders the process to exit with the specified <strong>Reason</strong> and
+waits for it to terminate.</p><p>Returns <strong>ok</strong> if the process exits with
+the specified <strong>Reason</strong> within <strong>Timeout</strong> milliseconds.</p><p>If the call times out, a <strong>timeout</strong> exception is raised.</p><p>If the process does not exist, a <strong>noproc</strong>
+exception is raised.</p><p>The implementation of this function is based on the
+<strong>terminate</strong> system message, and requires that the
+process handles system messages correctly.
+For information about system messages, see
+<a href="sys">sys</a> and section
+<a href="./spec_proc"> sys and proc_lib</a> in OTP Design Principles.</p><h2>translate_initial_call/1</h2><p>Extract and translate the initial call of a <strong>proc_lib</strong>spawned process.</p><p>This function is used by functions
+<a href="./c#i/0">c#i/0</a> and
+<a href="./c#regs/0">c#regs/0</a>
+to present process information.</p><p>This function extracts the initial call of a process that was
+started using one of the spawn or start functions in this module,
+and translates it to more useful information.
+<strong><span class="anno">Process</span></strong>
+can either be a pid, an integer tuple (from which a pid can
+be created), or the process information of a process
+<strong>Pid</strong> fetched through an <strong>erlang:process_info(Pid)</strong>
+function call.</p><p>If the initial call is to one of the system-defined behaviors
+such as <strong>gen_server</strong> or <strong>gen_event</strong>, it is
+translated to more useful information. If a <strong>gen_server</strong>
+is spawned, the returned <strong><span class="anno">Module</span></strong> is the name of
+the callback module and <strong><span class="anno">Function</span></strong> is <strong>init</strong>
+(the function that initiates the new server).</p><p>A <strong>supervisor</strong> and a <strong>supervisor_bridge</strong> are also
+<strong>gen_server</strong> processes. To return information
+that this process is a supervisor and the name of the
+callback module, <strong><span class="anno">Module</span></strong> is <strong>supervisor</strong> and
+<strong><span class="anno">Function</span></strong> is the name of the supervisor callback
+module. <strong><span class="anno">Arity</span></strong> is <strong>1</strong>, as the <strong>init/1</strong>
+function is called initially in the callback module.</p><p>By default, <strong>{proc_lib,init_p,5}</strong> is returned if no
+information about the initial call can be found. It is
+assumed that the caller knows that the process has been
+spawned with the <strong>proc_lib</strong> module.</p><h2>See Also</h2><p><a href="./error_logger">kernel/error_logger</a></p><p><a href="./logger">kernel/logger</a></p></body></html>

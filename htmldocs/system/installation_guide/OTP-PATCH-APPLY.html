@@ -1,0 +1,124 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Patching OTP Applications</h1><a name="Introduction"></a><h2>Introduction</h2><p>
+This document describes the process of patching an existing OTP
+installation with one or more Erlang/OTP applications of newer versions
+than already installed. The tool <strong>otp_patch_apply</strong> is available for this
+specific purpose. It resides in the top directory of the Erlang/OTP
+source tree.
+</p><p>
+The <strong>otp_patch_apply</strong> tool utilizes the <a href="../kernel/app#runtime_dependencies">runtime_dependencies</a> tag in
+the <a href="./app">application resource file</a>. This information is used to determine
+if the patch can be installed in the given Erlang/OTP installation
+directory.
+</p><p>
+Read more about the <a href="../system_principles/versions">version handling</a> introduced in Erlang/OTP release
+17, which also describes how to determine if an installation includes one
+or more patched applications.
+</p><p>
+If you want to apply patches of multiple OTP applications that resides
+in different OTP versions, you have to apply these patches in multiple
+steps. It is only possible to apply multiple OTP applications from the
+same OTP version at once.
+</p><a name="Prerequisites"></a><h2>Prerequisites</h2><p>
+It's assumed that the reader is familiar with
+<a href="INSTALL">building and installing Erlang/OTP</a>. To be able to patch an
+application, the following must exist:
+</p><ul><li> <p>An Erlang/OTP installation.
+</p> </li><li> <p>An Erlang/OTP source tree containing the updated applications that
+you want to patch into the existing Erlang/OTP installation.
+</p> </li></ul><a name="Using-otppatchapply"></a><h2>Using otp_patch_apply</h2><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>
+Patching applications is a one-way process.
+Create a backup of your OTP installation directory before
+proceeding.
+</p></div><p>
+First of all, build the OTP source tree at <strong>$ERL_TOP</strong> containing
+the updated applications.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+Before applying a patch you need to do a <em>full</em> build
+of OTP in the source directory.
+</p></div><p>
+If you are building in <strong>git</strong> you first need to generate the
+<strong>configure</strong> scripts:
+</p><pre><code class="">
+$ ./otp_build autoconf
+</code></pre><p>
+Configure and build all applications in OTP:
+</p><pre><code class="">
+$ configure
+$ make
+</code></pre><p>
+or
+</p><pre><code class="">
+$ ./otp_build configure
+$ ./otp_build boot -a
+</code></pre><p>
+If you have installed documentation in the OTP installation, also
+build the documentation:
+</p><pre><code class="">
+$ make docs
+</code></pre><p>
+After the successful build it's time to patch. The source tree directory,
+the directory of the installation and the applications to patch are given
+as arguments to <strong>otp_patch_apply</strong>. The dependencies of each application
+are validated against the applications in the installation and the other
+applications given as arguments. If a dependency error is detected, the
+script will be aborted.
+</p><p>
+The <strong>otp_patch_apply</strong> syntax:
+</p><pre><code class="">
+$ otp_patch_apply -s &lt;Dir&gt; -i &lt;Dir&gt; [-l &lt;Dir&gt;] [-c] [-f] [-h] \
+      [-n] [-v] &lt;App1&gt; [... &lt;AppN&gt;]
+
+-s &lt;Dir&gt;  -- OTP source directory that contains build results.
+-i &lt;Dir&gt;  -- OTP installation directory to patch.
+-l &lt;Dir&gt;  -- Alternative OTP source library directory path(s)
+             containing build results of OTP applications.
+             Multiple paths should be colon separated.
+-c        -- Cleanup (remove) old versions of applications
+             patched in the installation.
+-f        -- Force patch of application(s) even though
+             dependencies are not fulfilled (should only be
+             considered in a test environment).
+-h        -- Print help then exit.
+-n        -- Do not install documentation.
+-v        -- Print version then exit.
+&lt;AppX&gt;    -- Application to patch.
+
+Environment Variable:
+  ERL_LIBS  -- Alternative OTP source library directory path(s)
+               containing build results of OTP applications.
+               Multiple paths should be colon separated.
+</code></pre><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+The complete build environment is required while running
+<strong>otp_patch_apply</strong>.
+</p></div><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+All source directories identified by <strong>-s</strong> and <strong>-l</strong> should
+contain build results of OTP applications.
+</p></div><p>
+For example, if the user wants to install patched versions of <strong>mnesia</strong>
+and <strong>ssl</strong> built in <strong>/home/me/git/otp</strong> into the OTP installation
+located in <strong>/opt/erlang/my_otp</strong> type
+</p><pre><code class="">
+$ otp_patch_apply -s /home/me/git/otp -i /opt/erlang/my_otp \
+  mnesia ssl
+</code></pre><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+If the list of applications contains core applications,
+i.e <strong>erts</strong>, <strong>kernel</strong>, <strong>stdlib</strong> or <strong>sasl</strong>, the <strong>Install</strong> script in
+the patched Erlang/OTP installation must be rerun.
+</p></div><p>
+The patched applications are appended to the list of installed
+applications. Take a look at
+<strong>&lt;InstallDir&gt;/releases/OTP-REL/installed_application_versions</strong>.
+</p><a name="Sanity-check"></a><h2>Sanity check</h2><p>
+The application dependencies can be checked using the Erlang shell.
+Application dependencies are verified among installed applications by
+<strong>otp_patch_apply</strong>, but these are not necessarily those actually loaded.
+By calling <strong>system_information:sanity_check()</strong> one can validate
+dependencies among applications actually loaded.
+</p><pre><code class="">
+1&gt; system_information:sanity_check().
+    ok
+</code></pre><p>
+Please take a look at the reference of <a href="../runtime_tools/system_information#sanity_check-0">sanity_check()</a> for more
+information.
+</p></body></html>

@@ -1,0 +1,226 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Dialyzer Reference Manual</h1><h2>dialyzer</h2><p>Dialyzer, a DIscrepancy AnaLYZer for ERlang programs.
+</p><p>Dialyzer is a static analysis tool that identifies software
+discrepancies, such as definite type errors, code that has become dead
+or unreachable because of programming error, and unnecessary tests,
+in single Erlang modules or entire (sets of) applications.Dialyzer starts its analysis from either
+debug-compiled BEAM bytecode or from Erlang source code. The file
+and line number of a discrepancy is reported along with an
+indication of what the discrepancy is about. Dialyzer bases its
+analysis on the concept of success typings, which allows for sound
+warnings (no false positives).</p><a name="command_line"></a><h3>Using Dialyzer from the Command Line</h3><p>Dialyzer has a command-line version for automated use. This
+section provides a brief description of the options. The same information
+can be obtained by writing the following in a shell:</p><pre><code class="">
+dialyzer --help</code></pre><p>For more details about the operation of Dialyzer, see section
+<a href="./dialyzer_chapter#dialyzer_gui"> Using Dialyzer from the GUI</a> in the User's Guide.</p><p><em>Exit status of the command-line version:</em></p><dl><dt><strong>0</strong></dt><dd> <p>No problems were found during the analysis and no warnings were
+emitted.</p> </dd><dt><strong>1</strong></dt><dd> <p>Problems were found during the analysis.</p> </dd><dt><strong>2</strong></dt><dd> <p>No problems were found during the analysis, but warnings were
+emitted.</p> </dd></dl><p><em>Usage:</em></p><pre><code class="">
+dialyzer [--add_to_plt] [--apps applications] [--build_plt]
+         [--check_plt] [-Ddefine]* [-Dname] [--dump_callgraph file]
+         [files_or_dirs] [--fullpath] [--get_warnings] [--gui] [--help]
+         [-I include_dir]* [--no_check_plt] [--no_indentation] [--no_native]
+         [--no_native_cache] [-o outfile] [--output_plt file] [-pa dir]*
+         [--plt plt] [--plt_info] [--plts plt*] [--quiet] [-r dirs]
+         [--raw] [--remove_from_plt] [--shell] [--src] [--statistics]
+         [--verbose] [--version] [-Wwarn]*</code></pre><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>* denotes that multiple occurrences of the option are possible.</p></div><p><em>Options:</em></p><dl><dt><strong>--add_to_plt</strong></dt><dd> <p>The PLT is extended to also include the files specified with
+<strong>-c</strong> and <strong>-r</strong>. Use
+<strong>--plt</strong> to specify which PLT to start from,
+and <strong>--output_plt</strong> to specify where to put the PLT.
+Notice that the analysis possibly can include files from the PLT if
+they depend on the new files. This option only works for BEAM
+files.</p> </dd><dt><strong>--apps applications</strong></dt><dd> <p>This option is typically used when building or modifying a PLT as
+in:</p> <pre><code class="">
+dialyzer --build_plt --apps erts kernel stdlib mnesia ...</code></pre> <p>to refer conveniently to library applications corresponding to the
+Erlang/OTP installation. However, this option is general and can also
+be used during analysis to refer to Erlang/OTP applications.
+File or directory names can also be included, as in:</p> <pre><code class="">
+dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam</code></pre> </dd><dt><strong>--build_plt</strong></dt><dd> <p>The analysis starts from an empty PLT and creates a new one from
+the files specified with <strong>-c</strong> and
+<strong>-r</strong>. This option only works for BEAM files.
+To override the default PLT location, use
+<strong>--plt</strong> or <strong>--output_plt</strong>.</p> </dd><dt><strong>--check_plt</strong></dt><dd> <p>Check the PLT for consistency and rebuild it if it is not
+up-to-date.</p> </dd><dt><strong>-Dname</strong> (or <strong>-Dname=value</strong>)</dt><dd> <p>When analyzing from source, pass the define to Dialyzer.
+(**)</p> </dd><dt><strong>--dump_callgraph file</strong></dt><dd> <p>Dump the call graph into the specified file whose format is
+determined by the filename extension. Supported extensions are:
+<strong>raw</strong>, <strong>dot</strong>, and <strong>ps</strong>. If something else is used as
+filename extension, default format <strong>.raw</strong> is used.</p> </dd><dt><strong>files_or_dirs</strong> (for backward compatibility also as <strong>-c files_or_dirs</strong>)</dt><dd> <p>Use Dialyzer from the command line to detect defects in the
+specified files or directories containing <strong>.erl</strong> or
+<strong>.beam</strong> files, depending on the type of the
+analysis.</p> </dd><dt><strong>--fullpath</strong></dt><dd> <p>Display the full path names of files for which warnings are
+emitted.</p> </dd><dt><strong>--get_warnings</strong></dt><dd> <p>Make Dialyzer emit warnings even when manipulating the PLT.
+Warnings are only emitted for files that are analyzed.</p> </dd><dt><strong>--gui</strong></dt><dd> <p>Use the GUI.</p></dd><dt><strong>--help</strong> (or <strong>-h</strong>)</dt><dd> <p>Print this message and exit.</p> </dd><dt><strong>-I include_dir</strong></dt><dd> <p>When analyzing from source, pass the <strong>include_dir</strong>
+to Dialyzer. (**)</p> </dd><dt><strong>--no_check_plt</strong></dt><dd> <p>Skip the PLT check when running Dialyzer. This is useful when
+working with installed PLTs that never change.</p> </dd><dt><strong>--no_indentation</strong></dt><dd> <p>Do not insert line breaks in types, contracts, and Erlang
+Code when formatting warnings.</p> </dd><dt><strong>--no_native</strong> (or <strong>-nn</strong>)</dt><dd> <p>Bypass the native code compilation of some key files that
+Dialyzer heuristically performs when dialyzing many files.
+This avoids the compilation time, but can result in (much) longer
+analysis time.</p> </dd><dt><strong>--no_native_cache</strong></dt><dd> <p>By default, Dialyzer caches the results of native compilation
+in directory <strong>$XDG_CACHE_HOME/erlang/dialyzer_hipe_cache</strong>.
+<strong>XDG_CACHE_HOME</strong> defaults to <strong>$HOME/.cache</strong>.
+Use this option to disable caching.</p> </dd><dt><strong>-o outfile</strong> (or <strong>--output outfile</strong>)</dt><dd> <p>When using Dialyzer from the command line, send the analysis
+results to the specified outfile rather than to <strong>stdout</strong>.</p> </dd><dt><strong>--output_plt file</strong></dt><dd> <p>Store the PLT at the specified file after building it.</p> </dd><dt><strong>-pa dir</strong></dt><dd> <p>Include <strong>dir</strong> in the path for Erlang. This is useful
+when analyzing files that have <strong>-include_lib()</strong>
+directives.</p> </dd><dt><strong>--plt plt</strong></dt><dd> <p>Use the specified PLT as the initial PLT. If the PLT was built
+during setup, the files are checked for consistency.</p> </dd><dt><strong>--plt_info</strong></dt><dd> <p>Make Dialyzer print information about the PLT and then quit.
+The PLT can be specified with <strong>--plt(s)</strong>.</p> </dd><dt><strong>--plts plt*</strong></dt><dd> <p>Merge the specified PLTs to create the initial PLT. This requires
+that the PLTs are disjoint (that is, do not have any module
+appearing in more than one PLT).
+The PLTs are created in the usual way:</p> <pre><code class="">
+dialyzer --build_plt --output_plt plt_1 files_to_include
+...
+dialyzer --build_plt --output_plt plt_n files_to_include</code></pre> <p>They can then be used in either of the following ways:</p> <pre><code class="">
+dialyzer files_to_analyze --plts plt_1 ... plt_n</code></pre> <p>or</p> <pre><code class="">
+dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code></pre> <p>Notice the <strong>--</strong> delimiter in the second case.</p> </dd><dt><strong>--quiet</strong> (or <strong>-q</strong>)</dt><dd> <p>Make Dialyzer a bit more quiet.</p> </dd><dt><strong>-r dirs</strong></dt><dd> <p>Same as <strong>files_or_dirs</strong>, but the specified
+directories are searched
+recursively for subdirectories containing <strong>.erl</strong> or
+<strong>.beam</strong> files in them, depending on the type of
+analysis.</p> </dd><dt><strong>--raw</strong></dt><dd> <p>When using Dialyzer from the command line, output the raw
+analysis results (Erlang terms) instead of the formatted result.
+The raw format
+is easier to post-process (for example, to filter warnings or to
+output HTML pages).</p> </dd><dt><strong>--remove_from_plt</strong></dt><dd> <p>The information from the files specified with
+<strong>-c</strong> and <strong>-r</strong> is removed from
+the PLT. Notice that this can cause a reanalysis of the remaining
+dependent files.</p> </dd><dt><strong>--shell</strong></dt><dd> <p>Do not disable the Erlang shell while running the GUI.</p> </dd><dt><strong>--src</strong></dt><dd> <p>Override the default, which is to analyze BEAM files, and
+analyze starting from Erlang source code instead.</p> </dd><dt><strong>--statistics</strong></dt><dd> <p>Print information about the progress of execution (analysis phases,
+time spent in each, and size of the relative input).</p> </dd><dt><strong>--verbose</strong></dt><dd> <p>Make Dialyzer a bit more verbose.</p> </dd><dt><strong>--version</strong> (or <strong>-v</strong>)</dt><dd> <p>Print the Dialyzer version and some more information and
+exit.</p> </dd><dt><strong>-Wwarn</strong></dt><dd> <p>A family of options that selectively turn on/off warnings.
+(For help on the names of warnings, use
+<strong>dialyzer -Whelp</strong>.)
+Notice that the options can also be specified in the file with a
+<strong>-dialyzer()</strong> attribute. For details, see section <a href="#suppression">Requesting or Suppressing Warnings in Source Files</a>.</p> </dd></dl><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>** options <strong>-D</strong> and <strong>-I</strong> work both
+from the command line and in the Dialyzer GUI; the syntax of
+defines and includes is the same as that used by
+<a href="./erlc">erlc(1)</a>.</p></div><p><em>Warning options:</em></p><dl><dt><strong>-Werror_handling</strong> (***)</dt><dd> <p>Include warnings for functions that only return by an exception.</p> </dd><dt><strong>-Wno_behaviours</strong></dt><dd> <p>Suppress warnings about behavior callbacks that drift from the
+published recommended interfaces.</p> </dd><dt><strong>-Wno_contracts</strong></dt><dd> <p>Suppress warnings about invalid contracts.</p> </dd><dt><strong>-Wno_fail_call</strong></dt><dd> <p>Suppress warnings for failing calls.</p> </dd><dt><strong>-Wno_fun_app</strong></dt><dd> <p>Suppress warnings for fun applications that will fail.</p> </dd><dt><strong>-Wno_improper_lists</strong></dt><dd> <p>Suppress warnings for construction of improper lists.</p> </dd><dt><strong>-Wno_match</strong></dt><dd> <p>Suppress warnings for patterns that are unused or cannot match.</p> </dd><dt><strong>-Wno_missing_calls</strong></dt><dd> <p>Suppress warnings about calls to missing functions.</p> </dd><dt><strong>-Wno_opaque</strong></dt><dd> <p>Suppress warnings for violations of opacity of data types.</p> </dd><dt><strong>-Wno_return</strong></dt><dd> <p>Suppress warnings for functions that will never return a value.</p> </dd><dt><strong>-Wno_undefined_callbacks</strong></dt><dd> <p>Suppress warnings about behaviors that have no
+<strong>-callback</strong> attributes for their callbacks.</p> </dd><dt><strong>-Wno_unused</strong></dt><dd> <p>Suppress warnings for unused functions.</p> </dd><dt><strong>-Wrace_conditions</strong> (***)</dt><dd> <p>Include warnings for possible race conditions. Notice that the
+analysis that finds data races performs intra-procedural data flow
+analysis and can sometimes explode in time. Enable it at your own
+risk.</p> </dd><dt><strong>-Wunderspecs</strong> (***)</dt><dd> <p>Warn about underspecified functions (the specification is strictly
+more allowing than the success typing).</p> </dd><dt><strong>-Wunknown</strong> (***)</dt><dd> <p>Let warnings about unknown functions and types affect the
+exit status of the command-line version. The default is to ignore
+warnings about unknown functions and types when setting the exit
+status. When using Dialyzer from Erlang, warnings about unknown
+functions and types are returned; the default is not to return
+these warnings.</p> </dd><dt><strong>-Wunmatched_returns</strong> (***)</dt><dd> <p>Include warnings for function calls that ignore a structured return
+value or do not match against one of many possible return
+value(s).</p> </dd></dl><p>The following options are also available, but their use is not
+recommended (they are mostly for Dialyzer developers and internal
+debugging):</p><dl><dt><strong>-Woverspecs</strong> (***)</dt><dd> <p>Warn about overspecified functions (the specification is strictly
+less allowing than the success typing).</p> </dd><dt><strong>-Wspecdiffs</strong> (***)</dt><dd> <p>Warn when the specification is different than the success typing.</p> </dd></dl><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>*** denotes options that turn on warnings rather than
+turning them off.</p></div><h3>Using Dialyzer from Erlang</h3><p>Dialyzer can be used directly from Erlang. Both the GUI and the
+command-line versions are also available. The options are similar to the
+ones given from the command line, see section
+<a href="#command_line"> Using Dialyzer from the Command Line</a>.</p><a name="suppression"></a><h3>Requesting or Suppressing Warnings in Source Files</h3><p>Attribute <strong>-dialyzer()</strong> can be used for turning off
+warnings in a module by specifying functions or warning options.
+For example, to turn off all warnings for the function
+<strong>f/0</strong>, include the following line:</p><pre><code class="">
+-dialyzer({nowarn_function, f/0}).</code></pre><p>To turn off warnings for improper lists, add the following line
+to the source file:</p><pre><code class="">
+-dialyzer(no_improper_lists).</code></pre><p>Attribute <strong>-dialyzer()</strong> is allowed after function
+declarations. Lists of warning options or functions are allowed:</p><pre><code class="">
+-dialyzer([{nowarn_function, [f/0]}, no_improper_lists]).</code></pre><p>Warning options can be restricted to functions:</p><pre><code class="">
+-dialyzer({no_improper_lists, g/0}).</code></pre><pre><code class="">
+-dialyzer({[no_return, no_match], [g/0, h/0]}).</code></pre><p>For help on the warning options, use <strong>dialyzer -Whelp</strong>. The
+options are also enumerated, see function <a href="#gui/1">gui/1</a> below (<strong>WarnOpts</strong>).</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Warning option <strong>-Wrace_conditions</strong> has no effect when
+set in source files.</p></div><p>Attribute <strong>-dialyzer()</strong> can also be used for turning on
+warnings. For example, if a module has been fixed regarding
+unmatched returns, adding the following line can help in assuring
+that no new unmatched return warnings are introduced:</p><pre><code class="">
+-dialyzer(unmatched_returns).</code></pre><h2>Functions</h2><h3>format_warning(Msg) -&gt; string()</h3><p>Get the string version of a warning message.</p><ul><li><span class="v">Msg = {Tag, Id, msg()}</span></li><li><span class="d">See run/1.</span></li></ul><p>Get a string from warnings as returned by
+<a href="#run/1">run/1</a>.</p><h3>format_warning(Msg, Options) -&gt; string()</h3><p>Get the string version of a warning message.</p><ul><li><span class="v">Msg = {Tag, Id, msg()}</span></li><li><span class="d">See run/1.</span></li><li><span class="v">Options = [{indent_opt, boolean()}]</span></li></ul><p>Get a string from warnings as returned by
+<a href="#run/1">run/1</a>.</p><p>If <strong>indent_opt</strong> is set to <strong>true</strong> (default),
+line breaks are inserted in types, contracts, and Erlang
+code to improve readability.</p><h3>gui() -&gt; ok | {error, Msg}</h3><h3>gui(OptList) -&gt; ok | {error, Msg}</h3><p>Dialyzer GUI version.</p><ul><li><span class="v">OptList</span></li><li><span class="d">See below.</span></li></ul><p>Dialyzer GUI version.</p><pre><code class="">
+OptList  :: [Option]
+Option   :: {files,          [Filename :: string()]}
+          | {files_rec,      [DirName :: string()]}
+          | {defines,        [{Macro :: atom(), Value :: term()}]}
+          | {from,           src_code | byte_code}
+                               %% Defaults to byte_code
+          | {init_plt,       FileName :: string()}
+                               %% If changed from default
+          | {plts,           [FileName :: string()]}
+                               %% If changed from default
+          | {include_dirs,   [DirName :: string()]}
+          | {output_file,    FileName :: string()}
+          | {output_plt,     FileName :: string()}
+          | {check_plt,      boolean()},
+          | {analysis_type,  'succ_typings' |
+                             'plt_add' |
+                             'plt_build' |
+                             'plt_check' |
+                             'plt_remove'}
+          | {warnings,       [WarnOpts]}
+          | {get_warnings,   bool()}
+
+WarnOpts :: error_handling
+          | no_behaviours
+          | no_contracts
+          | no_fail_call
+          | no_fun_app
+          | no_improper_lists
+          | no_match
+	  | no_missing_calls
+          | no_opaque
+	  | no_return
+          | no_undefined_callbacks
+          | no_unused
+          | race_conditions
+          | underspecs
+          | unknown
+          | unmatched_returns
+          | overspecs
+          | specdiffs</code></pre><h3>plt_info(string()) -&gt; {'ok', [{atom(), any()}]} | {'error', atom()}</h3><p>Return information about the specified PLT.</p><p>Returns information about the specified PLT.</p><h3>run(OptList) -&gt; Warnings</h3><p>Dialyzer command-line version.</p><ul><li><span class="v">OptList</span></li><li><span class="d">See gui/0,1.</span></li><li><span class="v">Warnings</span></li><li><span class="d">See below.</span></li></ul><p>Dialyzer command-line version.</p><pre><code class="">
+Warnings :: [{Tag, Id, Msg}]
+Tag      :: 'warn_behaviour'
+          | 'warn_bin_construction'
+          | 'warn_callgraph'
+          | 'warn_contract_not_equal'
+          | 'warn_contract_range'
+          | 'warn_contract_subtype'
+          | 'warn_contract_supertype'
+          | 'warn_contract_syntax'
+          | 'warn_contract_types'
+          | 'warn_failing_call'
+          | 'warn_fun_app'
+          | 'warn_matching'
+          | 'warn_non_proper_list'
+          | 'warn_not_called'
+          | 'warn_opaque'
+          | 'warn_race_condition'
+          | 'warn_return_no_exit'
+          | 'warn_return_only_exit'
+          | 'warn_umatched_return'
+          | 'warn_undefined_callbacks'
+          | 'warn_unknown'
+Id  = {File :: string(), Line :: integer()}
+Msg = msg() -- Undefined</code></pre><h2>typer</h2><p>Typer, a Type annotator for ERlang programs.
+</p><p>TypEr shows type information for Erlang modules to the user.
+Additionally, it can annotate the code of files with such type
+information.</p><a name="command_line"></a><h3>Using TypEr from the Command Line</h3><p>TypEr is used from the command-line. This section provides a
+brief description of the options. The same information can be
+obtained by writing the following in a shell:</p><pre><code class="">
+typer --help</code></pre><p><em>Usage:</em></p><pre><code class="">
+typer [--help] [--version] [--plt PLT] [--edoc]
+      [--show | --show-exported | --annotate | --annotate-inc-files]
+      [-Ddefine]* [-I include_dir]* [-pa dir]* [-pz dir]*
+      [-T application]* [-r] file*</code></pre><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>* denotes that multiple occurrences of the option are possible.</p></div><p><em>Options:</em></p><dl><dt><strong>--r</strong></dt><dd> <p>Search directories recursively for .erl files below them.</p> </dd><dt><strong>--show</strong></dt><dd> <p>Print type specifications for all functions on stdout.
+(This is the default behaviour; this option is not really
+needed.)</p> </dd><dt><strong>--show-exported</strong> (or <strong>show_exported</strong>)</dt><dd> <p>Same as <strong>--show</strong>, but print specifications for
+exported functions only. Specs are displayed sorted
+alphabetically on the function's name.</p> </dd><dt><strong>--annotate</strong></dt><dd> <p>Annotate the specified files with type specifications.</p> </dd><dt><strong>--annotate-inc-files</strong></dt><dd> <p>Same as <strong>--annotate</strong> but annotates all
+<strong>-include()</strong> files as well as all .erl files. (Use this
+option with caution - it has not been tested much).</p> </dd><dt><strong>--edoc</strong></dt><dd> <p>Print type information as Edoc <strong>@spec</strong> comments, not
+as type specs.</p> </dd><dt><strong>--plt</strong></dt><dd> <p>Use the specified dialyzer PLT file rather than the default one.</p> </dd><dt><strong>-T file*</strong></dt><dd> <p>The specified file(s) already contain type specifications
+and these are to be trusted in order to print specs for the
+rest of the files. (Multiple files or dirs, separated by
+spaces, can be specified.)</p> </dd><dt><strong>-Dname</strong> (or <strong>-Dname=value</strong>)</dt><dd> <p>Pass the defined name(s) to TypEr. (**)</p> </dd><dt><strong>-I</strong></dt><dd> <p>Pass the include_dir to TypEr. (**)</p> </dd><dt><strong>-pa dir</strong></dt><dd> <p>Include <strong>dir</strong> in the path for Erlang. This is useful
+when analyzing files that have <strong>-include_lib()</strong>
+directives or use parse transforms.</p> </dd><dt><strong>-pz dir</strong></dt><dd> <p>Include <strong>dir</strong> in the path for Erlang. This is useful
+when analyzing files that have <strong>-include_lib()</strong>
+directives or use parse transforms.</p> </dd><dt><strong>--version</strong> (or <strong>-v</strong>)</dt><dd> <p>Print the TypEr version and some more information and
+exit.</p> </dd></dl><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>** options <strong>-D</strong> and <strong>-I</strong> work both
+from the command line and in the TypEr GUI; the syntax of
+defines and includes is the same as that used by
+<a href="./erlc">erlc(1)</a>.</p></div></body></html>

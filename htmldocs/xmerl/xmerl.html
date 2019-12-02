@@ -1,0 +1,36 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>xmerl</h1><h1>xmerl</h1><p>Functions for exporting XML data to an external format.</p><p>Functions for exporting XML data to an external format.
+</p><h1>Functions</h1><h2>callbacks(Module) -&gt; Result</h2><p>Find the list of inherited callback modules for a given module.</p><ul><li><span class="v">Module = atom()</span></li><li><span class="v">Result = [atom()]</span></li></ul><a name="callbacks-1"></a><p>Find the list of inherited callback modules for a given module.</p><h2>export(Content, Callback) -&gt; ExportedFormat</h2><p>Equivalent to export(Data, Callback, []). </p><a name="export-2"></a><p>Equivalent to <a href="#export-3">export(Data, Callback, [])</a>.</p><h2>export(Content, Callback, RootAttributes) -&gt; ExportedFormat</h2><p>Exports normal, well-formed XML content, using the specified callback-module.</p><ul><li><span class="v">Content = [Element]</span></li><li><span class="v">Callback = atom()</span></li><li><span class="v">RootAttributes = [XmlAttributes]</span></li></ul><a name="export-3"></a><p>Exports normal, well-formed XML content, using the specified
+callback-module.
+</p><p><strong>Element</strong> is any of:</p><ul><li><p><strong>#xmlText{}</strong></p></li><li><p><strong>#xmlElement{}</strong></p></li><li><p><strong>#xmlPI{}</strong></p></li><li><p><strong>#xmlComment{}</strong></p></li><li><p><strong>#xmlDecl{}</strong></p></li></ul><p>(See <strong>xmerl.hrl</strong> for the record definitions.)
+Text in <strong>#xmlText{}</strong> elements can be deep lists of
+characters and/or binaries.</p><p><strong>RootAttributes</strong> is a list of
+<strong>#xmlAttribute{}</strong> attributes for the <strong>#root#</strong>
+element, which implicitly becomes the parent of the given
+<strong>Content</strong>. The tag-handler function for
+<strong>#root#</strong> is thus called with the complete exported data of
+<strong>Content</strong>. Root attributes can be used to specify
+e.g. encoding or other metadata of an XML or HTML document.</p><p>The <strong>Callback</strong> module should contain hook functions for
+all tags present in the data structure. A hook function must have the
+following format:</p><pre>    Tag(Data, Attributes, Parents, E)</pre><p>where <strong>E</strong> is the corresponding <strong>#xmlElement{}</strong>,
+<strong>Data</strong> is the already-exported contents of <strong>E</strong>
+and <strong>Attributes</strong> is the list of
+<strong>#xmlAttribute{}</strong> records of <strong>E</strong>. Finally,
+<strong>Parents</strong> is the list of parent nodes of <strong>E</strong>,
+on the form <strong>[{ParentTag::atom(), ParentPosition::integer()}]</strong>.</p><p>The hook function should return either the data to be exported, or
+a tuple <strong>{'#xml-alias#', NewTag::atom()}</strong>, or a tuple
+<strong>{'#xml-redefine#', Content}</strong>, where <strong>Content</strong>
+is a content list (which can be on simple-form; see
+<strong>export_simple/2</strong> for details).</p><p>A callback module can inherit definitions from other callback
+modules, through the required function <strong>'#xml-interitance#() -&gt; [ModuleName::atom()]</strong>.</p><p><em>See also:</em> <a href="#export-2">export/2</a>, <a href="#export_simple-3">export_simple/3</a>.</p><h2>export_content(Es::Content, Callbacks) -&gt; term()</h2><p>Exports normal XML content directly, without further context.</p><ul><li><span class="v">Content = [Element]</span></li><li><span class="v">Callback = [atom()]</span></li></ul><a name="export_content-2"></a><p>Exports normal XML content directly, without further context.</p><h2>export_element(E, CB) -&gt; term()
+</h2><p>Exports a normal XML element directly, without further context.</p><a name="export_element-2"></a><p>Exports a normal XML element directly, without further context.</p><h2>export_element(E, CallbackModule, CallbackState) -&gt; ExportedFormat</h2><p>For on-the-fly exporting during parsing (SAX style) of the XML document.</p><a name="export_element-3"></a><p>For on-the-fly exporting during parsing (SAX style) of the XML
+document.</p><h2>export_simple(Content, Callback) -&gt; ExportedFormat</h2><p>Equivalent to export_simple(Content, Callback, []). </p><a name="export_simple-2"></a><p>Equivalent to <a href="#export_simple-3">export_simple(Content, Callback, [])</a>.</p><h2>export_simple(Content, Callback, RootAttrs::RootAttributes) -&gt; ExportedFormat</h2><p>Exports "simple-form" XML content, using the specified callback-module.</p><ul><li><span class="v">Content = [Element]</span></li><li><span class="v">Callback = atom()</span></li><li><span class="v">RootAttributes = [XmlAttributes]</span></li></ul><a name="export_simple-3"></a><p>Exports "simple-form" XML content, using the specified
+callback-module.
+</p><p><strong>Element</strong> is any of:</p><ul><li><p><strong>{Tag, Attributes, Content}</strong></p></li><li><p><strong>{Tag, Content}</strong></p></li><li><p><strong>Tag</strong></p></li><li><p><strong>IOString</strong></p></li><li><p><strong>#xmlText{}</strong></p></li><li><p><strong>#xmlElement{}</strong></p></li><li><p><strong>#xmlPI{}</strong></p></li><li><p><strong>#xmlComment{}</strong></p></li><li><p><strong>#xmlDecl{}</strong></p></li></ul><p>where</p><ul><li><p><strong>Tag = atom()</strong></p></li><li><p><strong>Attributes = [{Name, Value}]</strong></p></li><li><p><strong>Name = atom()</strong></p></li><li><p><strong>Value = IOString | atom() | integer()</strong></p></li></ul><p>Normal-form XML elements can thus be included in the simple-form
+representation. Note that content lists must be flat. An
+<strong>IOString</strong> is a (possibly deep) list of characters and/or
+binaries.</p><p><strong>RootAttributes</strong> is a list of:</p><ul><li><p><strong>XmlAttributes = #xmlAttribute{}</strong></p></li></ul><p>See <strong>export/3</strong> for details on the callback module and
+the root attributes. The XML-data is always converted to normal form
+before being passed to the callback module.</p><p><em>See also:</em> <a href="#export-3">export/3</a>, <a href="#export_simple-2">export_simple/2</a>.</p><h2>export_simple_content(Content, Callback) -&gt; term()
+</h2><p>Exports simple XML content directly, without further context.</p><a name="export_simple_content-2"></a><p>Exports simple XML content directly, without further context.</p><h2>export_simple_element(Content, Callback) -&gt; term()
+</h2><p>Exports a simple XML element directly, without further context.</p><a name="export_simple_element-2"></a><p>Exports a simple XML element directly, without further context.</p><h1>Authors</h1></body></html>

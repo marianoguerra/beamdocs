@@ -1,0 +1,710 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Megaco/H.248 Users Guide</h1><p>The Megaco application is a framework for building
+applications on top of the Megaco/H.248 protocol. </p><p>Megaco/H.248 is a protocol for control of elements in a
+physically decomposed multimedia gateway, enabling separation of
+call control from media conversion. A Media Gateway Controller
+(MGC) controls one or more Media Gateways (MG).</p><p>This version of the stack supports version 1, 2 and 3 as 
+defined by:</p><ul><li> <p>version 1 - RFC 3525 and H.248-IG (v10-v13)</p> </li><li> <p>version 2 - draft-ietf-megaco-h248v2-04 &amp; H.248.1 
+v2 Corrigendum 1 (03/2004)</p> </li><li> <p>version 3: </p> <ul><li> <p>prev3a - as defined by TD-33 (except segments)</p> </li><li> <p>prev3b - TD-33 updated to be backward compatible with v2 
+(except segments)</p> </li><li> <p>prev3c - As defined by ITU H.248.1 (09/2005) 
+(except segments)</p> </li><li> <p>v3 - Full version 3 as defined by ITU H.248.1 (09/2005) 
+(including segments)</p> </li></ul> </li></ul><p>The semantics of the protocol has jointly been defined by two
+standardization bodies:</p><ul><li> <p>IETF - which calls the protocol Megaco</p> </li><li> <p>ITU  - which calls the protocol H.248</p> </li></ul><h3>Scope and Purpose</h3><p>This manual describes the Megaco application, as a component
+of the Erlang/Open Telecom Platform development environment. It
+is assumed that the reader is familiar with the Erlang
+Development Environment, which is described in a separate User's
+Guide.</p><h3>Prerequisites</h3><p>The following prerequisites is required for understanding the
+material in the Megaco User's Guide:</p><ul><li> <p>the basics of the Megaco/H.248 protocol</p> </li><li> <p>the basics of the Abstract Syntax Notation One (ASN.1)</p> </li><li> <p>familiarity with the Erlang system and Erlang programming</p> </li></ul><p>The application requires Erlang/OTP release R10B or later.</p><h3>About This Manual</h3><p>In addition to this introductory chapter, the Megaco User's
+Guide contains the following chapters:</p><ul><li> <p>Chapter 2: "Architecture" describes the architecture
+and typical usage of the application.</p> </li><li> <p>Chapter 3: "Internal form and its encodings" describes
+the internal form of Megaco/H.248 messages and its various
+encodings.</p> </li><li> <p>Chapter 4: "Transport mechanisms" describes how
+different mechanisms can be used to transport the
+Megaco/H.248 messages.</p> </li><li> <p>Chapter 5: "Debugging" describes tracing and debugging.</p> </li></ul><h3>Where to Find More Information</h3><p>Refer to the following documentation for more information about
+Megaco/H.248 and about the Erlang/OTP development system:</p><ul><li> <p><a href="http://www.erlang.org/project/megaco/standard/rfc3525.txt">version 1, RFC 3525</a></p> </li><li> <p><a href="http://www.ietf.org/rfc/rfc3015.txt">old version 1, RFC 3015</a></p> </li><li> <p><a href="http://www.erlang.org/project/megaco/standard/H.248.1-Corr1-200403.doc">Version 2 Corrigendum 1</a></p> </li><li> <p><a href="http://www.erlang.org/project/megaco/standard/draft-ietf-megaco-h248v2-04.txt">version 2, draft-ietf-megaco-h248v2-04</a></p> </li><li> <p><a href="http://www.itu.int/">TD-33 (Draft H.248.1 version 3)</a></p> </li><li> <p><a href="http://www.itu.int/">H.248.1 version 3</a></p> </li><li> <p>the ASN.1 application User's Guide</p> </li><li> <p>the Megaco application Reference Manual</p> </li><li> <p>Concurrent Programming in Erlang, 2nd Edition (1996),
+Prentice-Hall, ISBN 0-13-508301-X.</p> </li></ul><h3>Network view</h3><p>Megaco is a (master/slave) protocol for control of gateway functions at 
+the edge of the packet network. Examples of this is IP-PSTN trunking 
+gateways and analog line gateways. The main function of Megaco is to 
+allow gateway decomposition into a call agent (call control) part (known
+as Media Gateway Controller, MGC) - master, and an gateway interface 
+part (known as Media Gateway, MG) - slave. The MG has no call control 
+knowledge and only handle making the connections and simple 
+configurations.</p><p>SIP and H.323 are peer-to-peer protocols for call control (valid only 
+for some of the protocols within H.323), or more generally multi-media 
+session protocols. They both operate at a different level (call control) 
+from Megaco in a decomposed network, and are therefor not aware of 
+whether or not Megaco is being used underneath.</p><img src="megaco_sys_arch.gif" title="Network architecture"></img><p>Megaco and peer protocols are complementary in nature and entirely
+compatible within the same system. At a system level, Megaco allows 
+for</p><ul><li> <p>overall network cost and performance optimization</p> </li><li> <p>protection of investment by isolation of changes at the call 
+control layer</p> </li><li> <p>freedom to geographically distribute both call function and 
+gateway function</p> </li><li> <p>adaption of legacy equipment</p> </li></ul><h3>General</h3><p>This Erlang/OTP application supplies a framework for building
+applications that needs to utilize the Megaco/H.248 protocol.</p><p>We have introduced the term "user" as a generic term for either
+an MG or an MGC, since most of the functionality we support, is
+common for both MG's and MGC's. A (local) user may be configured
+in various ways and it may establish any number of connections
+to its counterpart, the remote user. Once a connection has been
+established, the connection is supervised and it may be used for
+the purpose of sending messages. N.B. according to the standard
+an MG is connected to at most one MGC, while an MGC may be
+connected to any number of MG's.</p><p>For the purpose of managing "virtual MG's", one Erlang node may
+host any number of MG's. In fact it may host a mix of MG's and
+MGC's. You may say that an Erlang node may host any number of
+"users".</p><p>The protocol engine uses callback modules to handle various
+things:</p><ul><li> <p>encoding callback modules - handles the encoding and
+decoding of messages. Several modules for handling different
+encodings are included, such as ASN.1 BER, pretty well
+indented text, compact text and some others. Others may be
+written by you.</p> </li><li> <p>transport callback modules - handles sending and receiving
+of messages. Transport modules for TCP/IP and UDP/IP are
+included and others may be written by you.</p> </li><li> <p>user callback modules - the actual implementation of an MG
+or MGC. Most of the functions are intended for handling of a
+decoded transaction (request, reply, acknowledgement), but
+there are others that handles connect, disconnect and
+errors cases.</p> </li></ul><p>Each connection may have its own configuration of callback
+modules, re-send timers, transaction id ranges etc. and they may
+be re-configured on-the-fly.</p><p>In the API of Megaco, a user may explicitly send action
+requests, but generation of transaction identifiers, the
+encoding and actual transport of the message to the remote user
+is handled automatically by the protocol engine according to the
+actual connection configuration. Megaco messages are not exposed
+in the API.</p><p>On the receiving side the transport module receives the message
+and forwards it to the protocol engine, which decodes it and
+invokes user callback functions for each transaction. When a
+user has handled its action requests, it simply returns a list
+of action replies (or a message error) and the protocol engine
+uses the encoding module and transport module to compose and
+forward the message to the originating user.</p><p>The protocol stack does also handle things like automatic
+sending of acknowledgements, pending transactions, re-send of
+messages, supervision of connections etc.</p><p>In order to provide a solution for scalable implementations of
+MG's and MGC's, a user may be distributed over several Erlang
+nodes. One of the Erlang nodes is connected to the physical
+network interface, but messages may be sent from other nodes and
+the replies are automatically forwarded back to the originating
+node.</p><h3>Single node config</h3><p>Here a system configuration with an MG and MGC residing
+in one Erlang node each is outlined:</p><img src="single_node_config.gif" title="Single node config"></img><h3>Distributed config</h3><p>In a larger system with a user (in this case an MGC)
+distributed over several Erlang nodes, it looks a little bit
+different. Here the encoding is performed on the originating
+Erlang node (1) and the binary is forwarded to the node (2) with
+the physical network interface. When the potential message reply
+is received on the interface on node (2), it is decoded there
+and then different actions will be taken for each transaction in
+the message. The transaction reply will be forwarded in its
+decoded form to the originating node (1) while the other types
+of transactions will be handled locally on node (2).</p><p>Timers and re-send of messages will be handled on locally on
+one node, that is node(1), in order to avoid unnecessary
+transfer of data between the Erlang nodes.
+</p><img src="distr_node_config.gif" title="Distributes node config"></img><h3>Message round-trip call flow</h3><p>The typical round-trip of a message can be viewed as
+follows. Firstly we view the call flow on the originating
+side:</p><img src="call_flow.gif" title="Message Call Flow (originating side)"></img><p>Then we continue with the call flow on the destination
+side:</p><img src="call_flow_cont.gif" title="Message Call Flow (destination side)"></img><a name="starting"></a><h3>Starting</h3><p>A user may have a number of "virtual" connections to other
+users. An MG is connected to at most one MGC, while an MGC may
+be connected to any number of MG's. For each connection the user
+selects a transport service, an encoding scheme and a user
+callback module.</p><p>An MGC must initiate its transport service in order to listen
+to MG's trying to connect. How the actual transport is initiated
+is outside the scope of this application. However a send handle
+(typically a socket id or host and port) must be provided from
+the transport service in order to enable us to send the message
+to the correct destination. We do however not assume anything
+about this, from our point of view, opaque handle. Hopefully it
+is rather small since it will passed around the system between
+processes rather frequently.</p><p>A user may either be statically configured in a .config file
+according to the application concept of Erlang/OTP or
+dynamically started with the configuration settings as arguments
+to megaco:start_user/2. These configuration settings may be
+updated later on with megaco:update_conn_info/2.</p><p>The function megaco:connect/4 is used to tell the Megaco
+application about which control process it should supervise,
+which MID the remote user has, which callback module it should
+use to send messages etc. When this "virtual" connection is
+established the user may use megaco:call/3 and megaco:cast/3 in
+order to send messages to the other side. Then it is up to the
+MG to send its first Service Change Request message after
+applying some clever algorithm in order to fight the problem
+with startup avalanche (as discussed in the RFC).</p><p>The originating user will wait for a reply or a timeout
+(defined by the request_timer). When it receives the reply this
+will optionally be acknowledged (regulated by auto_ack), and
+forwarded to the user.  If an interim pending reply is received,
+the long_request_timer will be used instead of the usual
+request_timer, in order to enable avoidance of spurious re-sends
+of the request.</p><p>On the destination side the transport service waits for
+messages. Each message is forwarded to the Megaco application
+via the megaco:receive_message/4 callback function. The
+transport service may or may not provide means for blocking and
+unblocking the reception of the incoming messages.</p><p>If a message is received before the "virtual" connection has
+been established, the connection will be setup automatically. An
+MGC may be real open minded and dynamically decide which
+encoding and transport service to use depending on how the
+transport layer contact is performed. For IP transports two
+ports are standardized, one for textual encoding and one for
+binary encoding. If for example an UDP packet was received on
+the text port it would be possible to decide encoding and
+transport on the fly.</p><p>After decoding a message various user callback functions are
+invoked in order to allow the user to act properly.  See the
+megaco_user module for more info about the callback
+arguments.</p><p>When the user has processed a transaction request in its
+callback function, the Megaco application assembles a
+transaction reply, encodes it using the selected encoding module
+and sends the message back by invoking the callback
+function:</p><ul><li> <p>SendMod:send_message(SendHandle, ErlangBinary)</p> </li></ul><p>Re-send of messages, handling pending transactions,
+acknowledgements etc. is handled automatically by the Megaco
+application but the user is free to override the default
+behaviour by the various configuration possibilities. See
+megaco:update_user_info/2 and megaco:update_conn_info/2 about
+the possibilities.</p><p>When connections gets broken (that is explicitly by
+megaco:disconnect/2 or when its controlling process dies) a user
+callback function is invoked in order to allow the user to
+re-establish the connection. The internal state of kept
+messages, re-send timers etc. is not affected by this. A few
+re-sends will of course fail while the connection is down, but
+the automatic re-send algorithm does not bother about this and
+eventually when the connection is up and running the messages
+will be delivered if the timeouts are set to be long enough. The
+user has the option of explicitly invoking megaco:cancel/2 to
+cancel all messages for a connection.</p><a name="mgc_startup_call_flow"></a><h3>MGC startup call flow</h3><p>In order to prepare the MGC for the reception of the initial
+message, hopefully a Service Change Request, the following needs
+to be done:</p><ul><li> <p>Start the Megaco application.</p> </li><li> <p>Start the MGC user. This may either be done explicitly
+with megaco:start_user/2 or implicitly by providing the -megaco
+users configuration parameter.</p> </li><li> <p>Initiate the transport service and provide it with a
+receive handle obtained from megaco:user_info/2.</p> </li></ul><p>When the initial message arrives the transport service
+forwards it to the protocol engine which automatically
+sets up the connection and invokes UserMod:handle_connect/2
+before it invokes UserMod:handle_trans_request/3 with
+the Service Change Request like this:</p><img src="MGC_startup_call_flow.gif" title="MGC Startup Call Flow"></img><a name="mg_startup_call_flow"></a><h3>MG startup call flow</h3><p>In order to prepare the MG for the sending of the initial
+message, hopefully a Service Change Request, the following needs
+to be done:</p><ul><li> <p>Start the Megaco application.</p> </li><li> <p>Start the MG user. This may either be done explicitly
+with megaco:start_user/2 or implicitly by providing the -megaco
+users configuration parameter.</p> </li><li> <p>Initiate the transport service and provide it with a
+receive handle obtained from megaco:user_info/2.</p> </li><li> <p>Setup a connection to the MGC with megaco:connect/4 and
+provide it with a receive handle obtained from
+megaco:user_info/2.</p> </li></ul><p>If the MG has been provisioned with the MID of the MGC it can
+be given as the RemoteMid parameter to megaco:connect/4 and the
+call flow will look like this:</p><img src="MG_startup_call_flow.gif" title="MG Startup Call Flow"></img><p>If the MG cannot be provisioned with the MID of the MGC, the
+MG can use the atom 'preliminary_mid' as the RemoteMid parameter
+to megaco:connect/4 and the call flow will look like this:</p><img src="MG-startup_flow_noMID.gif" title="MG Startup Call Flow (no MID)"></img><a name="config_megaco"></a><h3>Configuring the Megaco stack</h3><p>There are three kinds of configuration:</p><ul><li> <p>User info - Information related to megaco users. Read/Write. </p> <p>A User is an entity identified by a MID, e.g. a MGC or a MG. </p> <p>This information can be retrieved using 
+<a href="./megaco#user_info">megaco:user_info</a>. </p> </li><li> <p>Connection info - Information regarding connections. Read/Write.</p> <p>This information can be retrieved using 
+<a href="./megaco#conn_info">megaco:conn_info</a>. </p> </li><li> <p>System info - System wide information. Read only.</p> <p>This information can be retrieved using 
+<a href="./megaco#system_info">megaco:system_info</a>. </p> </li></ul><a name="initial_config"></a><h3>Initial configuration</h3><p>The initial configuration of the Megaco should be defined in the
+Erlang system configuration file. The following configured parameters
+are defined for the Megaco application:</p><ul><li> <p><strong>users = [{Mid, [user_config()]}].</strong></p> <p>Each user is represented by a tuple with the Mid of the user and a
+list of config parameters (each parameter is in turn a tuple:
+<strong>{Item, Value}</strong>).</p> </li><li> <p><strong>scanner = flex | {Module, Function, Arguments, Modules}</strong></p> <ul><li> <p><strong>flex</strong> will result in the start of the flex scanner with default 
+options.</p> </li><li> <p>The MFA alternative makes it possible for Megaco to start and
+supervise a scanner written by the user (see 
+<strong>supervisor:start_child</strong> for an explanation of the 
+parameters).</p> </li></ul> </li></ul><p>See also <a href="./megaco_encode#text_config">Configuration of text encoding module(s)</a> 
+for more info. </p><a name="changing_config"></a><h3>Changing the configuration</h3><p>The configuration can be changed during runtime. This is done with
+the functions <a href="./megaco#update_user_info">megaco:update_user_info</a> and 
+<a href="./megaco#update_conn_info">megaco:update_conn_info</a></p><a name="transaction_sender"></a><h3>The transaction sender</h3><p>The transaction sender is a process (one per connection), which handle
+all transaction sending, if so configured (see 
+<a href="./megaco#user_info">megaco:user_info</a> and 
+<a href="./megaco#conn_info">megaco:conn_info</a>).</p><p>The purpose of the transaction sender is to accumulate transactions 
+for a more efficient message sending. The transactions that are 
+accumulated are transaction request and transaction ack. For 
+transaction ack's the benefit is quite large, since the transactions 
+are small and it is possible to have ranges (which means that 
+transaction acks for transactions 1, 2, 3 and 4 can be sent as a 
+range 1-4 in one transaction ack, instead of four separate 
+transactions). </p><p>There are a number of configuration parameter's that control the 
+operation of the transaction sender. In principle, a message with 
+everything stored (ack's and request's) is sent from the process 
+when:</p><ul><li> <p>When <strong>trans_timer</strong> expires.</p> </li><li> <p>When <strong>trans_ack_maxcount</strong> number of ack's has been 
+received.</p> </li><li> <p>When <strong>trans_req_maxcount</strong> number of requests's has 
+been received.</p> </li><li> <p>When the size of all received requests exceeds 
+<strong>trans_req_maxsize</strong>.</p> </li><li> <p>When a reply transaction is sent.</p> </li><li> <p>When a pending transaction is sent.</p> </li></ul><p>When something is to be sent, everything is packed into one message,  
+unless the trigger was a reply transaction and the added size of the 
+reply and all the requests is greater then 
+<strong>trans_req_maxsize</strong>, in which case the stored 
+transactions are sent first in a separate message and the reply in 
+another message.</p><p>When the transaction sender receives a request which is already 
+"in storage" (indicated by the transaction id) it is assumed to 
+be a resend and everything stored is sent. This could happen if 
+the values of the <strong>trans_timer</strong> and the
+<strong>request_timer</strong> is not properly chosen.</p><a name="segment_reply"></a><h3>Segmentation of transaction replies</h3><p>In version 3 of the megaco standard the Segmentation package was
+introduced. Simply, this package defines a procedure to segment 
+megaco messages (transaction replies) when using a transport that 
+does not automatically do this (e.g. UDP). See also
+<a href="./megaco_encode#handling_versions">version3</a>.</p><p>Although it would be both pointless and counterproductive to use
+segmentation on a transport that already does this (e.g. TCP), the 
+megaco application does not check this. Instead, it is up to the 
+user to configure this properly. </p><ul><li> <p>Receiving segmented messages: </p> <p>This is handled automatically by the megaco application. 
+There is however one thing that need to be configured by the user, 
+the 
+<a href="./megaco#user_info">segment_recv_timer</a>
+option. </p> <p>Note that the segments are delivered to the user differently 
+depending on which function is used to issue the original request.
+When issuing the request using the 
+<a href="./megaco#cast">megaco:cast</a> function,
+the segments are delivered to the user via the 
+<a href="./megaco_user#trans_reply">handle_trans_reply</a>
+callback function one at a time, as they arrive. But this obviously
+doe not work for the 
+<a href="./megaco#call">megaco:call</a> function. 
+In this case, the segments are accumulated and then delivered
+all at once as the function returns.</p> </li><li> <p>Sending segmented messages: </p> <p>This is also handled automatically by the megaco application. 
+First of all, segmentation is only attempted if so configured, see 
+the <a href="./megaco#user_info">segment_send</a> option.
+Secondly, megaco relies on the ability of the used codec to
+encode action replies, which is the smallest component the
+megaco application handles when segmenting. Thirdly, the 
+reply will be segmented only if the sum of the size of the
+action replies (plus an arbitrary message header size) are greater
+then the specified max message size (see the 
+<a href="./megaco#user_info">max_pdu_size</a> option).
+Finally, if segmentation is decided, then each action reply
+will make up its own (segment) message.</p> </li></ul><p>This version of the stack is compliant with: </p><ul><li> <p>Megaco/H.248 version 1 (RFC3525)
+updated according to Implementors Guide version 10-13.</p> </li><li> <p>Megaco/H.248 version 2 as defined by 
+draft-ietf-megaco-h248v2-04
+updated according to Implementors Guide version 10-13.</p> </li><li> <p>Megaco/H.248 version 3 as defined by 
+ITU H.248.1 (09/2005).</p> </li></ul><h3>Internal form of messages</h3><p>We use the same internal form for both the binary and text
+encoding.  Our internal form of Megaco/H.248 messages is heavily
+influenced by the internal format used by ASN.1
+encoders/decoders:</p><ul><li> <p>"SEQUENCE OF" is represented as a list.</p> </li><li> <p>"CHOICE" is represented as a tagged tuple with size 2.</p> </li><li> <p>"SEQUENCE" is represented as a record, defined in
+"megaco/include/megaco_message_v1.hrl".</p> </li><li> <p>"OPTIONAL" is represented as an ordinary field in a
+record which defaults to 'asn1_NOVALUE', meaning that the
+field has no value.</p> </li><li> <p>"OCTET STRING" is represented as a list of unsigned integers.</p> </li><li> <p>"ENUMERATED" is represented as a single atom.</p> </li><li> <p>"BIT STRING" is represented as a list of atoms.</p> </li><li> <p>"BOOLEAN" is represented as the atom 'true' or 'false'.</p> </li><li> <p>"INTEGER" is represented as an integer.</p> </li><li> <p>"IA5String" is represented as a list of integers,
+where each integer is the ASCII value of the corresponding
+character.</p> </li><li> <p>"NULL" is represented as the atom 'NULL'.</p> </li></ul><p>In order to fully understand the internal form you must get
+hold on a ASN.1 specification for the Megaco/H.248 protocol, 
+and apply the rules above.
+Please, see the documentation of the ASN.1 compiler in
+Erlang/OTP for more details of the semantics in mapping between
+ASN.1 and the corresponding internal form.</p><p>Observe that the 'TerminationId' record is not used in the
+internal form. It has been replaced with a megaco_term_id record
+(defined in "megaco/include/megaco.hrl").</p><h3>The different encodings</h3><p>The Megaco/H.248 standard defines both a plain text encoding
+and a binary encoding (ASN.1 BER) and we have implemented
+encoders and decoders for both. We do in fact supply five
+different encoding/decoding modules.</p><p>In the text encoding, implementors have the choice of using a
+mix of short and long keywords. It is also possible to add white
+spaces to improve readability. We use the term compact for text
+messages with the shortest possible keywords and no optional
+white spaces, and the term pretty for a well indented text
+format using long keywords and an indentation style like the
+text examples in the Megaco/H.248 specification).</p><p>Here follows an example of a text message to give a feeling
+of the difference between the pretty and compact versions of
+text messages. First the pretty, well indented version with long
+keywords:</p><pre>
+   MEGACO/1 [124.124.124.222]
+   Transaction = 9998 {
+           Context = - {
+                   ServiceChange = ROOT {
+                           Services {
+                                   Method = Restart,
+                                   ServiceChangeAddress = 55555,
+                                   Profile = ResGW/1,
+                                   Reason = "901 Cold Boot"
+                           }
+                   }
+           }
+   }    </pre><p>Then the compact version without indentation and with short keywords:</p><pre>
+ 
+   !/1 [124.124.124.222]
+   T=9998{C=-{SC=ROOT{SV{MT=RS,AD=55555,PF=ResGW/1,RE="901 Cold Boot"}}}}    </pre><p>And the programmers view of the same message.
+First a list of ActionRequest records are constructed and
+then it is sent with one of the send functions in the API:</p><pre>
+  Prof = #'ServiceChangeProfile'{profileName = "resgw", version = 1},
+  Parm = #'ServiceChangeParm'{serviceChangeMethod  = restart,
+                              serviceChangeAddress = {portNumber, 55555},
+                              serviceChangeReason  = "901 Cold Boot",
+                              serviceChangeProfile = Prof},
+  Req = #'ServiceChangeRequest'{terminationID = [?megaco_root_termination_id],
+                                serviceChangeParms = Parm},
+  Actions = [#'ActionRequest'{contextId = ?megaco_null_context_id,
+                              commandRequests = {serviceChangeReq, Req}}],
+  megaco:call(ConnHandle, Actions, Config).    </pre><p>And finally a print-out of the entire internal form:</p><pre>
+  {'MegacoMessage',
+   asn1_NOVALUE,
+   {'Message',
+    1,
+    {ip4Address,{'IP4Address', [124,124,124,222], asn1_NOVALUE}},
+    {transactions,
+     [
+      {transactionRequest,
+       {'TransactionRequest',
+         9998,
+         [{'ActionRequest',
+           0,
+           asn1_NOVALUE,
+           asn1_NOVALUE,
+           [
+            {'CommandRequest',
+             {serviceChangeReq,
+              {'ServiceChangeRequest',
+               [
+                {megaco_term_id, false, ["root"]}],
+                {'ServiceChangeParm',
+                 restart,
+                 {portNumber, 55555},
+                 asn1_NOVALUE,
+                 {'ServiceChangeProfile', "resgw", version = 1},
+                 "901 MG Cold Boot",
+                 asn1_NOVALUE,
+                 asn1_NOVALUE,
+                 asn1_NOVALUE
+                }
+              }
+             },
+             asn1_NOVALUE,
+             asn1_NOVALUE
+            }
+           ]
+          }
+         ]
+       }
+      }
+     ]
+    }
+   }
+  }     </pre><p>The following encoding modules are provided:
+</p><ul><li> <p>megaco_pretty_text_encoder - encodes messages into
+pretty text format, decodes both pretty as well as compact
+text.</p> </li><li> <p>megaco_compact_text_encoder - encodes messages into
+compact text format, decodes both pretty as well as compact
+text.</p> </li><li> <p>megaco_binary_encoder - encode/decode ASN.1 BER messages.
+This encoder implements the fastest of the BER encoders/decoders.
+Recommended binary codec.</p> </li><li> <p>megaco_ber_encoder - encode/decode ASN.1 BER 
+messages.</p> </li><li> <p>megaco_per_encoder - encode/decode ASN.1 PER
+messages. N.B. that this format is not included in the
+Megaco standard.</p> </li><li> <p>megaco_erl_dist_encoder - encodes messages into Erlangs
+distribution format. It is rather verbose but encoding and
+decoding is blinding fast. N.B. that this format is not 
+included in the Megaco standard.</p> </li></ul><a name="erl_dist_config"></a><h3>Configuration of Erlang distribution encoding module</h3><p>The encoding_config of the megaco_erl_dist_encoder module
+may be one of these:</p><ul><li> <p><strong>[]</strong> - Encodes the messages to the standard distribution
+format. It is rather verbose but encoding and decoding is
+blinding fast.</p> </li><li> <p><strong>[megaco_compressed]</strong> - Encodes the messages to the
+standard distribution format after an internal transformation. 
+It is less verbose, but the total time of the encoding and 
+decoding will on the other hand be somewhat slower (see the 
+<a href="megaco_performance">performance</a> 
+chapter for more info).</p> </li><li> <p><strong>[{megaco_compressed, Module}]</strong> - Works in the same
+way as the megaco_compressed config parameter, only here the 
+user provide their own compress module. This module must 
+implement the 
+<a href="megaco_edist_compress">megaco_edist_compress</a> 
+behaviour.</p> </li><li> <p><strong>[compressed]</strong> - Encodes the messages to a compressed
+form of the standard distribution format. It is less
+verbose, but the encoding and decoding will on the other
+hand be slower.</p> </li></ul><a name="text_config"></a><h3>Configuration of text encoding module(s)</h3><p>When using text encoding(s), there is actually two different
+configs controlling what software to use:</p><ul><li> <p><strong>[]</strong> - An empty list indicates that the erlang
+scanner should be used.</p> </li><li> <p><strong>[{flex, port()}]</strong> - Use the flex scanner when 
+decoding (not optimized for SMP). See 
+<a href="./megaco_run#initial_config">initial configuration</a> 
+for more info.</p> </li><li> <p><strong>[{flex, ports()}]</strong> - Use the flex scanner when 
+decoding (optimized for SMP). See 
+<a href="./megaco_run#initial_config">initial configuration</a> 
+for more info.</p> </li></ul><p>The Flex scanner is a Megaco scanner written as a linked in driver 
+(in C). There are two ways to get this working:</p><ul><li> <p>Let the Megaco stack start the flex scanner 
+(load the driver).</p> <p>To make this happen the megaco stack has to be configured: </p> <ul><li> <p>Add the <strong>{scanner, flex}</strong> (or similar) directive to an 
+Erlang system config file for the megaco app (see 
+<a href="./megaco_run#initial_config">initial configuration</a> 
+chapter for details). </p> </li><li> <p>Retrieve the encoding-config using the
+<a href="./megaco#system_info">system_info</a> 
+function (with <strong>Item = text_config</strong>). </p> </li><li> <p>Update the receive handle with the encoding-config 
+(the <strong>encoding_config</strong> field). </p> </li></ul> <p>The benefit of this is that Megaco handles the starting, holding
+and the supervision of the driver and port.</p> </li><li> <p>The Megaco client (user) starts the flex scanner (load the driver).</p> <p>When starting the flex scanner a port to the linked in driver is 
+created. This port has to be owned by a process. This process must not
+die. If it does the port will also terminate. Therefor:</p>  <ul><li> <p>Create a permanent process. Make sure this process is
+supervised (so that if it does die, this will be noticed).</p> </li><li> <p>Let this process start the flex scanner by calling the 
+<strong>megaco_flex_scanner:start/0,1</strong> function.</p> </li><li> <p>Retrieve the encoding-config and when initiating
+the <strong>megaco_receive_handle</strong>, set the 
+field <strong>encoding_config</strong> accordingly.</p> </li><li> <p>Pass the <strong>megaco_receive_handle</strong> to the 
+transport module.</p> </li></ul> </li></ul><a name="binary_config"></a><h3>Configuration of binary encoding module(s)</h3><p>When using binary encoding, the structure of the termination id's 
+needs to be specified.</p><ul><li> <p><strong>[native]</strong> - skips the transformation phase, i.e. 
+the decoded message(s) will not be transformed into our internal
+form.</p> </li><li> <p><strong>[integer()]</strong> - A list containing the size (the number 
+of bits) of each level. Example: <strong>[3,8,5,8]</strong>.</p> </li><li> <p><strong>integer()</strong> - Number of one byte (8 bits) levels.
+N.B. This is currently converted into the previous config. 
+Example: <strong>3</strong> (<strong>[8,8,8]</strong>).</p> </li></ul><a name="handling_versions"></a><h3>Handling megaco versions</h3><p>Since the version 3 implemented, in this version of the Megaco 
+application, is preliminary, it is necessary to have a way
+to handle different version 3 implementations. For this reason
+the encoding config option <strong>{version3, version3()}</strong> has been 
+introduced. This option, if present, has to be <em>first</em> in the 
+encoding config list. Version 1 and 2 codec's ignore this option, if 
+found. </p><pre><code class="">
+version3() -&gt; prev3a | prev3b | prev3c | v3    </code></pre><ul><li> <p><em>prev3a</em></p> <p>Preliminary version 3, based on TD-33</p> </li><li> <p><em>prev3b</em></p> <p>Preliminary version 3, based on TD-33, but text encoding 
+updated with the final solution for priority in 
+<strong>contextProperty</strong> (which is backward compatible with v2).</p> </li><li> <p><em>prev3c</em></p> <p>Preliminary version 3, based on the final version of the 
+v3-standard, but <em>excluding</em> segments!</p> </li><li> <p><em>v3</em></p> <p>Full version 3. Including segmentation. This is the default
+version 3 variant (i.e. if a version 3 messages is to be 
+encoded/decoded and no version3 encoding config is found, 
+then v3 is assumed).</p> </li></ul><p>There are two ways to handle the different megaco encoding versions.
+Either using <em>dynamic version detection</em> (only valid for
+for incoming messages) or by <em>explicit version</em> setting in 
+the connection info.</p><p>For incoming messages:</p><ul><li> <p>Dynamic version detection</p> <p>Set the protocol version in the megaco_receive_handle to 
+<strong>dynamic</strong> (this is the default).
+<br/>This works for those codecs that support partial decode of the 
+version, currently <em>text</em>, and ber_bin 
+(<strong>megaco_binary_encoder</strong> and <strong>megaco_ber_bin_encoder</strong>). 
+<br/>This way the decoder will detect which version is used and 
+then use the proper decoder. </p> </li><li> <p>Explicit version</p> <p>Explicitly set the actual protocol version in the 
+megaco_receive_handle.
+<br/>Start with version 1. When the initial service change has been 
+performed and version 2 has been negotiated, upgrade the 
+megaco_receive_handle of the transport process (control_pid) to 
+version 2.
+See 
+<a href="./megaco_tcp#upgrade_receive_handle">megaco_tcp</a>
+and 
+<a href="./megaco_udp#upgrade_receive_handle">megaco_udp</a>.
+<br/>Note that if <strong>udp</strong> is used, the same transport process 
+could be used for several connections. This could make upgrading 
+impossible.
+<br/>For codecs that does not support partial decode of the version, 
+currently <strong>megaco_ber_encoder</strong>, <strong>megaco_per_encoder</strong>
+and <strong>megaco_per_bin_encoder</strong>, <strong>dynamic</strong> will revert to 
+version 1.</p> </li></ul><p>For outgoing messages:</p><ul><li> <p>Update the connection info protocol_version.</p> </li><li> <p>Override protocol version when sending a message by adding the
+item <strong>{protocol_version, integer()}</strong> to the Options.
+See 
+<a href="./megaco#call">call</a> or
+<a href="./megaco#cast">cast</a>.
+<br/>Note that this does not effect the messages that are sent
+autonomously by the stack. They use the protocol_version of the
+connection info.</p> </li></ul><h3>Encoder callback functions</h3><p>The encoder callback interface is defined by the <strong>megaco_encoder</strong> 
+behaviour, see <a href="megaco_encoder">megaco_encoder</a>.</p><h3>Callback interface</h3><p>The callback interface of the transport module contains several
+functions. Some of which are mandatory while others are only
+optional: </p><ul><li> <p><strong>send_message</strong> - Send a message. <em>Mandatory</em></p> </li><li> <p><strong>block</strong> - Block the transport. <em>Optional</em></p> <p>This function is usefull for flow control.</p> </li><li> <p><strong>unblock</strong> - Unblock the transport. <em>Optional</em></p> </li></ul><p>For more detail, see the 
+<a href="megaco_transport">megaco_transport</a>
+behaviour definition.</p><h3>Examples</h3><p>The Megaco/H.248 application contains implementations
+for the two protocols specified by the Megaco/H.248 standard;
+UDP, see <a href="megaco_udp">megaco_udp</a>, 
+and TCP/TPKT, see <a href="megaco_tcp">megaco_tcp</a>. </p><h3>A simple Media Gateway Controller</h3><p>In megaco/examples/simple/megaco_simple_mgc.erl there is an
+example of a simple MGC that listens on both text and binary
+standard ports and is prepared to handle a Service Change
+Request message to arrive either via TCP/IP or UDP/IP. Messages
+received on the text port are decoded using a text decoder and
+messages received on the binary port are decoded using a binary
+decoder.</p><p>The Service Change Reply is encoded in the same way as the
+request and sent back to the MG with the same transport
+mechanism UDP/IP or TCP/IP.</p><p>After this initial service change message the connection
+between the MG and MGC is fully established and supervised.</p><p>The MGC, with its four listeners, may be started with:</p><pre>
+      cd megaco/examples/simple
+      erl -pa ../../../megaco/ebin -s megaco_filter -s megaco
+      megaco_simple_mgc:start().
+    </pre><p>or simply 'gmake mgc'.</p><p>The -s megaco_filter option to erl implies, the event tracing
+mechanism to be enabled and an interactive sequence chart tool
+to be started. This may be quite useful in order to visualize
+how your MGC interacts with the Megaco/H.248 protocol stack.</p><p>The event traces may alternatively be directed to a file for
+later analyze. By default the event tracing is disabled, but it
+may dynamically be enabled without any need for re-compilation
+of the code.
+</p><h3>A simple Media Gateway</h3><p>In megaco/examples/simple/megaco_simple_mg.erl there is an
+example of a simple MG that connects to an MGC, sends a Service
+Change Request and waits synchronously for a reply.</p><p>After this initial service change message the connection
+between the MG and MGC is fully established and supervised.</p><p>Assuming that the MGC is started on the local host, four
+different MG's, using text over TCP/IP, binary over TCP/IP, text
+over UDP/IP and binary over UDP/IP may be started on the same
+Erlang node with:</p><pre>
+      cd megaco/examples/simple
+      erl -pa ../../../megaco/ebin -s megaco_filter -s megaco
+      megaco_simple_mg:start().
+    </pre><p>or simply 'gmake mg'.</p><p>If you "only" want to start a single MG which tries to connect
+an MG on a host named "baidarka", you may use one of these
+functions (instead of the megaco_simple_mg:start/0 above):</p><pre>
+      megaco_simple_mg:start_tcp_text("baidarka", []).
+      megaco_simple_mg:start_tcp_binary("baidarka", []).
+      megaco_simple_mg:start_udp_text("baidarka", []).
+      megaco_simple_mg:start_udp_binary("baidarka", []).
+    </pre><p>The -s megaco_filter option to erl implies, the event tracing
+mechanism to be enabled and an interactive sequence chart tool
+to be started. This may be quite useful in order to visualize
+how your MG interacts with the Megaco/H.248 protocol stack.</p><p>The event traces may alternatively be directed to a file for
+later analyze. By default the event tracing is disabled, but it
+may dynamically be enabled without any need for re-compilation
+of the code.
+</p><h3>Intro</h3><p>The Megaco mib is as of yet not standardized and our
+implementation is based on
+<em>draft-ietf-megaco-mib-04.txt</em>.  Almost all of the mib
+cannot easily be implemented by the megaco application. Instead
+these things should be implemented by a user (of the megaco
+application). </p><p>So what part of the mib is implemented? Basically the relevant
+statistic counters of the <em>MedGwyGatewayStatsEntry</em>.</p><h3>Statistics counters</h3><p>The implementation of the statistic counters is
+lightweight. I.e.  the statistic counters are handled
+separately by different entities of the application. For
+instance our two transport module(s) (see <a href="./megaco_tcp#stats">megaco_tcp</a> and <a href="./megaco_udp#stats">megaco_udp</a>) maintain their
+own counters and the application engine (see <a href="./megaco#stats">megaco</a>) maintain its own
+counters.</p><p>This also means that if a user implement their own transport
+service then it has to maintain its own statistics.</p><h3>Distribution</h3><p>Each megaco application maintains its own set of counters. So
+in a large (distributed) MG/MGC it could be necessary to
+collect the statistics from several nodes (each) running the
+megaco application (only one of them with the transport).</p><h3>Comparison of encoder/decoders</h3><p>The Megaco/H.248 standard defines both a plain text encoding and a 
+binary encoding (ASN.1 BER) and we have implemented encoders and 
+decoders for both. We do supply a bunch of different encoding/decoding 
+modules and the user may in fact implement their own (like our erl_dist 
+module). Using a non-standard encoding format has its obvious drawbacks, 
+but may be useful in some configurations.</p><p>We have made four different measurements of our Erlang/OTP 
+implementation of the Megaco/H.248 protocol stack, in order to compare 
+our different encoders/decoders. The result of each one is summarized 
+in the table below.</p><p>The result above are the fastest 
+of these configurations for each codec. The figures presented are 
+the average of all used messages.</p><p>For comparison, also included are first, performance figures with
+megaco (including the measurement software) and asn1 applications 
+hipe-compiled (second figure in the time columns, note that per bin 
+decode had some issues so those figures are not included), and second, 
+performance figures where the flex driver was built as 
+<strong>non-reentrant</strong> flex
+(third figure in the time columns, 
+only valid for text codecs using the flex-scanner, 
+figures within parenthesis). </p><table class="table table-bordered table-hover table-striped"><caption>Codec performance</caption><tbody><tr><td><em>Codec and config</em></td><td><em>Size</em></td><td><em>Encode</em></td><td><em>Decode</em></td><td><em>Total</em></td></tr><tr><td>pretty</td><td>336</td><td>20 / 13</td><td>75 / 40</td><td>95 / 53</td></tr><tr><td>pretty [flex]</td><td>336</td><td>20 / 13 / 20</td><td>39 / 33 / 38</td><td>59 / 46 / 58</td></tr><tr><td>compact</td><td>181</td><td>17 / 10</td><td>62 / 35</td><td>79 / 45</td></tr><tr><td>compact [flex]</td><td>181</td><td>17 / 10 / 17</td><td>37 / 31 / 36</td><td>54 / 41 / 53</td></tr><tr><td>per bin</td><td>91</td><td>60 / 29</td><td>64 / -</td><td>124 / -</td></tr><tr><td>per bin [driver]</td><td>91</td><td>39 / 24</td><td>42 / 26</td><td>81 / 50</td></tr><tr><td>per bin [native]</td><td>91</td><td>45 / 21</td><td>48 / -</td><td>93 / -</td></tr><tr><td>per bin [driver,native]</td><td>91</td><td>25 / 15</td><td>27 / 18</td><td>52 / 33</td></tr><tr><td>ber bin</td><td>165</td><td>32 / 19</td><td>38 / 21</td><td>70 / 40</td></tr><tr><td>ber bin [driver]</td><td>165</td><td>32 / 19</td><td>33 / 20</td><td>65 / 39</td></tr><tr><td>ber bin [native]</td><td>165</td><td>17 / 11</td><td>25 / 13</td><td>42 / 24</td></tr><tr><td>ber bin [driver,native]</td><td>165</td><td>17 / 11</td><td>17 / 12</td><td>34 / 23</td></tr><tr><td>erl_dist</td><td>875</td><td>5  /  5</td><td>10 / 10</td><td>15 / 15</td></tr><tr><td>erl_dist [megaco_compressed]</td><td>405</td><td>6  / 4</td><td>7  / 4</td><td>13 / 8</td></tr><tr><td>erl_dist [compressed]</td><td>345</td><td>47 / 47</td><td>20 / 20</td><td>67 / 67</td></tr><tr><td>erl_dist [megaco_compressed,compressed]</td><td>200</td><td>34 / 33</td><td>11 /  9</td><td>45 / 42</td></tr></tbody></table><h3>System performance characteristics</h3><p>This is primarily a way to show the effects of using the 
+reentrant flex scanner instead of the non-reentrant. </p><p>As can be seen from the figures above there is no real difference 
+between a non-reentrant and an reentrant flex scanner when it 
+comes to the decode times of an individual message. </p><p>The real difference is instead in system characteristics, which 
+is best shown with the mstone1 test. </p><p>When running SMP erlang on a multi-core machine the "throughput"
+is significantly higher. The mstone1 test is an extreme test,
+but it shows what is gained by using the reentrant flex-scanner. </p><img src="mstone1.jpg" title="MStone1 with mstone1.sh -d flex -s 4"></img><h3>Description of encoders/decoders</h3><p>In Appendix A of the Megaco/H.248 specification (RFC 3525), there are 
+about 30 messages that shows a representative call flow. We have also 
+added a few extra version 1, version 2 and version 3 messages. 
+We have used these messages as basis for our measurements. 
+Our figures have not been weighted in regard to how frequent 
+the different kinds of messages that are sent between the media 
+gateway and its controller.</p><p>The test compares the following encoder/decoders:</p><ul><li> <p><em>pretty</em> - pretty printed text. In the text encoding, 
+the protocol stack implementors have the choice of using a 
+mix of short and long keywords. It is also possible to add 
+white spaces to improve readability. The pretty text encoding 
+utilizes long keywords and an indentation style like the 
+text examples in the Megaco/H.248 specification.</p> </li><li> <p><em>compact</em> - the compact text encoding uses the shortest 
+possible keywords and no optional white spaces.</p> </li><li> <p><em>ber</em> - ASN.1 BER.</p> </li><li> <p><em>per</em> - ASN.1 PER. Not standardized as a valid 
+Megaco/H.248 encoding, but included for the matter of completeness 
+as its encoding is extremely compact.</p> </li><li> <p><em>erl_dist</em> - Erlang's native distribution format. Not 
+standardized as a valid Megaco/H.248 encoding, but included 
+as a reference due to its well known performance characteristics. 
+Erlang is a dynamically typed language and any Erlang data 
+structure may be serialized to the erl_dist format by using 
+built-in functions.</p> </li></ul><p>The actual encoded messages have been collected in one directory per 
+encoding type, containing one file per encoded message.</p><p>Here follows an example of a text message to give a feeling of the 
+difference between the pretty and compact versions of text messages. 
+First the pretty printed, well indented version with long keywords:</p><pre>
+MEGACO/1 [124.124.124.222] 
+  Transaction = 9998 { 
+    Context = - { 
+      ServiceChange = ROOT { 
+        Services { 
+          Method = Restart, 
+          ServiceChangeAddress = 55555, 
+          Profile = ResGW/1, 
+          Reason = "901 MG Cold Boot"
+        }
+      }  
+    }
+  }    </pre><p>Then the compact text version without indentation and with short 
+keywords:</p><pre>
+!/1 [124.124.124.222] T=9998{
+  C=-{SC=ROOT{SV{MT=RS,AD=55555,PF=ResGW/1,RE="901 MG Cold Boot"}}}}    </pre><h3>Setup</h3><p>The measurements has been performed on a 
+HP xw4600 Workstation with 
+a Intel(R) Core(TM)2 Quad CPU Q9550 @ 2.83GHz, with 4 GB memory and 
+running Ubuntu 10.04 x86_64, kernel 2.6.32-22-generic. 
+Software versions was open source OTP R13B04 (megaco-3.14).</p><h3>Summary</h3><p>In our measurements we have seen that there are no significant 
+differences in message sizes between ASN.1 BER and the compact 
+text format. Some care should be taken when using the pretty text 
+style (which is used in all the examples included in the protocol 
+specification and preferred during debugging sessions) since the 
+messages can then be quite large. If the message size really is a 
+serious issue, our per encoder should be used, as the ASN.1 PER 
+format is much more compact than all the other alternatives. Its 
+major drawback is that it is has not been approved as a valid 
+Megaco/H.248 message encoding.</p><p>When it comes to pure encode/decode performance, it turns out that:</p><ul><li> <p>our fastest binary encoder (ber) is about equal 
+to our fastest text encoder (compact). </p> </li><li> <p>our fastest binary decoder (ber) is about 54% (61%) faster than our 
+fastest text decoder (compact). </p> </li></ul><p>If the pure encode/decode performance really is a serious issue, our 
+erl_dist encoder could be used, as the encoding/decoding of the 
+erlang distribution format is much faster than all the other 
+alternatives. Its major drawback is that it is has not been approved 
+as a valid Megaco/H.248 message encoding.</p><p>There is no performance advantage of building (and using) a 
+non-reentrant flex scanner over a reentrant flex scanner (if flex
+supports building such a scanner). </p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Please, observe that these performance figures are related to our 
+implementation in Erlang/OTP. Measurements of other implementations 
+using other tools and techniques may of course result in other 
+figures. </p></div><h3>Tracing</h3><p>We have instrumented our code in order to enable
+tracing. Running the application with tracing deactivated,
+causes a negligible performance overhead (an external call to a
+function which returns an atom). Activation of tracing does not
+require any recompilation of the code, since we rely on
+Erlang/OTP's built in support for dynamic trace activation. In
+our case tracing of calls to a given external function.</p><p>Event traces can be viewed in a generic message sequence chart
+tool, <strong>et</strong>, or as standard output (events are written to stdio). </p><p>See <a href="./megaco#enable_trace">enable_trace</a>, 
+<a href="./megaco#disable_trace">disable_trace</a> and
+<a href="./megaco#set_trace">set_trace</a> for
+more info. </p><h3>Measurement and transformation</h3><p>We have included some simple tool(s) for codec measurement (meas),
+performance tests (mstone1 and mstone2) and message transformation.</p><p>The tool(s) are located in the example/meas directory.</p><h3>Requirement</h3><ul><li> <p>Erlang/OTP, version R13B01 or later.</p> </li><li> <p>Version 3.11 or later of <em>this</em> application.</p> </li><li> <p>Version 1.6.10 or later of the <em>asn1</em> application. </p> </li><li> <p>The flex libraries. Without it, the flex powered codecs cannot 
+be used.</p> </li></ul><h3>Meas results</h3><p>The results from the measurement run (meas) is four 
+excel-compatible textfiles: </p><ul><li> <p>decode_time.xls  -&gt; Decoding result</p> </li><li> <p>encode_time.xls  -&gt; Encoding result</p> </li><li> <p>total_time.xls   -&gt; Total (Decoding+encoding) result</p> </li><li> <p>message_size.xls -&gt; Message size</p> </li></ul><h3>Instruction</h3><p>The tool contain four things:
+</p><ul><li> <p>The transformation module</p> </li><li> <p>The measurement (meas) module(s)</p> </li><li> <p>The mstone (mstone1 and mstone2) module(s)</p> </li><li> <p>The basic message file</p> </li></ul><h3>Message Transformation</h3><p>The messages used by the different tools are contained in 
+single message package file (see below for more info). The messages
+in this file is encoded with just one codec. During 
+measurement initiation, the messages are read and then transformed to all
+codec formats used in the measurement. </p><p>The message transformation is done by the transformation module.
+It is used to transform a set of messages encoded with one codec 
+into the other base codec's.</p><h3>Measurement(s)</h3><p>There are two different measurement tools: </p><ul><li> <p><em>meas</em>: </p> <p>Used to perform codec measurements. That is, to see what 
+kind of performance can be expected by the different codecs 
+provided by the megaco application. </p> <p>The measurement is done by iterating over the decode/encode 
+function for approx 2 seconds per message and counting 
+the number of decodes/encodes.</p> <p>Is best run by modifying the meas.sh.skel skeleton script
+provided by the tool.</p> <p>To run it manually do the following: </p> <pre><code class="">
+        % erl -pa &lt;path-megaco-ebin-dir&gt; -pa &lt;path-to-meas-module-dir&gt;
+        Erlang (BEAM) emulator version 5.6 [source]
+
+        Eshell V5.7.1  (abort with ^G)
+        1&gt; megaco_codec_meas:start().
+        ...
+        2&gt; halt().
+        </code></pre> <p>or to make it even easier, assuming a measure shall be 
+done on all the codecs (as above):</p> <pre><code class="">
+        % erl -noshell -pa &lt;path-megaco-ebin-dir&gt; \\
+              -pa &lt;path-to-meas-module-dir&gt; \\
+              -s megaco_codec_meas -s init stop
+        </code></pre> <p>When run as above (this will take some time), the measurement 
+process is done as follows:</p> <pre>
+For each codec:
+    For each message:
+        Read the message from the file
+            Detect message version
+            Measure decode
+                Measure encode
+          Write results, encode, decode and total, to file
+        </pre> </li><li> <p><em>mstone1 and mstone2</em>: </p> <p>These are two different SMP performance monitoring tool(s). </p> <p><em>mstone1</em> creates a process for each codec config supported by 
+the megaco application and let them run for a specific 
+time (all at the same time), encoding and decoding 
+megaco messages. The number of messages processed in total 
+is the mstone1(1) value. </p> <p>There are different ways to run the mstone1 tool, e.g. with or without 
+the use of drivers, with <em>only</em> flex-empowered configs. </p> <p>Is best run by modifying the mstone1.sh.skel skeleton script
+provided by the tool.</p> <p>The <em>mstone2</em> is similar to the <em>mstone1</em> tool,
+but in this case, each created process makes only <em>one</em> run 
+through the messages and then exits. A soon as a process exits,
+a new process (with the same config and messages) is created to takes 
+its place. 
+The number of messages processed in total 
+is the mstone2(1) value. </p> </li></ul><p>Both these tools use the message package (time_test.msgs) provided
+with the tool(s), although it can run on any message package as long as
+it has the same structure. </p><h3>Message package file</h3><p>This is simply an erlang compatible text-file with the following 
+structure: <strong>{codec_name(), messages_list()}</strong>. </p><pre>
+codec_name() = pretty | compact | ber | per | erlang      (how the messages are encoded)
+messages_list() = [{message_name(), message()}]
+message_name() = atom()
+message() = binary()
+</pre><p>The codec name is the name of the codec with which all messages in
+the <strong>message_list()</strong> has been encoded. </p><p>This file can be <strong>exported</strong> to a file structure by calling the 
+<a href="./megaco_codec_transform#export_messages">export_messages</a>
+function. This can be usefull if a measurement shall be done with
+an external tool. Exporting the messages creates a directory tree 
+with the following structure:
+</p><pre><code class="">
+&lt;message package&gt;/pretty/&lt;message-files&gt;
+                  compact/
+                  per/
+                  ber/&lt;message-files&gt;
+                  erlang/
+        </code></pre><p>The file includes both version 1, 2 and version 3 messages.</p><h3>Notes</h3><h3>Binary codecs</h3><p>There are two basic ways to use the binary encodings: 
+With package related name and termination id transformation
+(the 'native' encoding config) or without. This transformation 
+converts package related names and termination id's to a more 
+convenient internal form (equivalent with the decoded text message).</p><p>The transformation is done _after_ the actual decode has been 
+done.</p><p>Furthermore, it is possible to make use of a linked in driver that 
+performs some of the decode/encode, decode for ber and encode for per 
+(the 'driver' encoding config).</p><p>Therefor in the tests, binary codecs are tested with four 
+different encoding configs to determine exactly how the
+different options effect the performance: with transformation and 
+without driver ([]), without transformation and without driver 
+([native]), with transformation and with driver ([driver]) and 
+finally without transformation and with driver ([driver,native]).</p><h3>Included test messages</h3><p>Some of these messages are ripped from the call flow examples 
+in an old version of the RFC and others are created to test
+a specific feature of megaco. </p><h3>Measurement tool directory name</h3><p>Be sure <em>not</em> no name the directory containing the measurement
+binaries starting with 'megaco-', e.g. megaco-meas. This will
+confuse the erlang application loader (erlang applications
+are named, e.g. megaco-1.0.2).</p></body></html>

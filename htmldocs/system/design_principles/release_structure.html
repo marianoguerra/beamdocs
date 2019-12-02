@@ -1,0 +1,197 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Releases</h1><a name="releases section"></a><p>This section is to be read with the <strong>rel(4)</strong>, <strong>systools(3)</strong>,
+and <strong>script(4)</strong> manual pages in SASL.</p><h2>Release Concept</h2><p>When you have written one or more applications, you might want
+to create a complete system with these applications and a
+subset of the Erlang/OTP applications. This is called a
+<em>release</em>.</p><p>To do this, create a
+<a href="#res_file">release resource file</a> that
+defines which applications are included in the release.</p><p>The release resource file is used to generate
+<a href="#boot">boot scripts</a> and
+<a href="#pack">release packages</a>. A system
+that is transferred to and installed at another site is called a
+<em>target system</em>. How to use a release package to create a
+target system is described in System Principles.</p><a name="res_file"></a><h2>Release Resource File</h2><p>To define a release, create a <em>release resource file</em>,
+or in short a <strong>.rel</strong> file. In the file, specify the name and
+version of the release, which ERTS version it is based on,
+and which applications it consists of:</p><pre><code class="">
+{release, {Name,Vsn}, {erts, EVsn},
+ [{Application1, AppVsn1},
+   ...
+  {ApplicationN, AppVsnN}]}.</code></pre><p><strong>Name</strong>, <strong>Vsn</strong>, <strong>EVsn</strong>, and <strong>AppVsn</strong> are
+strings.</p><p>The file must be named <strong>Rel.rel</strong>, where <strong>Rel</strong> is a
+unique name.</p><p>Each <strong>Application</strong> (atom) and <strong>AppVsn</strong> is
+the name and version of an application included in the release.
+The minimal release based on Erlang/OTP consists of
+the Kernel and STDLIB applications, so these
+applications must be included in the list.</p><p>If the release is to be upgraded, it must also include
+the SASL application.</p><a name="ch_rel"></a><p><em>Example: </em> A release of <strong>ch_app</strong> from
+<a href="./applications#ch_app">Applications</a>
+has the following <strong>.app</strong> file:</p><pre><code class="">
+{application, ch_app,
+ [{description, "Channel allocator"},
+  {vsn, "1"},
+  {modules, [ch_app, ch_sup, ch3]},
+  {registered, [ch3]},
+  {applications, [kernel, stdlib, sasl]},
+  {mod, {ch_app,[]}}
+ ]}.</code></pre><p>The <strong>.rel</strong> file must also contain <strong>kernel</strong>,
+<strong>stdlib</strong>, and <strong>sasl</strong>, as these applications are required
+by <strong>ch_app</strong>. The file is called <strong>ch_rel-1.rel</strong>:</p><pre><code class="">
+{release,
+ {"ch_rel", "A"},
+ {erts, "5.3"},
+ [{kernel, "2.9"},
+  {stdlib, "1.12"},
+  {sasl, "1.10"},
+  {ch_app, "1"}]
+}.</code></pre><a name="boot"></a><h2>Generating Boot Scripts</h2><p><strong>systools</strong> in the SASL application includes tools to
+build and check releases. The functions read the <strong>rel</strong> and
+<strong>.app</strong> files and performs syntax and dependency checks.
+The <strong>systools:make_script/1,2</strong> function is used to generate
+a boot script (see System Principles):</p><pre>
+1&gt; <span class="input">systools:make_script("ch_rel-1", [local]).</span>
+ok</pre><p>This creates a boot script, both the readable version,
+<strong>ch_rel-1.script</strong>, and the binary version, <strong>ch_rel-1.boot</strong>,
+used by the runtime system.</p><ul><li><strong>"ch_rel-1"</strong> is the name of the <strong>.rel</strong> file, minus the extension.</li><li><strong>local</strong> is an option that means that the directories where the applications are found are used in the boot script, instead of <strong>$ROOT/lib</strong> (<strong>$ROOT</strong> is the root directory of the installed release).</li></ul><p> This is a useful way to test a generated boot script locally.</p><p>When starting Erlang/OTP using the boot script, all applications
+from the <strong>.rel</strong> file are automatically loaded and started:</p><pre>
+% <span class="input">erl -boot ch_rel-1</span>
+Erlang (BEAM) emulator version 5.3
+
+Eshell V5.3  (abort with ^G)
+1&gt; 
+=PROGRESS REPORT==== 13-Jun-2003::12:01:15 ===
+          supervisor: {local,sasl_safe_sup}
+             started: [{pid,&lt;0.33.0&gt;},
+                       {name,alarm_handler},
+                       {mfa,{alarm_handler,start_link,[]}},
+                       {restart_type,permanent},
+                       {shutdown,2000},
+                       {child_type,worker}]
+
+...
+
+=PROGRESS REPORT==== 13-Jun-2003::12:01:15 ===
+         application: sasl
+          started_at: nonode@nohost
+
+...
+=PROGRESS REPORT==== 13-Jun-2003::12:01:15 ===
+         application: ch_app
+          started_at: nonode@nohost</pre><a name="pack"></a><h2>Creating a Release Package</h2><p>The <strong>systools:make_tar/1,2</strong> function takes a <strong>.rel</strong> file
+as input and creates a zipped tar file with the code for the specified
+applications, a <em>release package</em>:</p><pre>
+1&gt; <span class="input">systools:make_script("ch_rel-1").</span>
+ok
+2&gt; <span class="input">systools:make_tar("ch_rel-1").</span>
+ok</pre><p>The release package by default contains:</p><ul><li>The <strong>.app</strong> files</li><li>The <strong>.rel</strong> file</li><li>The object code for all applications, structured according to the <a href="./applications#app_dir">application directory structure</a></li><li>The binary boot script renamed to <strong>start.boot</strong></li></ul><pre>
+% <span class="input">tar tf ch_rel-1.tar</span>
+lib/kernel-2.9/ebin/kernel.app
+lib/kernel-2.9/ebin/application.beam
+...
+lib/stdlib-1.12/ebin/stdlib.app
+lib/stdlib-1.12/ebin/beam_lib.beam
+...
+lib/sasl-1.10/ebin/sasl.app
+lib/sasl-1.10/ebin/sasl.beam
+...
+lib/ch_app-1/ebin/ch_app.app
+lib/ch_app-1/ebin/ch_app.beam
+lib/ch_app-1/ebin/ch_sup.beam
+lib/ch_app-1/ebin/ch3.beam
+releases/A/start.boot
+releases/A/ch_rel-1.rel
+releases/ch_rel-1.rel</pre><p>A new boot script was generated, without
+the <strong>local</strong> option set, before the release package was made.
+In the release package, all application directories are placed
+under <strong>lib</strong>. You do not know where the release package
+will be installed, so no hard-coded absolute paths are allowed.</p><p>The release resource file <strong>mysystem.rel</strong> is duplicated in
+the tar file. Originally, this file was only stored in
+the <strong>releases</strong> directory to make it possible for
+the <strong>release_handler</strong> to extract this file
+separately. After unpacking the tar file, <strong>release_handler</strong>
+would automatically copy the file
+to <strong>releases/FIRST</strong>. However, sometimes the tar file is
+unpacked without involving the <strong>release_handler</strong> (for
+example, when unpacking the first target system) and the file
+is therefore now instead duplicated in the tar file so no manual
+copying is necessary.</p><p>If a <strong>relup</strong> file and/or a system configuration file called
+<strong>sys.config</strong>, or a <strong>sys.config.src</strong>, is found, these files
+are also included in the release package. See
+<a href="./release_handling#req">Release Handling</a>.</p><p>Options can be set to make the release package include source
+code and the ERTS binary as well.</p><p>For information on how to install the first target system, using
+a release package, see System Principles. For information
+on how to install a new release package in an existing system, see
+<a href="release_handling">Release Handling</a>.</p><a name="reldir"></a><h2>Directory Structure</h2><p>The directory structure for the code installed by the release handler
+from a release package is as follows:</p><pre><code class="">
+$ROOT/lib/App1-AVsn1/ebin
+                    /priv
+         /App2-AVsn2/ebin
+                    /priv
+         ...
+         /AppN-AVsnN/ebin
+                    /priv
+     /erts-EVsn/bin
+     /releases/Vsn
+     /bin</code></pre><ul><li><strong>lib</strong> - Application directories</li><li><strong>erts-EVsn/bin</strong> - Erlang runtime system executables</li><li><strong>releases/Vsn</strong> - <strong>.rel</strong> file and boot script <strong>start.boot</strong>; if present in the release package, <strong>relup</strong> and/or <strong>sys.config</strong> or <strong>sys.config.src</strong></li><li><strong>bin</strong> - Top-level Erlang runtime system executables</li></ul><p>Applications are not required to be located under directory
+<strong>$ROOT/lib</strong>. Several installation directories, which contain
+different parts of a system, can thus exist.
+For example, the previous example can be extended as follows:</p><pre>
+$SECOND_ROOT/.../SApp1-SAVsn1/ebin
+                             /priv
+                /SApp2-SAVsn2/ebin
+                             /priv
+                ...
+                /SAppN-SAVsnN/ebin
+                             /priv
+
+$THIRD_ROOT/TApp1-TAVsn1/ebin
+                        /priv
+           /TApp2-TAVsn2/ebin
+                        /priv
+           ...
+           /TAppN-TAVsnN/ebin
+                        /priv</pre><p><strong>$SECOND_ROOT</strong> and <strong>$THIRD_ROOT</strong> are introduced as
+<strong>variables</strong> in the call to the <strong>systools:make_script/2</strong>
+function.</p><h2>Disk-Less and/or Read-Only Clients</h2><p>If a complete system consists of disk-less and/or
+read-only client nodes, a <strong>clients</strong> directory is to be
+added to the <strong>$ROOT</strong> directory. A read-only node is
+a node with a read-only file system.</p><p>The <strong>clients</strong> directory is to have one subdirectory
+per supported client node. The name of each client directory
+is to be the name of the corresponding client node. As a
+minimum, each client directory is to contain the <strong>bin</strong> and
+<strong>releases</strong> subdirectories. These directories are used to
+store information about installed releases and to appoint the
+current release to the client. The <strong>$ROOT</strong>
+directory thus contains the following:</p><pre><code class="">
+$ROOT/...
+    /clients/ClientName1/bin
+                        /releases/Vsn
+            /ClientName2/bin
+                        /releases/Vsn
+            ...
+            /ClientNameN/bin
+                        /releases/Vsn</code></pre><p>This structure is to be used if all clients are running
+the same type of Erlang machine. If there are clients running
+different types of Erlang machines, or on different operating
+systems, the <strong>clients</strong> directory can be divided into one
+subdirectory per type of Erlang machine. Alternatively, one
+<strong>$ROOT</strong> can be set up per type of machine. For each
+type, some of the directories specified for the <strong>$ROOT</strong>
+directory are to be included:</p><pre><code class="">
+$ROOT/...
+    /clients/Type1/lib
+                  /erts-EVsn
+                  /bin
+                  /ClientName1/bin
+                              /releases/Vsn
+                  /ClientName2/bin
+                              /releases/Vsn
+                  ...
+                  /ClientNameN/bin
+                              /releases/Vsn
+            ...
+            /TypeN/lib
+                  /erts-EVsn
+                  /bin
+                  ...</code></pre><p>With this structure, the root directory for clients of
+<strong>Type1</strong> is <strong>$ROOT/clients/Type1</strong>.</p></body></html>

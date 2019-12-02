@@ -1,0 +1,183 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>unicode</h1><h1>unicode</h1><p>Functions for converting Unicode characters.</p><p>This module contains functions for converting between different character 
+representations. It converts between ISO Latin-1 characters and Unicode
+characters, but it can also convert between different Unicode encodings
+(like UTF-8, UTF-16, and UTF-32).The default Unicode encoding in Erlang is in binaries UTF-8, which is also
+the format in which built-in functions and libraries in OTP expect to find
+binary Unicode data. In lists, Unicode data is encoded as integers, each
+integer representing one character and encoded simply as the Unicode code
+point for the character.Other Unicode encodings than integers representing code points or UTF-8
+in binaries are referred to as "external encodings". The ISO
+Latin-1 encoding
+is in binaries and lists referred to as latin1-encoding.It is recommended to only use external encodings for communication with
+external entities where this is required. When working inside the
+Erlang/OTP environment, it is recommended to keep binaries in UTF-8 when
+representing Unicode characters. ISO Latin-1 encoding is supported both
+for backward compatibility and for communication
+with external entities not supporting Unicode character sets.Programs should always operate on a normalized form and compare
+canonical-equivalent Unicode characters as equal. All characters
+should thus be normalized to one form once on the system borders.
+One of the following functions can convert characters to their
+normalized forms <a href="#characters_to_nfc_list/1">characters_to_nfc_list/1</a>,
+<a href="#characters_to_nfc_binary/1">characters_to_nfc_binary/1</a>,
+<a href="#characters_to_nfd_list/1">characters_to_nfd_list/1</a> or
+<a href="#characters_to_nfd_binary/1">characters_to_nfd_binary/1</a>.
+For general text
+<a href="#characters_to_nfc_list/1">characters_to_nfc_list/1</a> or
+<a href="#characters_to_nfc_binary/1">characters_to_nfc_binary/1</a> is preferred, and
+for identifiers one of the compatibility normalization
+functions, such as
+<a href="#characters_to_nfkc_list/1">characters_to_nfkc_list/1</a>,
+is preferred for security reasons.
+The normalization functions where introduced in OTP 20.
+Additional information on normalization can be found in the
+<a href="http://unicode.org/faq/normalization.html">Unicode FAQ</a>.
+</p><h1>Data Types</h1><span class="name">encoding</span><span class="name">endian</span><span class="name">unicode_binary</span><p>A <strong>binary()</strong> with characters encoded in the UTF-8 coding
+standard.</p><span class="name">chardata</span><span class="name">charlist</span><span class="name">external_unicode_binary</span><p>A <strong>binary()</strong> with characters coded in a user-specified Unicode
+encoding other than UTF-8 (that is, UTF-16 or UTF-32).</p><span class="name">external_chardata</span><span class="name">external_charlist</span><span class="name">latin1_binary</span><p>A <strong>binary()</strong> with characters coded in ISO Latin-1.</p><span class="name">latin1_char</span><p>An <strong>integer()</strong> representing a valid ISO Latin-1
+character (0-255).</p><span class="name">latin1_chardata</span><p>Same as <strong>iodata()</strong>.</p><span class="name">latin1_charlist</span><p>Same as <strong>iolist()</strong>.</p><h1>Functions</h1><h2>bom_to_encoding/1</h2><p>Identify UTF byte order marks in a binary.</p><ul><li>endian</li></ul><dl><dt>Bin</dt><dd> A <strong>binary()</strong> such that <strong>byte_size(<span class="anno">Bin</span>) &gt;= 4</strong>. </dd></dl><p>Checks for a UTF Byte Order Mark (BOM) in the beginning of a
+binary. If the supplied binary <strong><span class="anno">Bin</span></strong> begins with a
+valid BOM for either UTF-8, UTF-16, or UTF-32, the function
+returns the encoding identified along with the BOM length
+in bytes.</p><p>If no BOM is found, the function returns <strong>{latin1,0}</strong>.</p><h2>characters_to_binary/1</h2><p>Convert a collection of characters to a UTF-8 binary.</p><p>Same as <strong>characters_to_binary(<span class="anno">Data</span>, unicode, unicode)</strong>.</p><h2>characters_to_binary/2</h2><p>Convert a collection of characters to a UTF-8 binary.</p><p>Same as <strong>characters_to_binary(<span class="anno">Data</span>,  <span class="anno">InEncoding</span>, unicode)</strong>.</p><h2>characters_to_binary/3</h2><p>Convert a collection of characters to a UTF-8 binary.</p><p>Behaves as <a href="#characters_to_list/2">characters_to_list/2</a>, but produces a binary
+instead of a Unicode list.</p><p><strong><span class="anno">InEncoding</span></strong> defines how input is to be interpreted
+if binaries are present in <strong>Data</strong></p><p><strong><span class="anno">OutEncoding</span></strong> defines in what format output is to
+be generated.</p><p>Options:</p><dl><dt><strong>unicode</strong></dt><dd> <p>An alias for <strong>utf8</strong>, as this is the preferred encoding for 
+Unicode characters in binaries.</p> </dd><dt><strong>utf16</strong></dt><dd> <p>An alias for <strong>{utf16,big}</strong>.</p> </dd><dt><strong>utf32</strong></dt><dd> <p>An alias for <strong>{utf32,big}</strong>.</p> </dd></dl><p>The atoms <strong>big</strong> and <strong>little</strong> denote big- or little-endian
+encoding.</p><p>Errors and exceptions occur as in
+<a href="#characters_to_list/2">characters_to_list/2</a>, but the second element
+in tuple <strong>error</strong> or <strong>incomplete</strong> is a <strong>binary()</strong>
+and not a <strong>list()</strong>.</p><h2>characters_to_list/1</h2><p>Convert a collection of characters to a list of Unicode characters.</p><p>Same as <strong>characters_to_list(<span class="anno">Data</span>, unicode)</strong>.</p><h2>characters_to_list/2</h2><p>Convert a collection of characters to a list of Unicode characters.</p><p>Converts a possibly deep list of integers and
+binaries into a list of integers representing Unicode
+characters. The binaries in the input can have characters
+encoded as one of the following:</p><ul><li> <p>ISO Latin-1 (0-255, one character per byte). Here,
+case parameter <strong><span class="anno">InEncoding</span></strong> is to be specified
+as <strong>latin1</strong>.</p> </li><li> <p>One of the UTF-encodings, which is specified as parameter 
+<strong><span class="anno">InEncoding</span></strong>.</p> </li></ul><p>
+Note that integers in the list always represent code points
+regardless of <strong><span class="anno">InEncoding</span></strong> passed. If
+<strong><span class="anno">InEncoding</span> latin1</strong> is passed, only code
+points &lt; 256 are allowed; otherwise, all valid unicode code
+points are allowed.
+</p><p>If <strong><span class="anno">InEncoding</span></strong> is <strong>latin1</strong>, parameter
+<strong><span class="anno">Data</span></strong> corresponds to the <strong>iodata()</strong> type,
+but for <strong>unicode</strong>, parameter <strong><span class="anno">Data</span></strong> can
+contain integers &gt; 255
+(Unicode characters beyond the ISO Latin-1 range), which
+makes it invalid as <strong>iodata()</strong>.</p><p>The purpose of the function is mainly to convert
+combinations of Unicode characters into a pure Unicode
+string in list representation for further processing. For
+writing the data to an external entity, the reverse function
+<a href="#characters_to_binary/3">characters_to_binary/3</a>
+comes in handy.</p><p>Option <strong>unicode</strong> is an alias for <strong>utf8</strong>, as this is the
+preferred encoding for Unicode characters in
+binaries. <strong>utf16</strong> is an alias for <strong>{utf16,big}</strong> and
+<strong>utf32</strong> is an alias for <strong>{utf32,big}</strong>. The atoms <strong>big</strong>
+and <strong>little</strong> denote big- or little-endian encoding.</p><p>If the data cannot be converted, either
+because of illegal Unicode/ISO Latin-1 characters in the list, 
+or because of invalid UTF encoding in any binaries, an error
+tuple is returned. The error tuple contains the tag
+<strong>error</strong>, a list representing the characters that could be
+converted before the error occurred and a representation of the
+characters including and after the offending integer/bytes. The
+last part is mostly for debugging, as it still constitutes a
+possibly deep or mixed list, or both, not necessarily of the same
+depth as the original data. The error occurs when traversing the
+list and whatever is left to decode is returned "as is".</p><p>However, if the input <strong><span class="anno">Data</span></strong> is a pure binary,
+the third part of the error tuple is guaranteed to be a binary as
+well.</p><p>Errors occur for the following reasons:</p><ul><li> <p>Integers out of range.</p> <p>If <strong><span class="anno">InEncoding</span></strong> is <strong>latin1</strong>, 
+an error occurs whenever an integer &gt; 255 is found
+in the lists.</p> <p>If <strong><span class="anno">InEncoding</span></strong> is of a Unicode type,
+an error occurs whenever either of the following is found:</p> <ul><li> <p>An integer &gt; 16#10FFFF
+(the maximum Unicode character)</p> </li><li> <p>An integer in the range 16#D800 to 16#DFFF (invalid range
+reserved for UTF-16 surrogate pairs)</p> </li></ul> </li><li> <p>Incorrect UTF encoding.</p> <p>If <strong><span class="anno">InEncoding</span></strong> is one of the UTF types,
+the bytes in any binaries must be valid in that encoding.</p> <p>Errors can occur for various reasons, including the
+following:</p> <ul><li> <p>"Pure" decoding errors 
+(like the upper bits of the bytes being wrong).</p> </li><li> <p>The bytes are decoded to a too large number.</p> </li><li> <p>The bytes are decoded to a code point in the invalid
+Unicode range.</p> </li><li> <p>Encoding is "overlong", meaning that a number
+should have been encoded in fewer bytes.</p> </li></ul> <p>The case of a truncated UTF is handled specially, see the
+paragraph about incomplete binaries below.</p> <p>If <strong><span class="anno">InEncoding</span></strong> is <strong>latin1</strong>, binaries are
+always valid as long as they contain whole bytes,
+as each byte falls into the valid ISO Latin-1 range.</p> </li></ul><p>A special type of error is when no actual invalid integers or
+bytes are found, but a trailing <strong>binary()</strong> consists of too
+few bytes to decode the last character. This error can occur
+if bytes are read from a file in chunks or if binaries in other
+ways are split on non-UTF character boundaries. An <strong>incomplete</strong>
+tuple is then returned instead of the <strong>error</strong> tuple.
+It consists of the same parts as the <strong>error</strong> tuple, but
+the tag is <strong>incomplete</strong> instead of <strong>error</strong> and the
+last element is always guaranteed to be a binary consisting of
+the first part of a (so far) valid UTF character.</p><p>If one UTF character is split over two consecutive binaries in
+the <strong><span class="anno">Data</span></strong>, the conversion succeeds. This means
+that a character can be decoded from a range of binaries as long
+as the whole range is specified as input without errors occurring.</p><p><em>Example:</em></p><pre><code class="">
+decode_data(Data) -&gt;
+   case unicode:characters_to_list(Data,unicode) of
+      {incomplete,Encoded, Rest} -&gt;
+            More = get_some_more_data(),
+            Encoded ++ decode_data([Rest, More]);
+      {error,Encoded,Rest} -&gt;
+            handle_error(Encoded,Rest);
+      List -&gt;
+            List
+   end.</code></pre><p>However, bit strings that are not whole bytes are not allowed,
+so a UTF character must be split along 8-bit boundaries to
+ever be decoded.</p><p>A <strong>badarg</strong> exception is thrown for the following cases:</p><ul><li>Any parameters are of the wrong type.</li><li>The list structure is invalid (a number as tail).</li><li>The binaries do not contain whole bytes (bit strings).</li></ul><h2>characters_to_nfc_list/1</h2><p>Normalize characters to a list of canonical equivalent composed Unicode characters.</p><p>Converts a possibly deep list of characters and binaries
+into a Normalized Form of canonical equivalent Composed
+characters according to the Unicode standard.</p><p>Any binaries in the input must be encoded with utf8
+encoding.
+</p><p>The result is a list of characters.</p><pre><code class="">
+3&gt; unicode:characters_to_nfc_list([&lt;&lt;"abc..a"&gt;&gt;,[778],$a,[776],$o,[776]]).
+"abc..Ã¥Ã¤Ã¶"
+</code></pre><h2>characters_to_nfc_binary/1</h2><p>Normalize characters to a utf8 binary of canonical equivalent composed Unicode characters.</p><p>Converts a possibly deep list of characters and binaries
+into a Normalized Form of canonical equivalent Composed
+characters according to the Unicode standard.</p><p>Any binaries in the input must be encoded with utf8
+encoding.</p><p>The result is an utf8 encoded binary.</p><pre><code class="">
+4&gt; unicode:characters_to_nfc_binary([&lt;&lt;"abc..a"&gt;&gt;,[778],$a,[776],$o,[776]]).
+&lt;&lt;"abc..Ã¥Ã¤Ã¶"/utf8&gt;&gt;
+</code></pre><h2>characters_to_nfd_list/1</h2><p>Normalize characters to a list of canonical equivalent decomposed Unicode characters.</p><p>Converts a possibly deep list of characters and binaries
+into a Normalized Form of canonical equivalent Decomposed
+characters according to the Unicode standard.</p><p>Any binaries in the input must be encoded with utf8
+encoding.
+</p><p>The result is a list of characters.</p><pre><code class="">
+1&gt; unicode:characters_to_nfd_list("abc..Ã¥Ã¤Ã¶").
+[97,98,99,46,46,97,778,97,776,111,776]
+</code></pre><h2>characters_to_nfd_binary/1</h2><p>Normalize characters to a utf8 binary of canonical equivalent decomposed Unicode characters.</p><p>Converts a possibly deep list of characters and binaries
+into a Normalized Form of canonical equivalent Decomposed
+characters according to the Unicode standard.</p><p>Any binaries in the input must be encoded with utf8
+encoding.</p><p>The result is an utf8 encoded binary.</p><pre><code class="">
+2&gt; unicode:characters_to_nfd_binary("abc..Ã¥Ã¤Ã¶").
+&lt;&lt;97,98,99,46,46,97,204,138,97,204,136,111,204,136&gt;&gt;
+</code></pre><h2>characters_to_nfkc_list/1</h2><p>Normalize characters to a list of canonical equivalent composed Unicode characters.</p><p>Converts a possibly deep list of characters and binaries
+into a Normalized Form of compatibly equivalent Composed
+characters according to the Unicode standard.</p><p>Any binaries in the input must be encoded with utf8
+encoding.
+</p><p>The result is a list of characters.</p><pre><code class="">
+3&gt; unicode:characters_to_nfkc_list([&lt;&lt;"abc..a"&gt;&gt;,[778],$a,[776],$o,[776],[65299,65298]]).
+"abc..Ã¥Ã¤Ã¶32"
+</code></pre><h2>characters_to_nfkc_binary/1</h2><p>Normalize characters to a utf8 binary of compatibly equivalent composed Unicode characters.</p><p>Converts a possibly deep list of characters and binaries
+into a Normalized Form of compatibly equivalent Composed
+characters according to the Unicode standard.</p><p>Any binaries in the input must be encoded with utf8
+encoding.</p><p>The result is an utf8 encoded binary.</p><pre><code class="">
+4&gt; unicode:characters_to_nfkc_binary([&lt;&lt;"abc..a"&gt;&gt;,[778],$a,[776],$o,[776],[65299,65298]]).
+&lt;&lt;"abc..Ã¥Ã¤Ã¶32"/utf8&gt;&gt;
+</code></pre><h2>characters_to_nfkd_list/1</h2><p>Normalize characters to a list of compatibly equivalent decomposed Unicode characters.</p><p>Converts a possibly deep list of characters and binaries
+into a Normalized Form of compatibly equivalent Decomposed
+characters according to the Unicode standard.</p><p>Any binaries in the input must be encoded with utf8
+encoding.
+</p><p>The result is a list of characters.</p><pre><code class="">
+1&gt; unicode:characters_to_nfkd_list(["abc..Ã¥Ã¤Ã¶",[65299,65298]]).
+[97,98,99,46,46,97,778,97,776,111,776,51,50]
+</code></pre><h2>characters_to_nfkd_binary/1</h2><p>Normalize characters to a utf8 binary of compatibly equivalent decomposed Unicode characters.</p><p>Converts a possibly deep list of characters and binaries
+into a Normalized Form of compatibly equivalent Decomposed
+characters according to the Unicode standard.</p><p>Any binaries in the input must be encoded with utf8
+encoding.</p><p>The result is an utf8 encoded binary.</p><pre><code class="">
+2&gt; unicode:characters_to_nfkd_binary(["abc..Ã¥Ã¤Ã¶",[65299,65298]]).
+&lt;&lt;97,98,99,46,46,97,204,138,97,204,136,111,204,136,51,50&gt;&gt;
+</code></pre><h2>encoding_to_bom/1</h2><p>Create a binary UTF byte order mark from encoding.</p><dl><dt>Bin</dt><dd> A <strong>binary()</strong> such that <strong>byte_size(<span class="anno">Bin</span>) &gt;= 4</strong>. </dd></dl><p>Creates a UTF Byte Order Mark (BOM) as a binary from the
+supplied <strong><span class="anno">InEncoding</span></strong>. The BOM is, if supported at
+all, expected to be placed first in UTF encoded files or messages.</p><p>The function returns <strong>&lt;&lt;&gt;&gt;</strong> for
+<strong>latin1</strong> encoding, as there is no BOM for ISO Latin-1.</p><p>Notice that the BOM for UTF-8 is seldom used, and it
+is really not a <em>byte order</em> mark. There are obviously no
+byte order issues with UTF-8, so the BOM is only there to
+differentiate UTF-8 encoding from other UTF formats.</p></body></html>

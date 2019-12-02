@@ -1,0 +1,46 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Terminology</h1><h2>General Information</h2><p>In the following terms that may cause confusion are explained.
+</p><h2>The term "user"</h2><p>A "user" is a term that everyone understands intuitively. However, the understandings may differ which can
+cause confusion.
+</p><p>The term is used differently in <a href="http://www.openssh.com">OpenSSH</a> and SSH in Erlang/OTP.
+The reason is the different environments and use cases that are not immediatly obvious.
+</p><p>This chapter aims at explaining the differences and giving a rationale for why Erlang/OTP handles "user" as
+it does.
+</p><h2>In OpenSSH</h2><p>Many have been in contact with the command 'ssh' on a Linux machine (or similar) to remotly log in on
+another machine. One types 
+</p><pre><code class="">ssh host</code></pre><p>to log in on the machine named <strong>host</strong>. The command prompts for your password on the remote <strong>host</strong> and
+then you can read, write and execute as your <em>user name</em> has rights on the remote <strong>host</strong>. There are
+stronger variants with pre-distributed keys or certificates, but that are for now just details in the
+authentication process.
+</p><p>You could log in as the user <strong>anotheruser</strong> with
+</p><pre><code class="">ssh anotheruser@host</code></pre><p>and you will then be enabled to act as <strong>anotheruser</strong> on the <strong>host</strong> if authorized correctly.
+</p><p>So what does <em>"your user name has rights"</em> mean? In a UNIX/Linux/etc context it is exactly as that context:
+The <em>user</em> could read, write and execute programs according to the OS rules.
+In addition, the user has a home directory (<strong>$HOME</strong>) and there is a <strong>$HOME/.ssh/</strong> directory
+with ssh-specific files.
+</p><h2>SSH password authentication</h2><p>When SSH tries to log in to a host, the ssh protocol communicates the user name (as a string) and a password.
+The remote ssh server checks that there is such a user defined and that the provided password is acceptable.
+</p><p>If so, the user is authorized.
+</p><h2>SSH public key authentication</h2><p>This is a stronger method where the ssh protocol brings the user name, the user's public key and some
+cryptographic information which we could ignore here.
+</p><p>The ssh server on the remote host checks:
+</p><ul><li>That the <em>user</em> has a home directory,</li><li>that home directory contains a .ssh/ directory and</li><li>the .ssh/ directory contains the public key just received in the <strong>authorized_keys</strong> file</li></ul><p>if so, the user is authorized.
+</p><h2>The SSH server on UNIX/Linux/etc after a succesful authentication</h2><p>After a succesful incoming authentication, a new process runs as the just authenticated user.</p><p>Next step is to start a service according to the ssh request. In case of a request of a shell, 
+a new one is started which handles the OS-commands that arrives from the client (that's "you").
+</p><p>In case of a sftp request, an sftp server is started in with the user's rights. So it could read, write or delete
+files if allowed for that user.
+</p><h2>In Erlang/OTP SSH</h2><p>For the Erlang/OTP SSH server the situation is different. The server executes in an Erlang process
+in the Erlang emulator which in turn executes in an OS process. The emulator does not try to change its
+user when authenticated over the SSH protocol.
+So the remote user name is only for authentication purposes in the Erlang/OTP SSH application.
+</p><h2>Password authentication in Erlang SSH</h2><p>The Erlang/OTP SSH server checks the user name and password in the following order:
+</p><ul><li>If a  <a href="../ssh/ssh#option-pwdfun">ssh/ssh#option-pwdfun</a> is defined, that one is called and the returned boolean is the authentication result. </li><li>Else, if the  <a href="../ssh/ssh#option-user_passwords">ssh/ssh#option-user_passwords</a> option is defined and the username and the password matches, the authentication is a success. </li><li>Else, if the option  <a href="../ssh/ssh#option-password">ssh/ssh#option-password</a> is defined and matches the password the authentication is a success. Note that the use of this option is not recommended in non-test code. </li></ul><h2>Public key authentication in Erlang SSH</h2><p>The user name, public key and cryptographic data (a signature) that is sent by the client, are used as follows
+(some steps left out for clearity):
+</p><ul><li>A callback module is selected using the options  <a href="../ssh/ssh#type-key_cb_common_option">ssh/ssh#type-key_cb_common_option</a>. </li><li>The callback module is used to check that the provided public key is one of the user's pre-stored. In case of the default callback module, the files <strong>authorized_keys</strong> and <strong>authorized_keys2</strong> are searched in a directory found in the following order: <ul><li>If the option <a href="../ssh/ssh_file#type-user_dir_fun_common_option">ssh/ssh_file#type-user_dir_fun_common_option</a> is defined, that fun is called and the returned directory is used, </li><li>Else, If the option  <a href="../ssh/ssh_file#type-user_dir_common_option">ssh/ssh_file#type-user_dir_common_option</a> is defined, that directory is used, </li><li>Else the subdirectory <strong>.ssh</strong> in the home directory of the user executing the OS process of the Erlang emulator is used. </li></ul> If the provided public key is not found, the authentication fails. </li><li>Finally, if the provided public key is found, the signature provided by the client is checked with the public key. </li></ul><h2>The Erlang/OTP SSH server after a succesful authentication</h2><p>After a successful authentication an <em>Erlang process</em> is handling the service request from the remote
+ssh client. The rights of that process are those of the user of the OS process running the Erlang emulator.
+</p><p>If a shell service request arrives to the server, an <em>Erlang shell</em> is opened in the server's emulator.
+The rights in that shell is independent of the just authenticated user.
+</p><p>In case of an sftp request, an sftp server is started with the rights of the user of the Erlang emulator's OS
+process. So with sftp the authenticated user does not influence the rights.
+</p><p>So after an authentication, the user name is not used anymore and has no influence.
+</p></body></html>

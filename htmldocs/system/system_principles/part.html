@@ -1,0 +1,888 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>System Principles</h1><a name="system principles"></a><h3>Starting the System</h3><p>An Erlang runtime system is started with command <strong>erl</strong>:</p><pre>
+% <span class="input">erl</span>
+Erlang/OTP 17 [erts-6.0] [hipe] [smp:8:8]
+
+Eshell V6.0  (abort with ^G)
+1&gt; </pre><p><strong>erl</strong> understands a number of command-line arguments, see
+the <a href="./erl">erl(1)</a>  manual page in
+ERTS. Some of them are also described in this chapter.</p><p>Application programs can access the values of the command-line
+arguments by calling the function <strong>init:get_argument(Key)</strong>
+or <strong>init:get_arguments()</strong>. See the
+<a href="./init">init(3)</a> manual page in
+ERTS.</p><h3>Restarting and Stopping the System</h3><p>The runtime system is halted by calling <strong>halt/0,1</strong>. For
+details, see the <a href="./erlang">erlang(3)</a>
+manual page in ERTS.</p><p>The module <strong>init</strong> contains functions for restarting,
+rebooting, and stopping the runtime system:</p><pre>
+init:restart()
+init:reboot()
+init:stop()</pre><p>For details, see the <a href="./init">init(3)</a>
+manual page in ERTS.</p><p>The runtime system terminates if the Erlang shell is
+terminated.</p><a name="BOOTSCRIPT"></a><h3>Boot Scripts</h3><p>The runtime system is started using a <em>boot script</em>.
+The boot script contains instructions on which code to load and
+which processes and applications to start.</p><p>A boot script file has the extension <strong>.script</strong>.
+The runtime system uses a binary version of the script. This
+<em>binary boot script</em> file has the extension <strong>.boot</strong>.</p><p>Which boot script to use is specified by the command-line flag
+<strong>-boot</strong>. The extension <strong>.boot</strong> is to be omitted.
+For example, using the boot script <strong>start_all.boot</strong>:</p><pre>
+% <span class="input">erl -boot start_all</span></pre><p>If no boot script is specified, it defaults to
+<strong>ROOT/bin/start</strong>, see <a href="#default_boot_scripts"> Default Boot Scripts</a>.</p><p>The command-line flag <strong>-init_debug</strong> makes the <strong>init</strong>
+process write some debug information while interpreting the boot
+script:</p><pre>
+% <span class="input">erl -init_debug</span>
+{progress,preloaded}
+{progress,kernel_load_completed}
+{progress,modules_loaded}
+{start,heart}
+{start,logger}
+...</pre><p>For a detailed description of the syntax and contents of the
+boot script, see the <strong>script(4)</strong> manual page in SASL.</p><a name="default_boot_scripts"></a><h3>Default Boot Scripts</h3><p>Erlang/OTP comes with these boot scripts:</p><ul><li><strong>start_clean.boot</strong> - Loads the code for and starts the applications Kernel and STDLIB.</li><li><strong>start_sasl.boot</strong> - Loads the code for and starts the applications Kernel, STDLIB, and SASL).</li><li><strong>no_dot_erlang.boot</strong> - Loads the code for and starts the applications Kernel and STDLIB. Skips loading the file <strong>.erlang</strong>. Useful for scripts and other tools that are to behave the same irrespective of user preferences.</li></ul><p>Which of <strong>start_clean</strong> and <strong>start_sasl</strong> to use as
+default is decided by the user when installing Erlang/OTP using
+<strong>Install</strong>. The user is asked "Do you want to use a minimal
+system startup instead of the SASL startup". If the answer is
+yes, then <strong>start_clean</strong> is used, otherwise
+<strong>start_sasl</strong> is used. A copy of the selected boot script is
+made, named <strong>start.boot</strong> and placed in directory
+<strong>ROOT/bin</strong>.</p><h3>User-Defined Boot Scripts</h3><p>It is sometimes useful or necessary to create a user-defined
+boot script. This is true especially when running Erlang in
+embedded mode, see <a href="#code_loading"> Code Loading Strategy</a>.</p><p>A boot script can be written manually. However, it is
+recommended to create a boot script by generating it from a
+release resource file <strong>Name.rel</strong>, using the function
+<strong>systools:make_script/1,2</strong>. This requires that the source
+code is structured as applications according to the OTP design
+principles. (The program does not have to be started in terms of
+OTP applications, but can be plain Erlang).</p><p>For more information about <strong>.rel</strong> files, see
+<a href="./release_handling"> OTP Design Principles</a> and the
+<a href="./rel">rel(4)</a> manual page in
+SASL.</p><p>The binary boot script file <strong>Name.boot</strong> is generated from
+the boot script file <strong>Name.script</strong>, using the function
+<strong>systools:script2boot(File)</strong>.</p><a name="code_loading"></a><h3>Code Loading Strategy</h3><p>The runtime system can be started in either <em>embedded</em> or
+<em>interactive</em> mode. Which one is decided by the
+command-line flag <strong>-mode</strong>.</p><pre>
+% <span class="input">erl -mode embedded</span></pre><p>Default mode is <strong>interactive</strong>.</p><p>The mode properties are as follows:</p><ul><li>In embedded mode, all code is loaded during system startup according to the boot script. (Code can also be loaded later by explicitly ordering the code server to do so.)</li><li>In interactive mode, the code is dynamically loaded when first referenced. When a call to a function in a module is made, and the module is not loaded, the code server searches the code path and loads the module into the system.</li></ul><p>Initially, the code path consists of the current
+working directory and all object code directories under
+<strong>ROOT/lib</strong>, where <strong>ROOT</strong> is the installation directory
+of Erlang/OTP. Directories can be named <strong>Name[-Vsn]</strong>. The
+code server, by default, chooses the directory with
+the highest version number among those which have the same
+<strong>Name</strong>. The <strong>-Vsn</strong> suffix is optional. If an
+<strong>ebin</strong> directory exists under the <strong>Name[-Vsn]</strong>
+directory, this directory is added to the code path.</p><p>The code path can be extended by using the command-line flags
+<strong>-pa Directories</strong> and <strong>-pz Directories</strong>. These add
+<strong>Directories</strong> to the head or the end of the code path,
+respectively. Example:</p><pre>
+% <span class="input">erl -pa /home/arne/mycode</span></pre><p>The code server module <strong>code</strong> contains a number of
+functions for modifying and checking the search path, see the
+<strong>code(3)</strong> manual page in Kernel.</p><h3>File Types</h3><p>The following file types are defined in Erlang/OTP:</p><table class="table table-bordered table-hover table-striped"><caption>File Types</caption><tbody><tr><td><em>File Type</em></td><td><em>File Name/Extension</em></td><td><em>Documented in</em></td></tr><tr><td>Module</td><td><strong>.erl</strong></td><td> <a href="./modules"> Erlang Reference Manual</a></td></tr><tr><td>Include file</td><td><strong>.hrl</strong></td><td> <a href="./modules"> Erlang Reference Manual</a></td></tr><tr><td>Release resource file</td><td><strong>.rel</strong></td><td> <a href="./rel">rel(4)</a> manual page in SASL</td></tr><tr><td>Application resource file</td><td><strong>.app</strong></td><td> <a href="./app">app(4)</a> manual page in Kernel</td></tr><tr><td>Boot script</td><td><strong>.script</strong></td><td> <a href="./script">script(4)</a> manual page in SASL</td></tr><tr><td>Binary boot script</td><td><strong>.boot</strong></td><td>-</td></tr><tr><td>Configuration file</td><td><strong>.config</strong></td><td> <a href="./config">config(4)</a> manual page in Kernel</td></tr><tr><td>Application upgrade file</td><td><strong>.appup</strong></td><td> <a href="./appup">appup(4)</a> manual page in SASL</td></tr><tr><td>Release upgrade file</td><td><strong>relup</strong></td><td> <a href="./relup">relup(4)</a> manual page in SASL</td></tr></tbody></table><a name="error logging"></a><h3>Error Information From the Runtime System</h3><p>Error information from the runtime system, that is, information
+about a process terminating because of an uncaught error exception,
+is by default written to terminal (tty):</p><pre><code class="">
+=ERROR REPORT==== 9-Dec-2003::13:25:02 ===
+Error in process &lt;0.27.0&gt; with exit value: {{badmatch,[1,2,3]},[{m,f,1},{shell,eval_loop,2}]}</code></pre><p>The error information is handled by Logger, which is part of
+the Kernel application.</p><p>The exit reasons (such as <strong>badarg</strong>) used by
+the runtime system are described in
+<a href="../doc/reference_manual/errors#exit_reasons"> Errors and Error Handling</a>.</p><p>For information about Logger and its user
+interface, see the
+<a href="./logger">logger(3)</a>
+manual page and
+the <a href="./logger_chapter">Logging</a>
+section in the Kernel User's Guide. The system can be configured so that
+log events are
+written to file or to tty, or both. In addition, user-defined
+applications can send and format log events using
+Logger.</p><h3>Log events from OTP behaviours</h3><p>The standard behaviours (<strong>supervisor</strong>, <strong>gen_server</strong>,
+and so on) send progress and error information to
+Logger. Progress reports are by default not logged, but can be
+enabled by setting the primary log level to <strong>info</strong>, for
+example by using the Kernel configuration
+parameter <strong>logger_level</strong>. Supervisor reports, crash reports
+and other error and information reports are by default logged
+through the log handler which is set up when the Kernel
+application is started.</p><p>Prior to Erlang/OTP 21.0, supervisor, crash, and progress
+reports were only logged when the SASL application was
+running. This behaviour can, for backwards compatibility, be
+enabled by setting the Kernel configuration
+parameter <a href="../kernel/kernel_app#logger_sasl_compatible">kernel/kernel_app#logger_sasl_compatible</a>
+to <strong>true</strong>. For more information, see
+<a href="./error_logging">SASL Error Logging</a>
+in the SASL User's Guide.</p><pre>
+% <span class="input">erl -kernel logger_level info</span>
+Erlang/OTP 21 [erts-10.0] [source-13c50db] [64-bit] [smp:4:4] [ds:4:4:10] [async-threads:1] [hipe]
+
+=PROGRESS REPORT==== 8-Jun-2018::16:54:19.916404 ===
+    application: kernel
+    started_at: nonode@nohost
+=PROGRESS REPORT==== 8-Jun-2018::16:54:19.922908 ===
+    application: stdlib
+    started_at: nonode@nohost
+=PROGRESS REPORT==== 8-Jun-2018::16:54:19.925755 ===
+    supervisor: {local,kernel_safe_sup}
+    started: [{pid,&lt;0.74.0&gt;},
+              {id,disk_log_sup},
+              {mfargs,{disk_log_sup,start_link,[]}},
+              {restart_type,permanent},
+              {shutdown,1000},
+              {child_type,supervisor}]
+=PROGRESS REPORT==== 8-Jun-2018::16:54:19.926056 ===
+    supervisor: {local,kernel_safe_sup}
+    started: [{pid,&lt;0.75.0&gt;},
+              {id,disk_log_server},
+              {mfargs,{disk_log_server,start_link,[]}},
+              {restart_type,permanent},
+              {shutdown,2000},
+              {child_type,worker}]
+Eshell V10.0  (abort with ^G)
+1&gt; </pre><a name="creating upgrading target system"></a><p>When creating a system using Erlang/OTP, the simplest way is
+to install Erlang/OTP somewhere, install the application-specific
+code somewhere else, and then start the Erlang runtime system,
+making sure the code path includes the application-specific code.</p><p>It is often not desirable to use an Erlang/OTP system as is. A
+developer can create new Erlang/OTP-compliant applications for a
+particular purpose, and several original Erlang/OTP applications
+can be irrelevant for the purpose in question. Thus, there is a
+need to be able to create a new system based on a given
+Erlang/OTP system, where dispensable applications are removed
+and new applications are included. Documentation and
+source code is irrelevant and is therefore not included in the
+new system.</p><p>This chapter is about creating such a system, which is called a
+<em>target system</em>.</p><p>The following sections deal with target systems
+with different requirements of functionality:</p><ul><li>A <em>basic target system</em> that can be started by calling the ordinary <strong>erl</strong> script.</li><li>A <em>simple target system</em> where also code replacement in runtime can be performed.</li><li>An <em>embedded target system</em> where there is also support for logging output from the system to file for later inspection, and where the system can be started automatically at boot time.</li></ul><p>Here is only considered the case when Erlang/OTP is running on a
+UNIX system.</p><p>The <strong>sasl</strong> application includes the example Erlang
+module <strong>target_system.erl</strong>, which contains functions for
+creating and installing a target system. This module is used in
+the following examples. The source code of the module is listed
+in <a href="#listing of target system"> Listing of target_system.erl</a></p><a name="create"></a><h3>Creating a Target System</h3><p>It is assumed that you have a working Erlang/OTP system structured
+according to the OTP design principles.</p><p><em>Step 1.</em> Create a <strong>.rel</strong> file (see the
+<a href="./rel">rel(4)</a> manual page in
+SASL), which specifies the ERTS version and lists
+all applications that are to be included in the new basic target
+system. An example is the following <strong>mysystem.rel</strong> file:</p><pre><code class="">
+%% mysystem.rel
+{release,
+ {"MYSYSTEM", "FIRST"},
+ {erts, "5.10.4"},
+ [{kernel, "2.16.4"},
+  {stdlib, "1.19.4"},
+  {sasl, "2.3.4"},
+  {pea, "1.0"}]}.</code></pre><p>The listed applications are not only original Erlang/OTP
+applications but possibly also new applications that you have
+written (here exemplified by the application Pea (<strong>pea</strong>)).</p><p><em>Step 2.</em> Start Erlang/OTP from the directory where
+the <strong>mysystem.rel</strong> file resides:</p><pre>
+os&gt; <span class="input">erl -pa /home/user/target_system/myapps/pea-1.0/ebin</span></pre><p>Here also the path to the <strong>pea-1.0</strong> ebin directory is
+provided.</p><p><em>Step 3.</em> Create the target system:</p><pre>
+1&gt; <span class="input">target_system:create("mysystem").</span></pre><p>The function <strong>target_system:create/1</strong> performs the
+following:</p><ul><li>Reads the file <strong>mysystem.rel</strong> and creates a new file <strong>plain.rel</strong> that is identical to the former, except that it only lists the Kernel and STDLIB applications.</li><li>From the files <strong>mysystem.rel</strong> and <strong>plain.rel</strong> creates the files <strong>mysystem.script</strong>, <strong>mysystem.boot</strong>, <strong>plain.script</strong>, and <strong>plain.boot</strong> through a call to <strong>systools:make_script/2</strong>.</li><li> <p>Creates the file <strong>mysystem.tar.gz</strong> by a call to
+<strong>systools:make_tar/2</strong>. That file has the following
+contents:</p> <pre><code class="">
+erts-5.10.4/bin/
+releases/FIRST/start.boot
+releases/FIRST/mysystem.rel
+releases/mysystem.rel
+lib/kernel-2.16.4/
+lib/stdlib-1.19.4/
+lib/sasl-2.3.4/
+lib/pea-1.0/</code></pre> <p>The file <strong>releases/FIRST/start.boot</strong> is a copy of our
+<strong>mysystem.boot</strong></p> <p>The release resource file <strong>mysystem.rel</strong> is duplicated
+in the tar file. Originally, this file was only stored in
+the <strong>releases</strong> directory to make it possible
+for the <strong>release_handler</strong> to extract this file
+separately. After unpacking the tar
+file, <strong>release_handler</strong> would automatically copy the
+file to <strong>releases/FIRST</strong>. However, sometimes the tar
+file is unpacked without involving
+the <strong>release_handler</strong> (for example, when unpacking the
+first target system). The file is therefore now instead
+duplicated in the tar file so no manual copying is
+needed.</p> </li><li>Creates the temporary directory <strong>tmp</strong> and extracts the tar file <strong>mysystem.tar.gz</strong> into that directory.</li><li>Deletes the files <strong>erl</strong> and <strong>start</strong> from <strong>tmp/erts-5.10.4/bin</strong>. These files are created again from source when installing the release.</li><li>Creates the directory <strong>tmp/bin</strong>.</li><li>Copies the previously created file <strong>plain.boot</strong> to <strong>tmp/bin/start.boot</strong>.</li><li>Copies the files <strong>epmd</strong>, <strong>run_erl</strong>, and <strong>to_erl</strong> from the directory <strong>tmp/erts-5.10.4/bin</strong> to the directory <strong>tmp/bin</strong>.</li><li>Creates the directory <strong>tmp/log</strong>, which is used if the system is started as embedded with the <strong>bin/start</strong> script.</li><li>Creates the file <strong>tmp/releases/start_erl.data</strong> with the contents "5.10.4 FIRST". This file is to be passed as data file to the <strong>start_erl</strong> script.</li><li>Recreates the file <strong>mysystem.tar.gz</strong> from the directories in the directory <strong>tmp</strong> and removes <strong>tmp</strong>.</li></ul><h3>Installing a Target System</h3><p><em>Step 4.</em> Install the created target system in a
+suitable directory.</p><pre>
+2&gt; <span class="input">target_system:install("mysystem", "/usr/local/erl-target").</span></pre><p>The function <strong>target_system:install/2</strong> performs the following:
+</p><ul><li>Extracts the tar file <strong>mysystem.tar.gz</strong> into the target directory <strong>/usr/local/erl-target</strong>.</li><li>In the target directory reads the file <strong>releases/start_erl.data</strong> to find the Erlang runtime system version ("5.10.4").</li><li>Substitutes <strong>%FINAL_ROOTDIR%</strong> and <strong>%EMU%</strong> for <strong>/usr/local/erl-target</strong> and <strong>beam</strong>, respectively, in the files <strong>erl.src</strong>, <strong>start.src</strong>, and <strong>start_erl.src</strong> of the target <strong>erts-5.10.4/bin</strong> directory, and puts the resulting files <strong>erl</strong>, <strong>start</strong>, and <strong>run_erl</strong> in the target <strong>bin</strong> directory.</li><li>Finally the target <strong>releases/RELEASES</strong> file is created from data in the file <strong>releases/mysystem.rel</strong>.</li></ul><a name="start"></a><h3>Starting a Target System</h3><p>Now we have a target system that can be started in various ways.
+We start it as a <em>basic target system</em> by invoking:</p><pre>
+os&gt; <span class="input">/usr/local/erl-target/bin/erl</span></pre><p>Here only the Kernel and STDLIB applications are
+started, that is, the system is started as an ordinary development
+system. Only two files are needed for all this to work:</p><ul><li><strong>bin/erl</strong> (obtained from <strong>erts-5.10.4/bin/erl.src</strong>)</li><li><strong>bin/start.boot</strong> (a copy of <strong>plain.boot</strong>)</li></ul><p>We can also start a distributed system (requires <strong>bin/epmd</strong>).</p><p>To start all applications specified in the original
+<strong>mysystem.rel</strong> file, use flag <strong>-boot</strong> as follows:</p><pre>
+os&gt; <span class="input">/usr/local/erl-target/bin/erl -boot /usr/local/erl-target/releases/FIRST/start</span></pre><p>We start a <em>simple target system</em> as above. The only
+difference is that also the file <strong>releases/RELEASES</strong> is
+present for code replacement in runtime to work.</p><p>To start an <em>embedded target system</em>, the shell script
+<strong>bin/start</strong> is used. The script calls
+<strong>bin/run_erl</strong>, which in turn calls <strong>bin/start_erl</strong>
+(roughly, <strong>start_erl</strong> is an embedded variant of
+<strong>erl</strong>).</p><p>The shell script <strong>start</strong>, which is generated from
+erts-5.10.4/bin/start.src during installation, is only an
+example. Edit it to suite your needs. Typically it is
+executed when the UNIX system boots.</p><p><strong>run_erl</strong> is a wrapper that provides logging of output from
+the runtime system to file. It also provides a simple mechanism
+for attaching to the Erlang shell (<strong>to_erl</strong>).</p><p><strong>start_erl</strong> requires:</p><ul><li>The root directory (<strong>"/usr/local/erl-target"</strong>)</li><li>The releases directory (<strong>"/usr/local/erl-target/releases"</strong></li><li>The location of the file <strong>start_erl.data</strong></li></ul><p>It performs the following:</p><ul><li>Reads the runtime system version (<strong>"5.10.4"</strong>) and release version (<strong>"FIRST"</strong>) from the file <strong>start_erl.data</strong>.</li><li>Starts the runtime system of the version found.</li><li>Provides the flag <strong>-boot</strong> specifying the boot file of the release version found (<strong>"releases/FIRST/start.boot"</strong>).</li></ul><p><strong>start_erl</strong> also assumes that there is <strong>sys.config</strong>
+in the release version directory (<strong>"releases/FIRST/sys.config"</strong>).
+That is the topic of the next section.</p><p>The <strong>start_erl</strong> shell script is normally not to be
+altered by the user.</p><h3>System Configuration Parameters</h3><p>As was mentioned in the previous section, <strong>start_erl</strong>
+requires a <strong>sys.config</strong> in the release version directory
+(<strong>"releases/FIRST/sys.config"</strong>). If there is no such
+file, the system start fails. Such a file must therefore
+also be added.</p><p>If you have system configuration data that is neither
+file-location-dependent nor site-dependent, it can be convenient
+to create <strong>sys.config</strong> early, so it becomes part of
+the target system tar file created by
+<strong>target_system:create/1</strong>. In fact, if you in the
+current directory create not only the file <strong>mysystem.rel</strong>,
+but also file <strong>sys.config</strong>, the latter file is tacitly
+put in the appropriate directory.</p><p>However, it can also be convenient to replace variables in
+within a <strong>sys.config</strong> on the target after unpacking but
+before running the release. If you have a <strong>sys.config.src</strong>
+it will be included and is not required to be a valid Erlang term
+file like <strong>sys.config</strong>. Before running the release you must
+have a valid <strong>sys.config</strong> in the same directory, so using
+<strong>sys.config.src</strong> requires having some tool to populate what is
+needed and write <strong>sys.config</strong> to disk before booting the release.</p><h3>Differences From the Install Script</h3><p>The previous <strong>install/2</strong> procedure differs somewhat from that
+of the ordinary <strong>Install</strong> shell script. In fact, <strong>create/1</strong>
+makes the release package as complete as possible, and leave to the
+<strong>install/2</strong> procedure to finish by only considering
+location-dependent files.</p><h3>Creating the Next Version</h3><p>In this example the Pea application has been changed, and
+so are the applications ERTS, Kernel, STDLIB
+and SASL.</p><p><em>Step 1.</em> Create the file <strong>.rel</strong>:</p><pre><code class="">
+%% mysystem2.rel
+{release,
+ {"MYSYSTEM", "SECOND"},
+ {erts, "6.0"},
+ [{kernel, "3.0"},
+  {stdlib, "2.0"},
+  {sasl, "2.4"},
+  {pea, "2.0"}]}.</code></pre><p><em>Step 2.</em> Create the application upgrade file (see the
+<a href="./appup">appup(4)</a> manual page in
+SASL) for Pea, for example:</p><pre><code class="">
+%% pea.appup
+{"2.0",
+ [{"1.0",[{load_module,pea_lib}]}],
+ [{"1.0",[{load_module,pea_lib}]}]}.</code></pre><p><em>Step 3.</em> From the directory where the file
+<strong>mysystem2.rel</strong> resides, start the Erlang/OTP system,
+giving the path to the new version of Pea:</p><pre>
+os&gt; <span class="input">erl -pa /home/user/target_system/myapps/pea-2.0/ebin</span></pre><p><em>Step 4.</em> Create the release upgrade file (see the
+<a href="./relup">relup(4)</a> manual page in
+SASL):</p><pre>
+1&gt; <span class="input">systools:make_relup("mysystem2",["mysystem"],["mysystem"], [{path,["/home/user/target_system/myapps/pea-1.0/ebin", "/my/old/erlang/lib/*/ebin"]}]).</span></pre><p>Here <strong>"mysystem"</strong> is the base release and
+<strong>"mysystem2"</strong> is the release to upgrade to.</p><p>The <strong>path</strong> option is used for pointing out the
+old version of all applications. (The new versions are already
+in the code path - assuming of course that the Erlang node on
+which this is executed is running the correct version of
+Erlang/OTP.)</p><p><em>Step 5.</em> Create the new release:</p><pre>
+2&gt; <span class="input">target_system:create("mysystem2").</span></pre><p>Given that the file <strong>relup</strong> generated in Step 4 is
+now located in the current directory, it is automatically
+included in the release package.</p><h3>Upgrading the Target System</h3><p>This part is done on the target node, and for this example we
+want the node to be running as an embedded system with the
+<strong>-heart</strong> option, allowing automatic restart of the node.
+For more information, see  <a href="#start"> Starting a Target System</a>.</p><p>We add <strong>-heart</strong> to <strong>bin/start</strong>:</p><pre><code class="">
+#!/bin/sh
+ROOTDIR=/usr/local/erl-target/
+
+if [ -z "$RELDIR" ]
+then
+   RELDIR=$ROOTDIR/releases
+fi
+
+START_ERL_DATA=${1:-$RELDIR/start_erl.data}
+
+$ROOTDIR/bin/run_erl -daemon /tmp/ $ROOTDIR/log "exec $ROOTDIR/bin/start_erl $ROOTDIR\
+$RELDIR $START_ERL_DATA -heart"</code></pre><p>We use the simplest possible <strong>sys.config</strong>, which we
+store in <strong>releases/FIRST</strong>:</p><pre><code class="">
+%% sys.config
+[].</code></pre><p>Finally, to prepare the upgrade, we must put the new
+release package in the <strong>releases</strong> directory of the first
+target system:</p><pre>
+os&gt; <span class="input">cp mysystem2.tar.gz /usr/local/erl-target/releases</span></pre><p>Assuming that the node has been started as follows:</p><pre>
+os&gt; <span class="input">/usr/local/erl-target/bin/start</span></pre><p>It can be accessed as follows:</p><pre>
+os&gt; <span class="input">/usr/local/erl-target/bin/to_erl /tmp/erlang.pipe.1</span></pre><p>Logs can be found in
+<strong>/usr/local/erl-target/log</strong>. This directory is specified as
+an argument to <strong>run_erl</strong>in the start script listed above.</p><p>
+<em>Step 1.</em> Unpack the release:
+</p><pre>
+1&gt; <span class="input">{ok,Vsn} = release_handler:unpack_release("mysystem2").</span></pre><p>
+<em>Step 2.</em> Install the release:
+</p><pre>
+2&gt; <span class="input">release_handler:install_release(Vsn).</span>
+{continue_after_restart,"FIRST",[]}
+heart: Tue Apr  1 12:15:10 2014: Erlang has closed.
+heart: Tue Apr  1 12:15:11 2014: Executed "/usr/local/erl-target/bin/start /usr/local/erl-target/releases/new_start_erl.data" -&gt; 0. Terminating.
+[End]</pre><p>
+The above return value and output after the call to
+<strong>release_handler:install_release/1</strong> means that the
+<strong>release_handler</strong> has restarted the node by using
+<strong>heart</strong>. This is always done when the upgrade involves
+a change of the applications ERTS, Kernel,
+STDLIB, or SASL. For more information, see
+<a href="upgrade"> Upgrade when Erlang/OTP has Changed</a>.
+</p><p>
+The node is accessible through a new pipe:
+</p><pre>
+os&gt; <span class="input">/usr/local/erl-target/bin/to_erl /tmp/erlang.pipe.2</span></pre><p>
+Check which releases there are in the system:
+</p><pre>
+1&gt; <span class="input">release_handler:which_releases().</span>
+[{"MYSYSTEM","SECOND",
+  ["kernel-3.0","stdlib-2.0","sasl-2.4","pea-2.0"],
+  current},
+ {"MYSYSTEM","FIRST",
+  ["kernel-2.16.4","stdlib-1.19.4","sasl-2.3.4","pea-1.0"],
+  permanent}]</pre><p>
+Our new release, "SECOND", is now the current release, but we
+can also see that our "FIRST" release is still permanent. This
+means that if the node would be restarted now, it
+would come up running the "FIRST" release again.
+</p><p>
+<em>Step 3.</em> Make the new release permanent:
+</p><pre>
+2&gt; <span class="input">release_handler:make_permanent("SECOND").</span></pre><p>
+Check the releases again:
+</p><pre>
+3&gt; <span class="input">release_handler:which_releases().</span>
+[{"MYSYSTEM","SECOND",
+  ["kernel-3.0","stdlib-2.0","sasl-2.4","pea-2.0"],
+  permanent},
+ {"MYSYSTEM","FIRST",
+  ["kernel-2.16.4","stdlib-1.19.4","sasl-2.3.4","pea-1.0"],
+  old}]</pre><p>
+We see that the new release version is <strong>permanent</strong>, so
+it would be safe to restart the node.</p><a name="listing of target system"></a><h3>Listing of target_system.erl</h3><p>This module can also be found in the <strong>examples</strong> directory
+of the SASL application.</p><pre><code class="">
+
+-module(target_system).
+-export([create/1, create/2, install/2]).
+
+%% Note: RelFileName below is the *stem* without trailing .rel,
+%% .script etc.
+%%
+
+%% create(RelFileName)
+%%
+create(RelFileName) -&gt;
+    create(RelFileName,[]).
+
+create(RelFileName,SystoolsOpts) -&gt;
+    RelFile = RelFileName ++ ".rel", 
+    Dir = filename:dirname(RelFileName),
+    PlainRelFileName = filename:join(Dir,"plain"),
+    PlainRelFile = PlainRelFileName ++ ".rel",
+    io:fwrite("Reading file: ~tp ...~n", [RelFile]),
+    {ok, [RelSpec]} = file:consult(RelFile),
+    io:fwrite("Creating file: ~tp from ~tp ...~n",
+              [PlainRelFile, RelFile]),
+    {release,
+     {RelName, RelVsn},
+     {erts, ErtsVsn},
+     AppVsns} = RelSpec,
+    PlainRelSpec = {release, 
+                    {RelName, RelVsn},
+                    {erts, ErtsVsn},
+                    lists:filter(fun({kernel, _}) -&gt; 
+                                         true;
+                                    ({stdlib, _}) -&gt;
+                                         true;
+                                    (_) -&gt;
+                                         false
+                                 end, AppVsns)
+                   },
+    {ok, Fd} = file:open(PlainRelFile, [write]),
+    io:fwrite(Fd, "~p.~n", [PlainRelSpec]),
+    file:close(Fd),
+
+    io:fwrite("Making \"~ts.script\" and \"~ts.boot\" files ...~n",
+	      [PlainRelFileName,PlainRelFileName]),
+    make_script(PlainRelFileName,SystoolsOpts),
+
+    io:fwrite("Making \"~ts.script\" and \"~ts.boot\" files ...~n",
+              [RelFileName, RelFileName]),
+    make_script(RelFileName,SystoolsOpts),
+
+    TarFileName = RelFileName ++ ".tar.gz",
+    io:fwrite("Creating tar file ~tp ...~n", [TarFileName]),
+    make_tar(RelFileName,SystoolsOpts),
+
+    TmpDir = filename:join(Dir,"tmp"),
+    io:fwrite("Creating directory ~tp ...~n",[TmpDir]),
+    file:make_dir(TmpDir), 
+
+    io:fwrite("Extracting ~tp into directory ~tp ...~n", [TarFileName,TmpDir]),
+    extract_tar(TarFileName, TmpDir),
+
+    TmpBinDir = filename:join([TmpDir, "bin"]),
+    ErtsBinDir = filename:join([TmpDir, "erts-" ++ ErtsVsn, "bin"]),
+    io:fwrite("Deleting \"erl\" and \"start\" in directory ~tp ...~n",
+              [ErtsBinDir]),
+    file:delete(filename:join([ErtsBinDir, "erl"])),
+    file:delete(filename:join([ErtsBinDir, "start"])),
+
+    io:fwrite("Creating temporary directory ~tp ...~n", [TmpBinDir]),
+    file:make_dir(TmpBinDir),
+
+    io:fwrite("Copying file \"~ts.boot\" to ~tp ...~n",
+              [PlainRelFileName, filename:join([TmpBinDir, "start.boot"])]),
+    copy_file(PlainRelFileName++".boot",filename:join([TmpBinDir, "start.boot"])),
+
+    io:fwrite("Copying files \"epmd\", \"run_erl\" and \"to_erl\" from \n"
+              "~tp to ~tp ...~n",
+              [ErtsBinDir, TmpBinDir]),
+    copy_file(filename:join([ErtsBinDir, "epmd"]), 
+              filename:join([TmpBinDir, "epmd"]), [preserve]),
+    copy_file(filename:join([ErtsBinDir, "run_erl"]), 
+              filename:join([TmpBinDir, "run_erl"]), [preserve]),
+    copy_file(filename:join([ErtsBinDir, "to_erl"]), 
+              filename:join([TmpBinDir, "to_erl"]), [preserve]),
+
+    %% This is needed if 'start' script created from 'start.src' shall
+    %% be used as it points out this directory as log dir for 'run_erl'
+    TmpLogDir = filename:join([TmpDir, "log"]),
+    io:fwrite("Creating temporary directory ~tp ...~n", [TmpLogDir]),
+    ok = file:make_dir(TmpLogDir),
+
+    StartErlDataFile = filename:join([TmpDir, "releases", "start_erl.data"]),
+    io:fwrite("Creating ~tp ...~n", [StartErlDataFile]),
+    StartErlData = io_lib:fwrite("~s ~s~n", [ErtsVsn, RelVsn]),
+    write_file(StartErlDataFile, StartErlData),
+    
+    io:fwrite("Recreating tar file ~tp from contents in directory ~tp ...~n",
+	      [TarFileName,TmpDir]),
+    {ok, Tar} = erl_tar:open(TarFileName, [write, compressed]),
+    %% {ok, Cwd} = file:get_cwd(),
+    %% file:set_cwd("tmp"),
+    ErtsDir = "erts-"++ErtsVsn,
+    erl_tar:add(Tar, filename:join(TmpDir,"bin"), "bin", []),
+    erl_tar:add(Tar, filename:join(TmpDir,ErtsDir), ErtsDir, []),
+    erl_tar:add(Tar, filename:join(TmpDir,"releases"), "releases", []),
+    erl_tar:add(Tar, filename:join(TmpDir,"lib"), "lib", []),
+    erl_tar:add(Tar, filename:join(TmpDir,"log"), "log", []),
+    erl_tar:close(Tar),
+    %% file:set_cwd(Cwd),
+    io:fwrite("Removing directory ~tp ...~n",[TmpDir]),
+    remove_dir_tree(TmpDir),
+    ok.
+
+
+install(RelFileName, RootDir) -&gt;
+    TarFile = RelFileName ++ ".tar.gz", 
+    io:fwrite("Extracting ~tp ...~n", [TarFile]),
+    extract_tar(TarFile, RootDir),
+    StartErlDataFile = filename:join([RootDir, "releases", "start_erl.data"]),
+    {ok, StartErlData} = read_txt_file(StartErlDataFile),
+    [ErlVsn, _RelVsn| _] = string:tokens(StartErlData, " \n"),
+    ErtsBinDir = filename:join([RootDir, "erts-" ++ ErlVsn, "bin"]),
+    BinDir = filename:join([RootDir, "bin"]),
+    io:fwrite("Substituting in erl.src, start.src and start_erl.src to "
+              "form erl, start and start_erl ...\n"),
+    subst_src_scripts(["erl", "start", "start_erl"], ErtsBinDir, BinDir, 
+                      [{"FINAL_ROOTDIR", RootDir}, {"EMU", "beam"}],
+                      [preserve]),
+    %%! Workaround for pre OTP 17.0: start.src and start_erl.src did
+    %%! not have correct permissions, so the above 'preserve' option did not help
+    ok = file:change_mode(filename:join(BinDir,"start"),8#0755),
+    ok = file:change_mode(filename:join(BinDir,"start_erl"),8#0755),
+
+    io:fwrite("Creating the RELEASES file ...\n"),
+    create_RELEASES(RootDir, filename:join([RootDir, "releases",
+					    filename:basename(RelFileName)])).
+
+%% LOCALS 
+
+%% make_script(RelFileName,Opts)
+%%
+make_script(RelFileName,Opts) -&gt;
+    systools:make_script(RelFileName, [no_module_tests,
+				       {outdir,filename:dirname(RelFileName)}
+				       |Opts]).
+
+%% make_tar(RelFileName,Opts)
+%%
+make_tar(RelFileName,Opts) -&gt;
+    RootDir = code:root_dir(),
+    systools:make_tar(RelFileName, [{erts, RootDir},
+				    {outdir,filename:dirname(RelFileName)}
+				    |Opts]).
+
+%% extract_tar(TarFile, DestDir)
+%%
+extract_tar(TarFile, DestDir) -&gt;
+    erl_tar:extract(TarFile, [{cwd, DestDir}, compressed]).
+
+create_RELEASES(DestDir, RelFileName) -&gt;
+    release_handler:create_RELEASES(DestDir, RelFileName ++ ".rel").
+
+subst_src_scripts(Scripts, SrcDir, DestDir, Vars, Opts) -&gt; 
+    lists:foreach(fun(Script) -&gt;
+                          subst_src_script(Script, SrcDir, DestDir, 
+                                           Vars, Opts)
+                  end, Scripts).
+
+subst_src_script(Script, SrcDir, DestDir, Vars, Opts) -&gt; 
+    subst_file(filename:join([SrcDir, Script ++ ".src"]),
+               filename:join([DestDir, Script]),
+               Vars, Opts).
+
+subst_file(Src, Dest, Vars, Opts) -&gt;
+    {ok, Conts} = read_txt_file(Src),
+    NConts = subst(Conts, Vars),
+    write_file(Dest, NConts),
+    case lists:member(preserve, Opts) of
+        true -&gt;
+            {ok, FileInfo} = file:read_file_info(Src),
+            file:write_file_info(Dest, FileInfo);
+        false -&gt;
+            ok
+    end.
+
+%% subst(Str, Vars)
+%% Vars = [{Var, Val}]
+%% Var = Val = string()
+%% Substitute all occurrences of %Var% for Val in Str, using the list
+%% of variables in Vars.
+%%
+subst(Str, Vars) -&gt;
+    subst(Str, Vars, []).
+
+subst([$%, C| Rest], Vars, Result) when $A =&lt; C, C =&lt; $Z -&gt;
+    subst_var([C| Rest], Vars, Result, []);
+subst([$%, C| Rest], Vars, Result) when $a =&lt; C, C =&lt; $z -&gt;
+    subst_var([C| Rest], Vars, Result, []);
+subst([$%, C| Rest], Vars, Result) when  C == $_ -&gt;
+    subst_var([C| Rest], Vars, Result, []);
+subst([C| Rest], Vars, Result) -&gt;
+    subst(Rest, Vars, [C| Result]);
+subst([], _Vars, Result) -&gt;
+    lists:reverse(Result).
+
+subst_var([$%| Rest], Vars, Result, VarAcc) -&gt;
+    Key = lists:reverse(VarAcc),
+    case lists:keysearch(Key, 1, Vars) of
+        {value, {Key, Value}} -&gt;
+            subst(Rest, Vars, lists:reverse(Value, Result));
+        false -&gt;
+            subst(Rest, Vars, [$%| VarAcc ++ [$%| Result]])
+    end;
+subst_var([C| Rest], Vars, Result, VarAcc) -&gt;
+    subst_var(Rest, Vars, Result, [C| VarAcc]);
+subst_var([], Vars, Result, VarAcc) -&gt;
+    subst([], Vars, [VarAcc ++ [$%| Result]]).
+
+copy_file(Src, Dest) -&gt;
+    copy_file(Src, Dest, []).
+
+copy_file(Src, Dest, Opts) -&gt;
+    {ok,_} = file:copy(Src, Dest),
+    case lists:member(preserve, Opts) of
+        true -&gt;
+            {ok, FileInfo} = file:read_file_info(Src),
+            file:write_file_info(Dest, FileInfo);
+        false -&gt;
+            ok
+    end.
+       
+write_file(FName, Conts) -&gt;
+    Enc = file:native_name_encoding(),
+    {ok, Fd} = file:open(FName, [write]),
+    file:write(Fd, unicode:characters_to_binary(Conts,Enc,Enc)),
+    file:close(Fd).
+
+read_txt_file(File) -&gt;
+    {ok, Bin} = file:read_file(File),
+    {ok, binary_to_list(Bin)}.
+
+remove_dir_tree(Dir) -&gt;
+    remove_all_files(".", [Dir]).
+
+remove_all_files(Dir, Files) -&gt;
+    lists:foreach(fun(File) -&gt;
+                          FilePath = filename:join([Dir, File]),
+                          case filelib:is_dir(FilePath) of
+                              true -&gt;
+                                  {ok, DirFiles} = file:list_dir(FilePath), 
+                                  remove_all_files(FilePath, DirFiles),
+                                  file:del_dir(FilePath);
+                              _ -&gt;
+                                  file:delete(FilePath)
+                          end
+                  end, Files).</code></pre><a name="upgrade section"></a><h3>Introduction</h3><a name="upgrade"></a><p>As of Erlang/OTP 17, most applications deliver a valid
+application upgrade file (<strong>appup</strong>). In earlier releases, a
+majority of the applications in Erlang/OTP did not support
+upgrade. Many of the applications use the
+<strong>restart_application</strong> instruction. These are applications
+for which it is not crucial to support real soft upgrade, for
+example, tools and library applications. The
+<strong>restart_application</strong> instruction
+ensures that all modules in the application are reloaded and
+thereby running the new code.</p><h3>Upgrade of Core Applications</h3><p>The core applications ERTS, Kernel, STDLIB,
+and SASL never allow real soft upgrade, but require the
+Erlang emulator to be restarted. This is indicated to the
+<strong>release_handler</strong> by the upgrade instruction
+<strong>restart_new_emulator</strong>. This instruction is always the
+very first instruction executed, and it restarts the
+emulator with the new versions of the above mentioned core
+applications and the old versions of all other applications.
+When the node is back up, all other upgrade instructions are
+executed, making sure each application is finally running its
+new version.</p><p>It might seem strange to do a two-step upgrade instead of
+just restarting the emulator with the new version of all
+applications. The reason for this design decision is to allow
+<strong>code_change</strong> functions to have side effects, for example,
+changing data on disk. It also guarantees that the upgrade
+mechanism for non-core applications does not differ depending
+on whether or not core applications are changed at the same time.</p><p>If, however, the more brutal variant is preferred, the
+the release upgrade file can be handwritten using only the
+single upgrade instruction <strong>restart_emulator</strong>. This
+instruction, in contrast to <strong>restart_new_emulator</strong>,
+causes the emulator to restart with the new versions of
+<em>all</em> applications.</p><p><em>Note:</em> If other instructions are included before
+<strong>restart_emulator</strong> in the handwritten <strong>relup</strong> file,
+they are executed in the old emulator. This is a big risk
+since there is no guarantee that new beam code can be loaded
+into the old emulator. Adding instructions after
+<strong>restart_emulator</strong> has no effect as the
+<strong>release_handler</strong> will not execute them.</p><p>For information about the release upgrade file, see the
+<a href="./relup">relup(4)</a> manual page
+in SASL.
+For more information about upgrade instructions, see the
+<a href="./appup">appup(4)</a> manual page
+in SASL.</p><h3>Applications that Still do Not Allow Code Upgrade</h3><p>A few applications, such as HiPE, do not support upgrade.
+This is indicated by an application upgrade file containing only
+<strong>{Vsn,[],[]}</strong>. Any attempt at creating a release upgrade file
+with such input fails. The only way to force an upgrade involving
+applications like this is to
+handwrite the file <strong>relup</strong>, preferably as described above
+with only the <strong>restart_emulator</strong> instruction.</p><a name="versions section"></a><h3>OTP Version</h3><p>As of OTP release 17, the OTP release number corresponds to
+the major part of the OTP version. The OTP version as a concept was
+introduced in OTP 17. The version scheme used is described in detail in
+<a href="#version_scheme">Version Scheme</a>.</p><p>OTP of a specific version is a set of applications of specific
+versions. The application versions identified by an OTP version
+corresponds to application versions that have been tested together
+by the Erlang/OTP team at Ericsson AB. An OTP system can, however, be
+put together with applications from different OTP versions. Such a
+combination of application versions has not been tested by the
+Erlang/OTP team. It is therefore <em>always preferred to use OTP applications from one single OTP version</em>.</p><p>Release candidates have an <strong>-rc&lt;N&gt;</strong>
+suffix. The suffix <strong>-rc0</strong> is used during development up to
+the first release candidate.</p><h3>Retrieving Current OTP Version</h3><p>In an OTP source code tree, the OTP version can be read from
+the text file <strong>&lt;OTP source root&gt;/OTP_VERSION</strong>. The
+absolute path to the file can be constructed by calling
+<strong>filename:join([</strong><a href="../kernel/code#root_dir/0">kernel/code#root_dir/0</a><strong>, "OTP_VERSION"])</strong>.</p><p>In an installed OTP development system, the OTP version can be read
+from the text file <strong>&lt;OTP installation root&gt;/releases/&lt;OTP release number&gt;/OTP_VERSION</strong>.
+The absolute path to the file can by constructed by calling
+<strong>filename:join([</strong><a href="../kernel/code#root_dir/0">kernel/code#root_dir/0</a><strong>, "releases", </strong><a href="../erts/erlang#system_info_otp_release">erts/erlang#system_info_otp_release</a><strong>, "OTP_VERSION"]).</strong></p><p>If the version read from the <strong>OTP_VERSION</strong> file in a
+development system has a <strong>**</strong> suffix, the system has been
+patched using the
+<a href="../installation_guide/OTP-PATCH-APPLY">../installation_guide/OTP-PATCH-APPLY</a>
+tool. In this case, the system consists of application
+versions from multiple OTP versions. The version preceding the <strong>**</strong>
+suffix corresponds to the OTP version of the base system that
+has been patched. Notice that if a development system is updated by
+other means than <strong>otp_patch_apply</strong>, the file <strong>OTP_VERSION</strong>
+can identify an incorrect OTP version.</p><p>No <strong>OTP_VERSION</strong> file is placed in a
+<a href="create_target">target system</a> created
+by OTP tools. This since one easily can create a target system
+where it is hard to even determine the base OTP version. You can,
+however, place such a file there if you know the OTP version.</p><h3>OTP Versions Table</h3><p>The text file <strong>&lt;OTP source root&gt;/otp_versions.table</strong>,
+which is part of the source code, contains information about all
+OTP versions from OTP 17.0 up to the current OTP version. Each line
+contains information about application versions that are part of a
+specific OTP version, and has the following format:</p><pre>
+&lt;OtpVersion&gt; : &lt;ChangedAppVersions&gt; # &lt;UnchangedAppVersions&gt; :</pre><p><strong>&lt;OtpVersion&gt;</strong> has the format <strong>OTP-&lt;VSN&gt;</strong>,
+that is, the same as the git tag used to identify the source.</p><p><strong>&lt;ChangedAppVersions&gt;</strong> and
+<strong>&lt;UnchangedAppVersions&gt;</strong> are space-separated lists of
+application versions and has the format
+<strong>&lt;application&gt;-&lt;vsn&gt;</strong>.</p><ul><li><strong>&lt;ChangedAppVersions&gt;</strong> corresponds to changed applications with new version numbers in this OTP version.</li><li><strong>&lt;UnchangedAppVersions&gt;</strong> corresponds to unchanged application versions in this OTP version.</li></ul><p>Both of them can be empty, but not at the same time.
+If <strong>&lt;ChangedAppVersions&gt;</strong> is empty, no changes have
+been made that change the build result of any application. This could,
+for example, be a pure bug fix of the build system. The order of lines
+is undefined. All white-space characters in this file are either space
+(character 32) or line-break (character 10).</p><p>By using ordinary UNIX tools like <strong>sed</strong> and <strong>grep</strong> one
+can easily find answers to various questions like:</p><ul><li><p>Which OTP versions are <strong>kernel-3.0</strong> part of?</p> <p><strong>$ grep ' kernel-3\.0 ' otp_versions.table</strong> </p></li><li><p>In which OTP version was <strong>kernel-3.0</strong> introduced?</p> <p><strong>$ sed 's/#.*//;/ kernel-3\.0 /!d' otp_versions.table</strong>
+</p></li></ul><p>The above commands give a bit more information than the exact
+answers, but adequate information when manually searching for answers
+to these questions.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>The format of the <strong>otp_versions.table</strong> might be
+subject to changes during the OTP 17 release.</p></div><h3>Application Version</h3><p>As of OTP 17.0 application versions use the same
+<a href="#version_scheme">version scheme</a> as the
+OTP version. Application versions part of a release candidate will
+however not have an <strong>-rc&lt;N&gt;</strong> suffix as the OTP version.
+Also note that a major increment in an application version does not
+necessarily imply a major increment of the OTP version. This depends
+on whether the major change in the application is considered as a
+major change for OTP as a whole or not.</p><a name="version_scheme"></a><h3>Version Scheme</h3><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The version scheme was changed as of OTP 17.0. This implies
+that application versions used prior to OTP 17.0 do not adhere to this
+version scheme. <a href="#otp_17_0_app_versions">A list of application versions used in OTP 17.0</a> is included at the
+end of this section</p></div><p>In the normal case, a version is constructed as
+<strong>&lt;Major&gt;.&lt;Minor&gt;.&lt;Patch&gt;</strong>,
+where <strong>&lt;Major&gt;</strong> is the most significant part.</p><p>However, more dot-separated parts than this can exist.
+The dot-separated parts consist of non-negative integers. If
+all parts less significant than <strong>&lt;Minor&gt;</strong> equals
+<strong>0</strong>, they are omitted. The three normal parts
+<strong>&lt;Major&gt;.&lt;Minor&gt;.&lt;Patch&gt;</strong> are changed as
+follows:</p><ul><li><strong>&lt;Major&gt;</strong> - Increases when major changes, including incompatibilities, are made.</li><li><strong>&lt;Minor&gt;</strong> - Increases when new functionality is added.</li><li><strong>&lt;Patch&gt;</strong> - Increases when pure bug fixes are made.</li></ul><p>When a part in the version number increases, all less significant
+parts are set to <strong>0</strong>.</p><p>An application version or an OTP version identifies source code
+versions. That is, it implies nothing about how the application
+or OTP has been built.</p><h3>Order of Versions</h3><p>Version numbers in general are only partially ordered. However,
+normal version numbers (with three parts) as of OTP 17.0 have a total
+or linear order. This applies both to normal OTP versions and
+normal application versions.</p><p>When comparing two version numbers that have an order, one
+compare each part as ordinary integers from the most
+significant part to less significant parts. The order is
+defined by the first parts of the same significance that
+differ. An OTP version with a larger version includes all
+changes that are part of a smaller OTP version. The same
+goes for application versions.</p><p>In general, versions can have more than three parts.
+The versions are then only partially ordered. Such
+versions are only used when branching off from another branch. When an extra
+part (out of the normal three parts) is added to a version number,
+a new branch of versions is made. The new branch has a linear
+order against the base version. However, versions on different
+branches have no order, and therefore one can only conclude
+that they all include what is included in their
+closest common ancestor. When branching multiple times from the
+same base version, <strong>0</strong> parts are added between the base
+version and the least significant <strong>1</strong> part until a unique
+version is found. Versions that have an order can be compared
+as described in the previous paragraph.</p><p>An example of branched versions: The version <strong>6.0.2.1</strong>
+is a branched version from the base version <strong>6.0.2</strong>.
+Versions on the form <strong>6.0.2.&lt;X&gt;</strong> can be compared
+with normal versions smaller than or equal to <strong>6.0.2</strong>,
+and other versions on the form <strong>6.0.2.&lt;X&gt;</strong>. The
+version <strong>6.0.2.1</strong> will include all changes in
+<strong>6.0.2</strong>. However, <strong>6.0.3</strong> will most likely
+<em>not</em> include all changes in <strong>6.0.2.1</strong> (note that
+these versions have no order). A second branched version from the base
+version <strong>6.0.2</strong> will be version <strong>6.0.2.0.1</strong>, and a
+third branched version will be <strong>6.0.2.0.0.1</strong>.</p><a name="releases_and_patches"></a><h3>Releases and Patches</h3><p>
+When a new OTP release is released it will have an OTP
+version on the form <strong>&lt;Major&gt;.0</strong> where the
+major OTP version number equals the release number.
+The major version number is increased one step since the
+last major version. All other OTP versions with the same
+major OTP version number are patches on that OTP release.
+</p><p>
+Patches are either released as maintenance patch packages
+or emergency patch packages. The only difference is that
+maintenance patch packages are planned and usually contain
+more changes than emergency patch packages. Emergency patch
+packages are released to solve one or more specific issues
+when such are discovered.
+</p><p>
+The release of a maintenance patch package usually imply
+an increase of the OTP <strong>&lt;Minor&gt;</strong> version while
+the release of an emergency patch package usually imply an
+increase of the OTP <strong>&lt;Patch&gt;</strong> version. This is
+however not necessarily always the case since changes of
+OTP versions are based on the actual changes in the code
+and not based on whether the patch was planned or not.
+For more information see the
+<a href="#version_scheme">Version Scheme</a>
+section above.
+</p><a name="otp_versions_tree"></a><h3>OTP Versions Tree</h3><p>
+All released OTP versions can be found in the
+<a href="http://www.erlang.org/download/otp_versions_tree.html">OTP Versions Tree</a> which is automatically updated whenever
+we release a new OTP version. Note that every version number as
+such explicitly define its position in the version tree. Nothing
+more than the version numbers are needed in order to construct
+the tree. The root of the tree is OTP version 17.0 which is when
+we introduced the new
+<a href="#version_scheme">version scheme</a>. The
+green versions are normal versions released on the main track.
+Old <a href="#releases_and_patches">OTP releases</a>
+will be maintained for a while on <strong>maint</strong> branches that have
+branched off from the main track. Old <strong>maint</strong> branches always
+branch off from the main track when the next OTP release is
+introduced into the main track. Versions on these old <strong>maint</strong>
+branches are marked blue. Besides the green and blue versions,
+there are also gray versions. These are versions on branches
+introduced in order to fix a specific problem for a specific
+customer on a specific base version. Branches with gray versions
+will typically become dead ends very quickly if not immediately.
+</p><a name="otp_17_0_app_versions"></a><h3>OTP 17.0 Application Versions</h3><p>The following list details the application versions that
+were part of OTP 17.0. If
+the normal part of an application version number compares
+as smaller than the corresponding application version in the list,
+the version number does not adhere to the version scheme introduced
+in OTP 17.0 and is to be considered as not having an order against
+versions used as of OTP 17.0.</p><ul><li><strong>asn1-3.0</strong></li><li><strong>common_test-1.8</strong></li><li><strong>compiler-5.0</strong></li><li><strong>cosEvent-2.1.15</strong></li><li><strong>cosEventDomain-1.1.14</strong></li><li><strong>cosFileTransfer-1.1.16</strong></li><li><strong>cosNotification-1.1.21</strong></li><li><strong>cosProperty-1.1.17</strong></li><li><strong>cosTime-1.1.14</strong></li><li><strong>cosTransactions-1.2.14</strong></li><li><strong>crypto-3.3</strong></li><li><strong>debugger-4.0</strong></li><li><strong>dialyzer-2.7</strong></li><li><strong>diameter-1.6</strong></li><li><strong>edoc-0.7.13</strong></li><li><strong>eldap-1.0.3</strong></li><li><strong>erl_docgen-0.3.5</strong></li><li><strong>erl_interface-3.7.16</strong></li><li><strong>erts-6.0</strong></li><li><strong>et-1.5</strong></li><li><strong>eunit-2.2.7</strong></li><li><strong>gs-1.5.16</strong></li><li><strong>hipe-3.10.3</strong></li><li><strong>ic-4.3.5</strong></li><li><strong>inets-5.10</strong></li><li><strong>jinterface-1.5.9</strong></li><li><strong>kernel-3.0</strong></li><li><strong>megaco-3.17.1</strong></li><li><strong>mnesia-4.12</strong></li><li><strong>observer-2.0</strong></li><li><strong>odbc-2.10.20</strong></li><li><strong>orber-3.6.27</strong></li><li><strong>os_mon-2.2.15</strong></li><li><strong>ose-1.0</strong></li><li><strong>otp_mibs-1.0.9</strong></li><li><strong>parsetools-2.0.11</strong></li><li><strong>percept-0.8.9</strong></li><li><strong>public_key-0.22</strong></li><li><strong>reltool-0.6.5</strong></li><li><strong>runtime_tools-1.8.14</strong></li><li><strong>sasl-2.4</strong></li><li><strong>snmp-4.25.1</strong></li><li><strong>ssh-3.0.1</strong></li><li><strong>ssl-5.3.4</strong></li><li><strong>stdlib-2.0</strong></li><li><strong>syntax_tools-1.6.14</strong></li><li><strong>test_server-3.7</strong></li><li><strong>tools-2.6.14</strong></li><li><strong>typer-0.9.6</strong></li><li><strong>webtool-0.8.10</strong></li><li><strong>wx-1.2</strong></li><li><strong>xmerl-1.3.7</strong></li></ul><h3>Introduction</h3><p>This document describes strategy regarding supported Releases,
+compatibility, deprecations and removal of functionality. This
+document was introduced in OTP 21. Actions taken regarding these
+issues before OTP 21 did not adhere this document.</p><a name="supported_releases"></a><h3>Supported Releases</h3><p>
+In general, bugs are only fixed on the latest
+<a href="./versions#releases_and_patches">release</a>,
+and new features are introduced in the upcoming release that is
+under development. However, when we, due to internal reasons, fix
+bugs on older releases, these will be available and announced as well.
+</p><p>
+Due to the above, pull requests are only accepted on the
+<strong>maint</strong> and the <strong>master</strong> branches in our
+<a href="https://github.com/erlang/otp">git repository</a>.
+The <strong>maint</strong> branch contains changes planned for the next
+<a href="./versions#releases_and_patches">maintenance patch package</a>
+on the latest OTP release and the <strong>master</strong> branch contain
+changes planned for the upcoming OTP release.
+</p><a name="compatibility"></a><h3>Compatibility</h3><p>
+We always strive to remain as compatible as possible
+even in the cases where we give no compatibility guarantees.
+</p><p>
+Different parts of the system will be handled differently
+regarding compatibility. The following items describe how
+different parts of the system are handled.
+</p><dl><dt>Erlang Distribution</dt><dd> <p>
+Erlang nodes can communicate across at least
+two preceding and two subsequent releases.
+</p> </dd><dt>Compiled BEAM Code, NIF Libraries and Drivers</dt><dd> <p>
+Compiled code can be loaded on at least two
+subsequent releases.
+</p> <p>
+Loading on previous releases is <em>not</em> supported.
+</p> </dd><dt>Compiled HiPE Code</dt><dd> <p>
+Compiled HiPE code can be loaded on the exact same build
+of ERTS that was used when compiling the code. It might
+however work on other builds, the emulator verifies
+checksums in order to determine if it can load the code
+or not. Note that HiPE has some limitations. For more
+information see the documentation of the
+<a href="./HiPE_app">HiPE</a> application.
+</p> </dd><dt>APIs</dt><dd> <p>Compatible between releases.</p> </dd><dt>Compiler Warnings</dt><dd> <p>New warnings may be issued between releases.</p> </dd><dt>Command Line Arguments</dt><dd> <p>Incompatible changes may occur between releases.</p> </dd><dt>OTP Build Procedures</dt><dd><p>Incompatible changes may occur between releases.</p></dd></dl><p>
+Under certain circumstances incompatible changes might be
+introduced even in parts of the system that should be compatible
+between releases. Things that might trigger incompatible changes
+like this are:
+</p><dl><dt>Security Issues</dt><dd> <p>
+It might be necessary to introduce incompatible changes
+in order to solve a security issue. This kind of
+incompatibility might occur in a patch.
+</p> </dd><dt>Bug Fixes</dt><dd> <p>
+We will not be bug-compatible. A bug fix might introduce
+incompatible changes. This kind of incompatibility
+might occur in a patch.
+</p> </dd><dt>Severe Previous Design Issues</dt><dd> <p>
+Some parts of OTP were designed a very long time ago and
+did not necessarily take today's computing environments into
+account. In some cases the consequences of those design
+decisions are too severe. This may be performance wise,
+scalability wise, etc. If we deem the consequences too
+severe, we might introduce incompatible changes. This kind
+of incompatibility will not be introduced in a patch, but
+instead in the next release.
+</p> </dd></dl><p>
+Peripheral, trace, and debug functionality is at greater
+risk of being changed in an incompatible way than functionality
+in the language itself and core libraries used during operation.
+</p><a name="deprecation"></a><h3>Deprecation</h3><p>
+Functionality is deprecated when new functionality is
+introduced that is preferred to be used instead of the
+old functionality that is being deprecated. The deprecation
+does <em>not</em> imply removal of the functionality unless
+an upcoming removal is explicitly stated in the deprecation.
+</p><p>
+Deprecated functionality will be documented as deprecated, and
+compiler warnings will be issued, when appropriate, as
+early as possible. That is, the new preferred functionality
+will appear at the same time as the deprecation is issued.
+A new deprecation will at least be announced in a release
+note and the documentation.
+</p><a name="removal"></a><h3>Removal</h3><p>
+Legacy solutions may eventually need to be removed. In such
+cases, they will be phased out on a long enough time period
+to give users the time to adapt. Before removal of
+functionality it will be deprecated at least during one
+release with an explicit announcement about
+the upcoming removal. A new deprecation will at least be
+announced in a release note and the documentation.
+</p><p>
+Peripheral, trace, and debug functionality is at greater
+risk of removal than functionality in the language itself
+and core libraries used during operation.
+</p></body></html>

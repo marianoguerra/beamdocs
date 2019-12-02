@@ -1,0 +1,107 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>ssh_client_channel</h1><h1>ssh_client_channel</h1><p>-behaviour(ssh_client_channel). (Replaces ssh_channel)
+</p><p>SSH services (clients and servers) are implemented as channels
+that are multiplexed over an SSH connection and communicates over
+the <a href="http://www.ietf.org/rfc/rfc4254.txt"> SSH Connection Protocol</a>. This module provides a callback API
+that takes care of generic channel aspects for clients, such as flow control
+and close messages. It lets the callback functions take care of
+the service (application) specific parts. This behavior also ensures
+that the channel process honors the principal of an OTP-process so
+that it can be part of a supervisor tree. This is a requirement of
+channel processes implementing a subsystem that will be added to
+the <strong>ssh</strong> applications supervisor tree.
+</p><h1>Functions</h1><h2>call(ChannelRef, Msg) -&gt;</h2><h2>call(ChannelRef, Msg, Timeout) -&gt; Reply | {error, Reason}</h2><p>Makes a synchronous call to a channel.</p><ul><li><span class="v">ChannelRef = pid() </span></li><li><span class="d">As returned by </span></li><li><span class="v">Msg = term()</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">Reply = term()</span></li><li><span class="v">Reason = closed | timeout</span></li></ul><p>Makes a synchronous call to the channel process by sending
+a message and waiting until a reply arrives, or a time-out
+occurs. The channel calls <a href="#Module:handle_call-3">Module:handle_call/3</a>
+to handle the message. If the channel process does not exist,
+<strong>{error, closed}</strong> is returned.
+</p><h2>cast(ChannelRef, Msg) -&gt; ok</h2><p>Sends an asynchronous message to the channel ChannelRef and returns ok.</p><ul><li><span class="v">ChannelRef = pid()</span></li><li><span class="d">As returned by </span></li><li><span class="v">Msg = term()</span></li></ul><p>Sends an asynchronous message to the channel process and
+returns ok immediately, ignoring if the destination node or
+channel process does not exist. The channel calls
+<a href="#Module:handle_cast-2">Module:handle_cast/2</a>
+to handle the message.
+</p><h2>enter_loop(State) -&gt; _</h2><p>Makes an existing process an ssh_client_channel (replaces ssh_channel) process.</p><ul><li><span class="v">State = term()</span></li><li><span class="d">as returned by </span></li></ul><p>Makes an existing process an <strong>ssh_client_channel</strong> (replaces ssh_channel)
+process. Does not return, instead the calling process
+enters the <strong>ssh_client_channel</strong> (replaces ssh_channel) process receive loop and become an
+<strong>ssh_client_channel</strong> process. The process must have been started using
+one of the start functions in <strong>proc_lib</strong>, see the <a href="./proc_lib">proc_lib(3)</a> manual page in STDLIB.
+The user is responsible for any initialization of the process
+and must call <a href="#init-1">init/1</a>.
+</p><h2>init(Options) -&gt; {ok, State} |  {ok, State, Timeout} | {stop, Reason}</h2><p>Initiates an <strong>ssh_client_channel</strong> process.</p><ul><li><span class="v">Options = [{Option, Value}]</span></li><li><span class="v">State = term()</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">Reason = term()</span></li></ul><p>
+The following options must be present:
+</p><dl><dt><strong>{channel_cb, atom()}</strong></dt><dd><p>The module that implements the channel behaviour.</p></dd><dt><strong>{init_args(), list()}</strong></dt><dd><p>The list of arguments to the <strong>init</strong> function of the callback module.</p></dd><dt><strong>{cm, ssh:connection_ref()}</strong></dt><dd><p>Reference to the <strong>ssh</strong> connection as returned by
+<a href="./ssh#connect-3">ssh:connect/3</a>.
+</p></dd><dt><strong>{channel_id, ssh:channel_id()}</strong></dt><dd><p>Id of the <strong>ssh</strong> channel as returned by
+<a href="./ssh_connection#session_channel/2">ssh_connection:session_channel/2,4</a>.
+</p></dd></dl><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This function is normally not called by the
+user. The user only needs to call if the
+channel process needs to be started with help of
+<strong>proc_lib</strong> instead of calling
+<strong>start/4</strong> or
+<strong>start_link/4</strong>.</p></div><h2>reply(Client, Reply) -&gt; _</h2><p>Sends a reply to a client.</p><ul><li><span class="v">Client = opaque()</span></li><li><span class="v">Reply = term()</span></li></ul><p>This function can be used by a channel to send a
+reply to a client that called <strong>call/[2,3]</strong> when the reply
+cannot be defined in the return value of
+<a href="#Module:handle_call-3">Module:handle_call/3</a>.</p><p><strong>Client</strong> must be the <strong>From</strong> argument provided to
+the callback function <strong>handle_call/3</strong>.
+<strong>Reply</strong> is an arbitrary term,
+which is given back to the client as the return value of
+<a href="#call-2">call/[2,3].</a></p><h2>start(SshConnection, ChannelId, ChannelCb, CbInitArgs) -&gt;</h2><h2>start_link(SshConnection, ChannelId, ChannelCb, CbInitArgs) -&gt;
+      {ok, ChannelRef} | {error, Reason}</h2><p>Starts a process that handles an SSH channel.</p><ul><li><span class="v">SshConnection = ssh:connection_ref()</span></li><li><span class="d">As returned by </span></li><li><span class="v">ChannelId = </span></li><li><span class="d">As returned by .</span></li><li><span class="v">ChannelCb = atom()</span></li><li><span class="d">Name of the module implementing the service-specific parts of the channel.</span></li><li><span class="v">CbInitArgs = [term()]</span></li><li><span class="d">Argument list for the init function in the callback module.</span></li><li><span class="v">ChannelRef = pid()</span></li></ul><p>Starts a process that handles an SSH channel. It is
+called internally, by the <strong>ssh</strong> daemon, or explicitly by the <strong>ssh</strong>
+client implementations. The behavior sets the
+<strong>trap_exit</strong> flag to <strong>true</strong>.
+</p><h2>Callback Functions</h2><p>
+The following functions are to be exported from a
+<strong>ssh_client_channel</strong> callback module.
+</p><a name="cb_timeouts"></a><h2>Callback timeouts</h2><p>The timeout values that can be returned by the callback functions
+have the same semantics as in a <a href="./gen_server">gen_server</a>.
+If the time-out occurs, <a href="#Module:handle_msg-2">handle_msg/2</a>
+is called as <strong>handle_msg(timeout, State)</strong>.</p><h1>Functions</h1><h2>Module:code_change(OldVsn, State, Extra) -&gt; {ok,
+      NewState}</h2><p>Converts process state when code is changed.</p><ul><li><span class="v">OldVsn = term()</span></li><li><span class="d">In the case of an upgrade, OldVsn is Vsn, and in the case of a downgrade, OldVsn is {down,Vsn}. Vsn is defined by the vsn attribute(s) of the old version of the callback module Module. If no such attribute is defined, the version is the checksum of the BEAM file.</span></li><li><span class="v">State = term()</span></li><li><span class="d">Internal state of the channel.</span></li><li><span class="v">Extra = term()</span></li><li><span class="d">Passed "as-is" from the {advanced,Extra} part of the update instruction.</span></li></ul><p>Converts process state when code is changed.</p><p>This function is called by a client-side channel when it
+is to update its internal state during a release
+upgrade or downgrade, that is, when the instruction
+<strong>{update,Module,Change,...}</strong>, where
+<strong>Change={advanced,Extra}</strong>, is given in the <strong>appup</strong>
+file. For more information, refer to Section 9.11.6
+Release Handling Instructions in the
+<a href="../doc/design_principles/release_handling#instr">System Documentation</a>.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Soft upgrade according to the OTP release concept
+is not straight forward for the server side, as subsystem
+channel processes are spawned by the <strong>ssh</strong> application and
+hence added to its supervisor tree. The subsystem channels can
+be upgraded when upgrading the user application, if the callback
+functions can handle two versions of the state, but this function
+cannot be used in the normal way.</p></div><h2>Module:init(Args) -&gt; {ok, State} | {ok, State, timeout()} |
+      {stop, Reason}</h2><p>Makes necessary initializations and returns the initial channel state if the initializations succeed.</p><ul><li><span class="v">Args = term()</span></li><li><span class="d">Last argument to start_link/4.</span></li><li><span class="v">State = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Makes necessary initializations and returns the initial channel
+state if the initializations succeed.
+</p><p>For more detailed information on time-outs, see Section
+<a href="#cb_timeouts">Callback timeouts</a>. </p><h2>Module:handle_call(Msg, From, State) -&gt; Result</h2><p>Handles messages sent by calling <strong>call/[2,3]</strong>.</p><ul><li><span class="v">Msg = term()</span></li><li><span class="v">From = opaque()</span></li><li><span class="d">Is to be used as argument to </span></li><li><span class="v">State = term()</span></li><li><span class="v">Result = {reply, Reply, NewState} | {reply, Reply, NewState, timeout()} | {noreply, NewState} | {noreply , NewState, timeout()} | {stop, Reason, Reply, NewState} | {stop, Reason, NewState} </span></li><li><span class="v">Reply = term()</span></li><li><span class="d">Will be the return value of </span></li><li><span class="v">NewState = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Handles messages sent by calling
+<a href="#call-2">call/[2,3]</a>
+</p><p>For more detailed information on time-outs,, see Section
+<a href="#cb_timeouts">Callback timeouts</a>.</p><h2>Module:handle_cast(Msg, State) -&gt; Result</h2><p>Handles messages sent by calling <strong>cast/2</strong>.</p><ul><li><span class="v">Msg = term()</span></li><li><span class="v">State = term()</span></li><li><span class="v">Result = {noreply, NewState} | {noreply, NewState, timeout()} | {stop, Reason, NewState}</span></li><li><span class="v">NewState = term() </span></li><li><span class="v">Reason = term()</span></li></ul><p>Handles messages sent by calling
+<strong>cast/2</strong>.
+</p><p>For more detailed information on time-outs, see Section
+<a href="#cb_timeouts">Callback timeouts</a>.</p><h2>Module:handle_msg(Msg, State) -&gt; {ok, State} |
+      {stop, ChannelId, State}</h2><p>Handles other messages than SSH connection protocol, call, or cast messages sent to the channel.</p><ul><li><span class="v">Msg = timeout | term()</span></li><li><span class="v">ChannelId = </span></li><li><span class="v">State = term() </span></li></ul><p>Handles other messages than SSH Connection Protocol, call, or
+cast messages sent to the channel. 
+</p><p>Possible Erlang 'EXIT' messages is to be handled by this
+function and all channels are to handle the following message.</p><dl><dt><strong>{ssh_channel_up, ssh:channel_id(), ssh:connection_ref()}</strong></dt><dd><p>This is the first message that the channel receives.
+It is sent just before the <a href="#init-1">init/1</a> function
+returns successfully. This is especially useful if the
+server wants to send a message to the client without first
+receiving a message from it. If the message is not
+useful for your particular scenario, ignore it by
+immediately returning <strong>{ok, State}</strong>.
+</p></dd></dl><h2>Module:handle_ssh_msg(Msg, State) -&gt; {ok, State} | {stop,
+      ChannelId, State}</h2><p>Handles <strong>ssh</strong> connection protocol messages.</p><ul><li><span class="v">Msg = ssh_connection:event()</span></li><li><span class="v">ChannelId = </span></li><li><span class="v">State = term()</span></li></ul><p>Handles SSH Connection Protocol messages that may need
+service-specific attention. For details,
+see <a href="ssh_connection"> ssh_connection:event()</a>.
+</p><p>The following message is taken care of by the
+<strong>ssh_client_channel</strong> behavior.</p><dl><dt><strong>{closed, ssh:channel_id()}</strong></dt><dd><p>The channel behavior sends a close message to the
+other side, if such a message has not already been sent.
+Then it terminates the channel with reason <strong>normal</strong>.</p></dd></dl><h2>Module:terminate(Reason, State) -&gt; _</h2><p>Does cleaning up before channel process termination. </p><ul><li><span class="v">Reason = term()</span></li><li><span class="v">State = term()</span></li></ul><p>This function is called by a channel process when it is
+about to terminate. Before this function is called, <a href="./ssh_connection#close-2"> ssh_connection:close/2 </a> is called, if it has not been called earlier.
+This function does any necessary cleaning
+up. When it returns, the channel process terminates with
+reason <strong>Reason</strong>. The return value is ignored.
+</p></body></html>

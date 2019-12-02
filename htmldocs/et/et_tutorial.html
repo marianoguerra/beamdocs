@@ -1,0 +1,164 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Tutorial</h1><h2>Visualizing Message Sequence Charts</h2><p>The easiest way of using <strong>ET</strong>, is to just use it as a
+graphical tool for displaying message sequence charts. In order to
+do that you need to first start a <strong>Viewer</strong> (which by default
+starts a <strong>Collector</strong>):</p><pre><code class="">
+      {ok, ViewerPid} = et_viewer:start([{title,"Coffee Order"}]),
+      CollectorPid = et_viewer:get_collector_pid(ViewerPid).</code></pre><a name="report_event"></a><p>Then you send events to the <strong>Collector</strong>
+with the function <strong>et_collector:report_event/6</strong> like this:</p><pre><code class="">
+      et_collector:report_event(CollectorPid,85,from,to,message,extra_stuff).</code></pre><p>The <strong>Viewer</strong> will automatically pull events from the
+<strong>Collector</strong> and display them on the screen.</p><p>The number (in this case 85) is an integer from 1 to 100 that
+specifies the "detail level" of the message. The higher the
+number, the more important it is. This provides a crude form of
+priority filtering.</p><p>The <strong>from</strong>, <strong>to</strong>, and <strong>message</strong> parameters are
+exactly what they sound like. <strong>from</strong> and <strong>to</strong> are
+visualized in the <strong>Viewer</strong> as "lifelines", with the message
+passing from one to the other. If <strong>from</strong> and <strong>to</strong> are
+the same value, then it is displayed next to the lifeline as an
+"action". The <strong>extra_stuff </strong>value is simply data that you can
+attach that will be displayed when someone actually clicks on the
+action or message in the <strong>Viewer</strong> window.</p><p>The module <strong>et/examples/et_display_demo.erl</strong> illustrates
+how it can be used:</p><pre><code class="">
+
+-module(et_display_demo).
+
+-export([test/0]).
+
+test() -&gt;
+    {ok, Viewer} = et_viewer:start([{title,"Coffee Order"}, {max_actors,10}]),
+    Drink = {drink,iced_chai_latte},
+    Size = {size,grande},
+    Milk = {milk,whole},
+    Flavor = {flavor,vanilla},
+    C = et_viewer:get_collector_pid(Viewer),
+    et_collector:report_event(C,99,customer,barrista1,place_order,[Drink,Size,Milk,Flavor]),
+    et_collector:report_event(C,80,barrista1,register,enter_order,[Drink,Size,Flavor]),
+    et_collector:report_event(C,80,register,barrista1,give_total,"$5"),
+    et_collector:report_event(C,80,barrista1,barrista1,get_cup,[Drink,Size]),
+    et_collector:report_event(C,80,barrista1,barrista2,give_cup,[]),
+    et_collector:report_event(C,90,barrista1,customer,request_money,"$5"),
+    et_collector:report_event(C,90,customer,barrista1,pay_money,"$5"),
+    et_collector:report_event(C,80,barrista2,barrista2,get_chai_mix,[]),
+    et_collector:report_event(C,80,barrista2,barrista2,add_flavor,[Flavor]),
+    et_collector:report_event(C,80,barrista2,barrista2,add_milk,[Milk]),
+    et_collector:report_event(C,80,barrista2,barrista2,add_ice,[]),
+    et_collector:report_event(C,80,barrista2,barrista2,swirl,[]),
+    et_collector:report_event(C,80,barrista2,customer,give_tasty_beverage,[Drink,Size]),
+    ok.</code></pre><p>When you run the <strong>et_display_demo:test().</strong> function in the
+example above, the <strong>Viewer</strong> window will look like this:</p><img src="coffee_order.png" title="Screenshot of the Viewer window"></img><h2>Four Modules</h2><p>The event tracer framework is made up of four modules:</p><ul><li><p><strong>et</strong></p></li><li><p><strong>et_collector</strong></p></li><li><p><strong>et_viewer</strong></p></li><li><p><strong>et_selector</strong></p></li></ul><p>In addition, you'll probably want to familiarize yourself with
+the <strong>dbg</strong> module and possibly <strong>seq_trace</strong> module as
+well.</p><h2>The Event Tracer Interface</h2><p>The <strong>et</strong> module is not like other modules. It contains a
+function called <strong>et:trace_me/5</strong>. Which is a function that
+does not do any useful stuff at all. Its sole purpose is to be a
+function that is easy to trace. A call to it may be something
+like:</p><pre><code class="">
+      et:trace_me(85,from,to,message,extra_stuff).</code></pre><p>The parameters to <strong>et:trace_me/5</strong> are the same as to
+<a href="#report_event">report_event</a>
+in the previous chapter. The big difference between the two is in
+the semantics of the two functions. The second actually reports an
+<strong>Event</strong> to the <strong>Collector</strong> while the first does nothing,
+it just returns the atom <strong>hopefully_traced</strong>. In order to make
+the parameters to <strong>et:trace_me/5</strong> turn up in the
+<strong>Collector</strong>, tracing of that function must be activated and
+the <strong>Collector</strong> must be registered as a <strong>Tracer</strong> of the
+<strong>Raw Trace Data</strong>.</p><p>Erlang tracing is a seething pile of pain that involves
+reasonably complex knowledge of clever ports, tracing return
+formats, and specialized tracing <strong>MatchSpecs</strong> (which are
+really their own special kind of hell). The tracing mechanism is
+very powerful indeed, but it can be hard to grasp.</p><p>Luckily there is a simplified way to start tracing of
+<strong>et:trace_me/5</strong> function calls. The idea is that you should
+instrument your code with calls to <strong>et:trace_me/5</strong> in
+strategic places where you have interesting information available
+in your program. Then you just start the <strong>Collector</strong> with
+global tracing enabled:</p><pre><code class="">
+      et_viewer:start([{trace_global, true}, {trace_pattern, {et,max}}]).</code></pre><p>This will start a <strong>Collector</strong>, a <strong>Viewer</strong> and also
+start the tracing of <strong>et:trace_me/5</strong> function calls. The
+<strong>Raw Trace Data</strong> is collected by the <strong>Collector</strong> and a
+view of it is displayed on the screen by the <strong>Viewer</strong>. You
+can define your own "views" of the data by implementing your own
+<strong>Filter</strong> functions and register them in the
+<strong>Viewer</strong>.</p><h2>The Collector and Viewer</h2><p>These two pieces work in concert. Basically, the
+<strong>Collector</strong> receives <strong>Raw Trace Data</strong> and processes it
+into <strong>Events</strong> in a <strong>et</strong> specific format (defined in
+<strong>et/include/et.hrl</strong>). The <strong>Viewer</strong> interrogates the
+<strong>Collector</strong> and displays an interactive representation of the
+data.</p><p>You might wonder why these aren't just one module. The
+<strong>Collector</strong> is a generic full-fledged framework that allows
+processes to "subscribe" to the <strong>Events</strong> that it
+collects. One <strong>Collector</strong> can serve several
+<strong>Viewers</strong>. The typical case is that you have one
+<strong>Viewer</strong> that visualizes <strong>Events</strong> in one flavor and
+another <strong>Viewer</strong> that visualizes them in another flavor. If
+you for example are tracing a text based protocol like <strong>HTML</strong>
+(or <strong>Megaco/H.248</strong>) it would be useful to be able to display
+the <strong>Events</strong> as plain text as well as the internal
+representation of the message. The architecture does also allow
+you to implement your own <strong>Viewer</strong> program as long as it
+complies to the protocol between the <strong>Collector/Viewer</strong>
+protocol. Currently two kinds of <strong>Viewers</strong> exists. That is
+the old <strong>GS</strong> based one and the new based on
+<strong>wxWidgets</strong>. But if you feel for it you may implement your
+own <strong>Viewer</strong>, which for example could display the
+<strong>Events</strong> as ASCII art or whatever you feel useful.</p><p>The <strong>Viewer</strong> will by default create a <strong>Collector</strong> for
+you. With a few options and some configuration settings you can
+start collecting <strong>Events</strong>.</p><p>The <strong>Collector</strong> API does also allow you to save the
+collected <strong>Events</strong> to file and later load them in a later
+session.</p><h2>The Selector</h2><p>This is perhaps the most central module in the entirety of the
+<strong>et</strong> suite. The <strong>Collector</strong> needs "filters" to convert
+the <strong>Raw Trace Data</strong> into "events" that it can display. The
+<strong>et_selector</strong> module provides the default <strong>Filter</strong> and
+some API calls to manage the <strong>Trace Pattern</strong>. The
+<strong>Selector</strong> provides various functions that achieve the
+following:</p><ul><li><p>Convert <strong>Raw Trace Data</strong> into an appropriate
+<strong>Event</strong></p></li><li><p>Magically notice traces of the <strong>et:trace_me/5</strong>
+function and make appropriate <strong>Events</strong></p></li><li><p>Carefully prevent translating the <strong>Raw Trace Data</strong>
+twice</p></li><li><p>Manage a <strong>Trace Pattern</strong></p></li></ul><p>The <strong>Trace Pattern</strong> is basically a tuple of a
+<strong>module</strong> and a <strong>detail level</strong> (either an integer or the
+atom max for full detail). In most cases the <strong>Trace Pattern</strong>
+<strong>{et,max}</strong> does suffice. But if you do not want any runtime
+dependency of <strong>et</strong> you can implement your own
+<strong>trace_me/5</strong> function in some module and refer to that module
+in the <strong>Trace Pattern</strong>.</p><p>The specified module flows from your instantiation of the
+<strong>Viewer</strong>, to the <strong>Collector</strong> that it automatically
+creates, gets stashed in as the <strong>Trace Pattern</strong>, and
+eventually goes down into the bowels of the <strong>Selector</strong>.</p><p>The module that you specify gets passed down (eventually) into
+<strong>Selector</strong>'s default <strong>Filter</strong>. The format of the
+<strong>et:trace_me/5</strong> function call is hardcoded in that
+<strong>Filter</strong>.</p><h2>How To Put It Together</h2><p>The <strong>Collector</strong> automatically registers itself to listen
+for trace <strong>Events</strong>, so all you have to do is enable them.</p><p>For those people who want to do general tracing, consult the
+<strong>dbg</strong> module on how to trace whatever you're interested in
+and let it work its magic. If you just want <strong>et:trace_me/5</strong>
+to work, do the following:</p><ul><li><p>Create a <strong>Collector</strong></p></li><li><p>Create a <strong>Viewer</strong> (this can do step #1 for you)</p></li><li><p>Turn on and pare down debugging</p></li></ul><p>The module <strong>et/examples/et_trace_demo.erl</strong> achieves this.</p><pre><code class="">
+
+-module(et_trace_demo).
+
+-export([test/0]).
+
+test() -&gt;
+    et_viewer:start([
+        {title,"Coffee Order"},
+        {trace_global,true},
+        {trace_pattern,{et,max}},
+        {max_actors,10}
+      ]),
+      %% dbg:p(all,call),
+      %% dbg:tpl(et, trace_me, 5, []),
+      Drink = {drink,iced_chai_latte},
+      Size = {size,grande},
+      Milk = {milk,whole},
+      Flavor = {flavor,vanilla},
+      et:trace_me(99,customer,barrista1,place_order,[Drink,Size,Milk,Flavor]),
+      et:trace_me(80,barrista1,register,enter_order,[Drink,Size,Flavor]),
+      et:trace_me(80,register,barrista1,give_total,"$5"),
+      et:trace_me(80,barrista1,barrista1,get_cup,[Drink,Size]),
+      et:trace_me(80,barrista1,barrista2,give_cup,[]),
+      et:trace_me(90,barrista1,customer,request_money,"$5"),
+      et:trace_me(90,customer,barrista1,pay_money,"$5"),
+      et:trace_me(80,barrista2,barrista2,get_chai_mix,[]),
+      et:trace_me(80,barrista2,barrista2,add_flavor,[Flavor]),
+      et:trace_me(80,barrista2,barrista2,add_milk,[Milk]),
+      et:trace_me(80,barrista2,barrista2,add_ice,[]),
+      et:trace_me(80,barrista2,barrista2,swirl,[]),
+      et:trace_me(80,barrista2,customer,give_tasty_beverage,[Drink,Size]),
+      ok.</code></pre><p>Running through the above, the most important points are:</p><ul><li><p>Turn on global tracing</p></li><li><p>Set a <strong>Trace Pattern</strong></p></li><li><p>Tell <strong>dbg</strong> to trace function Calls</p></li><li><p>Tell it specifically to trace the <strong>et:trace_me/5</strong> function</p></li></ul><p>When you run the <strong>et_trace_demo:test()</strong> function above, the
+<strong>Viewer</strong> window will look like this screenshot:</p><img src="coffee_order.png" title="Screenshot of the Viewer window"></img></body></html>

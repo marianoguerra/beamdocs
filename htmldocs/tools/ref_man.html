@@ -1,0 +1,1460 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Tools Reference Manual</h1><p>The <em>Tools</em> application contains a number of stand-alone
+tools, which are useful when developing Erlang programs.<dl><dt><em>cover</em></dt><dd>A coverage analysis tool for Erlang.</dd><dt><em>cprof</em></dt><dd>A profiling tool that shows how many times each function is called. Uses a kind of local call trace breakpoints containing counters to achieve very low runtime performance degradation.</dd><dt><em>erlang.el</em>- Erlang mode for Emacs</dt><dd>Editing support such as indentation, syntax highlighting, electric commands, module name verification, comment support including paragraph filling, skeletons, tags support and more for erlang source code. </dd><dt><em>eprof</em></dt><dd>A time profiling tool; measure how time is used in Erlang programs. Predecessor of <em>fprof</em> (see below).</dd><dt><em>fprof</em></dt><dd>Another Erlang profiler; measure how time is used in your Erlang programs. Uses trace to file to minimize runtime performance impact, and displays time for calling and called  functions.</dd><dt><em>instrument</em></dt><dd>Utility functions for obtaining and analysing resource usage in an instrumented Erlang runtime system.</dd><dt><em>lcnt</em></dt><dd>A lock profiling tool for the Erlang runtime system.</dd><dt><em>make</em></dt><dd>A make utility for Erlang similar to UNIX make.</dd><dt><em>tags</em></dt><dd>A tool for generating Emacs TAGS files from Erlang source files.</dd><dt><em>xref</em></dt><dd>A cross reference tool. Can be used to check dependencies  between functions, modules, applications and releases.</dd></dl></p><h2>cover</h2><p>A Coverage Analysis Tool for Erlang</p><p>The module <strong>cover</strong> provides a set of functions for coverage
+analysis of Erlang programs, counting how many times each
+<em>executable line</em> of code is executed when a program is run.      <br/>
+An executable line contains an Erlang expression such as a matching
+or a function call. A blank line or a line containing a comment,
+function head or pattern in a <strong>case</strong>- or <strong>receive</strong> statement
+is not executable.Coverage analysis can be used to verify test cases, making sure all
+relevant code is covered, and may also be helpful when looking for
+bottlenecks in the code.Before any analysis can take place, the involved modules must be
+<em>Cover compiled</em>. This means that some extra information is
+added to the module before it is compiled into a binary which then
+is loaded. The source file of the module is not affected and no
+<strong>.beam</strong> file is created.Each time a function in a Cover compiled module is called,
+information about the call is added to an internal database of Cover.
+The coverage analysis is performed by examining the contents of
+the Cover database. The output <strong>Answer</strong> is determined by two
+parameters, <strong>Level</strong> and <strong>Analysis</strong>.<ul><li> <p><strong>Level = module</strong></p> <p><strong>Answer = {Module,Value}</strong>, where <strong>Module</strong> is the module
+name.</p> </li><li> <p><strong>Level = function</strong></p> <p><strong>Answer = [{Function,Value}]</strong>, one tuple for each function in
+the module. A function is specified by its module name <strong>M</strong>,
+function name <strong>F</strong> and arity <strong>A</strong> as a tuple
+<strong>{M,F,A}</strong>.</p> </li><li> <p><strong>Level = clause</strong></p> <p><strong>Answer = [{Clause,Value}]</strong>, one tuple for each clause in
+the module. A clause is specified by its module name <strong>M</strong>,
+function name <strong>F</strong>, arity <strong>A</strong> and position in the function
+definition <strong>C</strong> as a tuple <strong>{M,F,A,C}</strong>.</p> </li><li> <p><strong>Level = line</strong></p> <p><strong>Answer = [{Line,Value}]</strong>, one tuple for each executable
+line in the module. A line is specified by its module name <strong>M</strong>
+and line number in the source file <strong>N</strong> as a tuple
+<strong>{M,N}</strong>.</p> </li><li> <p><strong>Analysis = coverage</strong></p> <p><strong>Value = {Cov,NotCov}</strong> where <strong>Cov</strong> is the number of
+executable lines in the module, function, clause or line that have
+been executed at least once and <strong>NotCov</strong> is the number of
+executable lines that have not been executed.</p> </li><li> <p><strong>Analysis = calls</strong></p> <p><strong>Value = Calls</strong> which is the number of times the module,
+function, or clause has been called. In the case of line level
+analysis, <strong>Calls</strong> is the number of times the line has been
+executed.</p> </li></ul><em>Distribution</em>Cover can be used in a distributed Erlang system. One of the
+nodes in the system must then be selected as the <em>main node</em>, and all Cover commands must be executed from this
+node. The error reason <strong>not_main_node</strong> is returned if an
+interface function is called on one of the remote nodes.Use <strong>cover:start/1</strong> and <strong>cover:stop/1</strong> to add or
+remove nodes. The same Cover compiled code will be loaded on each
+node, and analysis will collect and sum up coverage data results
+from all nodes.To only collect data from remote nodes without stopping
+<strong>cover</strong> on those nodes, use <strong>cover:flush/1</strong>If the connection to a remote node goes down, the main node
+will mark it as lost. If the node comes back it will be added
+again. If the remote node was alive during the disconnected
+periode, cover data from before and during this periode will be
+included in the analysis.</p><h2>Functions</h2><h3>start() -&gt; {ok,Pid} | {error,Reason}</h3><p>Start Cover.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Reason = {already_started,Pid}</span></li></ul><p>Starts the Cover server which owns the Cover internal database.
+This function is called automatically by the other functions in
+the module.</p><h3>local_only() -&gt; ok | {error,too_late}</h3><p>Only support running Cover on the local node.</p><p>Only support running Cover on the local node. This function
+must be called before any modules have been compiled or any
+nodes added. When running in this mode, modules will be Cover
+compiled in a more efficient way, but the resulting code will
+only work on the same node they were compiled on.</p><h3>start(Nodes) -&gt; {ok,StartedNodes} | {error,not_main_node} | {error,local_only}</h3><p>Start Cover on remote nodes.</p><ul><li><span class="v">Nodes = StartedNodes = [atom()]</span></li></ul><p>Starts a Cover server on the each of given nodes, and loads
+all cover compiled modules. This call will fail if
+<strong>cover:local_only/0</strong> has been called.</p><h3>compile(ModFiles) -&gt; Result | [Result]</h3><h3>compile(ModFiles, Options) -&gt; Result | [Result]</h3><h3>compile_module(ModFiles) -&gt; Result | [Result]</h3><h3>compile_module(ModFiles, Options) -&gt; Result | [Result]</h3><p>Compile one or more modules for Cover analysis.</p><ul><li><span class="v">ModFiles = ModFile | [ModFile]</span></li><li><span class="v">ModFile = Module | File</span></li><li><span class="v">Â Module = atom()</span></li><li><span class="v">Â File = string()</span></li><li><span class="v">Options = [Option]</span></li><li><span class="v">Â Option = {i,Dir} | {d,Macro} | {d,Macro,Value} | export_all</span></li><li><span class="d">See compile:file/2.</span></li><li><span class="v">Result = {ok,Module} | {error,File} | {error,not_main_node}</span></li></ul><p>Compiles a module for Cover analysis. The module is given by its
+module name <strong>Module</strong> or by its file name <strong>File</strong>.
+The <strong>.erl</strong> extension may be omitted. If the module is
+located in another directory, the path has to be specified.</p><p><strong>Options</strong> is a list of compiler options which defaults to
+<strong>[]</strong>. Only options defining include file directories and
+macros are passed to <strong>compile:file/2</strong>, everything else is
+ignored.</p><p>If the module is successfully Cover compiled, the function
+returns <strong>{ok,Module}</strong>. Otherwise the function returns
+<strong>{error,File}</strong>. Errors and warnings are printed as they
+occur.</p><p>If a list of <strong>ModFiles</strong> is given as input, a list
+of <strong>Result</strong> will be returned. The order of the returned
+list is undefined.</p><p>Note that the internal database is (re-)initiated during
+the compilation, meaning any previously collected coverage data
+for the module will be lost.</p><h3>compile_directory() -&gt; [Result] | {error,Reason}</h3><h3>compile_directory(Dir) -&gt; [Result] | {error,Reason}</h3><h3>compile_directory(Dir, Options) -&gt; [Result] | {error,Reason}</h3><p>Compile all modules in a directory for Cover analysis.</p><ul><li><span class="v">Dir = string()</span></li><li><span class="v">Options = [Option]</span></li><li><span class="d">See compile_module/1,2</span></li><li><span class="v">Result = {ok,Module} | {error,File} | {error,not_main_node}</span></li><li><span class="d">See compile_module/1,2</span></li><li><span class="v">Reason = eacces | enoent</span></li></ul><p>Compiles all modules (<strong>.erl</strong> files) in a directory
+<strong>Dir</strong> for Cover analysis the same way as
+<strong>compile_module/1,2</strong> and returns a list with the return
+values.</p><p><strong>Dir</strong> defaults to the current working directory.</p><p>The function returns <strong>{error,eacces}</strong> if the directory is not
+readable or <strong>{error,enoent}</strong> if the directory does not exist.</p><h3>compile_beam(ModFiles) -&gt; Result | [Result]</h3><p>Compile one or more modules for Cover analysis, using existing beam(s).</p><ul><li><span class="v">ModFiles = ModFile | [ModFile]</span></li><li><span class="v">ModFile = Module | BeamFile</span></li><li><span class="v">Â Module = atom()</span></li><li><span class="v">Â BeamFile = string()</span></li><li><span class="v">Result = {ok,Module} | {error,BeamFile} | {error,Reason}</span></li><li><span class="v">Â Reason = non_existing | {no_abstract_code,BeamFile} | {encrypted_abstract_code,BeamFile} | {already_cover_compiled,no_beam_found,Module} | not_main_node</span></li></ul><p>Does the same as <strong>compile/1,2</strong>, but uses an existing
+<strong>.beam</strong> file as base, i.e. the module is not compiled
+from source. Thus <strong>compile_beam/1</strong> is faster than
+<strong>compile/1,2</strong>.</p><p>Note that the existing <strong>.beam</strong> file must contain
+<em>abstract code</em>, i.e. it must have been compiled with
+the <strong>debug_info</strong> option. If not, the error reason
+<strong>{no_abstract_code,BeamFile}</strong> is returned.
+If the abstract code is encrypted, and no key is available
+for decrypting it, the error reason 
+<strong>{encrypted_abstract_code,BeamFile}</strong> is returned.</p><p>If only the module name (i.e. not the full name of the
+<strong>.beam</strong> file) is given to this function, the
+<strong>.beam</strong> file is found by calling
+<strong>code:which(Module)</strong>. If no <strong>.beam</strong> file is found,
+the error reason <strong>non_existing</strong> is returned. If the
+module is already cover compiled with <strong>compile_beam/1</strong>,
+the <strong>.beam</strong> file will be picked from the same location
+as the first time it was compiled. If the module is already
+cover compiled with <strong>compile/1,2</strong>, there is no way to
+find the correct <strong>.beam</strong> file, so the error reason
+<strong>{already_cover_compiled,no_beam_found,Module}</strong> is
+returned.</p><p><strong>{error,BeamFile}</strong> is returned if the compiled code
+cannot be loaded on the node.</p><p>If a list of <strong>ModFiles</strong> is given as input, a list
+of <strong>Result</strong> will be returned. The order of the returned
+list is undefined.</p><h3>compile_beam_directory() -&gt; [Result] | {error,Reason}</h3><h3>compile_beam_directory(Dir) -&gt; [Result] | {error,Reason}</h3><p>Compile all .beam files in a directory for Cover analysis.</p><ul><li><span class="v">Dir = string()</span></li><li><span class="v">Result = See compile_beam/1</span></li><li><span class="v">Reason = eacces | enoent</span></li></ul><p>Compiles all modules (<strong>.beam</strong> files) in a directory
+<strong>Dir</strong> for Cover analysis the same way as
+<strong>compile_beam/1</strong> and returns a list with the return
+values.</p><p><strong>Dir</strong> defaults to the current working directory.</p><p>The function returns <strong>{error,eacces}</strong> if the directory is not
+readable or <strong>{error,enoent}</strong> if the directory does not exist.</p><h3>analyse() -&gt; {result,Ok,Fail} | {error,not_main_node}</h3><h3>analyse(Modules) -&gt; OneResult | {result,Ok,Fail} | {error,not_main_node}</h3><h3>analyse(Analysis) -&gt; {result,Ok,Fail} | {error,not_main_node}</h3><h3>analyse(Level) -&gt; {result,Ok,Fail} | {error,not_main_node}</h3><h3>analyse(Modules, Analysis) -&gt; OneResult | {result,Ok,Fail} | {error,not_main_node}</h3><h3>analyse(Modules, Level) -&gt; OneResult | {result,Ok,Fail} | {error,not_main_node}</h3><h3>analyse(Analysis, Level) -&gt; {result,Ok,Fail} | {error,not_main_node}</h3><h3>analyse(Modules, Analysis, Level) -&gt; OneResult | {result,Ok,Fail} | {error,not_main_node}</h3><p>Analyse one or more Cover compiled modules.</p><ul><li><span class="v">Modules = Module | [Module]</span></li><li><span class="v">Module = atom() </span></li><li><span class="v">Analysis = coverage | calls</span></li><li><span class="v">Level = line | clause | function | module</span></li><li><span class="v">OneResult = {ok,{Module,Value}} | {ok,[{Item,Value}]} | {error, Error}</span></li><li><span class="v">Â Item = Line | Clause | Function</span></li><li><span class="v">Â Â Line = {M,N}</span></li><li><span class="v">Â Â Clause = {M,F,A,C}</span></li><li><span class="v">Â Â Function = {M,F,A}</span></li><li><span class="v">Â Â Â M = F = atom()</span></li><li><span class="v">Â Â Â N = A = C = integer()</span></li><li><span class="v">Â Value = {Cov,NotCov} | Calls</span></li><li><span class="v">Â Â Cov = NotCov = Calls = integer()</span></li><li><span class="v">Â Error = {not_cover_compiled,Module}</span></li><li><span class="v">Ok = [{Module,Value}] | [{Item,Value}]</span></li><li><span class="v">Fail = [Error]</span></li></ul><p>Performs analysis of one or more Cover compiled modules, as
+specified by <strong>Analysis</strong> and <strong>Level</strong> (see above), by
+examining the contents of the internal database.</p><p><strong>Analysis</strong> defaults to <strong>coverage</strong> and <strong>Level</strong>
+defaults to <strong>function</strong>.</p><p>If <strong>Modules</strong> is an atom (one module), the return will
+be <strong>OneResult</strong>, else the return will be
+<strong>{result,Ok,Fail}</strong>.</p><p>If <strong>Modules</strong> is not given, all modules that have data
+in the cover data table, are analysed. Note that this
+includes both cover compiled modules and imported
+modules.</p><p>If a given module is not Cover compiled, this is indicated
+by the error reason <strong>{not_cover_compiled,Module}</strong>.</p><h3>analyse_to_file() -&gt; {result,Ok,Fail} | {error,not_main_node}</h3><h3>analyse_to_file(Modules) -&gt;  Answer | {result,Ok,Fail} | {error,not_main_node}</h3><h3>analyse_to_file(Options) -&gt; {result,Ok,Fail} | {error,not_main_node}</h3><h3>analyse_to_file(Modules,Options) -&gt; Answer | {result,Ok,Fail} | {error,not_main_node}</h3><p>Detailed coverage analysis of one or more Cover compiled modules.</p><ul><li><span class="v">Modules = Module | [Module]</span></li><li><span class="v">Module = atom()</span></li><li><span class="v">OutFile = OutDir = string()</span></li><li><span class="v">Options = [Option]</span></li><li><span class="v">Option = html | {outfile,OutFile} | {outdir,OutDir}</span></li><li><span class="v">Answer = {ok,OutFile} | {error,Error}</span></li><li><span class="v">Ok = [OutFile]</span></li><li><span class="v">Fail = [Error]</span></li><li><span class="v">Error = {not_cover_compiled,Module} | {file,File,Reason} | {no_source_code_found,Module}</span></li><li><span class="v">Â File = string()</span></li><li><span class="v">Â Reason = term()</span></li></ul><p>Makes copies of the source file for the given modules,
+where it for each executable line is specified
+how many times it has been executed.</p><p>The output file <strong>OutFile</strong> defaults to
+<strong>Module.COVER.out</strong>, or <strong>Module.COVER.html</strong> if the
+option <strong>html</strong> was used.</p><p>If <strong>Modules</strong> is an atom (one module), the return will
+be <strong>Answer</strong>, else the return will be a
+list, <strong>{result,Ok,Fail}</strong>.</p><p>If <strong>Modules</strong> is not given, all modules that have data
+in the cover data table, are analysed. Note that this
+includes both cover compiled modules and imported
+modules.</p><p>If a module is not Cover compiled, this is indicated by the
+error reason <strong>{not_cover_compiled,Module}</strong>.</p><p>If the source file and/or the output file cannot be opened using
+<strong>file:open/2</strong>, the function returns
+<strong>{error,{file,File,Reason}}</strong> where <strong>File</strong> is the file
+name and <strong>Reason</strong> is the error reason.</p><p>If a module was cover compiled from the <strong>.beam</strong>
+file, i.e. using <strong>compile_beam/1</strong> or
+<strong>compile_beam_directory/0,1</strong>, it is assumed that the
+source code can be found in the same directory as the
+<strong>.beam</strong> file, in <strong>../src</strong> relative to that
+directory, or using the source path in
+<strong>Module:module_info(compile)</strong>. When using the latter,
+two paths are examined: first the one constructed by
+joining <strong>../src</strong> and the tail of the compiled path
+below a trailing <strong>src</strong> component, then the compiled
+path itself.
+If no source code is found, this is indicated by the error reason
+<strong>{no_source_code_found,Module}</strong>.</p><h3>async_analyse_to_file(Module) -&gt;</h3><h3>async_analyse_to_file(Module,Options) -&gt;</h3><h3>async_analyse_to_file(Module, OutFile) -&gt;</h3><h3>async_analyse_to_file(Module, OutFile, Options) -&gt;  pid()</h3><p>Asynchronous call to analyse_to_file.</p><ul><li><span class="v">Module = atom()</span></li><li><span class="v">OutFile = string()</span></li><li><span class="v">Options = [Option]</span></li><li><span class="v">Option = html</span></li><li><span class="v">Error = {not_cover_compiled,Module} | {file,File,Reason} | {no_source_code_found,Module} | not_main_node</span></li><li><span class="v">Â File = string()</span></li><li><span class="v">Â Reason = term()</span></li></ul><p>This function works exactly the same way as 
+<a href="#analyse_to_file-1">analyse_to_file</a> except
+that it is asynchronous instead of synchronous. The spawned process
+will link with the caller when created. If an <strong>Error</strong> occurs
+while doing the cover analysis the process will crash with the same
+error reason as <a href="#analyse_to_file-1">analyse_to_file</a> 
+would return.</p><h3>modules() -&gt; [Module] | {error,not_main_node}</h3><p>Return all Cover compiled modules.</p><ul><li><span class="v">Module = atom()</span></li></ul><p>Returns a list with all modules that are currently Cover
+compiled.</p><h3>imported_modules() -&gt; [Module] | {error,not_main_node}</h3><p>Return all modules for which there are imported data.</p><ul><li><span class="v">Module = atom()</span></li></ul><p>Returns a list with all modules for which there are
+imported data.</p><h3>imported() -&gt; [File] | {error,not_main_node}</h3><p>Return all imported files.</p><ul><li><span class="v">File = string()</span></li></ul><p>Returns a list with all imported files.</p><h3>which_nodes() -&gt; [Node] | {error,not_main_node}</h3><p>Return all nodes that are part of the coverage analysis.</p><ul><li><span class="v">Node = atom()</span></li></ul><p>Returns a list with all nodes that are part of the coverage
+analysis. Note that the current node is not returned. This
+node is always part of the analysis.</p><h3>is_compiled(Module) -&gt; {file,File} | false |  {error,not_main_node}</h3><p>Check if a module is Cover compiled.</p><ul><li><span class="v">Module = atom()</span></li><li><span class="v">Beam = string()</span></li></ul><p>Returns <strong>{file,File}</strong> if the module <strong>Module</strong> is
+Cover compiled, or <strong>false</strong> otherwise. <strong>File</strong> is
+the <strong>.erl</strong> file used by <strong>cover:compile_module/1,2</strong>
+or the <strong>.beam</strong> file used by <strong>compile_beam/1</strong>.</p><h3>reset(Module) -&gt;</h3><h3>reset() -&gt;  ok | {error,not_main_node}</h3><p>Reset coverage data for Cover compiled modules.</p><ul><li><span class="v">Module = atom()</span></li></ul><p>Resets all coverage data for a Cover compiled module
+<strong>Module</strong> in the Cover database on all nodes. If the
+argument is omitted, the coverage data will be reset for all
+modules known by Cover.</p><p>If <strong>Module</strong> is not Cover compiled, the function returns
+<strong>{error,{not_cover_compiled,Module}}</strong>.</p><h3>export(ExportFile)</h3><h3>export(ExportFile,Module) -&gt; ok | {error,Reason}</h3><p>Reset coverage data for Cover compiled modules.</p><ul><li><span class="v">ExportFile = string()</span></li><li><span class="v">Module = atom()</span></li><li><span class="v">Reason = {not_cover_compiled,Module} | {cant_open_file,ExportFile,Reason} | not_main_node</span></li></ul><p>Exports the current coverage data for <strong>Module</strong> to the
+file <strong>ExportFile</strong>. It is recommended to name the
+<strong>ExportFile</strong> with the extension <strong>.coverdata</strong>, since
+other filenames cannot be read by the web based interface to
+cover.</p><p>If <strong>Module</strong> is not given, data for all Cover compiled
+or earlier imported modules is exported.</p><p>This function is useful if coverage data from different
+systems is to be merged.</p><p>See also <strong>cover:import/1</strong></p><h3>import(ExportFile) -&gt; ok | {error,Reason}</h3><p>Reset coverage data for Cover compiled modules.</p><ul><li><span class="v">ExportFile = string()</span></li><li><span class="v">Reason = {cant_open_file,ExportFile,Reason} | not_main_node</span></li></ul><p>Imports coverage data from the file <strong>ExportFile</strong>
+created with <strong>cover:export/1,2</strong>. Any analysis performed
+after this will include the imported data.</p><p>Note that when compiling a module <em>all existing coverage data is removed</em>, including imported data. If a module is
+already compiled when data is imported, the imported data is
+<em>added</em> to the existing coverage data.</p><p>Coverage data from several export files can be imported
+into one system. The coverage data is then added up when
+analysing.</p><p>Coverage data for a module cannot be imported from the
+same file twice unless the module is first reset or
+compiled. The check is based on the filename, so you can
+easily fool the system by renaming your export file.</p><p>See also <strong>cover:export/1,2</strong></p><h3>stop() -&gt; ok | {error,not_main_node}</h3><p>Stop Cover.</p><p>Stops the Cover server and unloads all Cover compiled code.</p><h3>stop(Nodes) -&gt; ok | {error,not_main_node}</h3><p>Stop Cover on remote nodes.</p><ul><li><span class="v">Nodes = [atom()]</span></li></ul><p>Stops the Cover server and unloads all Cover compiled code
+on the given nodes. Data stored in the Cover database on the
+remote nodes is fetched and stored on the main node.</p><h3>flush(Nodes) -&gt; ok | {error,not_main_node}</h3><p>Collect cover data from remote nodes.</p><ul><li><span class="v">Nodes = [atom()]</span></li></ul><p>Fetch data from the Cover database on the remote nodes and
+stored on the main node.</p><h3>SEE ALSO</h3><p>code(3), compile(3)</p><h2>cprof</h2><p>A simple Call Count Profiling Tool using breakpoints for minimal runtime performance impact.</p><p>The <strong>cprof</strong> module is used to profile a program
+to find out how many times different functions are called.
+Breakpoints similar to local call trace, but containing a
+counter, are used to minimise runtime performance impact. 
+Since breakpoints are used there is no need for special
+compilation of any module to be profiled. For now these
+breakpoints can only be set on BEAM code so <span class="term">BIF</span>s
+cannot be call count traced.
+The size of the call counters is the host machine word
+size. One bit is used when pausing the counter, so the maximum
+counter value for a 32-bit host is 2147483647.
+The profiling result is delivered as a term containing a
+sorted list of entries, one per module. Each module entry
+contains a sorted list of functions. The sorting order in both
+cases is of decreasing call count.
+Call count tracing is very lightweight compared to other forms
+of tracing since no trace message has to be generated. Some 
+measurements indicates performance degradation in the vicinity
+of 10 percent.
+<a name="analyse"></a>
+</p><h2>Functions</h2><h3>analyse() -&gt; {AllCallCount, ModAnalysisList}</h3><h3>analyse(Limit) -&gt; {AllCallCount, ModAnalysisList}</h3><h3>analyse(Mod) -&gt; ModAnalysis</h3><h3>analyse(Mod, Limit) -&gt; ModAnalysis</h3><p>Collect and analyse call counters.</p><ul><li><span class="v">Limit = integer()</span></li><li><span class="v">Mod = atom()</span></li><li><span class="v">AllCallCount = integer()</span></li><li><span class="v">ModAnalysisList = [ModAnalysis]</span></li><li><span class="v">ModAnalysis = {Mod, ModCallCount, FuncAnalysisList}</span></li><li><span class="v">ModCallCount = integer()</span></li><li><span class="v">FuncAnalysisList = [{{Mod, Func, Arity}, FuncCallCount}]</span></li><li><span class="v">Func = atom()</span></li><li><span class="v">Arity = integer()</span></li><li><span class="v">FuncCallCount = integer()</span></li></ul><p>Collects and analyses the call counters presently in the
+node for either module <strong>Mod</strong>, or for all modules
+(except <strong>cprof</strong> itself), and returns: </p><dl><dt><strong>FuncAnalysisList</strong></dt><dd>A list of tuples, one for each function in a module, in decreasing <strong>FuncCallCount</strong> order.</dd><dt><strong>ModCallCount</strong></dt><dd>The sum of <strong>FuncCallCount</strong> values for all functions in module <strong>Mod</strong>.</dd><dt><strong>AllCallCount</strong></dt><dd>The sum of <strong>ModCallCount</strong> values for all modules concerned in <strong>ModAnalysisList</strong>.</dd><dt><strong>ModAnalysisList</strong></dt><dd>A list of tuples, one for each module except <strong>cprof</strong>, in decreasing <strong>ModCallCount</strong> order.</dd></dl><p>If call counters are still running while
+<strong>analyse/0..2</strong> is executing, you might get an
+inconsistent result. This happens if the process executing
+<strong>analyse/0..2</strong> gets scheduled out so some other process
+can increment the counters that are being analysed, Calling
+<strong>pause()</strong> before analysing takes care of the problem.
+</p><p>If the <strong>Mod</strong> argument is given, the result contains a
+<strong>ModAnalysis</strong> tuple for module <strong>Mod</strong> only,
+otherwise the result contains one <strong>ModAnalysis</strong> tuple
+for all  modules returned from <strong>code:all_loaded()</strong>
+except <strong>cprof</strong> itself.
+</p><p>All functions with a <strong>FuncCallCount</strong> lower than
+<strong>Limit</strong> are excluded from <strong>FuncAnalysisList</strong>. They
+are still included in <strong>ModCallCount</strong>, though. 
+The default value for <strong>Limit</strong> is <strong>1</strong>.
+<a name="pause_0"></a>
+</p><h3>pause() -&gt; integer()</h3><p>Pause running call count trace for all functions.</p><p>Pause call count tracing for all functions in all modules
+and stop it for all functions in modules to be
+loaded. This is the same as 
+<strong>(pause({'_','_','_'})+stop({on_load}))</strong>.
+</p><p>See also 
+<a href="#pause">pause/1..3</a> below.
+<a name="pause"></a>
+</p><h3>pause(FuncSpec) -&gt; integer()</h3><h3>pause(Mod, Func) -&gt; integer()</h3><h3>pause(Mod, Func, Arity) -&gt; integer()</h3><p>Pause running call count trace for matching functions.</p><ul><li><span class="v">FuncSpec = Mod | {Mod,Func,Arity}, {FS}</span></li><li><span class="v">Mod = atom()</span></li><li><span class="v">Func = atom()</span></li><li><span class="v">Arity = integer()</span></li><li><span class="v">FS = term()</span></li></ul><p>Pause call counters for matching functions in matching 
+modules. The <strong>FS</strong> argument can be used to
+specify the first argument to
+<strong>erlang:trace_pattern/3</strong>. See erlang(3). 
+</p><p>The call counters for all matching functions that
+has got call count breakpoints are paused at their current
+count. 
+</p><p>Return the number of matching functions that can have
+call count breakpoints, the same as
+<strong>start/0..3</strong> with the same arguments would have
+returned. 
+<a name="restart"></a>
+</p><h3>restart() -&gt; integer()</h3><h3>restart(FuncSpec) -&gt; integer()</h3><h3>restart(Mod, Func) -&gt; integer()</h3><h3>restart(Mod, Func, Arity) -&gt; integer()</h3><p>Restart existing call counters for matching functions.</p><ul><li><span class="v">FuncSpec = Mod | {Mod,Func,Arity}, {FS}</span></li><li><span class="v">Mod = atom()</span></li><li><span class="v">Func = atom()</span></li><li><span class="v">Arity = integer()</span></li><li><span class="v">FS = term()</span></li></ul><p>Restart call counters for the matching functions in
+matching modules that are call count traced. The <strong>FS</strong>
+argument can be used to specify the first argument to
+<strong>erlang:trace_pattern/3</strong>. See erlang(3).
+</p><p>The call counters for all matching functions that has got
+call count breakpoints are set to zero and running.
+</p><p>Return the number of matching functions that can have
+call count breakpoints, the same as
+<strong>start/0..3</strong> with the same arguments would have
+returned. 
+<a name="start_0"></a>
+</p><h3>start() -&gt; integer()</h3><p>Start call count tracing for all functions.</p><p>Start call count tracing for all functions in all modules, 
+and also for all functions in modules to be
+loaded. This is the same as 
+<strong>(start({'_','_','_'})+start({on_load}))</strong>.
+</p><p>See also 
+<a href="#start">start/1..3</a> below.
+<a name="start"></a>
+</p><h3>start(FuncSpec) -&gt; integer()</h3><h3>start(Mod, Func) -&gt; integer()</h3><h3>start(Mod, Func, Arity) -&gt; integer()</h3><p>Start call count tracing for matching functions.</p><ul><li><span class="v">FuncSpec = Mod | {Mod,Func,Arity}, {FS}</span></li><li><span class="v">Mod = atom()</span></li><li><span class="v">Func = atom()</span></li><li><span class="v">Arity = integer()</span></li><li><span class="v">FS = term()</span></li></ul><p>Start call count tracing for matching functions in matching 
+modules. The <strong>FS</strong> argument can be used to specify the
+first argument to <strong>erlang:trace_pattern/3</strong>, for example
+<strong>on_load</strong>. See erlang(3). 
+</p><p>Set call count breakpoints on the matching functions that
+has no call count breakpoints. Call counters 
+are set to zero and running for all matching functions.
+</p><p>Return the number of matching functions that has got
+call count breakpoints.
+<a name="stop_0"></a>
+</p><h3>stop() -&gt; integer()</h3><p>Stop call count tracing for all functions.</p><p>Stop call count tracing for all functions in all modules, 
+and also for all functions in modules to be
+loaded. This is the same as 
+<strong>(stop({'_','_','_'})+stop({on_load}))</strong>.
+</p><p>See also 
+<a href="#stop">stop/1..3</a> below.
+<a name="stop"></a>
+</p><h3>stop(FuncSpec) -&gt; integer()</h3><h3>stop(Mod, Func) -&gt; integer()</h3><h3>stop(Mod, Func, Arity) -&gt; integer()</h3><p>Stop call count tracing for matching functions.</p><ul><li><span class="v">FuncSpec = Mod | {Mod,Func,Arity}, {FS}</span></li><li><span class="v">Mod = atom()</span></li><li><span class="v">Func = atom()</span></li><li><span class="v">Arity = integer()</span></li><li><span class="v">FS = term()</span></li></ul><p>Stop call count tracing for matching functions in matching 
+modules. The <strong>FS</strong> argument can be used to specify the
+first argument to <strong>erlang:trace_pattern/3</strong>, for example
+<strong>on_load</strong>. See erlang(3). 
+</p><p>Remove call count breakpoints from the matching functions that
+has call count breakpoints.
+</p><p>Return the number of matching functions that can have
+call count breakpoints, the same as
+<strong>start/0..3</strong> with the same arguments would have
+returned. 
+</p><h3>See Also</h3><p><a href="eprof">eprof</a>(3), 
+<a href="fprof">fprof</a>(3), 
+erlang(3), 
+<a href="cprof_chapter">User's Guide</a></p><h2>eprof</h2><p>A Time Profiling Tool for Erlang</p><p>The module <strong>eprof</strong> provides a set of functions for time
+profiling of Erlang programs to find out how the execution time is
+used. The profiling is done using the Erlang trace BIFs. Tracing of
+local function calls for a specified set of processes is enabled when
+profiling is begun, and disabled when profiling is stopped.When using Eprof, expect a slowdown in program execution.</p><h2>Functions</h2><h3>start() -&gt; {ok,Pid} | {error,Reason}</h3><p>Start Eprof.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Reason = {already_started,Pid}</span></li></ul><p>Starts the Eprof server which holds the internal state of the collected data.</p><h3>start_profiling(Rootset) -&gt; profiling | {error, Reason}</h3><h3>start_profiling(Rootset,Pattern) -&gt; profiling | {error, Reason}</h3><h3>start_profiling(Rootset,Pattern,Options) -&gt; profiling | {error, Reason}</h3><p>Start profiling.</p><ul><li><span class="v">Rootset = [atom() | pid()]</span></li><li><span class="v">Pattern = {Module, Function, Arity}</span></li><li><span class="v">Module = Function = atom()</span></li><li><span class="v">Arity = integer()</span></li><li><span class="v">Options = [set_on_spawn]</span></li><li><span class="v">Reason = term()</span></li></ul><p>Starts profiling for the processes in <strong>Rootset</strong> (and any new
+processes spawned from them). Information about activity in any
+profiled process is stored in the Eprof database.</p><p><strong>Rootset</strong> is a list of pids and registered names.</p><p>The function returns <strong>profiling</strong> if tracing could be enabled
+for all processes in <strong>Rootset</strong>, or <strong>error</strong> otherwise.</p><p>A pattern can be selected to narrow the profiling. For instance a
+specific module can be selected, and only the code executed in that
+module will be profiled.</p><p>The <strong>set_on_spawn</strong> option will active call time tracing for
+all processes spawned by processes in the rootset. This is
+the default behaviour.</p><h3>stop_profiling() -&gt; profiling_stopped | profiling_already_stopped</h3><p>Stop profiling.</p><p>Stops profiling started with <strong>start_profiling/1</strong> or
+<strong>profile/1</strong>.</p><h3>profile(Fun) -&gt; profiling | {error, Reason}</h3><h3>profile(Fun, Options) -&gt; profiling | {error, Reason}</h3><h3>profile(Rootset) -&gt; profiling | {error, Reason}</h3><h3>profile(Rootset,Fun) -&gt; {ok, Value} | {error,Reason}</h3><h3>profile(Rootset,Fun,Pattern) -&gt; {ok, Value} | {error, Reason}</h3><h3>profile(Rootset,Module,Function,Args) -&gt; {ok, Value} | {error, Reason}</h3><h3>profile(Rootset,Module,Function,Args,Pattern) -&gt; {ok, Value} | {error, Reason}</h3><h3>profile(Rootset,Module,Function,Args,Pattern,Options) -&gt; {ok, Value} | {error, Reason}</h3><p>Start profiling.</p><ul><li><span class="v">Rootset = [atom() | pid()]</span></li><li><span class="v">Fun = fun() -&gt; term() end</span></li><li><span class="v">Pattern = {Module, Function, Arity}</span></li><li><span class="v">Module = Function = atom()</span></li><li><span class="v">Args = [term()]</span></li><li><span class="v">Arity = integer()</span></li><li><span class="v">Options = [set_on_spawn]</span></li><li><span class="v">Value = Reason = term()</span></li></ul><p>This function first spawns a process <strong>P</strong> which evaluates
+<strong>Fun()</strong> or <strong>apply(Module,Function,Args)</strong>. Then, it
+starts profiling for <strong>P</strong> and the processes in <strong>Rootset</strong>
+(and any new processes spawned from them). Information about
+activity in any profiled process is stored in the Eprof database.</p><p><strong>Rootset</strong> is a list of pids and registered names.</p><p>If tracing could be enabled for <strong>P</strong> and all processes in
+<strong>Rootset</strong>, the function returns <strong>{ok,Value}</strong> when
+<strong>Fun()</strong>/<strong>apply</strong> returns with the value <strong>Value</strong>, or
+<strong>{error,Reason}</strong> if <strong>Fun()</strong>/<strong>apply</strong> fails with
+exit reason <strong>Reason</strong>. Otherwise it returns <strong>{error, Reason}</strong>
+immediately.</p><p>The <strong>set_on_spawn</strong> option will active call time tracing for
+all processes spawned by processes in the rootset. This is
+the default behaviour.</p><p>The programmer must ensure that the function given as argument
+is truly synchronous and that no work continues after
+the function has returned a value.</p><h3>analyze() -&gt; ok</h3><h3>analyze(Type) -&gt; ok</h3><h3>analyze(Type,Options) -&gt; ok</h3><p>Display profiling results per process.</p><ul><li><span class="v">Type = procs | total</span></li><li><span class="v">Options = [{filter, Filter} | {sort, Sort}</span></li><li><span class="v">Filter = [{calls, integer()} | {time, float()}]</span></li><li><span class="v">Sort = time | calls | mfa</span></li></ul><p>Call this function when profiling has been stopped to display
+the results per process, that is:</p><ul><li>how much time has been used by each process, and</li><li>in which function calls this time has been spent.</li></ul><p>Call <strong>analyze</strong> with <strong>total</strong> option when profiling has been stopped to display
+the results per function call, that is in which function calls
+the time has been spent.</p><p>Time is shown as percentage of total time and as absolute time.</p><h3>log(File) -&gt; ok</h3><p>Activate logging of <strong>eprof</strong>printouts.</p><ul><li><span class="v">File = atom() | string()</span></li></ul><p>This function ensures that the results displayed by
+<strong>analyze/0,1,2</strong> are printed both to the file
+<strong>File</strong> and the screen.</p><h3>stop() -&gt; stopped</h3><p>Stop Eprof.</p><p>Stops the Eprof server.</p><h2>erlang.el</h2><p>Erlang mode for Emacs</p><p>Possibly the most important feature of an editor designed for
+programmers is the ability to indent a line of code in accordance
+with the structure of the programming language. The Erlang mode
+does, of course, provide this feature.  The layout used is based
+on the common use of the language. The mode also provides things as
+syntax highlighting, electric commands, module name verification,
+comment support including paragraph filling, skeletons, tags
+support etc.In the following descriptions the use of the word <em>Point</em> means: "Point can be seen as the position of the
+cursor. More precisely, the point is the position between two
+characters while the cursor is drawn over the character
+following the point".</p><h3>Indent</h3><p>The following command are directly available for indentation.</p><ul><li><em>TAB</em> (<strong>erlang-indent-command</strong>) - Indents the current line of code. </li><li><em>M-C-\</em> (<strong>indent-region</strong>) - Indents all lines in the region. </li><li><em>M-l</em> (<strong>indent-for-comment</strong>) - Insert a comment character to the right of the code on the line (if any).</li></ul><p>Lines containing comment are indented differently depending on
+the number of %-characters used: </p><ul><li>Lines with one %-character is indented to the right of the code. The column is specified by the variable <strong>comment-column</strong>, by default column 48 is used.</li><li>Lines with two %-characters will be indented to the same depth as code would have been in the same situation. </li><li>Lines with three of more %-characters are indented to the left margin.</li><li><em>C-c C-q</em> (<strong>erlang-indent-function</strong>) - Indents the current Erlang function. </li><li><em>M-x erlang-indent-clause RET</em>      <br/> -Indent the current Erlang clause.</li><li><em>M-x erlang-indent-current-buffer RET</em> - Indent the entire buffer. </li></ul><h3>Edit - Fill Comment</h3><p>When editing normal text in text mode you can let Emacs reformat the
+text by the <strong>fill-paragraph</strong> command.  This command will not work
+for comments since it will treat the comment characters as words.</p><p>The Erlang editing mode provides a command that knows about the
+Erlang comment structure and can be used to fill text paragraphs
+in comments. Ex:</p><pre><code class="">
+      %% This is   just a very simple test to show
+      %% how the Erlang fill
+      %% paragraph   command works.</code></pre><p>Clearly, the text is badly formatted.  Instead of formatting this
+paragraph line by line, let's try <strong>erlang-fill-paragraph</strong> by
+pressing <em>M-q</em>. The result is:</p><pre><code class="">
+      %% This is just a very simple test to show how the Erlang fill
+      %% paragraph command works.</code></pre><h3>Edit - Comment/Uncomment Region</h3><p><em>C-c C-c</em> will put comment characters at the
+beginning of all lines in a marked region. If you want to have
+two comment characters instead of one you can do <em>C-u 2 C-c C-c</em></p><p><em>C-c C-u</em> will undo a comment-region command. </p><h3>Edit - Moving the marker</h3><ul><li><em>C-a M-a </em> (<strong>erlang-beginning-of-function</strong>) - Move the point to the beginning of the current or preceding Erlang function.  With an numeric argument (ex <em>C-u 2 C-a M-a</em>) the function skips backwards over this many Erlang functions. Should the argument be negative the point is moved to the beginning of a function below the current function. </li><li><em>M-C-a </em> (<strong>erlang-beginning-of-clause</strong>) - As above but move point to the beginning of the current or preceding Erlang clause.</li><li><em>C-a M-e </em> (<strong>erlang-end-of-function</strong>) - Move to the end of the current or following Erlang function.  With an numeric argument (ex <em>C-u 2 C-a M-e</em>) the function skips backwards over this many Erlang functions. Should the argument be negative the point is moved to the end of a function below the current function.</li><li><em>M-C-e </em> (<strong>erlang-end-of-clause</strong>) - As above but move point to the end of the current or following Erlang clause.</li></ul><h3>Edit - Marking</h3><ul><li><em>C-c M-h</em> (<strong>erlang-mark-function</strong>) - Put the region around the current Erlang function.  The point is placed in the beginning and the mark at the end of the function.</li><li><em>M-C-h </em> (<strong>erlang-mark-clause</strong>) Put the region around the current Erlang clause.  The point is placed in the beginning and the mark at the end of the function. </li></ul><h3>Edit - Function Header Commands</h3><ul><li><em>C-c C-j</em> (<strong>erlang-generate-new-clause</strong>) - Create a new clause in the current Erlang function. The point is placed between the parentheses of the argument list.</li><li><em>C-c C-y</em> (<strong>erlang-clone-arguments</strong>) - Copy the function arguments of the preceding Erlang clause. This command is useful when defining a new clause with almost the same argument as the preceding.</li></ul><h3>Edit - Arrows</h3><ul><li> <p><em>C-c C-a</em> (<strong>erlang-align-arrows</strong>) -
+aligns arrows after clauses inside a region.</p> <pre><code class="">
+        Example:
+        
+        sum(L) -&gt; sum(L, 0).
+        sum([H|T], Sum) -&gt; sum(T, Sum + H);
+        sum([], Sum) -&gt; Sum.
+        
+        becomes:
+        
+        sum(L)          -&gt; sum(L, 0).
+        sum([H|T], Sum) -&gt; sum(T, Sum + H);
+        sum([], Sum)    -&gt; Sum.</code></pre> </li></ul><h3>Syntax highlighting</h3><p>The syntax highlighting can be activated from the Erlang menu. There
+are four different alternatives:</p><ul><li>Off: Normal black and white display. </li><li>Level 1: Function headers, reserved words, comments, strings, quoted atoms, and character constants will be colored. </li><li>Level 2: The above, attributes, Erlang bif:s, guards, and words in comments enclosed in single quotes will be colored.</li><li>Level 3: The above, variables, records, and macros will be colored. (This level is also known as the Christmas tree level.) </li></ul><h3>Tags</h3><p>For the tag commands to work it requires that you have
+generated a tag file. See <a href="./erlang_mode_chapter#tags">Erlang mode users guide</a></p><ul><li><em>M-. </em> (<strong>find-tag</strong>) - Find a function definition. The default value is the function name under the point.  </li><li>Find Tag (<strong>erlang-find-tag</strong>) - Like the Elisp-function `find-tag'. Capable of retrieving Erlang modules. Tags can be given on the forms `tag', `module:', `module:tag'.</li><li><em>M-+</em> (<strong>erlang-find-next-tag</strong>) - Find the next occurrence of tag.</li><li><em>M-TAB</em> (<strong>erlang-complete-tag</strong>) - Perform completion on the tag entered in a tag search. Completes to the set of names listed in the current tags table.</li><li>Tags aprops (<strong>tags-apropos</strong>) - Display list of all tags in tags table REGEXP matches. </li><li><em>C-x t s</em> (<strong>tags-search</strong>) - Search through all files listed in tags table for match for REGEXP. Stops when a match is found.</li></ul><h3>Skeletons</h3><p>A skeleton is a piece of pre-written code that can be inserted into
+the buffer. Erlang mode comes with a set of predefined skeletons.
+The skeletons can be accessed either from the Erlang menu of
+from commands named <strong>tempo-template-erlang-*</strong>, as the
+skeletons is defined using the standard Emacs package "tempo".
+Here follows a brief description of the available skeletons:</p><ul><li>Simple skeletons: If, Case, Receive, Receive After, Receive Loop - Basic code constructs. </li><li>Header elements: Module, Author - These commands insert lines on the form <strong>-module(</strong>xxx<strong>).  </strong> and <strong>-author('my@home').</strong>. They can be used directly, but are also used as part of the full headers described below.</li><li>Full Headers: Small (minimum requirement), Medium (with fields for basic information about the module), and Large Header (medium header with some extra layout structure).</li><li>Small Server - skeleton for a simple server not using OTP.</li><li>Application - skeletons for the OTP application behavior</li><li>Supervisor - skeleton for the OTP supervisor behavior</li><li>Supervisor Bridge - skeleton for the OTP supervisor bridge behavior </li><li>gen_server - skeleton for the OTP gen_server behavior</li><li>gen_event - skeleton for the OTP gen_event behavior</li><li>gen_fsm - skeleton for the OTP gen_fsm behavior</li><li> gen_statem (StateName/3) - skeleton for the OTP gen_statem behavior using state name functions </li><li> gen_statem (handle_event/4) - skeleton for the OTP gen_statem behavior using one state function </li><li>Library module - skeleton for a module that does not implement a process.</li><li>Corba callback - skeleton for a Corba callback module.</li><li>Erlang test suite - skeleton for a callback module for the erlang test server.</li></ul><h3>Shell</h3><ul><li>New shell (<strong>erlang-shell</strong>) - Starts a new Erlang shell.</li><li><em>C-c C-z,</em> (<strong>erlang-shell-display </strong>) - Displays an Erlang shell, or starts a new one if there is no shell started.</li></ul><h3>Compile</h3><ul><li><em>C-c C-k,</em> (<strong>erlang-compile</strong>) - Compiles the Erlang module in the current buffer. You can also use <em>C-u C-c C-k</em> to debug compile the module with the debug options <strong>debug_info</strong> and <strong>export_all</strong>.</li><li><em>C-c C-l,</em> (<strong>erlang-compile-display</strong>) - Display compilation output.</li><li><em>C-u C-x`</em> Start parsing the compiler output from the beginning. This command will place the point on the line where the first error was found.</li><li><em>C-x`</em> (<strong>erlang-next-error</strong>) - Move the point on to the next error. The buffer displaying the compilation errors will be updated so that the current error will be visible.</li></ul><h3>Man</h3><p>On unix you can view the manual pages in emacs.
+In order to find the manual pages, the variable `erlang-root-dir'
+should be bound to the name of the directory containing the Erlang
+installation.  The name should not include the final slash.
+Practically, you should add a line on the following form to
+your ~/.emacs,</p><pre><code class="">
+      (setq erlang-root-dir "/the/erlang/root/dir/goes/here")</code></pre><h3>Starting IMenu</h3><ul><li><em>M-x imenu-add-to-menubar RET</em> - This command will create the IMenu menu containing all the functions in the current buffer.The command will ask you for a suitable name for the menu. Not supported by Xemacs.</li></ul><h3>Version</h3><ul><li><em>M-x erlang-version RET</em> - This command displays the version number of the Erlang editing mode. Remember to always supply the version number when asking questions about the Erlang mode.</li></ul><h2>fprof</h2><p>A Time Profiling Tool using trace to file for minimal runtime performance impact.</p><p>This module is used to profile a program
+to find out how the execution time is used.
+Trace to file is used to minimize 
+runtime performance impact. 
+The <strong>fprof</strong> module uses tracing to collect profiling data, 
+hence there is no need for special compilation of any module to
+be profiled. When it starts tracing, <strong>fprof</strong> will erase all 
+previous tracing in the node and set the necessary trace flags
+on the profiling target processes as well as local call trace on
+all functions in all loaded modules and all modules to be loaded.
+<strong>fprof</strong> erases all tracing in the node when it stops tracing.
+<strong>fprof</strong> presents both <em>own time</em> i.e how much time a
+function has used for its own execution, and 
+<em>accumulated time</em> i.e including called functions. 
+All presented times are
+collected using trace timestamps. <strong>fprof</strong> tries to collect
+cpu time timestamps, if the host machine OS supports it. 
+Therefore the times may be wallclock times and OS scheduling will 
+randomly strike all called functions in a presumably fair way.
+If, however, the profiling time is short, and the host machine
+OS does not support high resolution cpu time measurements, some
+few OS schedulings may show up as ridiculously long execution
+times for functions doing practically nothing. An example of a
+function more or less just composing a tuple in about 100 times
+the normal execution time has been seen, and when the tracing
+was repeated, the execution time became normal.
+Profiling is essentially done in 3 steps:<dl><dt><strong>1</strong></dt><dd>Tracing; to file, as mentioned in the previous paragraph. The trace contains entries for function calls, returns to function, process scheduling, other process related (spawn, etc) events, and garbage collection. All trace entries are timestamped.</dd><dt><strong>2</strong></dt><dd>Profiling; the trace file is read, the execution call stack is simulated, and raw profile data is calculated from the simulated call stack and the trace timestamps. The profile data is stored in the <strong>fprof</strong> server state. During this step the trace data may be dumped in text format to file or console. </dd><dt><strong>3</strong></dt><dd>Analysing; the raw profile data is sorted, filtered and dumped in text format either to file or console. The text format intended to be both readable for a human reader, as well as parsable with the standard erlang parsing tools.</dd></dl>Since <strong>fprof</strong> uses trace to file, the runtime performance
+degradation is minimized, but still far from negligible,
+especially for programs that use the filesystem heavily by
+themselves. Where you place the trace file is also important,
+e.g on Solaris <strong>/tmp</strong> is usually a good choice since it is
+essentially a RAM disk, while any NFS (network) mounted disk is
+a bad idea.
+<strong>fprof</strong> can also skip the file step and trace to a tracer
+process that does the profiling in runtime.
+<a name="start"></a>
+</p><h2>Functions</h2><h3>start() -&gt; {ok, Pid} | {error, {already_started, Pid}}</h3><p>Starts the <strong>fprof</strong>Â server.</p><ul><li><span class="v">Pid = pid()</span></li></ul><p>Starts the <strong>fprof</strong>Â server. 
+</p><p>Note that it seldom
+needs to be started explicitly since it is automatically
+started by the functions that need a running server.
+<a name="stop"></a>
+</p><h3>stop() -&gt; ok</h3><p>Same as <strong>stop(normal)</strong>.</p><p>Same as <strong>stop(normal)</strong>.</p><h3>stop(Reason) -&gt; ok</h3><p>Stops the <strong>fprof</strong>Â server.</p><ul><li><span class="v">Reason = term()</span></li></ul><p>Stops the <strong>fprof</strong>Â server.
+</p><p>The supplied <strong>Reason</strong> becomes the exit reason for the
+server process. Default Any
+<strong>Reason</strong> other than <strong>kill</strong> sends a request to the
+server and waits for it to clean up, reply and exit. If
+<strong>Reason</strong> is <strong>kill</strong>, the server is bluntly killed.
+</p><p>If the <strong>fprof</strong>Â server is not running, this
+function returns immediately with the same return value.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>When the <strong>fprof</strong>Â server is stopped the
+collected raw profile data is lost.</p></div><a name="apply"></a><h3>apply(Func, Args) -&gt; term()</h3><p>Same as <strong>apply(Func, Args, [])</strong>.</p><ul><li><span class="v">Func = function() | {Module, Function}</span></li><li><span class="v">Args = [term()]</span></li><li><span class="v">Module = atom()</span></li><li><span class="v">Function = atom()</span></li></ul><p>Same as <strong>apply(Func, Args, [])</strong>.</p><h3>apply(Module, Function, Args) -&gt; term()</h3><p>Same as <strong>apply({Module, Function}, Args, [])</strong>.</p><ul><li><span class="v">Args = [term()]</span></li><li><span class="v">Module = atom()</span></li><li><span class="v">Function = atom()</span></li></ul><p>Same as <strong>apply({Module, Function}, Args, [])</strong>.</p><h3>apply(Func, Args, OptionList) -&gt; term()</h3><p>Calls <strong>erlang:apply(Func, Args)</strong>surrounded by<strong>trace([start | OptionList])</strong>and<strong>trace(stop)</strong>.</p><ul><li><span class="v">Func = function() | {Module, Function}</span></li><li><span class="v">Args = [term()]</span></li><li><span class="v">OptionList = [Option]</span></li><li><span class="v">Module = atom()</span></li><li><span class="v">Function = atom()</span></li><li><span class="v">Option = continue | start | {procs, PidList} | TraceStartOption</span></li></ul><p>Calls <strong>erlang:apply(Func, Args)</strong> surrounded by
+<strong>trace([start, ...])</strong> and
+<strong>trace(stop)</strong>.
+</p><p>Some effort is made to keep the trace clean from unnecessary
+trace messages; tracing is started and stopped from a spawned
+process while the <strong>erlang:apply/2</strong> call is made in the
+current process, only surrounded by <strong>receive</strong> and
+<strong>send</strong> statements towards the trace starting
+process. The trace starting process exits when not needed
+any more.
+</p><p>The <strong>TraceStartOption</strong> is any option allowed for 
+<strong>trace/1</strong>. The options 
+<strong>[start, {procs, [self() | PidList]} | OptList]</strong> 
+are given to <strong>trace/1</strong>, where <strong>OptList</strong> is 
+<strong>OptionList</strong> with <strong>continue</strong>, <strong>start</strong> 
+and <strong>{procs, _}</strong> options removed.
+</p><p>The <strong>continue</strong> option inhibits the call to
+<strong>trace(stop)</strong> and leaves it up to the caller to stop
+tracing at a suitable time.</p><h3>apply(Module, Function, Args, OptionList) -&gt; term()</h3><p>Same as <strong>apply({Module, Function}, Args, OptionList)</strong>.</p><ul><li><span class="v">Module = atom()</span></li><li><span class="v">Function = atom()</span></li><li><span class="v">Args = [term()]</span></li></ul><p>Same as 
+<strong>apply({Module, Function}, Args, OptionList)</strong>.
+</p><p><strong>OptionList</strong> is an option list allowed for 
+<strong>apply/3</strong>.
+<a name="trace"></a>
+</p><h3>trace(start, Filename) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3><p>Same as <strong>trace([start, {file, Filename}])</strong>.</p><ul><li><span class="v">Reason = term()</span></li></ul><p>Same as <strong>trace([start, {file, Filename}])</strong>.</p><h3>trace(verbose, Filename) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3><p>Same as <strong>trace([start, verbose, {file, Filename}])</strong>.</p><ul><li><span class="v">Reason = term()</span></li></ul><p>Same as 
+<strong>trace([start, verbose, {file, Filename}])</strong>.</p><h3>trace(OptionName, OptionValue) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3><p>Same as <strong>trace([{OptionName, OptionValue}])</strong>.</p><ul><li><span class="v">OptionName = atom()</span></li><li><span class="v">OptionValue = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Same as 
+<strong>trace([{OptionName, OptionValue}])</strong>.</p><h3>trace(verbose) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3><p>Same as <strong>trace([start, verbose])</strong>.</p><ul><li><span class="v">Reason = term()</span></li></ul><p>Same as <strong>trace([start, verbose])</strong>.</p><h3>trace(OptionName) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3><p>Same as <strong>trace([OptionName])</strong>.</p><ul><li><span class="v">OptionName = atom()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Same as <strong>trace([OptionName])</strong>.</p><h3>trace({OptionName, OptionValue}) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3><p>Same as <strong>trace([{OptionName, OptionValue}])</strong>.</p><ul><li><span class="v">OptionName = atom()</span></li><li><span class="v">OptionValue = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Same as 
+<strong>trace([{OptionName, OptionValue}])</strong>.</p><h3>trace([Option]) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3><p>Starts or stops tracing.</p><ul><li><span class="v">Option = start | stop | {procs, PidSpec} | {procs, [PidSpec]} | verbose | {verbose, bool()} |  file | {file, Filename} | {tracer, Tracer}</span></li><li><span class="v">PidSpec = pid() | atom()</span></li><li><span class="v">Tracer = pid() | port()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Starts or stops tracing.
+</p><p><strong>PidSpec</strong> and <strong>Tracer</strong> are used in calls to
+<strong>erlang:trace(PidSpec, true, [{tracer, Tracer} | Flags])</strong>, and <strong>Filename</strong> is used to call 
+<strong>dbg:trace_port(file, Filename)</strong>. Please see the
+appropriate documentation.</p><p>Option description:</p><dl><dt><strong>stop</strong></dt><dd>Stops a running <strong>fprof</strong> trace and clears all tracing from the node. Either option <strong>stop</strong> or <strong>start</strong> must be specified, but not both.</dd><dt><strong>start</strong></dt><dd>Clears all tracing from the node and starts a new <strong>fprof</strong> trace. Either option <strong>start</strong> or <strong>stop</strong> must be specified, but not both.</dd><dt><strong>verbose</strong>| <strong>{verbose, bool()}</strong></dt><dd>The options <strong>verbose</strong> or <strong>{verbose, true}</strong> adds some trace flags that <strong>fprof</strong> does not need, but that may be interesting for general debugging purposes. This option is only allowed with the <strong>start</strong> option.</dd><dt><strong>cpu_time</strong>| <strong>{cpu_time, bool()}</strong></dt><dd>The options <strong>cpu_time</strong> or <strong>{cpu_time, true}</strong> makes the timestamps in the trace be in CPU time instead of wallclock time which is the default. This option is only allowed with the <strong>start</strong> option. <div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>Getting correct values out of cpu_time can be difficult.
+The best way to get correct values is to run using a single
+scheduler and bind that scheduler to a specific CPU,
+i.e. <strong>erl +S 1 +sbt db</strong>.</p></div> </dd><dt><strong>{procs, PidSpec}</strong>| <strong>{procs, [PidSpec]}</strong></dt><dd>Specifies which processes that shall be traced. If this option is not given, the calling process is traced. All processes spawned by the traced processes are also traced. This option is only allowed with the <strong>start</strong> option.</dd><dt><strong>file</strong>| <strong>{file, Filename}</strong></dt><dd>Specifies the filename of the trace.  If the option <strong>file</strong> is given, or none of these options are given, the file <strong>"fprof.trace"</strong> is used. This option is only allowed with the <strong>start</strong> option, but not with the <strong>{tracer, Tracer}</strong> option.</dd><dt><strong>{tracer, Tracer}</strong></dt><dd>Specifies that trace to process or port shall be done instead of trace to file. This option is only allowed with the <strong>start</strong> option, but not with the <strong>{file, Filename}</strong> option.</dd></dl><a name="profile"></a><h3>profile() -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3><p>Same as <strong>profile([])</strong>.</p><ul><li><span class="v">Reason = term()</span></li></ul><p>Same as <strong>profile([])</strong>.</p><h3>profile(OptionName, OptionValue) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3><p>Same as <strong>profile([{OptionName, OptionValue}])</strong>.</p><ul><li><span class="v">OptionName = atom()</span></li><li><span class="v">OptionValue = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Same as 
+<strong>profile([{OptionName, OptionValue}])</strong>.</p><h3>profile(OptionName) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3><p>Same as <strong>profile([OptionName])</strong>.</p><ul><li><span class="v">OptionName = atom()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Same as <strong>profile([OptionName])</strong>.</p><h3>profile({OptionName, OptionValue}) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3><p>Same as <strong>profile([{OptionName, OptionValue}])</strong>.</p><ul><li><span class="v">OptionName = atom()</span></li><li><span class="v">OptionValue = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Same as 
+<strong>profile([{OptionName, OptionValue}])</strong>.</p><h3>profile([Option]) -&gt; ok | {ok, Tracer} | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3><p>Compiles a trace into raw profile data held by the <strong>fprof</strong>Â server.</p><ul><li><span class="v">Option = file | {file, Filename} | dump | {dump, Dump} |  append | start | stop</span></li><li><span class="v">Dump = pid() | Dumpfile | []</span></li><li><span class="v">Tracer = pid()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Compiles a trace into raw profile data held by the 
+<strong>fprof</strong>Â server.
+</p><p><strong>Dumpfile</strong> is used to call <strong>file:open/2</strong>, 
+and <strong>Filename</strong> is used to call 
+<strong>dbg:trace_port(file, Filename)</strong>. Please see the
+appropriate documentation.</p><p>Option description:</p><dl><dt><strong>file</strong>| <strong>{file, Filename}</strong></dt><dd>Reads the file <strong>Filename</strong> and creates raw profile data that is stored in RAM by the <strong>fprof</strong>Â server. If the option <strong>file</strong> is given, or none of these options are given, the file <strong>"fprof.trace"</strong> is read. The call will return when the whole trace has been read with the return value <strong>ok</strong> if successful. This option is not allowed with the <strong>start</strong> or <strong>stop</strong> options.</dd><dt><strong>dump</strong>| <strong>{dump, Dump}</strong></dt><dd>Specifies the destination for the trace text dump. If this option is not given, no dump is generated, if it is <strong>dump</strong> the destination will be the caller's group leader, otherwise the destination <strong>Dump</strong> is either the pid of an I/O device or a filename. And, finally, if the filename is <strong>[]</strong> - <strong>"fprof.dump"</strong> is used instead. This option is not allowed with the <strong>stop</strong> option.</dd><dt><strong>append</strong></dt><dd>Causes the trace text dump to be appended to the destination file. This option is only allowed with the   <strong>{dump, Dumpfile}</strong> option.</dd><dt><strong>start</strong></dt><dd>Starts a tracer process that profiles trace data in runtime. The call will return immediately with the return value <strong>{ok, Tracer}</strong> if successful. This option is not allowed with the <strong>stop</strong>, <strong>file</strong> or  <strong>{file, Filename}</strong> options.</dd><dt><strong>stop</strong></dt><dd>Stops the tracer process that profiles trace data in runtime. The return value will be value <strong>ok</strong> if successful. This option is not allowed with the <strong>start</strong>, <strong>file</strong> or <strong>{file, Filename}</strong> options.</dd></dl><a name="analyse"></a><h3>analyse() -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3><p>Same as <strong>analyse([])</strong>.</p><ul><li><span class="v">Reason = term()</span></li></ul><p>Same as <strong>analyse([])</strong>.</p><h3>analyse(OptionName, OptionValue) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3><p>Same as <strong>analyse([{OptionName, OptionValue}])</strong>.</p><ul><li><span class="v">OptionName = atom()</span></li><li><span class="v">OptionValue = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Same as 
+<strong>analyse([{OptionName, OptionValue}])</strong>.</p><h3>analyse(OptionName) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3><p>Same as <strong>analyse([OptionName])</strong>.</p><ul><li><span class="v">OptionName = atom()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Same as <strong>analyse([OptionName])</strong>.</p><h3>analyse({OptionName, OptionValue}) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3><p>Same as <strong>analyse([{OptionName, OptionValue}])</strong>.</p><ul><li><span class="v">OptionName = atom()</span></li><li><span class="v">OptionValue = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Same as 
+<strong>analyse([{OptionName, OptionValue}])</strong>.</p><h3>analyse([Option]) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3><p>Analyses raw profile data in the <strong>fprof</strong>Â server.</p><ul><li><span class="v">Option = dest | {dest, Dest} | append | {cols, Cols} |  callers | {callers, bool()} | no_callers | {sort, SortSpec} | totals | {totals, bool()} |  details | {details, bool()} | no_details</span></li><li><span class="v">Dest = pid() | Destfile</span></li><li><span class="v">Cols = integer() &gt;= 80</span></li><li><span class="v">SortSpec = acc | own</span></li><li><span class="v">Reason = term()</span></li></ul><p>Analyses raw profile data in the
+<strong>fprof</strong>Â server. If called while there is no raw
+profile data available, <strong>{error, no_profile}</strong> is
+returned. 
+</p><p><strong>Destfile</strong> is used to call <strong>file:open/2</strong>. 
+Please see the appropriate documentation.</p><p>Option description:</p><dl><dt><strong>dest</strong>| <strong>{dest, Dest}</strong></dt><dd>Specifies the destination for the analysis. If this option is not given or it is <strong>dest</strong>,  the destination will be the caller's group leader,  otherwise the destination <strong>Dest</strong> is either  the <strong>pid()</strong> of an I/O device or a filename.  And, finally, if the filename is <strong>[]</strong> - <strong>"fprof.analysis"</strong> is used instead.</dd><dt><strong>append</strong></dt><dd>Causes the analysis to be appended to the destination file. This option is only allowed with the   <strong>{dest, Destfile}</strong> option.</dd><dt><strong>{cols, Cols}</strong></dt><dd>Specifies the number of columns in the analysis text. If this option is not given the number of columns is set to 80.</dd><dt><strong>callers</strong>| <strong>{callers, true}</strong></dt><dd>Prints callers and called information in the analysis. This is the default.</dd><dt><strong>{callers, false}</strong>| <strong>no_callers</strong></dt><dd>Suppresses the printing of callers and called information in the analysis.</dd><dt><strong>{sort, SortSpec}</strong></dt><dd>Specifies if the analysis should be sorted according to the ACC column, which is the default, or the OWN column. See  <a href="#analysis">Analysis Format</a> below.</dd><dt><strong>totals</strong>| <strong>{totals, true}</strong></dt><dd>Includes a section containing call statistics for all calls regardless of process, in the analysis.</dd><dt><strong>{totals, false}</strong></dt><dd>Supresses the totals section in the analysis, which is the default.</dd><dt><strong>details</strong>| <strong>{details, true}</strong></dt><dd>Prints call statistics for each process in the analysis. This is the default.</dd><dt><strong>{details, false}</strong>| <strong>no_details</strong></dt><dd>Suppresses the call statistics for each process from the analysis.</dd></dl><a name="analysis"></a><h3>Analysis format</h3><p>This section describes the output format of the analyse
+command. See <a href="#analyse">analyse/0</a>.
+</p><p>The format is parsable with the standard Erlang parsing tools
+<strong>erl_scan</strong> and <strong>erl_parse</strong>, <strong>file:consult/1</strong> or
+<strong>io:read/2</strong>. The parse format is not explained here - it
+should be easy for the interested to try it out. Note that some
+flags to <strong>analyse/1</strong> will affect the format. 
+</p><p>The following example was run on OTP/R8 on Solaris 8, all OTP
+internals in this example are very version dependent.
+</p><p>As an example, we will use the following function, that you may
+recognise as a slightly modified benchmark function from the
+manpage file(3):</p><pre><code class="">
+-module(foo).
+-export([create_file_slow/2]).
+
+create_file_slow(Name, N) when integer(N), N &gt;= 0 -&gt;
+    {ok, FD} = 
+        file:open(Name, [raw, write, delayed_write, binary]),
+    if N &gt; 256 -&gt;
+            ok = file:write(FD, 
+                            lists:map(fun (X) -&gt; &lt;&lt;X:32/unsigned&gt;&gt; end,
+                            lists:seq(0, 255))),
+            ok = create_file_slow(FD, 256, N);
+       true -&gt;
+            ok = create_file_slow(FD, 0, N)
+    end,
+    ok = file:close(FD).
+
+create_file_slow(FD, M, M) -&gt;
+    ok;
+create_file_slow(FD, M, N) -&gt;
+    ok = file:write(FD, &lt;&lt;M:32/unsigned&gt;&gt;),
+    create_file_slow(FD, M+1, N).</code></pre><p>Let us have a look at the printout after running:</p><pre>
+1&gt; <span class="input">fprof:apply(foo, create_file_slow, [junk, 1024]).</span>
+2&gt; <span class="input">fprof:profile().</span>
+3&gt; <span class="input">fprof:analyse().</span></pre><p>The printout starts with:</p><pre>
+%% Analysis results:
+{  analysis_options,
+ [{callers, true},
+  {sort, acc},
+  {totals, false},
+  {details, true}]}.
+
+%                                       CNT       ACC       OWN        
+[{ totals,                             9627, 1691.119, 1659.074}].  %%%</pre><p>The CNT column shows the total number of function calls that
+was found in the trace. In the ACC column is the total time of
+the trace from first timestamp to last. And in the OWN
+column is the sum of the execution time in functions found in the
+trace, not including called functions. In this case it is very
+close to the ACC time since the emulator had practically nothing
+else to do than to execute our test program.
+</p><p>All time values in the printout are in milliseconds.
+</p><p>The printout continues:</p><pre>
+%                                       CNT       ACC       OWN        
+[{ "&lt;0.28.0&gt;",                         9627,undefined, 1659.074}].   %%</pre><p>This is the printout header of one process. The printout
+contains only this one process since we did <strong>fprof:apply/3</strong>
+which traces only the current process. Therefore the CNT and
+OWN columns perfectly matches the totals above. The ACC column is
+undefined since summing the ACC times of all calls in the process
+makes no sense - you would get something like the ACC value from
+totals above multiplied by the average depth of the call stack,
+or something.
+</p><p>All paragraphs up to the next process header only concerns
+function calls within this process.
+</p><p>Now we come to something more interesting:</p><pre>
+{[{undefined,                             0, 1691.076,    0.030}],     
+ { {fprof,apply_start_stop,4},            0, 1691.076,    0.030},     %
+ [{{foo,create_file_slow,2},              1, 1691.046,    0.103},      
+  {suspend,                               1,    0.000,    0.000}]}.    
+
+{[{{fprof,apply_start_stop,4},            1, 1691.046,    0.103}],     
+ { {foo,create_file_slow,2},              1, 1691.046,    0.103},     %
+ [{{file,close,1},                        1, 1398.873,    0.019},      
+  {{foo,create_file_slow,3},              1,  249.678,    0.029},      
+  {{file,open,2},                         1,   20.778,    0.055},      
+  {{lists,map,2},                         1,   16.590,    0.043},      
+  {{lists,seq,2},                         1,    4.708,    0.017},      
+  {{file,write,2},                        1,    0.316,    0.021}]}.    </pre><p>The printout consists of one paragraph per called function. The
+function <em>marked</em> with '%' is the one the paragraph
+concerns - <strong>foo:create_file_slow/2</strong>. Above the marked
+function are the <em>calling</em> functions -  those that has
+called the marked, and below are those <em>called</em> by the
+marked function. 
+</p><p>The paragraphs are per default sorted in decreasing order of
+the ACC column for the marked function. The calling list and
+called list within one paragraph are also per default sorted in
+decreasing order of their ACC column.
+</p><p>The columns are: CNT - the number of times the function
+has been called, ACC - the time spent in the
+function including called functions, and OWN - the
+time spent in the function not including called
+functions. 
+</p><p>The rows for the <em>calling</em> functions contain statistics
+for the <em>marked</em> function with the constraint that only
+the occasions when a call was made from the <em>row's</em>
+function to the <em>marked</em> function are accounted for.
+</p><p>The row for the <em>marked</em> function simply contains the
+sum of all <em>calling</em> rows.  
+</p><p>The rows for the <em>called</em> functions contains statistics
+for the <em>row's</em> function with the constraint that only the
+occasions when a call was made from the <em>marked</em> to the
+<em>row's</em> function are accounted for.
+</p><p>So, we see that <strong>foo:create_file_slow/2</strong> used very little
+time for its own execution. It spent most of its time in
+<strong>file:close/1</strong>. The function <strong>foo:create_file_slow/3</strong>
+that writes 3/4 of the file contents is the second biggest time
+thief. 
+</p><p>We also see that the call to <strong>file:write/2</strong> that writes
+1/4 of the file contents takes very little time in itself. What
+takes time is to build the data (<strong>lists:seq/2</strong> and
+<strong>lists:map/2</strong>).
+</p><p>The function 'undefined' that has called
+<strong>fprof:apply_start_stop/4</strong> is an unknown function because that
+call was not recorded in the trace. It was only recorded
+that the execution returned from
+<strong>fprof:apply_start_stop/4</strong> to some other function above in
+the call stack, or that the process exited from there.
+</p><p>Let us continue down the printout to find:</p><pre>
+{[{{foo,create_file_slow,2},              1,  249.678,    0.029},      
+  {{foo,create_file_slow,3},            768,    0.000,   23.294}],     
+ { {foo,create_file_slow,3},            769,  249.678,   23.323},     %
+ [{{file,write,2},                      768,  220.314,   14.539},      
+  {suspend,                              57,    6.041,    0.000},      
+  {{foo,create_file_slow,3},            768,    0.000,   23.294}]}.    </pre><p>If you compare with the code you will see there also that
+<strong>foo:create_file_slow/3</strong> was called only from
+<strong>foo:create_file_slow/2</strong> and itself, and called only
+<strong>file:write/2</strong>, note the number of calls to
+<strong>file:write/2</strong>. But here we see that <strong>suspend</strong> was
+called a few times. This is a pseudo function that indicates
+that the process was suspended while executing in
+<strong>foo:create_file_slow/3</strong>, and since there is no
+<strong>receive</strong> or <strong>erlang:yield/0</strong> in the code, it must be
+Erlang scheduling suspensions, or the trace file driver
+compensating for large file write operations (these are regarded
+as a schedule out followed by a schedule in to the same process).
+</p><p>Let us find the <strong>suspend</strong> entry:</p><pre>
+{[{{file,write,2},                       53,    6.281,    0.000},      
+  {{foo,create_file_slow,3},             57,    6.041,    0.000},      
+  {{prim_file,drv_command,4},            50,    4.582,    0.000},      
+  {{prim_file,drv_get_response,1},       34,    2.986,    0.000},      
+  {{lists,map,2},                        10,    2.104,    0.000},      
+  {{prim_file,write,2},                  17,    1.852,    0.000},      
+  {{erlang,port_command,2},              15,    1.713,    0.000},      
+  {{prim_file,drv_command,2},            22,    1.482,    0.000},      
+  {{prim_file,translate_response,2},     11,    1.441,    0.000},      
+  {{prim_file,'-drv_command/2-fun-0-',1},  15,    1.340,    0.000},      
+  {{lists,seq,4},                         3,    0.880,    0.000},      
+  {{foo,'-create_file_slow/2-fun-0-',1},   5,    0.523,    0.000},      
+  {{erlang,bump_reductions,1},            4,    0.503,    0.000},      
+  {{prim_file,open_int_setopts,3},        1,    0.165,    0.000},      
+  {{prim_file,i32,4},                     1,    0.109,    0.000},      
+  {{fprof,apply_start_stop,4},            1,    0.000,    0.000}],     
+ { suspend,                             299,   32.002,    0.000},     %
+ [ ]}.</pre><p>We find no particulary long suspend times, so no function seems
+to have waited in a receive statement. Actually,
+<strong>prim_file:drv_command/4</strong> contains a receive statement, but
+in this test program, the message lies in the process receive
+buffer when the receive statement is entered. We also see that
+the total suspend time for the test run is small.
+</p><p>The <strong>suspend</strong> pseudo function has got an OWN time of
+zero. This is to prevent the process total OWN time from
+including time in suspension. Whether suspend time is really ACC
+or OWN time is more of a philosophical question.
+</p><p>Now we look at another interesting pseudo function,
+<strong>garbage_collect</strong>:</p><pre>
+{[{{prim_file,drv_command,4},            25,    0.873,    0.873},      
+  {{prim_file,write,2},                  16,    0.692,    0.692},      
+  {{lists,map,2},                         2,    0.195,    0.195}],     
+ { garbage_collect,                      43,    1.760,    1.760},     %
+ [ ]}.</pre><p>Here we see that no function distinguishes itself considerably,
+which is very normal.
+</p><p>The <strong>garbage_collect</strong> pseudo function has not got an OWN
+time of zero like <strong>suspend</strong>, instead it is equal to the ACC
+time. 
+</p><p>Garbage collect often occurs while a process is suspended, but
+<strong>fprof</strong> hides this fact by pretending that the suspended
+function was first unsuspended and then garbage
+collected. Otherwise the printout would show
+<strong>garbage_collect</strong> being called from <strong>suspend</strong> but not
+which function that might have caused the garbage
+collection. 
+</p><p>Let us now get back to the test code:</p><pre>
+{[{{foo,create_file_slow,3},            768,  220.314,   14.539},      
+  {{foo,create_file_slow,2},              1,    0.316,    0.021}],     
+ { {file,write,2},                      769,  220.630,   14.560},     %
+ [{{prim_file,write,2},                 769,  199.789,   22.573},      
+  {suspend,                              53,    6.281,    0.000}]}.    </pre><p>Not unexpectedly, we see that <strong>file:write/2</strong> was called
+from <strong>foo:create_file_slow/3</strong> and
+<strong>foo:create_file_slow/2</strong>. The number of calls in each case as
+well as the used time are also just confirms the previous results.
+</p><p>We see that <strong>file:write/2</strong> only calls
+<strong>prim_file:write/2</strong>, but let us refrain from digging into the
+internals of the kernel application.
+</p><p>But, if we nevertheless <em>do</em> dig down we find
+the call to the linked in driver that does the file operations
+towards the host operating system:</p><pre>
+{[{{prim_file,drv_command,4},           772, 1458.356, 1456.643}],     
+ { {erlang,port_command,2},             772, 1458.356, 1456.643},     %
+ [{suspend,                              15,    1.713,    0.000}]}.    </pre><p>This is 86 % of the total run time, and as we saw before it
+is the close operation the absolutely biggest contributor. We
+find a comparison ratio a little bit up in the call stack:</p><pre>
+{[{{prim_file,close,1},                   1, 1398.748,    0.024},      
+  {{prim_file,write,2},                 769,  174.672,   12.810},      
+  {{prim_file,open_int,4},                1,   19.755,    0.017},      
+  {{prim_file,open_int_setopts,3},        1,    0.147,    0.016}],     
+ { {prim_file,drv_command,2},           772, 1593.322,   12.867},     %
+ [{{prim_file,drv_command,4},           772, 1578.973,   27.265},      
+  {suspend,                              22,    1.482,    0.000}]}.    </pre><p>The time for file operations in the linked in driver
+distributes itself as 1 % for open, 11 % for write and 87 % for
+close. All data is probably buffered in the operating system
+until the close.
+</p><p>The unsleeping reader may notice that the ACC times for 
+<strong>prim_file:drv_command/2</strong> and
+<strong>prim_file:drv_command/4</strong> is not equal between the
+paragraphs above, even though it is easy to believe that
+<strong>prim_file:drv_command/2</strong> is just a passthrough function.
+</p><p>The missing time can be found in the paragraph
+for <strong>prim_file:drv_command/4</strong> where it is evident that not
+only <strong>prim_file:drv_command/2</strong> is called but also a fun:
+</p><pre>
+{[{{prim_file,drv_command,2},           772, 1578.973,   27.265}],     
+ { {prim_file,drv_command,4},           772, 1578.973,   27.265},     %
+ [{{erlang,port_command,2},             772, 1458.356, 1456.643},      
+  {{prim_file,'-drv_command/2-fun-0-',1}, 772,   87.897,   12.736},      
+  {suspend,                              50,    4.582,    0.000},      
+  {garbage_collect,                      25,    0.873,    0.873}]}.    </pre><p>And some more missing time can be explained by the fact that
+<strong>prim_file:open_int/4</strong> both calls
+<strong>prim_file:drv_command/2</strong> directly as well as through
+<strong>prim_file:open_int_setopts/3</strong>, which complicates the
+picture. 
+</p><pre>
+{[{{prim_file,open,2},                    1,   20.309,    0.029},      
+  {{prim_file,open_int,4},                1,    0.000,    0.057}],     
+ { {prim_file,open_int,4},                2,   20.309,    0.086},     %
+ [{{prim_file,drv_command,2},             1,   19.755,    0.017},      
+  {{prim_file,open_int_setopts,3},        1,    0.360,    0.032},      
+  {{prim_file,drv_open,2},                1,    0.071,    0.030},      
+  {{erlang,list_to_binary,1},             1,    0.020,    0.020},      
+  {{prim_file,i32,1},                     1,    0.017,    0.017},      
+  {{prim_file,open_int,4},                1,    0.000,    0.057}]}.    
+.
+.
+.
+{[{{prim_file,open_int,4},                1,    0.360,    0.032},      
+  {{prim_file,open_int_setopts,3},        1,    0.000,    0.016}],     
+ { {prim_file,open_int_setopts,3},        2,    0.360,    0.048},     %
+ [{suspend,                               1,    0.165,    0.000},      
+  {{prim_file,drv_command,2},             1,    0.147,    0.016},      
+  {{prim_file,open_int_setopts,3},        1,    0.000,    0.016}]}.    </pre><h3>Notes</h3><p>The actual supervision of execution times is in itself a
+CPU intensive activity. A message is written on the trace file
+for every function call that is made by the profiled code.
+</p><p>The ACC time calculation is sometimes difficult to make
+correct, since it is difficult to define. This happens
+especially when a function occurs in several instances in the
+call stack, for example by calling itself perhaps through other
+functions and perhaps even non-tail recursively.
+</p><p>To produce sensible results, <strong>fprof</strong> tries not to charge
+any function more than once for ACC time. The instance highest
+up (with longest duration) in the call stack is chosen.
+</p><p>Sometimes a function may unexpectedly waste a lot (some 10 ms
+or more depending on host machine OS) of OWN (and ACC) time, even
+functions that does practically nothing at all. The problem may
+be that the OS has chosen to schedule out the
+Erlang runtime system process for a while, and if the OS does
+not support high resolution cpu time measurements
+<strong>fprof</strong> will use wallclock time for its calculations, and
+it will appear as functions randomly burn virtual machine time.</p><h3>See Also</h3><p>dbg(3), <a href="eprof">eprof</a>(3), erlang(3), 
+io(3), 
+<a href="fprof_chapter">Tools User's Guide</a></p><h2>instrument</h2><p>Analysis and Utility Functions for Instrumentation</p><p>The module <strong>instrument</strong> contains support for studying the resource
+usage in an Erlang runtime system. Currently, only the allocation of memory can
+be studied.</p><h2>Data Types</h2><span class="name">block_histogram</span><p>A histogram of block sizes where each interval's upper bound is 
+twice as high as the one before it.</p><p>The upper bound of the first interval is provided by the function
+that returned the histogram, and the last interval has no upper
+bound.</p><span class="name">allocation_summary</span><p>A summary of allocated block sizes (including their headers) grouped
+by their <strong><span class="anno">Origin</span></strong> and <strong><span class="anno">Type</span></strong>.</p><p><strong><span class="anno">Origin</span></strong> is generally which NIF or driver that
+allocated the blocks, or 'system' if it could not be determined.</p><p><strong><span class="anno">Type</span></strong> is the allocation category that the blocks
+belong to, e.g. <strong>db_term</strong>, <strong>message</strong> or <strong>binary</strong>.</p><p>If one or more carriers could not be scanned in full without harming
+the responsiveness of the system, <strong><span class="anno">UnscannedSize</span></strong>
+is the number of bytes that had to be skipped.</p><span class="name">carrier_info_list</span><p><strong><span class="anno">AllocatorType</span></strong> is the type of the allocator that
+employs this carrier.</p><p><strong><span class="anno">TotalSize</span></strong> is the total size of the carrier,
+including its header.</p><p><strong><span class="anno">AllocatedSize</span></strong> is the combined size of the
+carrier's allocated blocks, including their headers.</p><p><strong><span class="anno">AllocatedCount</span></strong> is the number of allocated
+blocks in the carrier.</p><p><strong><span class="anno">InPool</span></strong> is whether the carrier is in the
+migration pool.</p><p><strong><span class="anno">FreeBlocks</span></strong> is a histogram of the free block
+sizes in the carrier.</p><p>If the carrier could not be scanned in full without harming the
+responsiveness of the system, <strong><span class="anno">UnscannedSize</span></strong> is
+the number of bytes that had to be skipped.</p><h2>Functions</h2><h3>allocations/0</h3><p>Return a summary of all allocations in the system.</p><p>Shorthand for
+<a href="#allocations/1">.</a></p><h3>allocations/1</h3><p>Return a summary of all allocations filtered by allocator type and scheduler id.</p><p>Returns a summary of all tagged allocations in the system,
+optionally filtered by allocator type and scheduler id.</p><p>Only binaries and allocations made by NIFs and drivers are tagged by
+default, but this can be configured an a per-allocator basis with the
+<a href="../erts/erts_alloc#M_atags">erts/erts_alloc#M_atags</a> emulator option.</p><p>If the specified allocator types are not enabled, the call will fail
+with <strong>{error, not_enabled}</strong>.</p><p>The following options can be used:</p><dl><dt><strong>allocator_types</strong></dt><dd> <p>The allocator types that will be searched. Note that blocks can
+move freely between allocator types, so restricting the search to
+certain allocators may return unexpected types (e.g. process
+heaps when searching binary_alloc), or hide blocks that were
+migrated out.</p> <p>Defaults to all <strong>alloc_util</strong> allocators.</p> </dd><dt><strong>scheduler_ids</strong></dt><dd> <p>The scheduler ids whose allocator instances will be searched. A
+scheduler id of 0 will refer to the global instance that is not
+tied to any particular scheduler. Defaults to all schedulers and
+the global instance.</p> </dd><dt><strong>histogram_start</strong></dt><dd> <p>The upper bound of the first interval in the allocated block
+size histograms. Defaults to 128.</p> </dd><dt><strong>histogram_width</strong></dt><dd> <p>The number of intervals in the allocated block size histograms.
+Defaults to 18.</p> </dd></dl><p><em>Example:</em></p><pre><code class="">
+&gt; instrument:allocations(#{ histogram_start =&gt; 128, histogram_width =&gt; 15 }).
+{ok,{128,0,
+     #{udp_inet =&gt;
+           #{driver_event_state =&gt; {0,0,0,0,0,0,0,0,0,1,0,0,0,0,0}},
+       system =&gt;
+           #{heap =&gt; {0,0,0,0,20,4,2,2,2,3,0,1,0,0,1},
+             db_term =&gt; {271,3,1,52,80,1,0,0,0,0,0,0,0,0,0},
+             code =&gt; {0,0,0,5,3,6,11,22,19,20,10,2,1,0,0},
+             binary =&gt; {18,0,0,0,7,0,0,1,0,0,0,0,0,0,0},
+             message =&gt; {0,40,78,2,2,0,0,0,0,0,0,0,0,0,0},
+             ... }
+       spawn_forker =&gt;
+           #{driver_select_data_state =&gt;
+                 {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0}},
+       ram_file_drv =&gt; #{drv_binary =&gt; {0,0,0,0,0,0,1,0,0,0,0,0,0,0,0}},
+       prim_file =&gt;
+           #{process_specific_data =&gt; {2,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             nif_trap_export_entry =&gt; {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             monitor_extended =&gt; {0,1,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             drv_binary =&gt; {0,0,0,0,0,0,1,0,3,5,0,0,0,1,0},
+             binary =&gt; {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0}},
+       prim_buffer =&gt;
+           #{nif_internal =&gt; {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             binary =&gt; {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0}}}}}
+     </code></pre><h3>carriers/0</h3><p>Return a list of all carriers in the system.</p><p>Shorthand for
+<a href="#carriers/1">.</a></p><h3>carriers/1</h3><p>Return a list of all carriers filtered by allocator type and scheduler id.</p><p>Returns a summary of all carriers in the system, optionally filtered
+by allocator type and scheduler id.</p><p>If the specified allocator types are not enabled, the call will fail
+with <strong>{error, not_enabled}</strong>.</p><p>The following options can be used:</p><dl><dt><strong>allocator_types</strong></dt><dd> <p>The allocator types that will be searched. Defaults to all
+<strong>alloc_util</strong> allocators.</p> </dd><dt><strong>scheduler_ids</strong></dt><dd> <p>The scheduler ids whose allocator instances will be searched. A
+scheduler id of 0 will refer to the global instance that is not
+tied to any particular scheduler. Defaults to all schedulers and
+the global instance.</p> </dd><dt><strong>histogram_start</strong></dt><dd> <p>The upper bound of the first interval in the free block size
+histograms. Defaults to 512.</p> </dd><dt><strong>histogram_width</strong></dt><dd> <p>The number of intervals in the free block size histograms.
+Defaults to 14.</p> </dd></dl><p><em>Example:</em></p><pre><code class="">
+&gt; instrument:carriers(#{ histogram_start =&gt; 512, histogram_width =&gt; 8 }).
+{ok,{512,
+     [{ll_alloc,1048576,0,1048344,71,false,{0,0,0,0,0,0,0,0}},
+      {binary_alloc,1048576,0,324640,13,false,{3,0,0,1,0,0,0,2}},
+      {eheap_alloc,2097152,0,1037200,45,false,{2,1,1,3,4,3,2,2}},
+      {fix_alloc,32768,0,29544,82,false,{22,0,0,0,0,0,0,0}},
+      {...}|...]}}
+     </code></pre><h3>See Also</h3><p><a href="./erts_alloc">erts_alloc(3)</a>,
+<a href="./erl">erl(1)</a></p><h2>lcnt</h2><p>A runtime system Lock Profiling tool.</p><p>The <strong>lcnt</strong> module is used to profile the internal ethread locks in the
+Erlang Runtime System. With <strong>lcnt</strong> enabled, internal counters in the
+runtime system are updated each time a lock is taken. The counters stores
+information about the number of acquisition tries and the number of collisions
+that has occurred during the acquisition tries. The counters also record the
+waiting time a lock has caused for a blocked thread when a collision has occurred.
+
+The data produced by the lock counters will give an estimate on how well
+the runtime system will behave from a parallelizable view point for the
+scenarios tested. This tool was mainly developed to help Erlang runtime
+developers iron out potential and generic bottlenecks.
+Locks in the emulator are named after what type of resource they protect and where
+in the emulator they are initialized, those are lock 'classes'. Most of those
+locks are also instantiated several times, and given unique identifiers, to increase
+locking granularity. Typically an instantiated lock protects a disjunct set of
+the resource, for example ets tables, processes or ports. In other cases it protects a
+specific range of a resource, for example <strong>pix_lock</strong> which protects index to process
+mappings, and is given a unique number within the class. A unique lock in <strong>lcnt</strong>
+is referenced by a name (class) and an identifier: <strong>{Name, Id}</strong>.
+Some locks in the system are static and protects global resources, for example
+<strong>bif_timers</strong> and the <strong>run_queue</strong> locks. Other locks are dynamic and not
+necessarily long lived, for example process locks and ets-table locks. The
+statistics data from short lived locks can be stored separately when the locks
+are deleted. This behavior is by default turned off to save memory but can be
+turned on via <strong>lcnt:rt_opt({copy_save, true})</strong>. The <strong>lcnt:apply/1,2,3</strong>
+functions enables this behavior during profiling.
+</p><h2>Functions</h2><h3>start() -&gt; {ok, Pid} | {error, {already_started, Pid}}</h3><p>Starts the lock profiler server.</p><ul><li><span class="v">Pid = pid()</span></li></ul><p>Starts the lock profiler server. The server only act as a medium for the
+user and performs filtering and printing of data collected by <strong>lcnt:collect/1</strong>.
+</p><h3>stop() -&gt; ok</h3><p>Stops the lock profiler server.</p><p>Stops the lock profiler server.</p><h3>collect() -&gt; ok</h3><p>Same as <strong>collect(node())</strong>.</p><p>Same as <strong>collect(node())</strong>.</p><h3>collect(Node) -&gt; ok</h3><p>Collects lock statistics from the runtime system.</p><ul><li><span class="v">Node = node()</span></li></ul><p>Collects lock statistics from the runtime system. The function starts a
+server if it is not already started. It then populates the server with lock
+statistics. If the server held any lock statistics data before the collect then
+that data is lost.
+</p><h3>clear() -&gt; ok</h3><p>Same as <strong>clear(node())</strong>.</p><p>Same as <strong>clear(node())</strong>.</p><h3>clear(Node) -&gt; ok</h3><p>Clears the internal lock statistics from runtime system.</p><ul><li><span class="v">Node = node()</span></li></ul><p>Clears the internal lock statistics from the runtime system. This does not clear the
+data on the server only on runtime system. All counters for static locks are zeroed,
+all dynamic locks currently alive are zeroed and all saved locks now destroyed are removed.
+It also resets the duration timer.
+</p><h3>conflicts() -&gt; ok</h3><p>Same as <strong>conflicts([])</strong>.</p><p>Same as <strong>conflicts([])</strong>.</p><h3>conflicts([Option]) -&gt; ok</h3><p>Prints a list of internal lock counters.</p><ul><li><span class="v">Option     = {sort, Sort} | {reverse, bool()} | {thresholds, [Thresholds]} | {print, [Print | {Print, integer()}]} | {max_locks, MaxLocks} | {combine, bool()}</span></li><li><span class="v">Sort       = name | id | type | tries | colls | ratio | time | entry</span></li><li><span class="v">Thresholds = {tries, integer()} | {colls, integer()} | {time, integer()}</span></li><li><span class="v">Print      = name | id | type | entry | tries | colls | ratio | time | duration</span></li><li><span class="v">MaxLocks   = integer() | none</span></li></ul><p>Prints a list of internal locks and its statistics.</p><p>For option description, see <a href="#inspect/2">lcnt:inspect/2</a>.</p><h3>locations() -&gt; ok</h3><p>Same as <strong>locations([])</strong>.</p><p>Same as <strong>locations([])</strong>.</p><h3>locations([Option]) -&gt; ok</h3><p>Prints a list of internal lock counters by source code locations.</p><ul><li><span class="v">Option     = {sort, Sort} | {thresholds, [Thresholds]} | {print, [Print | {Print, integer()}]} | {max_locks, MaxLocks} | {combine, bool()}</span></li><li><span class="v">Sort       = name | id | type | tries | colls | ratio | time | entry</span></li><li><span class="v">Thresholds = {tries, integer()} | {colls, integer()} | {time, integer()}</span></li><li><span class="v">Print      = name | id | type | entry | tries | colls | ratio | time | duration</span></li><li><span class="v">MaxLocks   = integer() | none</span></li></ul><p>Prints a list of internal lock counters by source code locations.</p><p>For option description, see <a href="#inspect/2">lcnt:inspect/2</a>.</p><h3>inspect(Lock) -&gt; ok</h3><p>Same as <strong>inspect(Lock, [])</strong>.</p><p>Same as <strong>inspect(Lock, [])</strong>.</p><h3>inspect(Lock, [Option]) -&gt; ok</h3><p>Prints a list of internal lock counters for a specific lock.</p><ul><li><span class="v">Lock       = Name | {Name, Id | [Id]}</span></li><li><span class="v">Name       = atom() | pid() | port()</span></li><li><span class="v">Id         = atom() | integer() | pid() | port()</span></li><li><span class="v">Option     = {sort, Sort} | {thresholds, [Thresholds]} | {print, [Print | {Print, integer()}]} | {max_locks, MaxLocks} | {combine, bool()} | {locations, bool()}</span></li><li><span class="v">Sort       = name | id | type | tries | colls | ratio | time</span></li><li><span class="v">Thresholds = {tries, integer()} | {colls, integer()} | {time, integer()}</span></li><li><span class="v">Print      = name | id | type | entry | tries | colls | ratio | time | duration</span></li><li><span class="v">MaxLocks   = integer() | none</span></li></ul><p>Prints a list of internal lock counters for a specific lock.</p><p>Lock <strong>Name</strong> and <strong>Id</strong> for ports and processes are interchangeable with the use of <strong>lcnt:swap_pid_keys/0</strong> and is the reason why <strong>pid()</strong> and <strong>port()</strong> options can be used in both <strong>Name</strong> and <strong>Id</strong> space. Both pids and ports are special identifiers with stripped creation and can be recreated with <a href="#pid/3">lcnt:pid/2,3</a> and <a href="#port/2">lcnt:port/1,2</a>.  </p><p>Option description:</p><dl><dt><strong>{combine, bool()}</strong></dt><dd>Combine the statistics from different instances of a lock class. <br/>Default: <strong>true</strong> </dd><dt><strong>{locations, bool()}</strong></dt><dd>Print the statistics by source file and line numbers. <br/>Default: <strong>false</strong> </dd><dt><strong>{max_locks, MaxLocks}</strong></dt><dd>Maximum number of locks printed or no limit with <strong>none</strong>. <br/>Default: <strong>20</strong> </dd><dt><strong>{print, PrintOptions}</strong></dt><dd>Printing options: <dl><dt><strong>name</strong></dt><dd>Named lock or named set of locks (classes). The same name used for initializing the lock in the VM.</dd><dt><strong>id</strong></dt><dd>Internal id for set of locks, not always unique. This could be table name for ets tables (db_tab), port id for ports, integer identifiers for allocators, etc.</dd><dt><strong>type</strong></dt><dd>Type of lock: <strong>rw_mutex</strong>, <strong>mutex</strong>, <strong>spinlock</strong>, <strong>rw_spinlock</strong> or <strong>proclock</strong>.</dd><dt><strong>entry</strong></dt><dd>In combination with <strong>{locations, true}</strong> this option prints the lock operations source file and line number entry-points along with statistics for each entry. </dd><dt><strong>tries</strong></dt><dd>Number of acquisitions of this lock.</dd><dt><strong>colls</strong></dt><dd>Number of collisions when a thread tried to acquire this lock. This is when a trylock is EBUSY, a write try on read held rw_lock, a try read on write held rw_lock, a thread tries to lock an already locked lock. (Internal states supervises this).</dd><dt><strong>ratio</strong></dt><dd>The ratio between the number of collisions and the number of tries (acquisitions) in percentage.</dd><dt><strong>time</strong></dt><dd>Accumulated waiting time for this lock. This could be greater than actual wall clock time, it is accumulated for all threads. Trylock conflicts does not accumulate time.</dd><dt><strong>duration</strong></dt><dd>Percentage of accumulated waiting time of wall clock time. This percentage can be higher than 100% since accumulated time is from all threads.</dd></dl> <br/>Default: <strong>[name,id,tries,colls,ratio,time,duration]</strong> </dd><dt><strong>{reverse, bool()}</strong></dt><dd>Reverses the order of sorting. <br/>Default: <strong>false</strong> </dd><dt><strong>{sort, Sort}</strong></dt><dd>Column sorting orders. <br/>Default: <strong>time</strong> </dd><dt><strong>{thresholds, Thresholds}</strong></dt><dd>Filtering thresholds. Anything values above the threshold value are passed through. <br/>Default: <strong>[{tries, 0}, {colls, 0}, {time, 0}]</strong> </dd></dl><h3>information() -&gt; ok</h3><p>Prints lcnt server state and generic information about collected lock statistics.</p><p>Prints lcnt server state and generic information about collected lock statistics.</p><h3>swap_pid_keys() -&gt; ok</h3><p>Swaps places on <strong>Name</strong> and <strong>Id</strong> space for ports and processes.</p><p>Swaps places on <strong>Name</strong> and <strong>Id</strong> space for ports and processes.</p><h3>load(Filename) -&gt; ok</h3><p>Restores previously saved data to the server.</p><ul><li><span class="v">Filename = filename()</span></li></ul><p>Restores previously saved data to the server.</p><h3>save(Filename) -&gt; ok</h3><p>Saves the collected data to file.</p><ul><li><span class="v">Filename = filename()</span></li></ul><p>Saves the collected data to file.</p><h3>Convenience functions</h3><p>The following functions are used for convenience.</p><h2>Functions</h2><h3>apply(Fun) -&gt; term()</h3><p>Same as <strong>apply(Fun, [])</strong>.</p><ul><li><span class="v">Fun = fun()</span></li></ul><p>Same as <strong>apply(Fun, [])</strong>.</p><h3>apply(Fun, Args) -&gt; term()</h3><p>Same as <strong>apply(Module, Function, Args)</strong>.</p><ul><li><span class="v">Fun = fun()</span></li><li><span class="v">Args = [term()]</span></li></ul><p>Same as <strong>apply(Module, Function, Args)</strong>.</p><h3>apply(Module, Function, Args) -&gt; term()</h3><p>Clears counters, applies function and collects the profiling results.</p><ul><li><span class="v">Module = atom()</span></li><li><span class="v">Function = atom()</span></li><li><span class="v">Args = [term()]</span></li></ul><p> Clears the lock counters and then setups the instrumentation to save all destroyed locks.
+After setup the function is called, passing the elements in <strong>Args</strong> as arguments.
+When the function returns the statistics are immediately collected to the server. After the
+collection the instrumentation is returned to its previous behavior.
+The result of the applied function is returned.
+</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>
+This function should only be used for micro-benchmarks; it sets <strong>copy_save</strong>
+to <strong>true</strong> for the duration of the call, which can quickly lead to running
+out of memory.
+</p></div><h3>pid(Id, Serial) -&gt; pid()</h3><p>Same as <strong>pid(node(), Id, Serial)</strong>.</p><p>Same as <strong>pid(node(), Id, Serial)</strong>.</p><h3>pid(Node, Id, Serial) -&gt; pid()</h3><p>Creates a process id with creation 0.</p><ul><li><span class="v">Node = node()</span></li><li><span class="v">Id = integer()</span></li><li><span class="v">Serial = integer()</span></li></ul><p>Creates a process id with creation 0.</p><h3>port(Id) -&gt; port()</h3><p>Same as <strong>port(node(), Id)</strong>.</p><p>Same as <strong>port(node(), Id)</strong>.</p><h3>port(Node, Id) -&gt; port()</h3><p>Creates a port id with creation 0.</p><ul><li><span class="v">Node = node()</span></li><li><span class="v">Id = integer()</span></li></ul><p>Creates a port id with creation 0.</p><h3>Internal runtime lock counter controllers</h3><p> The following functions control the behavior of the internal counters.  </p><h2>Functions</h2><h3>rt_collect() -&gt; [lock_counter_data()]</h3><p>Same as <strong>rt_collect(node())</strong>.</p><p>Same as <strong>rt_collect(node())</strong>.</p><h3>rt_collect(Node) -&gt; [lock_counter_data()]</h3><p>Returns a list of raw lock counter data.</p><ul><li><span class="v">Node = node()</span></li></ul><p>Returns a list of raw lock counter data.</p><h3>rt_clear() -&gt; ok</h3><p>Same as <strong>rt_clear(node())</strong>.</p><p>Same as <strong>rt_clear(node())</strong>.</p><h3>rt_clear(Node) -&gt; ok</h3><p>Clears the internal counters.</p><ul><li><span class="v">Node = node()</span></li></ul><p>Clear the internal counters. Same as <strong>lcnt:clear(Node)</strong>.</p><h3>rt_mask() -&gt; [category_atom()]</h3><p>Same as <strong>rt_mask(node())</strong>.</p><p>Same as <strong>rt_mask(node())</strong>.</p><h3>rt_mask(Node) -&gt; [category_atom()]</h3><p>Returns the current lock category mask.</p><ul><li><span class="v">Node = node()</span></li></ul><p>
+Refer to <strong>rt_mask/2</strong> for a list of valid categories. All
+categories are enabled by default.
+</p><h3>rt_mask(Categories) -&gt; ok | {error, copy_save_enabled}</h3><p>Same as <strong>rt_mask(node(), Categories)</strong>.</p><ul><li><span class="v">Categories = [atom()]</span></li></ul><p>Same as <strong>rt_mask(node(), Categories)</strong>.</p><h3>rt_mask(Node, Categories) -&gt; ok | {error, copy_save_enabled}</h3><p>Changes the lock category mask.</p><ul><li><span class="v">Node = node()</span></li><li><span class="v">Categories = [atom()]</span></li></ul><p>
+Sets the lock category mask to the given categories.
+</p><p>
+This will fail if the <strong>copy_save</strong> option is enabled; see
+<strong>lcnt:rt_opt/2</strong>.
+</p><p>Valid categories are:</p><ul><li><strong>allocator</strong></li><li><strong>db</strong> (ETS tables)</li><li><strong>debug</strong></li><li><strong>distribution</strong></li><li><strong>generic</strong></li><li><strong>io</strong></li><li><strong>process</strong></li><li><strong>scheduler</strong></li></ul><p>
+This list is subject to change at any time, as is the category any given lock
+may belong to.
+</p><h3>rt_opt({Type, bool()}) -&gt; bool()</h3><p>Same as <strong>rt_opt(node(), {Type, Opt})</strong>.</p><p>Same as <strong>rt_opt(node(), {Type, Opt})</strong>.</p><h3>rt_opt(Node, {Type, bool()}) -&gt; bool()</h3><p>Changes the lock counter behavior and returns the previous behaviour.</p><ul><li><span class="v">Node = node()</span></li><li><span class="v">Type = copy_save | process_locks</span></li></ul><p>Option description:</p><dl><dt><strong>{copy_save, bool()}</strong></dt><dd>Retains the statistics of destroyed locks. <br/>Default: <strong>false</strong> <div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>
+This option will use a lot of memory when enabled, which must be
+reclaimed with <strong>lcnt:rt_clear</strong>. Note that it makes no distinction
+between locks that were destroyed and locks for which counting was
+disabled, so enabling this option will disable changes to the lock
+category mask.
+</p></div> </dd><dt><strong>{process_locks, bool()}</strong></dt><dd>Profile process locks, equal to adding <strong>process</strong> to the lock category mask; see <strong>lcnt:rt_mask/2</strong> <br/>Default: <strong>true</strong> </dd></dl><h3>See Also</h3><p> <a href="lcnt_chapter">LCNT User's Guide</a></p><h2>make</h2><p>A Make Utility for Erlang</p><p>The module <strong>make</strong> provides a set of functions similar to
+the UNIX type <strong>Make</strong> functions.</p><h2>Functions</h2><h3>all() -&gt; up_to_date | error</h3><h3>all(Options) -&gt; up_to_date | error</h3><p>Compile a set of modules.</p><ul><li><span class="v">Options = [Option]</span></li><li><span class="v">Â Option = noexec | load | netload | {emake, Emake} | &lt;compiler option&gt;</span></li></ul><p>This function determines the set of modules to compile and the
+compile options to use, by first looking for the <strong>emake</strong> make
+option, if not present reads the configuration from a file named
+<strong>Emakefile</strong> (see below). If no such file is found, the
+set of modules to compile defaults to all modules in the
+current working directory.</p><p>Traversing the set of modules, it then recompiles every module for
+which at least one of the following conditions apply:</p><ul><li>there is no object file, or</li><li>the source file has been modified since it was last compiled, or,</li><li>an include file has been modified since the source file was last compiled.</li></ul><p>As a side effect, the function prints the name of each module it
+tries to compile. If compilation fails for a module, the make
+procedure stops and <strong>error</strong> is returned.</p><p><strong>Options</strong> is a list of make- and compiler options.
+The following make options exist:</p><ul><li><strong>noexec</strong>          <br/> No execution mode. Just prints the name of each module that needs to be compiled.</li><li><strong>load</strong>          <br/> Load mode. Loads all recompiled modules.</li><li><strong>netload</strong>          <br/> Net load mode. Loads all recompiled modules on all known nodes.</li><li><strong>{emake, Emake}</strong>          <br/> Rather than reading the <strong>Emakefile</strong> specify configuration explicitly.</li></ul><p>All items in <strong>Options</strong> that are not make options are assumed
+to be compiler options and are passed as-is to
+<strong>compile:file/2</strong>. <strong>Options</strong> defaults to <strong>[]</strong>.</p><h3>files(ModFiles) -&gt; up_to_date | error</h3><h3>files(ModFiles, Options) -&gt; up_to_date | error</h3><p>Compile a set of modules.</p><ul><li><span class="v">ModFiles = [Module | File]</span></li><li><span class="v">Â Module = atom()</span></li><li><span class="v">Â File = string()</span></li><li><span class="v">Options = [Option]</span></li><li><span class="v">Â Option = noexec | load | netload | &lt;compiler option&gt;</span></li></ul><p><strong>files/1,2</strong> does exactly the same thing as <strong>all/0,1</strong> but
+for the specified <strong>ModFiles</strong>, which is a list of module or
+file names. The file extension <strong>.erl</strong> may be omitted.</p><p>The <strong>Emakefile</strong> (if it exists) in the current
+directory is searched for compiler options for each module. If
+a given module does not exist in <strong>Emakefile</strong> or if
+<strong>Emakefile</strong> does not exist, the module is still compiled.</p><h3>Emakefile</h3><p><strong>make:all/0,1</strong> and <strong>make:files/1,2</strong> first looks for
+<strong>{emake, Emake}</strong> in options, then in the current working directory
+for a file named <strong>Emakefile</strong>. If present <strong>Emake</strong> should
+contain elements like this:</p><pre><code class="">
+Modules.
+{Modules,Options}.    </code></pre><p><strong>Modules</strong> is an atom or a list of atoms. It can be 
+</p><ul><li>a module name, e.g. <strong>file1</strong></li><li>a module name in another directory, e.g. <strong>../foo/file3</strong></li><li>a set of modules specified with a wildcards, e.g. <strong>'file*'</strong></li><li>a wildcard indicating all modules in current directory, i.e. <strong>'*'</strong></li><li>a list of any of the above, e.g. <strong>['file*','../foo/file3','File4']</strong></li></ul><p><strong>Options</strong> is a list of compiler options.
+</p><p><strong>Emakefile</strong> is read from top to bottom. If a module
+matches more than one entry, the first match is valid. For
+example, the following <strong>Emakefile</strong> means that <strong>file1</strong>
+shall be compiled with the options
+<strong>[debug_info,{i,"../foo"}]</strong>, while all other files in the
+current directory shall be compiled with only the
+<strong>debug_info</strong> flag.</p><pre><code class="">
+{'file1',[debug_info,{i,"../foo"}]}.
+{'*',[debug_info]}.    </code></pre><h3>See Also</h3><p><a href="./compile">compiler/compile</a></p><h2>tags</h2><p>Generate Emacs TAGS file from Erlang source files</p><p>A <strong>TAGS</strong> file is used by Emacs to find function and variable
+definitions in any source file in large projects.  This module can
+generate a <strong>TAGS</strong> file from Erlang source files.  It recognises
+functions, records, and macro definitions.</p><h2>Functions</h2><h3>file(File [, Options])</h3><p>Create a <strong>TAGS</strong>file for the file <strong>File</strong>.</p><p>Create a <strong>TAGS</strong> file for the file <strong>File</strong>.</p><h3>files(FileList [, Options])</h3><p>Create a TAGS file for the files in the list<strong>FileList</strong>.</p><p>Create a TAGS file for the files in the list
+<strong>FileList</strong>.</p><h3>dir(Dir [, Options])</h3><p>Create a TAGS file for all files in directory<strong>Dir</strong>.</p><p>Create a TAGS file for all files in directory
+<strong>Dir</strong>.</p><h3>dirs(DirList [, Options])</h3><p>Create a TAGS file for all files in any directory in<strong>DirList</strong>.</p><p>Create a TAGS file for all files in any directory in
+<strong>DirList</strong>.</p><h3>subdir(Dir [, Options])</h3><p>Descend recursively down the directory <strong>Dir</strong>and create a <strong>TAGS</strong>file based on all files found.</p><p>Descend recursively down the directory <strong>Dir</strong> and
+create a <strong>TAGS</strong> file based on all files found.</p><h3>subdirs(DirList [, Options])</h3><p>Descend recursively down all the directories in<strong>DirList</strong>and create a <strong>TAGS</strong>file based on all files found.</p><p>Descend recursively down all the directories in
+<strong>DirList</strong> and create a <strong>TAGS</strong> file based on all
+files found.</p><h3>root([Options])</h3><p>Create a <strong>TAGS</strong>file covering all files in the Erlang distribution.</p><p>Create a <strong>TAGS</strong> file covering all files in
+the Erlang distribution.</p><h3>OPTIONS</h3><p>The functions above have an optional argument, <strong>Options</strong>.  It is a
+list which can contain the following elements:</p><ul><li><strong>{outfile, NameOfTAGSFile}</strong> Create a <strong>TAGS</strong> file named <strong>NameOfTAGSFile</strong>. </li><li><strong>{outdir, NameOfDirectory}</strong> Create a file named <strong>TAGS</strong> in the directory <strong>NameOfDirectory</strong>.</li></ul><p>The default behaviour is to create a file named <strong>TAGS</strong> in the current
+directory.</p><h3>Examples</h3><ul><li> <p><strong>tags:root([{outfile, "root.TAGS"}]).</strong>          <br/>
+</p> <p>This command will create a file named <strong>root.TAGS</strong> in the current
+directory.  The file will contain references to all Erlang source
+files in the Erlang distribution.</p> </li><li> <p><strong>tags:files(["foo.erl", "bar.erl", "baz.erl"], [{outdir, "../projectdir"}]). </strong>          <br/>
+</p> <p>Here we create file named <strong>TAGS</strong> placed it in the directory
+<strong>../projectdir</strong>.  The file contains information about the
+functions, records, and macro definitions of the three files.</p> </li></ul><h3>SEE ALSO</h3><ul><li>Richard M. Stallman.  GNU Emacs Manual, chapter "Editing Programs", section "Tag Tables".  Free Software Foundation, 1995. </li><li>Anders Lindgren.  The Erlang editing mode for Emacs. Ericsson, 1998.</li></ul><h2>xref</h2><p>A Cross Reference Tool for analyzing dependencies between functions, modules, applications and releases.</p><p>Xref is a cross reference tool that can be used for finding
+dependencies between functions, modules, applications and
+releases.
+Calls between functions are either       <a name="local_call"></a>
+<em>local calls</em> like <strong>f()</strong>, or       <a name="external_call"></a>
+<em>external calls</em> like
+<strong>m:f()</strong>.       <a name="module_data"></a>
+<em>Module data</em>,
+which are extracted from BEAM files, include local functions,
+exported functions, local calls and external calls. By default,
+calls to built-in functions (<span class="term">BIF</span>) are ignored, but
+if the option <strong>builtins</strong>, accepted by some of this
+module's functions, is set to <strong>true</strong>, calls to BIFs
+are included as well. It is the analyzing OTP version that
+decides what functions are BIFs. Functional objects are assumed
+to be called where they are created (and nowhere else).       <a name="unresolved_call"></a>
+<em>Unresolved calls</em> are calls to
+<strong>apply</strong> or <strong>spawn</strong> with variable module, variable
+function, or variable arguments. Examples are <strong>M:F(a)</strong>,
+<strong>apply(M,Â f,Â [a])</strong>, and
+<strong>spawn(m,Â f(),Â Args)</strong>. Unresolved calls are
+represented by calls where variable modules have been replaced
+with the atom <strong>'$M_EXPR'</strong>, variable functions have been
+replaced with the atom <strong>'$F_EXPR'</strong>, and variable number of
+arguments have been replaced with the number <strong>-1</strong>. The
+above mentioned examples are represented by calls to
+<strong>'$M_EXPR':'$F_EXPR'/1</strong>, <strong>'$M_EXPR':f/1</strong>, and
+<strong>m:'$F_EXPR'/-1</strong>. The unresolved calls are a subset of the
+external calls.
+<em>Applications</em> are collections of modules. The
+modules' BEAM files are located in the <strong>ebin</strong>
+subdirectory of the application directory. The name of the
+application directory determines the name and version of the
+application.
+<em>Releases</em> are collections of applications
+located in the <strong>lib</strong> subdirectory of the release directory. 
+There is more to read about applications and releases in the
+Design Principles book.
+      <a name="xref_server"></a>
+<em>Xref servers</em> are identified
+by names, supplied when creating new servers. Each Xref server
+holds a set of releases, a set of applications, and a set of
+modules with module data. Xref servers are independent of each
+other, and all analyses are evaluated in the context of one
+single Xref server (exceptions are the functions <strong>m/1</strong> and
+<strong>d/1</strong> which do not use servers at all). The       <a name="mode"></a>
+<em>mode</em> of an Xref server determines what module
+data are extracted from BEAM files as modules are added to the
+server. Starting with R7, BEAM files compiled with the option
+<strong>debug_info</strong> contain so called       <a name="debug_info"></a>
+debug information, which is an abstract
+representation of the code. In <strong>functions</strong> mode, which is
+the default mode, function calls and line numbers are extracted
+from debug information. In <strong>modules</strong> mode, debug
+information is ignored if present, but dependencies between
+modules are extracted from other parts of the BEAM files. The
+<strong>modules</strong> mode is significantly less time and space
+consuming than the <strong>functions</strong> mode, but the analyses that
+can be done are limited.
+An       <a name="analyzed_module"></a>
+<em>analyzed module</em> is a
+module that has been added to an Xref server together with its
+module data.
+A       <a name="library_module"></a>
+<em>library module</em> is a
+module located in some directory mentioned in the       <a name="library_path"></a>
+<em>library path</em>. 
+A library module is said to be used if some of its exported
+functions are used by some analyzed module.
+An       <a name="unknown_module"></a>
+<em>unknown module</em> is a
+module that is neither an analyzed module nor a library module,
+but whose exported functions are used by some analyzed module. 
+An       <a name="unknown_function"></a>
+<em>unknown function</em> is a
+used function that is neither local or exported by any 
+analyzed module nor exported by any library module. 
+An       <a name="undefined_function"></a>
+<em>undefined function</em> is an externally used function that
+is not exported by any analyzed module or library module. With
+this notion, a local function can be an undefined function, namely
+if it is externally used from some module. All unknown functions
+are also undefined functions; there is a <a href="./xref_chapter#venn2">figure</a> in the
+User's Guide that illustrates this relationship.
+Starting with R9C, the module attribute tag <strong>deprecated</strong>
+can be used to inform Xref about       <a name="deprecated_function"></a>
+<em>deprecated functions</em> and
+optionally when functions are planned to be removed. A few
+examples show the idea:
+<dl><dt>-deprecated({f,1}).</dt><dd>The exported function <strong>f/1</strong> is deprecated. Nothing is said whether <strong>f/1</strong> will be removed or not.</dd><dt>-deprecated({f,'_'}).</dt><dd>All exported functions <strong>f/0</strong>, <strong>f/1</strong> and so on are deprecated.</dd><dt>-deprecated(module).</dt><dd>All exported functions in the module are deprecated. Equivalent to <strong>-deprecated({'_','_'}).</strong>.</dd><dt>-deprecated([{g,1,next_version}]).</dt><dd>The function <strong>g/1</strong> is deprecated and will be removed in next version.</dd><dt>-deprecated([{g,2,next_major_release}]).</dt><dd>The function <strong>g/2</strong> is deprecated and will be removed in next major release.</dd><dt>-deprecated([{g,3,eventually}]).</dt><dd>The function <strong>g/3</strong> is deprecated and will eventually be removed.</dd><dt>-deprecated({'_','_',eventually}).</dt><dd>All exported functions in the module are deprecated and will eventually be removed.</dd></dl>Before any analysis can take place, module data must be <em>set up</em>. For instance, the cross reference and the unknown
+functions are computed when all module data are known. The
+functions that need complete data (<strong>analyze</strong>, <strong>q</strong>,
+<strong>variables</strong>) take care of setting up data automatically.
+Module data need to be set up (again) after calls to any of the
+<strong>add</strong>, <strong>replace</strong>, <strong>remove</strong>,
+<strong>set_library_path</strong> or <strong>update</strong> functions.
+The result of setting up module data is the       <a name="call_graph"></a>
+<em>Call Graph</em>. A (directed) graph
+consists of a set of vertices and a set of (directed) edges. The
+edges represent       <a name="call"></a>
+<em>calls</em> (From,Â To)
+between functions, modules, applications or releases. From is
+said to call To, and To is said to be used by From. The vertices
+of the Call Graph are the functions of all module data: local
+and exported functions of analyzed modules; used BIFs; used
+exported functions of library modules; and unknown functions.
+The functions <strong>module_info/0,1</strong> added by the compiler are
+included among the exported functions, but only when called from
+some module. The edges are the function calls of all module
+data. A consequence of the edges being a set is that there is
+only one edge if a function is locally or externally used
+several times on one and the same line of code.
+The Call Graph is       <a name="representation"></a>
+represented by
+Erlang terms (the sets are lists), which is suitable for many
+analyses. But for analyses that look at chains of calls, a list
+representation is much too
+slow. Instead the representation offered by the <strong>digraph</strong>
+module is used. The translation of the list representation of
+the Call Graph - or a subgraph thereof - to the <strong>digraph</strong>
+representation does not
+come for free, so the language used for expressing queries to be
+described below has a special operator for this task and a
+possibility to save the <strong>digraph</strong> representation for
+subsequent analyses.
+In addition to the Call Graph there is a graph called the
+<a name="inter_call_graph"></a>
+<em>Inter Call Graph</em>. This is
+a graph of calls (From,Â To) such that there is a chain of
+calls from From to To in the Call Graph, and every From and To
+is an exported function or an unused local function.
+The vertices are the same as for the Call Graph.
+Calls between modules, applications and releases are also
+directed graphs. The       <a name="type"></a>
+<em>types</em>
+of the vertices and edges of these graphs are (ranging from the
+most special to the most general):
+<strong>Fun</strong> for functions; <strong>Mod</strong> for modules;
+<strong>App</strong> for applications; and <strong>Rel</strong> for releases.
+The following paragraphs will describe the different constructs
+of the language used for selecting and analyzing parts of the
+graphs, beginning with the       <a name="constants"></a>
+<em>constants</em>:
+<ul><li>Expression ::= Constants</li><li>Constants ::= Consts | Consts <strong>:</strong> Type | RegExpr</li><li>Consts ::= Constant | <strong>[</strong>Constant<strong>,</strong>Â ...<strong>]</strong> | <strong>{</strong>Constant<strong>,</strong>Â ...<strong>}</strong></li><li>Constant ::= Call | Const</li><li>Call ::= FunSpecÂ <strong>-&gt;</strong>Â FunSpec | <strong>{</strong>MFA<strong>,</strong>Â MFA<strong>}</strong> | AtomConstÂ <strong>-&gt;</strong>Â AtomConst  | <strong>{</strong>AtomConst<strong>,</strong>Â AtomConst<strong>}</strong></li><li>Const ::= AtomConst | FunSpec | MFA</li><li>AtomConst ::= Application | Module | Release</li><li>FunSpec ::= Module <strong>:</strong> Function <strong>/</strong> Arity</li><li>MFA ::= <strong>{</strong>Module<strong>,</strong>Â Function<strong>,</strong>Â Arity<strong>}</strong></li><li>RegExpr ::= RegString <strong>:</strong> Type  | RegFunc  | RegFunc <strong>:</strong> Type</li><li>RegFunc ::= RegModule <strong>:</strong> RegFunction <strong>/</strong> RegArity</li><li>RegModule ::= RegAtom</li><li>RegFunction ::= RegAtom</li><li>RegArity ::= RegString | Number | <strong>_</strong> | <strong>-1</strong></li><li>RegAtom ::= RegString | Atom | <strong>_</strong></li><li>RegString ::= - a regular expression, as described in the  <strong>re</strong> module, enclosed in double quotes -</li><li>Type ::= <strong>Fun</strong> | <strong>Mod</strong> | <strong>App</strong> | <strong>Rel</strong></li><li>Function ::= Atom</li><li>Application ::= Atom</li><li>Module ::= Atom</li><li>Release ::= Atom</li><li>Arity ::= Number | <strong>-1</strong></li><li>Atom ::= - same as Erlang atoms -</li><li>Number ::= - same as non-negative Erlang integers -</li></ul>Examples of constants are: <strong>kernel</strong>, <strong>kernel-&gt;stdlib</strong>,
+<strong>[kernel, sasl]</strong>, <strong>[pg -&gt; mnesia, {tv, mnesia}] : Mod</strong>.
+It is an error if an instance of <strong>Const</strong> does not match any
+vertex of any graph. 
+If there  are more than one vertex matching an untyped instance
+of <strong>AtomConst</strong>, then the one of the most general type is
+chosen.
+A list of constants is interpreted as a set of constants, all of
+the same type.
+A tuple of constants constitute a chain of calls (which may,
+but does not have to, correspond to an actual chain of calls of
+some graph).
+Assigning a type to a list or tuple of <strong>Constant</strong> is
+equivalent to assigning the type to each <strong>Constant</strong>.
+<a name="regexp"></a><em>Regular expressions</em> are used as a
+means to select some of the vertices of a graph.
+A <strong>RegExpr</strong> consisting of a <strong>RegString</strong> and a type -
+an example is <strong>"xref_.*" : Mod</strong> - is interpreted as those
+modules (or applications or releases, depending on the type)
+that match the expression.
+Similarly, a <strong>RegFunc</strong> is interpreted as those vertices
+of the Call Graph that match the expression. 
+An example is <strong>"xref_.*":"add_.*"/"(2|3)"</strong>, which matches
+all <strong>add</strong> functions of arity two or three of any of the
+xref modules.
+Another example, one that matches all functions of arity 10 or
+more: <strong>_:_/"[1-9].+"</strong>. Here <strong>_</strong> is an abbreviation for
+<strong>".*"</strong>, that is, the regular expression that matches
+anything.
+The syntax of       <a name="variable"></a>
+<em>variables</em> is
+simple:
+<ul><li>Expression ::= Variable</li><li>Variable ::= - same as Erlang variables -</li></ul>There are two kinds of variables: predefined variables and user 
+variables. 
+<a name="predefined_variable"></a>
+<em>Predefined variables</em>
+hold set up module data, and cannot be assigned to but only used 
+in queries. 
+<a name="user_variable"></a>
+<em>User variables</em> on the other 
+hand can be assigned to, and are typically used for
+temporary results while evaluating a query, and for keeping
+results of queries for use in subsequent queries. 
+The predefined variables are (variables marked with (*) are
+available in <strong>functions</strong> mode only):
+<dl><dt><strong>E</strong></dt><dd>Call Graph Edges (*).</dd><dt><strong>V</strong></dt><dd>Call Graph Vertices (*). </dd><dt><strong>M</strong></dt><dd>Modules. All modules: analyzed modules, used library modules, and unknown modules.</dd><dt><strong>A</strong></dt><dd>Applications.</dd><dt><strong>R</strong></dt><dd>Releases. </dd><dt><strong>ME</strong></dt><dd>Module Edges. All module calls.</dd><dt><strong>AE</strong></dt><dd>Application Edges. All application calls. </dd><dt><strong>RE</strong></dt><dd>Release Edges. All release calls. </dd><dt><strong>L</strong></dt><dd>Local Functions (*). All local functions of analyzed modules.</dd><dt><strong>X</strong></dt><dd>Exported Functions. All exported functions of analyzed  modules and all used exported functions of library modules.</dd><dt><strong>F</strong></dt><dd>Functions (*).</dd><dt><strong>B</strong></dt><dd>Used BIFs. <strong>B</strong> is empty if <strong>builtins</strong> is  <strong>false</strong> for all analyzed modules.</dd><dt><strong>U</strong></dt><dd>Unknown Functions.</dd><dt><strong>UU</strong></dt><dd>Unused Functions (*). All local and exported functions of analyzed modules that have not been used. </dd><dt><strong>XU</strong></dt><dd>Externally Used Functions. Functions of all modules - including local functions - that have been used in some external call.</dd><dt><strong>LU</strong></dt><dd>Locally Used Functions (*). Functions of all modules that have been used in some local call. </dd><dt><strong>OL</strong></dt><dd>Functions with an attribute tag <strong>on_load</strong> (*). </dd><dt><strong>LC</strong></dt><dd>Local Calls (*).</dd><dt><strong>XC</strong></dt><dd>External Calls (*). </dd><dt><strong>AM</strong></dt><dd>Analyzed Modules.</dd><dt><strong>UM</strong></dt><dd>Unknown Modules.</dd><dt><strong>LM</strong></dt><dd>Used Library Modules. </dd><dt><strong>UC</strong></dt><dd>Unresolved Calls. Empty in <strong>modules</strong> mode. </dd><dt><strong>EE</strong></dt><dd>Inter Call Graph Edges (*). </dd><dt><strong>DF</strong></dt><dd>Deprecated Functions. All deprecated exported  functions and all used deprecated BIFs.</dd><dt><strong>DF_1</strong></dt><dd>Deprecated Functions. All deprecated functions  to be removed in next version.</dd><dt><strong>DF_2</strong></dt><dd>Deprecated Functions. All deprecated functions  to be removed in next version or next major release.</dd><dt><strong>DF_3</strong></dt><dd>Deprecated Functions. All deprecated functions to be removed in next version, next major release, or later.</dd></dl>These are a few       <a name="simple_facts"></a>
+facts about the
+predefined variables (the set operators <strong>+</strong> (union) and
+<strong>-</strong> (difference) as well as the cast operator
+<strong>(</strong>Type<strong>)</strong> are described below):
+<ul><li><strong>F</strong> is equal to  <strong>L + X</strong>.</li><li><strong>V</strong> is equal to <strong>X + L + B + U</strong>, where <strong>X</strong>, <strong>L</strong>, <strong>B</strong> and <strong>U</strong> are pairwise disjoint (that is, have no elements in common).</li><li><strong>UU</strong> is equal to <strong>V - (XU + LU)</strong>, where <strong>LU</strong> and <strong>XU</strong> may have elements in common. Put in another way:</li><li><strong>V</strong> is equal to <strong>UU + XU + LU</strong>.</li><li><strong>OL</strong> is a subset of <strong>F</strong>.</li><li><strong>E</strong> is equal to <strong>LC + XC</strong>. Note that <strong>LC</strong> and <strong>XC</strong> may have elements in common, namely if some function is locally and externally used from one and the same function.</li><li><strong>U</strong> is a subset of <strong>XU</strong>.</li><li><strong>B</strong> is a subset of <strong>XU</strong>.</li><li><strong>LU</strong> is equal to <strong>range LC</strong>.</li><li><strong>XU</strong> is equal to <strong>range XC</strong>.</li><li><strong>LU</strong> is a subset of <strong>F</strong>.</li><li><strong>UU</strong> is a subset of <strong>F</strong>. </li><li><strong>range UC</strong> is a subset of <strong>U</strong>.</li><li><strong>M</strong> is equal to <strong>AM + LM + UM</strong>, where <strong>AM</strong>, <strong>LM</strong> and <strong>UM</strong> are pairwise disjoint. </li><li><strong>ME</strong> is equal to <strong>(Mod) E</strong>.</li><li><strong>AE</strong> is equal to <strong>(App) E</strong>.</li><li><strong>RE</strong> is equal to <strong>(Rel) E</strong>.</li><li><strong>(Mod) V</strong> is a subset of <strong>M</strong>. Equality holds if all analyzed modules have some local, exported, or unknown  function.</li><li><strong>(App) M</strong> is a subset of <strong>A</strong>. Equality holds if all applications have some module.</li><li><strong>(Rel) A</strong> is a subset of <strong>R</strong>. Equality holds if all releases have some application.</li><li><strong>DF_1</strong> is a subset of <strong>DF_2</strong>.</li><li><strong>DF_2</strong> is a subset of <strong>DF_3</strong>.</li><li><strong>DF_3</strong> is a subset of <strong>DF</strong>.</li><li><strong>DF</strong> is a subset of <strong>X + B</strong>.</li></ul>An important notion is that of       <a name="conversion"></a>
+<em>conversion</em> of expressions. The syntax of
+a cast expression is:
+<ul><li>Expression ::= <strong>(</strong> Type <strong>)</strong> Expression</li></ul>The interpretation of the cast operator depends on the named
+type <strong>Type</strong>, the type of <strong>Expression</strong>, and the
+structure of the elements of the interpretation of <strong>Expression</strong>. 
+If the named type is equal to the
+expression type, no conversion is done. Otherwise, the
+conversion is done one step at a time;
+<strong>(Fun)Â (App)Â RE</strong>, for instance, is equivalent to
+<strong>(Fun)Â (Mod)Â (App)Â RE</strong>. Now assume that the
+interpretation of <strong>Expression</strong> is a set of constants
+(functions, modules, applications or releases). If the named
+type is more general than the expression type, say <strong>Mod</strong>
+and <strong>Fun</strong> respectively, then the interpretation of the cast
+expression is the set of modules that have at least one
+of their functions mentioned in the interpretation of the
+expression. If the named
+type is more special than the expression type, say <strong>Fun</strong>
+and <strong>Mod</strong>, then the interpretation is the set of all the
+functions of the modules (in <strong>modules</strong> mode, the conversion
+is partial since the local functions are not known).
+The conversions to and from applications and releases
+work analogously. For instance, <strong>(App) "xref_.*" : Mod</strong>
+returns all applications containing at least one module
+such that <strong>xref_</strong> is a prefix of the module name.
+Now assume that the interpretation of <strong>Expression</strong> is a
+set of calls. If the named type is more general than the
+expression type, say <strong>Mod</strong> and <strong>Fun</strong> respectively,
+then the interpretation of the cast expression is the set of
+calls (M1,Â M2) such that the interpretation of the 
+expression contains a call from some function
+of M1 to some function of M2. If the named type is more special
+than the expression type, say <strong>Fun</strong> and <strong>Mod</strong>, then
+the interpretation is the set of all function calls
+(F1,Â F2) such that the interpretation of the expression
+contains a call (M1,Â M2) and F1 is
+a function of M1 and F2 is a function of M2 (in <strong>modules</strong>
+mode, there are no functions calls, so a cast to <strong>Fun</strong>
+always yields an empty set). Again, the conversions to and from
+applications and releases work analogously.
+The interpretation of constants and variables are sets, and
+those sets can be used as the basis for forming new sets by the
+application of       <a name="set_operator"></a>
+<em>set operators</em>.
+The syntax:
+<ul><li>Expression ::= Expression BinarySetOp Expression</li><li>BinarySetOp ::= <strong>+</strong> | <strong>*</strong> | <strong>-</strong></li></ul><strong>+</strong>, <strong>*</strong> and <strong>-</strong> are interpreted as union,
+intersection and difference respectively: the union of two sets
+contains the elements of both sets; the intersection of two sets
+contains the elements common to both sets; and the difference of
+two sets contains the elements of the first set that are not
+members of the second set. The elements of the two sets must be
+of the same structure; for instance, a function call cannot be
+combined with a function. But if a cast operator can make the
+elements compatible, then the more general elements are
+converted to the less general element type. For instance,
+<strong>MÂ +Â F</strong> is equivalent to
+<strong>(Fun)Â MÂ +Â F</strong>, and <strong>EÂ -Â AE</strong>
+is equivalent to <strong>EÂ -Â (Fun)Â AE</strong>. One more
+example: <strong>X * xref : Mod</strong> is interpreted as the set of
+functions exported by the module <strong>xref</strong>; <strong>xref : Mod</strong>
+is converted to the more special type of <strong>X</strong> (<strong>Fun</strong>,
+that is) yielding all functions of <strong>xref</strong>, and the
+intersection with <strong>X</strong> (all functions exported by analyzed 
+modules and library modules) is interpreted as those functions
+that are exported by some module <em>and</em> functions of 
+<strong>xref</strong>. 
+There are also unary set operators:
+<ul><li>Expression ::= UnarySetOp Expression</li><li>UnarySetOp ::= <strong>domain</strong> | <strong>range</strong> | <strong>strict</strong></li></ul>Recall that a call is a pair (From,Â To). <strong>domain</strong>
+applied to a set of calls is interpreted as the set of all
+vertices From, and <strong>range</strong> as the set of all vertices To.
+The interpretation of the <strong>strict</strong> operator is the operand
+with all calls on the form (A,Â A) removed. 
+The interpretation of the       <a name="restriction"></a>
+<em>restriction operators</em> is a 
+subset of the first operand, a set of calls. The second operand,
+a set of vertices, is converted to the type of the first operand.
+The syntax of the restriction operators:
+<ul><li>Expression ::= Expression RestrOp Expression</li><li>RestrOp ::= <strong>|</strong></li><li>RestrOp ::= <strong>||</strong></li><li>RestrOp ::= <strong>|||</strong></li></ul>The interpretation in some detail for the three operators:
+<dl><dt><strong>|</strong></dt><dd>The subset of calls from any of the vertices.</dd><dt><strong>||</strong></dt><dd>The subset of calls to any of the vertices.</dd><dt><strong>|||</strong></dt><dd>The subset of calls to and from any of the vertices. For all sets of calls <strong>CS</strong> and all sets of vertices <strong>VS</strong>, <strong>CSÂ |||Â VSÂ </strong> is equivalent to <strong>CSÂ |Â VSÂ *Â CSÂ ||Â VS</strong>.</dd></dl>      <a name="graph_analyses"></a>
+Two functions (modules,
+applications, releases) belong to the same strongly connected
+component if they call each other (in)directly. The
+interpretation of the <strong>components</strong> operator is the set of
+strongly connected components of a set of calls. The
+<strong>condensation</strong> of a set of calls is a new set of calls
+between the strongly connected components such that there is an
+edge between two components if there is some constant of the first
+component that calls some constant of the second component.
+The interpretation of the <strong>of</strong> operator is a chain of
+calls of the second operand (a set of calls) that passes throw
+all of the vertices of the first operand (a tuple of
+constants), in the given order. The second operand
+is converted to the type of the first operand.
+For instance, the <strong>of</strong> operator can be used for finding out
+whether a function calls another function indirectly, and the
+chain of calls demonstrates how. The syntax of the graph
+analyzing operators:
+<ul><li>Expression ::= Expression BinaryGraphOp Expression</li><li>Expression ::= UnaryGraphOp Expression</li><li>UnaryGraphOp ::= <strong>components</strong> | <strong>condensation</strong></li><li>BinaryGraphOp ::= <strong>of</strong></li></ul>As was mentioned before, the graph analyses operate on
+the <strong>digraph</strong> representation of graphs.
+By default, the <strong>digraph</strong> representation is created when
+needed (and deleted when no longer used), but it can also be
+created explicitly by use of the <strong>closure</strong> operator:
+<ul><li>Expression ::= ClosureOp Expression</li><li>ClosureOp ::= <strong>closure</strong></li></ul>The interpretation of the <strong>closure</strong> operator is the
+transitive closure of the operand. 
+The restriction operators are defined for closures as well;
+<strong>closureÂ EÂ |Â xrefÂ :Â Mod</strong> is
+interpreted as the direct or indirect function calls from the
+<strong>xref</strong> module, while the interpretation of
+<strong>EÂ |Â xrefÂ :Â Mod</strong> is the set of direct
+calls from <strong>xref</strong>. 
+If some graph is to be used in several graph analyses, it saves
+time to assign the <strong>digraph</strong> representation of the graph
+to a user variable, 
+and then make sure that every graph analysis operates on that
+variable instead of the list representation of the graph.
+The lines where functions are defined (more precisely: where
+the first clause begins) and the lines where functions are used
+are available in <strong>functions</strong> mode. The line numbers refer
+to the files where the functions are defined. This holds also for
+files included with the <strong>-include</strong> and <strong>-include_lib</strong>
+directives, which may result in functions defined apparently in
+the same line. The <em>line operators</em> are used for assigning
+line numbers to functions and for assigning sets of line numbers
+to function calls. 
+The syntax is similar to the one of the cast operator:
+<ul><li>Expression ::= <strong>(</strong> LineOp<strong>)</strong> Expression</li><li>Expression ::= <strong>(</strong> XLineOp<strong>)</strong> Expression</li><li>LineOp ::= <strong>Lin</strong> | <strong>ELin</strong> | <strong>LLin</strong> | <strong>XLin</strong></li><li>XLineOp ::= <strong>XXL</strong></li></ul>The interpretation of the <strong>Lin</strong> operator applied to a set
+of functions assigns to each function the line number where the
+function is defined. Unknown functions and functions of library
+modules are assigned the number 0.
+The interpretation of some LineOp operator applied to a
+set of function calls assigns to each call the set of line
+numbers where the first function calls the second function. Not
+all calls are assigned line numbers by all operators:
+<ul><li>the <strong>Lin</strong> operator is defined for Call Graph Edges;</li><li>the <strong>LLin</strong> operator is defined for Local Calls.</li><li>the <strong>XLin</strong> operator is defined for External Calls.</li><li>the <strong>ELin</strong> operator is defined for Inter Call Graph Edges.</li></ul>The <strong>Lin</strong> (<strong>LLin</strong>, <strong>XLin</strong>) operator assigns
+the lines where calls (local calls, external calls) are made.
+The <strong>ELin</strong> operator assigns to each call (From,Â To),
+for which it is defined, every line L such that there is
+a chain of calls from From to To beginning with a call on line
+L.
+The <strong>XXL</strong> operator is defined for the interpretation of
+any of the LineOp operators applied to a set of function
+calls. The result is that of replacing the function call with
+a line numbered function call, that is, each of the two
+functions of the call is replaced by a pair of the function and
+the line where the function is defined. The effect of the
+<strong>XXL</strong> operator can be undone by the LineOp operators. For
+instance, <strong>(Lin)Â (XXL)Â (Lin)Â E</strong> is
+equivalent to <strong>(Lin)Â E</strong>.
+The <strong>+</strong>, <strong>-</strong>, <strong>*</strong> and <strong>#</strong> operators are
+defined for line number expressions, provided the operands are
+compatible. The LineOp operators are also defined for
+modules, applications, and releases; the operand is implicitly
+converted to functions. Similarly, the cast operator is defined
+for the interpretation of the LineOp operators.
+The interpretation of the       <a name="count"></a>
+<em>counting operator</em> is the number of elements of a set. The operator
+is undefined for closures. The <strong>+</strong>, <strong>-</strong> and <strong>*</strong>
+operators are interpreted as the obvious arithmetical operators
+when applied to numbers. The syntax of the counting operator:
+<ul><li>Expression ::= CountOp Expression</li><li>CountOp ::= <strong>#</strong></li></ul>All binary operators are left associative; for instance,
+<strong>AÂ |Â B Â ||Â C</strong> is equivalent to
+<strong>(AÂ |Â B)Â ||Â C</strong>. The following is a list
+of all operators, in increasing order of       <a name="precedence"></a>
+<em>precedence</em>:
+<ul><li><strong>+</strong>, <strong>-</strong></li><li><strong>*</strong></li><li><strong>#</strong></li><li><strong>|</strong>, <strong>||</strong>, <strong>|||</strong></li><li><strong>of</strong></li><li><strong>(</strong>Type<strong>)</strong></li><li><strong>closure</strong>, <strong>components</strong>, <strong>condensation</strong>, <strong>domain</strong>, <strong>range</strong>, <strong>strict</strong></li></ul>Parentheses are used for grouping, either to make an expression
+more readable or to override the default precedence of operators:
+<ul><li>Expression ::= <strong>(</strong> Expression <strong>)</strong></li></ul>A       <a name="query"></a>
+<em>query</em> is a non-empty sequence of
+statements. A statement is either an assignment of a user
+variable or an expression. The value of an assignment is the
+value of the right hand side expression. It makes no sense to
+put a plain expression anywhere else but last in queries. The
+syntax of queries is summarized by these productions:
+<ul><li>Query ::= Statement<strong>,</strong>Â ...</li><li>Statement ::= Assignment | Expression</li><li>Assignment ::= Variable <strong>:=</strong> Expression  | Variable <strong>=</strong> Expression</li></ul>A variable cannot be assigned a new value unless first removed.
+Variables assigned to by the <strong>=</strong> operator are removed at
+the end of the query, while variables assigned to by the
+<strong>:=</strong> operator can only be removed by calls to
+<strong>forget</strong>. There are no user variables when module data
+need to be set up again; if any of the functions that make it
+necessary to set up module data again is called, all user
+variables are forgotten.
+<em>Types</em><pre>
+application() = atom()
+arity() = int() | -1
+bool() = true | false
+call() = {atom(), atom()} | funcall()
+constant() = mfa() | module() | application() | release()
+directory() = string()
+file() = string()
+funcall() = {mfa(), mfa()}
+function() = atom()
+int() = integer() &gt;= 0
+library() = atom()
+library_path() = path() | code_path
+mfa() = {module(), function(), arity()}
+mode() = functions | modules
+module() = atom()
+release() = atom()
+string_position() = int() | at_end
+variable() = atom()
+xref() = atom() | pid()  </pre></p><h2>Functions</h2><h3>add_application(Xref, Directory [, Options]) -&gt;  {ok, application()} | Error</h3><p>Add the modules of an application.</p><ul><li><span class="v">Directory = directory()</span></li><li><span class="v">Error = {error, module(), Reason}</span></li><li><span class="v">Options = [Option] | Option</span></li><li><span class="v">Option = {builtins, bool()} | {name, application()}  | {verbose, bool()} | {warnings, bool()}</span></li><li><span class="v">Reason =  {application_clash, {application(), directory(), directory()}} | {file_error, file(), error()} | {invalid_filename, term()} | {invalid_options, term()} | -Â seeÂ alsoÂ add_directoryÂ -</span></li><li><span class="v">Xref = xref()</span></li></ul><p>Adds an application, the modules of the application and <a href="#module_data">module data</a> of the
+modules to an <a href="#xref_server">Xref server</a>.
+The modules will be members of the application.
+The default is to use the base name of the
+directory with the version removed as application name, but
+this can be overridden by the <strong>name</strong> option. Returns the
+name of the application.
+</p><p>If the given directory has a subdirectory named
+<strong>ebin</strong>, modules (BEAM files) are searched for in that
+directory, otherwise modules are searched for in the given
+directory.
+</p><p>If the <a href="#mode">mode</a> of the Xref
+server is <strong>functions</strong>, BEAM files that contain no
+<a href="#debug_info">debug information</a> are
+ignored.
+</p><h3>add_directory(Xref, Directory [, Options]) -&gt;  {ok, Modules} | Error</h3><p>Add the modules in a directory.</p><ul><li><span class="v">Directory = directory()</span></li><li><span class="v">Error = {error, module(), Reason}</span></li><li><span class="v">Modules = [module()]</span></li><li><span class="v">Options = [Option] | Option</span></li><li><span class="v">Option = {builtins, bool()} | {recurse, bool()}  | {verbose, bool()} | {warnings, bool()}</span></li><li><span class="v">Reason = {file_error, file(), error()} | {invalid_filename, term()} | {invalid_options, term()} | {unrecognized_file, file()} | -Â error from beam_lib:chunks/2Â -</span></li><li><span class="v">Xref = xref()</span></li></ul><p>Adds the modules found in the given directory and the <a href="#module_data">modules' data</a>
+to an <a href="#xref_server">Xref server</a>. 
+The default is not to examine subdirectories, but if the option
+<strong>recurse</strong> has the value <strong>true</strong>, modules are searched
+for in subdirectories on all levels as well as in the given 
+directory.
+Returns a sorted list of the names of the added modules.
+</p><p>The modules added will not be members of any applications. 
+</p><p>If the <a href="#mode">mode</a> of the Xref
+server is <strong>functions</strong>, BEAM files that contain no
+<a href="#debug_info">debug information</a> are
+ignored.
+</p><h3>add_module(Xref, File [, Options]) -&gt; {ok, module()} | Error</h3><p>Add a module.</p><ul><li><span class="v">Error = {error, module(), Reason}</span></li><li><span class="v">File = file()</span></li><li><span class="v">Options = [Option] | Option</span></li><li><span class="v">Option = {builtins, bool()} | {verbose, bool()}  | {warnings, bool()}</span></li><li><span class="v">Reason = {file_error, file(), error()} | {invalid_filename, term()} | {invalid_options, term()} | {module_clash, {module(), file(), file()}} | {no_debug_info, file()} | -Â error from beam_lib:chunks/2Â -</span></li><li><span class="v">Xref = xref()</span></li></ul><p>Adds a module and its <a href="#module_data">module data</a> to an <a href="#xref_server">Xref server</a>.
+The module will not be member of any application.
+Returns the name of the module.
+</p><p>If the <a href="#mode">mode</a> of the Xref
+server is <strong>functions</strong>, and the BEAM file contains no
+<a href="#debug_info">debug information</a>,
+the error message <strong>no_debug_info</strong> is returned.
+</p><h3>add_release(Xref, Directory [, Options]) -&gt;  {ok, release()} | Error</h3><p>Add the modules of a release.</p><ul><li><span class="v">Directory = directory()</span></li><li><span class="v">Error = {error, module(), Reason}</span></li><li><span class="v">Options = [Option] | Option</span></li><li><span class="v">Option = {builtins, bool()} | {name, release()}  | {verbose, bool()} | {warnings, bool()}</span></li><li><span class="v">Reason =  {application_clash, {application(), directory(), directory()}} | {file_error, file(), error()} | {invalid_filename, term()} | {invalid_options, term()} | {release_clash, {release(), directory(), directory()}} | -Â seeÂ alsoÂ add_directoryÂ -</span></li><li><span class="v">Xref = xref()</span></li></ul><p>Adds a release, the applications of the release, the
+modules of the applications, and <a href="#module_data">module data</a> of the
+modules to an <a href="#xref_server">Xref server</a>.
+The applications will be members of the release, 
+and the modules will be members of the applications.
+The default is to use the base name of the
+directory as release name, but this can be overridden by the
+<strong>name</strong> option. Returns the name of the release.
+</p><p>If the given directory has a subdirectory named <strong>lib</strong>,
+the directories in that directory are assumed to be
+application directories, otherwise all subdirectories of the
+given directory are assumed to be application directories.
+If there are several versions of some application, the one
+with the highest version is chosen.
+</p><p>If the <a href="#mode">mode</a> of the Xref
+server is <strong>functions</strong>, BEAM files that contain no
+<a href="#debug_info">debug information</a> are
+ignored.
+</p><h3>analyze(Xref, Analysis [, Options]) -&gt;  {ok, Answer} | Error</h3><p>Evaluate a predefined analysis.</p><ul><li><span class="v">Analysis = undefined_function_calls  | undefined_functions | locals_not_used | exports_not_used | deprecated_function_calls | {deprecated_function_calls, DeprFlag} | deprecated_functions | {deprecated_functions, DeprFlag} | {call, FuncSpec} | {use, FuncSpec} | {module_call, ModSpec} | {module_use, ModSpec} | {application_call, AppSpec} | {application_use, AppSpec} | {release_call, RelSpec} | {release_use, RelSpec}</span></li><li><span class="v">Answer = [term()]</span></li><li><span class="v">AppSpec = application() | [application()]</span></li><li><span class="v">DeprFlag = next_version | next_major_release | eventually</span></li><li><span class="v">Error = {error, module(), Reason}</span></li><li><span class="v">FuncSpec = mfa() | [mfa()]</span></li><li><span class="v">ModSpec = module() | [module()]</span></li><li><span class="v">Options = [Option] | Option</span></li><li><span class="v">Option = {verbose, bool()}</span></li><li><span class="v">RelSpec = release() | [release()]</span></li><li><span class="v">Reason = {invalid_options, term()} | {parse_error, string_position(), term()} | {unavailable_analysis, term()} | {unknown_analysis, term()} | {unknown_constant, string()} | {unknown_variable, variable()}</span></li><li><span class="v">Xref = xref()</span></li></ul><p>          <a name="analyze"></a>
+Evaluates a predefined analysis.
+Returns a sorted list without duplicates of <strong>call()</strong> or
+<strong>constant()</strong>, depending on the chosen analysis. The
+predefined analyses, which operate on all <a href="#analyzed_module">analyzed modules</a>, are
+(analyses marked with (*) are available in <strong>functions</strong><a href="#mode">mode</a> only):</p><dl><dt><strong>undefined_function_calls</strong>(*)</dt><dd>Returns a list of calls to <a href="#undefined_function">undefined functions</a>.</dd><dt><strong>undefined_functions</strong></dt><dd>Returns a list of <a href="#undefined_function">undefined functions</a>. </dd><dt><strong>locals_not_used</strong>(*)</dt><dd>Returns a list of local functions that have not been locally used.</dd><dt><strong>exports_not_used</strong></dt><dd>Returns a list of exported functions that have not been externally used.</dd><dt><strong>deprecated_function_calls</strong>(*)</dt><dd>Returns a list of external calls to <a href="#deprecated_function">deprecated functions</a>.</dd><dt><strong>{deprecated_function_calls, DeprFlag}</strong>(*)</dt><dd>Returns a list of external calls to deprecated functions. If <strong>DeprFlag</strong> is equal to <strong>next_version</strong>, calls to functions to be removed in next version are returned. If <strong>DeprFlag</strong> is equal to <strong>next_major_release</strong>, calls to functions to be removed in next major release are returned as well as calls to functions to be removed in next version. Finally, if <strong>DeprFlag</strong> is equal to <strong>eventually</strong>, all calls to functions to be removed are returned, including calls to functions to be removed in next version or next major release.</dd><dt><strong>deprecated_functions</strong></dt><dd>Returns a list of externally used deprecated functions.</dd><dt><strong>{deprecated_functions, DeprFlag}</strong></dt><dd>Returns a list of externally used deprecated functions. If <strong>DeprFlag</strong> is equal to <strong>next_version</strong>, functions to be removed in next version are returned. If <strong>DeprFlag</strong> is equal to <strong>next_major_release</strong>, functions to be removed in next major release are returned as well as functions to be removed in next version. Finally, if <strong>DeprFlag</strong> is equal to <strong>eventually</strong>, all functions to be removed are returned, including functions to be removed in next version or next major release.</dd><dt><strong>{call, FuncSpec}</strong>(*)</dt><dd>Returns a list of functions called by some of the given  functions.</dd><dt><strong>{use, FuncSpec}</strong>(*)</dt><dd>Returns a list of functions that use some of the given  functions.</dd><dt><strong>{module_call, ModSpec}</strong></dt><dd>Returns a list of modules called by some of the given  modules.</dd><dt><strong>{module_use, ModSpec}</strong></dt><dd>Returns a list of modules that use some of the given  modules.</dd><dt><strong>{application_call, AppSpec}</strong></dt><dd>Returns a list of applications called by some of the given  applications.</dd><dt><strong>{application_use, AppSpec}</strong></dt><dd>Returns a list of applications that use some of the given  applications.</dd><dt><strong>{release_call, RelSpec}</strong></dt><dd>Returns a list of releases called by some of the given  releases.</dd><dt><strong>{release_use, RelSpec}</strong></dt><dd>Returns a list of releases that use some of the given  releases.</dd></dl><h3>d(Directory) -&gt; [DebugInfoResult] | [NoDebugInfoResult] | Error</h3><p>Check the modules in a directory using the code path.</p><ul><li><span class="v">Directory = directory()</span></li><li><span class="v">DebugInfoResult = {deprecated, [funcall()]} | {undefined, [funcall()]} | {unused, [mfa()]}</span></li><li><span class="v">Error = {error, module(), Reason}</span></li><li><span class="v">NoDebugInfoResult = {deprecated, [mfa()]} | {undefined, [mfa()]}</span></li><li><span class="v">Reason = {file_error, file(), error()} | {invalid_filename, term()} | {unrecognized_file, file()} | -Â error from beam_lib:chunks/2Â -</span></li></ul><p>The modules found in the given directory are checked for
+calls to <a href="#deprecated_function">deprecated functions</a>, calls to <a href="#undefined_function">undefined functions</a>,
+and for unused local functions. The code path is used as
+<a href="#library_path">library path</a>.
+</p><p>If some of the found BEAM files contain <a href="#debug_info">debug information</a>, then those
+modules are checked and a list of tuples is returned. The
+first element of each tuple is one of:
+</p><ul><li><strong>deprecated</strong>, the second element is a sorted list of calls to deprecated functions;</li><li><strong>undefined</strong>, the second element is a sorted list of calls to undefined functions;</li><li><strong>unused</strong>, the second element is a sorted list of unused local functions.</li></ul><p>If no BEAM file contains debug information, then a list of
+tuples is returned. The first element of each tuple is one
+of:
+</p><ul><li><strong>deprecated</strong>, the second element is a sorted list of externally used deprecated functions;</li><li><strong>undefined</strong>, the second element is a sorted list of undefined functions.</li></ul><h3>forget(Xref) -&gt; ok</h3><h3>forget(Xref, Variables) -&gt; ok | Error</h3><p>Remove user variables and their values.</p><ul><li><span class="v">Error = {error, module(), Reason}</span></li><li><span class="v">Reason = {not_user_variable, term()}</span></li><li><span class="v">Variables = [variable()] | variable()</span></li><li><span class="v">Xref = xref()</span></li></ul><p><strong>forget/1</strong> and <strong>forget/2</strong> remove all or some of
+the <a href="#user_variable">user variables</a> of an <a href="#xref_server">xref server</a>.</p><h3>format_error(Error) -&gt; Chars</h3><p>Return an English description of an Xref error reply.</p><ul><li><span class="v">Error = {error, module(), term()}</span></li><li><span class="v">Chars = [char() | Chars]</span></li></ul><p>Given the error returned by any function of this module, 
+the function <strong>format_error</strong> returns a descriptive string
+of the error in English. For file errors, the function 
+<strong>format_error/1</strong> in the <strong>file</strong> module is called.</p><h3>get_default(Xref) -&gt; [{Option, Value}]</h3><h3>get_default(Xref, Option) -&gt; {ok, Value} | Error</h3><p>Return the default values of options.</p><ul><li><span class="v">Error = {error, module(), Reason}</span></li><li><span class="v">Option = builtins | recurse | verbose | warnings</span></li><li><span class="v">Reason = {invalid_options, term()}</span></li><li><span class="v">Value = bool()</span></li><li><span class="v">Xref = xref()</span></li></ul><p>Returns the default values of one or more options.</p><h3>get_library_path(Xref) -&gt; {ok, LibraryPath}</h3><p>Return the library path.</p><ul><li><span class="v">LibraryPath = library_path()</span></li><li><span class="v">Xref = xref()</span></li></ul><p>Returns the <a href="#library_path">library path</a>.</p><h3>info(Xref) -&gt; [Info]</h3><h3>info(Xref, Category) -&gt; [{Item, [Info]}]</h3><h3>info(Xref, Category, Items) -&gt;  [{Item, [Info]}]</h3><p>Return information about an Xref server.</p><ul><li><span class="v">Application = [] | [application()]</span></li><li><span class="v">Category = modules | applications | releases | libraries</span></li><li><span class="v">Info = {application, Application} | {builtins, bool()} | {directory, directory()} | {library_path, library_path()} | {mode, mode()} | {no_analyzed_modules, int()} | {no_applications, int()} | {no_calls, {NoResolved, NoUnresolved}} | {no_function_calls, {NoLocal, NoResolvedExternal, NoUnresolved}} | {no_functions, {NoLocal, NoExternal}} | {no_inter_function_calls, int()} | {no_releases, int()} | {release, Release} | {version, Version}</span></li><li><span class="v">Item = module() | application() | release() | library()</span></li><li><span class="v">Items = Item | [Item]</span></li><li><span class="v">NoLocal = NoExternal = NoResolvedExternal, NoResolved = NoUnresolved = int()</span></li><li><span class="v">Release = [] | [release()]</span></li><li><span class="v">Version = [int()]</span></li><li><span class="v">Xref = xref()</span></li></ul><p>The <strong>info</strong> functions return information as a list of
+pairs {Tag,Â term()} in some order about the state and the 
+<a href="#module_data">module data</a> of an <a href="#xref_server">Xref server</a>.
+</p><p><strong>info/1</strong> returns information with the following tags
+(tags  marked with (*) are available in <strong>functions</strong>
+mode only):</p><ul><li><strong>library_path</strong>, the <a href="#library_path">library path</a>;</li><li><strong>mode</strong>, the <a href="#mode">mode</a>;</li><li><strong>no_releases</strong>, number of releases;</li><li><strong>no_applications</strong>, total number of applications (of all releases);</li><li><strong>no_analyzed_modules</strong>, total number of <a href="#analyzed_module">analyzed modules</a>;</li><li><strong>no_calls</strong> (*), total number of calls (in all modules), regarding instances of one function call in  different lines as separate calls;</li><li><strong>no_function_calls</strong> (*), total number of <a href="#local_call">local calls</a>, resolved <a href="#external_call">external calls</a> and  <a href="#unresolved_call">unresolved calls</a>;</li><li><strong>no_functions</strong> (*), total number of local and exported functions;</li><li><strong>no_inter_function_calls</strong> (*), total number of calls of the <a href="#inter_call_graph">Inter Call Graph</a>.</li></ul><p><strong>info/2</strong> and <strong>info/3</strong> return information about
+all or some of the analyzed modules, applications, releases
+or library modules of an Xref server. 
+The following information is returned for every analyzed module:</p><ul><li><strong>application</strong>, an empty list if the module does  not belong to any application, otherwise a list of  the application name;</li><li><strong>builtins</strong>, whether calls to BIFs are included in the module's data;</li><li><strong>directory</strong>, the directory where the module's BEAM file is located;</li><li><strong>no_calls</strong> (*), number of calls, regarding instances of one function call in different lines as separate calls;</li><li><strong>no_function_calls</strong> (*), number of local calls, resolved external calls and unresolved calls;</li><li><strong>no_functions</strong> (*), number of local and exported functions;</li><li><strong>no_inter_function_calls</strong> (*), number of calls of the Inter Call Graph;</li></ul><p>The following information is returned for every application:</p><ul><li><strong>directory</strong>, the directory where the modules' BEAM files are located;</li><li><strong>no_analyzed_modules</strong>, number of analyzed modules;</li><li><strong>no_calls</strong> (*), number of calls of the application's modules, regarding instances of one function call in different lines as separate calls;</li><li><strong>no_function_calls</strong> (*), number of local calls, resolved external calls and unresolved calls of the application's modules;</li><li><strong>no_functions</strong> (*), number of local and exported functions of the application's modules;</li><li><strong>no_inter_function_calls</strong> (*), number of calls of the Inter Call Graph of the application's modules;</li><li><strong>release</strong>, an empty list if the application does not belong to any release, otherwise a list of the release name;</li><li><strong>version</strong>, the application's version as a list of numbers. For instance, the directory "kernel-2.6" results in the application name <strong>kernel</strong> and the application version [2,6]; "kernel" yields the name <strong>kernel</strong> and the version [].</li></ul><p>The following information is returned for every release:</p><ul><li><strong>directory</strong>, the release directory;</li><li><strong>no_analyzed_modules</strong>, number of analyzed modules;</li><li><strong>no_applications</strong>, number of applications;</li><li><strong>no_calls</strong> (*), number of calls of the release's modules, regarding instances of one function call in different lines as separate calls;</li><li><strong>no_function_calls</strong> (*), number of local calls, resolved external calls and unresolved calls of the release's modules;</li><li><strong>no_functions</strong> (*), number of local and exported functions of the release's modules;</li><li><strong>no_inter_function_calls</strong> (*), number of calls of the Inter Call Graph of the release's modules.</li></ul><p>The following information is returned for every library module:</p><ul><li><strong>directory</strong>, the directory where the <a href="#library_module">library module's</a> BEAM file is located.</li></ul><p>For every number of calls, functions etc. returned by the
+<strong>no_</strong> tags, there is a query returning the same number.
+Listed below are examples of such queries. Some of the
+queries return the sum of a two or more of the <strong>no_</strong>
+tags numbers. <strong>mod</strong> (<strong>app</strong>, <strong>rel</strong>) refers to
+any module (application, release).
+</p><ul><li> <p><strong>no_analyzed_modules</strong></p> <ul><li><strong>"# AM"</strong> (info/1)</li><li><strong>"# (Mod) app:App"</strong>  (application)</li><li><strong>"# (Mod) rel:Rel"</strong> (release)</li></ul> </li><li> <p><strong>no_applications</strong></p> <ul><li><strong>"# A"</strong> (info/1)</li></ul> </li><li> <p><strong>no_calls</strong>. The sum of the number of resolved and
+unresolved calls:</p> <ul><li><strong>"# (XLin) E + # (LLin) E"</strong> (info/1)</li><li><strong>"T = E | mod:Mod, # (LLin) T + # (XLin) T"</strong>  (module)</li><li><strong>"T = E | app:App, # (LLin) T + # (XLin) T"</strong>  (application)</li><li><strong>"T = E | rel:Rel, # (LLin) T + # (XLin) T"</strong>  (release)</li></ul> </li><li> <p><strong>no_functions</strong>. Functions in library modules and
+the functions <strong>module_info/0,1</strong> are not counted by
+<strong>info</strong>. Assuming that <strong>"Extra := _:module_info/\"(0|1)\" + LM"</strong> has been evaluated, the
+sum of the number of local and exported functions are:</p> <ul><li><strong>"# (F - Extra)"</strong> (info/1)</li><li><strong>"# (F * mod:Mod - Extra)"</strong> (module)</li><li><strong>"# (F * app:App - Extra)"</strong> (application)</li><li><strong>"# (F * rel:Rel - Extra)"</strong> (release)</li></ul> </li><li> <p><strong>no_function_calls</strong>. The sum of the number of
+local calls, resolved external calls and unresolved calls:</p> <ul><li><strong>"# LC + # XC"</strong> (info/1)</li><li><strong>"# LC | mod:Mod + # XC | mod:Mod"</strong> (module)</li><li><strong>"# LC | app:App + # XC | app:App"</strong> (application)</li><li><strong>"# LC | rel:Rel + # XC | mod:Rel"</strong> (release)</li></ul> </li><li> <p><strong>no_inter_function_calls</strong></p> <ul><li><strong>"# EE"</strong> (info/1)</li><li><strong>"# EE | mod:Mod"</strong> (module)</li><li><strong>"# EE | app:App"</strong> (application)</li><li><strong>"# EE | rel:Rel"</strong> (release)</li></ul> </li><li> <p><strong>no_releases</strong></p> <ul><li><strong>"# R"</strong> (info/1)</li></ul> </li></ul><h3>m(Module) -&gt; [DebugInfoResult] | [NoDebugInfoResult] | Error</h3><h3>m(File) -&gt; [DebugInfoResult] | [NoDebugInfoResult] | Error</h3><p>Check a module using the code path.</p><ul><li><span class="v">DebugInfoResult = {deprecated, [funcall()]} | {undefined, [funcall()]} | {unused, [mfa()]}</span></li><li><span class="v">Error = {error, module(), Reason}</span></li><li><span class="v">File = file()</span></li><li><span class="v">Module = module()</span></li><li><span class="v">NoDebugInfoResult = {deprecated, [mfa()]} | {undefined, [mfa()]}</span></li><li><span class="v">Reason = {file_error, file(), error()} | {interpreted, module()} | {invalid_filename, term()} | {cover_compiled, module()} | {no_such_module, module()}  | -Â error from beam_lib:chunks/2Â -</span></li></ul><p>The given BEAM file (with or without the <strong>.beam</strong>
+extension) or the file found by calling
+<strong>code:which(Module)</strong> is checked for calls to <a href="#deprecated_function">deprecated functions</a>, calls to <a href="#undefined_function">undefined functions</a>,
+and for unused local functions. The code path is used as
+<a href="#library_path">library path</a>.
+</p><p>If the BEAM file contains <a href="#debug_info">debug information</a>, then a
+list of tuples is returned. The first element of each tuple
+is one of:
+</p><ul><li><strong>deprecated</strong>, the second element is a sorted list of calls to deprecated functions;</li><li><strong>undefined</strong>, the second element is a sorted list of calls to undefined functions;</li><li><strong>unused</strong>, the second element is a sorted list of unused local functions.</li></ul><p>If the BEAM file does not contain debug information, then a
+list of tuples is returned. The first element of each tuple
+is one of:
+</p><ul><li><strong>deprecated</strong>, the second element is a sorted list of externally used deprecated functions;</li><li><strong>undefined</strong>, the second element is a sorted list of undefined functions.</li></ul><h3>q(Xref, Query [, Options]) -&gt; {ok, Answer} | Error</h3><p>Evaluate a query.</p><ul><li><span class="v">Answer = false | [constant()] | [Call] | [Component] | int() | [DefineAt] | [CallAt] | [AllLines]</span></li><li><span class="v">Call = call() | ComponentCall</span></li><li><span class="v">ComponentCall = {Component, Component}</span></li><li><span class="v">Component = [constant()]</span></li><li><span class="v">DefineAt = {mfa(), LineNumber}</span></li><li><span class="v">CallAt = {funcall(), LineNumbers}</span></li><li><span class="v">AllLines = {{DefineAt, DefineAt}, LineNumbers}</span></li><li><span class="v">Error = {error, module(), Reason}</span></li><li><span class="v">LineNumbers = [LineNumber]</span></li><li><span class="v">LineNumber = int()</span></li><li><span class="v">Options = [Option] | Option</span></li><li><span class="v">Option = {verbose, bool()}</span></li><li><span class="v">Query = string() | atom()</span></li><li><span class="v">Reason = {invalid_options, term()} | {parse_error, string_position(), term()} | {type_error, string()} | {type_mismatch, string(), string()} | {unknown_analysis, term()} | {unknown_constant, string()} | {unknown_variable, variable()} | {variable_reassigned, string()}</span></li><li><span class="v">Xref = xref()</span></li></ul><p>Evaluates a <a href="#query">query</a> in the
+context of an <a href="#xref_server">Xref server</a>, and returns the value of the last
+statement. The syntax of the value depends on the
+expression:
+</p><ul><li>A set of calls is represented by a sorted list without duplicates of <strong>call()</strong>.</li><li>A set of constants is represented by a sorted list without duplicates of <strong>constant()</strong>.</li><li>A set of strongly connected components is a sorted list without duplicates of <strong>Component</strong>.</li><li>A set of calls between strongly connected components is a sorted list without duplicates of <strong>ComponentCall</strong>.</li><li>A chain of calls is represented by a list of <strong>constant()</strong>. The list contains the From vertex of every call and the To vertex of the last call.</li><li>The <strong>of</strong> operator returns <strong>false</strong> if no chain of calls between the given constants can be found.</li><li>The value of the <strong>closure</strong> operator (the <strong>digraph</strong> representation) is represented by the atom <strong>'closure()'</strong>.</li><li>A set of line numbered functions is represented by a sorted list without duplicates of <strong>DefineAt</strong>.</li><li>A set of line numbered function calls is represented by a sorted list without duplicates of <strong>CallAt</strong>.</li><li>A set of line numbered functions and function calls is represented by a sorted list without duplicates of <strong>AllLines</strong>.</li></ul><p>For both <strong>CallAt</strong> and <strong>AllLines</strong> it holds that for
+no list element is <strong>LineNumbers</strong> an empty list; such
+elements have been removed. The constants of <strong>component</strong>
+and the integers of <strong>LineNumbers</strong> are sorted and without
+duplicates.
+</p><h3>remove_application(Xref, Applications) -&gt; ok | Error</h3><p>Remove applications and their modules.</p><ul><li><span class="v">Applications = application() | [application()]</span></li><li><span class="v">Error = {error, module(), Reason}</span></li><li><span class="v">Reason = {no_such_application, application()}</span></li><li><span class="v">Xref = xref()</span></li></ul><p>Removes applications and their modules and <a href="#module_data">module data</a> from an <a href="#xref_server">Xref server</a>.</p><h3>remove_module(Xref, Modules) -&gt; ok | Error</h3><p>Remove analyzed modules.</p><ul><li><span class="v">Error = {error, module(), Reason}</span></li><li><span class="v">Modules = module() | [module()]</span></li><li><span class="v">Reason = {no_such_module, module()}</span></li><li><span class="v">Xref = xref()</span></li></ul><p>Removes <a href="#analyzed_module">analyzed modules</a> and <a href="#module_data">module data</a> from an <a href="#xref_server">Xref server</a>.</p><h3>remove_release(Xref, Releases) -&gt; ok | Error</h3><p>Remove releases and their applications and modules.</p><ul><li><span class="v">Error = {error, module(), Reason}</span></li><li><span class="v">Reason = {no_such_release, release()}</span></li><li><span class="v">Releases = release() | [release()]</span></li><li><span class="v">Xref = xref()</span></li></ul><p>Removes releases and their applications, modules and
+<a href="#module_data">module data</a> from an
+<a href="#xref_server">Xref server</a>.</p><h3>replace_application(Xref, Application,  Directory [, Options]) -&gt; {ok, application()} | Error</h3><p>Replace an application's modules.</p><ul><li><span class="v">Application = application()</span></li><li><span class="v">Directory = directory()</span></li><li><span class="v">Error = {error, module(), Reason}</span></li><li><span class="v">Options = [Option] | Option</span></li><li><span class="v">Option = {builtins, bool()} | {verbose, bool()}  | {warnings, bool()}</span></li><li><span class="v">Reason = {no_such_application, application()} | -Â seeÂ alsoÂ add_applicationÂ -</span></li><li><span class="v">Xref = xref()</span></li></ul><p>Replaces the modules of an application with other modules
+read from an application directory. Release membership of the
+application is retained. Note that the name of the
+application is kept; the name of the given directory is not
+used.
+</p><h3>replace_module(Xref, Module, File [, Options]) -&gt;  {ok, module()} | Error</h3><p>Replace an analyzed module.</p><ul><li><span class="v">Error = {error, module(), Reason}</span></li><li><span class="v">File = file()</span></li><li><span class="v">Module = module()</span></li><li><span class="v">Options = [Option] | Option</span></li><li><span class="v">Option = {verbose, bool()} | {warnings, bool()}</span></li><li><span class="v">ReadModule = module()</span></li><li><span class="v">Reason = {module_mismatch, module(), ReadModule} | {no_such_module, module()}  | -Â seeÂ alsoÂ add_moduleÂ -</span></li><li><span class="v">Xref = xref()</span></li></ul><p>Replaces <a href="#module_data">module data</a> of an <a href="#analyzed_module">analyzed module</a> with
+data read from a BEAM file. Application membership of the
+module is retained, and so is the value of the
+<strong>builtins</strong> option of the module. An error is returned
+if the name of the read module differs from the given
+module.
+</p><p>The <strong>update</strong> function is an alternative for updating
+module data of recompiled modules.</p><h3>set_default(Xref, Option, Value) -&gt; {ok, OldValue} | Error</h3><h3>set_default(Xref, OptionValues) -&gt; ok | Error</h3><p>Set the default values of options.</p><ul><li><span class="v">Error = {error, module(), Reason}</span></li><li><span class="v">OptionValues = [OptionValue] | OptionValue</span></li><li><span class="v">OptionValue = {Option, Value}</span></li><li><span class="v">Option = builtins | recurse | verbose | warnings</span></li><li><span class="v">Reason = {invalid_options, term()}</span></li><li><span class="v">Value = bool()</span></li><li><span class="v">Xref = xref()</span></li></ul><p>Sets the default value of one or more options. 
+The options that can be set this way are:</p><ul><li><strong>builtins</strong>, with initial default value <strong>false</strong>;</li><li><strong>recurse</strong>, with initial default value <strong>false</strong>;</li><li><strong>verbose</strong>, with initial default value <strong>false</strong>;</li><li><strong>warnings</strong>, with initial default value <strong>true</strong>.</li></ul><p>The initial default values are set when creating an <a href="#xref_server">Xref server</a>. 
+</p><h3>set_library_path(Xref, LibraryPath [, Options]) -&gt;  ok | Error</h3><p>Set the library path and finds the library modules.</p><ul><li><span class="v">Error = {error, module(), Reason}</span></li><li><span class="v">LibraryPath = library_path()</span></li><li><span class="v">Options = [Option] | Option</span></li><li><span class="v">Option = {verbose, bool()}</span></li><li><span class="v">Reason = {invalid_options, term()} | {invalid_path, term()}</span></li><li><span class="v">Xref = xref()</span></li></ul><p>Sets the <a href="#library_path">library path</a>. If the given path is a list of
+directories, the set of <a href="#library_module">library modules</a> is
+determined by choosing the first module
+encountered while traversing the directories in
+the given order, for those modules that occur in more than
+one directory. By default, the library path is an empty list.
+</p><p>The library path           <a name="code_path"></a>
+<strong>code_path</strong> is
+used by the functions
+<strong>m/1</strong> and <strong>d/1</strong>, but can also be set explicitly.
+Note however that the code path will be traversed once for
+each used <a href="#library_module">library module</a> while setting up module data.
+On the other hand, if there are only a few modules that are
+used but not analyzed, using <strong>code_path</strong> may be faster
+than setting the library path to <strong>code:get_path()</strong>.
+</p><p>If the library path is set to <strong>code_path</strong>, the set of
+library modules is not determined, and the <strong>info</strong>
+functions will return empty lists of library modules.</p><h3>start(NameOrOptions) -&gt; Return</h3><p>Create an Xref server.</p><ul><li><span class="v">NameOrOptions = Name | Options</span></li><li><span class="v">Name = atom()</span></li><li><span class="v">Options = [Option] | Option</span></li><li><span class="v">Option = {xref_mode, mode()} | term()</span></li><li><span class="v">Return = {ok, pid()}  | {error, {already_started, pid()}}</span></li></ul><p>Creates an <a href="#xref_server">Xref server</a>.
+The process may optionally be given a name.
+The default <a href="#mode">mode</a> is <strong>functions</strong>.
+Options that are not recognized by Xref
+are passed on to <strong>gen_server:start/4</strong>.</p><h3>start(Name, Options) -&gt; Return</h3><p>Create an Xref server.</p><ul><li><span class="v">Name = atom()</span></li><li><span class="v">Options = [Option] | Option</span></li><li><span class="v">Option = {xref_mode, mode()} | term()</span></li><li><span class="v">Return = {ok, pid()}  | {error, {already_started, pid()}}</span></li></ul><p>Creates an <a href="#xref_server">Xref server</a>
+with a given name. 
+The default <a href="#mode">mode</a> is <strong>functions</strong>.
+Options that are not recognized by Xref
+are passed on to <strong>gen_server:start/4</strong>.</p><h3>stop(Xref)</h3><p>Delete an Xref server.</p><ul><li><span class="v">Xref = xref()</span></li></ul><p>Stops an <a href="#xref_server">Xref server</a>.</p><h3>update(Xref [, Options]) -&gt; {ok, Modules} | Error</h3><p>Replace newly compiled analyzed modules.</p><ul><li><span class="v">Error = {error, module(), Reason}</span></li><li><span class="v">Modules = [module()]</span></li><li><span class="v">Options = [Option] | Option</span></li><li><span class="v">Option = {verbose, bool()} | {warnings, bool()}</span></li><li><span class="v">Reason = {invalid_options, term()} | {module_mismatch, module(), ReadModule} | -Â seeÂ alsoÂ add_moduleÂ -</span></li><li><span class="v">Xref = xref()</span></li></ul><p>Replaces the <a href="#module_data">module data</a> of all <a href="#analyzed_module">analyzed modules</a> the BEAM
+files of which have been modified since last read by an
+<strong>add</strong> function or <strong>update</strong>. Application membership
+of the modules is retained, and so is the value of the
+<strong>builtins</strong> option. Returns a sorted list
+of the names of the replaced modules.</p><h3>variables(Xref [, Options]) -&gt; {ok, [VariableInfo]}</h3><p>Return the names of variables.</p><ul><li><span class="v">Options = [Option] | Option</span></li><li><span class="v">Option = predefined | user | {verbose, bool()}</span></li><li><span class="v">Reason = {invalid_options, term()}</span></li><li><span class="v">VariableInfo = {predefined, [variable()]} | {user, [variable()]}</span></li><li><span class="v">Xref = xref()</span></li></ul><p>Returns a sorted lists of the names of the variables of an
+<a href="#xref_server">Xref server</a>. 
+The default is to return the <a href="#user_variable">user variables</a> only.</p><h3>See Also</h3><p>
+<a href="./beam_lib">beam_lib(3)</a>,
+<a href="./digraph">digraph(3)</a>,
+<a href="./digraph_utils">digraph_utils(3)</a>,
+<a href="./re">re(3)</a>,
+<a href="xref_chapter">TOOLS User's Guide</a></p></body></html>

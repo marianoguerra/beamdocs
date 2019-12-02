@@ -1,0 +1,1247 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Asn1 User's Guide</h1><p>The <strong>ASN.1</strong> application
+contains modules with compile-time and runtime support for
+Abstract Syntax Notation One (ASN.1).
+</p><p>The ASN.1 application provides the following:</p><ul><li>An ASN.1 compiler for Erlang, which generates encode and decode functions to be used by Erlang programs sending and receiving ASN.1 specified data.</li><li>Runtime functions used by the generated code.</li><li>Support for the following encoding rules: <ul><li>Basic Encoding Rules (BER)</li><li>Distinguished Encoding Rules (DER), a specialized form of BER that is used in security-conscious applications</li><li>Packed Encoding Rules (PER), both the aligned and unaligned variant</li></ul> </li></ul><h3>Scope</h3><p>This application covers all features of ASN.1 up to the 1997
+edition of the specification. In the 2002 edition,
+new features were introduced. The following features
+of the 2002 edition are fully or partly supported:</p><ul><li> <p>Decimal notation (for example, <strong>"1.5e3</strong>) for REAL values.
+The NR1, NR2, and NR3 formats as explained in ISO 6093 are
+supported.</p> </li><li> <p>The <strong>RELATIVE-OID</strong> type for relative object identifiers is
+fully supported.</p> </li><li> <p>The subtype constraint (<strong>CONTAINING</strong>/<strong>ENCODED BY</strong>) to
+constrain the content of an octet string or a bit string is
+parsed when compiling, but no further action is taken. This
+constraint is not a PER-visible constraint.</p> </li><li> <p>The subtype constraint by regular expressions (<strong>PATTERN</strong>)
+for character string types is parsed when compiling, but no
+further action is taken. This constraint is not a
+PER-visible constraint.</p> </li><li> <p>Multiple-line comments as in C, <strong>/* ... */</strong>, are
+supported.</p> </li></ul><h3>Prerequisites</h3><p>It is assumed that the reader is familiar with the Erlang
+programming language, concepts of OTP, and is familiar with the
+ASN.1 notation. The ASN.1 notation is documented in the standard
+definition X.680, which is the primary text. It can also be
+helpful, but not necessary, to read the standard definitions
+X.681, X.682, X.683, X.690, and X.691.</p><p>A good book explaining those reference texts is
+Dubuisson: ASN.1 - Communication Between Heterogeneous Systems,
+is free to download at
+<a href="http://www.oss.com/asn1/dubuisson.html">http://www.oss.com/asn1/dubuisson.html</a>.</p><h3>Introduction</h3><p>ASN.1 is a formal language for
+describing data structures to be exchanged between distributed
+computer systems. The purpose of ASN.1 is to have a platform
+and programming language independent notation to express types
+using a standardized set of rules for the transformation of
+values of a defined type into a stream of bytes. This stream of
+bytes can then be sent on any type of communication
+channel. This way, two applications written in different
+programming languages running on different computers, and with
+different internal representation of data, can exchange instances
+of structured data types.</p><h3>Example</h3><p>The following example demonstrates the basic functionality used to
+run the Erlang ASN.1 compiler.</p><p>Create a file named <strong>People.asn</strong> containing the following:</p><pre>
+People DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+  Person ::= SEQUENCE {
+    name PrintableString,
+    location INTEGER {home(0),field(1),roving(2)},
+    age INTEGER OPTIONAL
+  }
+END      </pre><p>This file must be compiled before it can be used.
+The ASN.1 compiler checks that the syntax is correct and that the
+text represents proper ASN.1 code before generating an abstract
+syntax tree. The code-generator then uses the abstract syntax
+tree to generate code.</p><p>The generated Erlang files are placed in the current directory or
+in the directory specified with option <strong>{outdir,Dir}</strong>.</p><p>The following shows how the compiler
+can be called from the  Erlang shell:</p><pre>
+1&gt;<span class="input"> asn1ct:compile("People", [ber]).</span>
+ok
+2&gt;      </pre><p>Option <strong>verbose</strong> can be added to get information
+about the generated files:</p><pre>
+2&gt;<span class="input"> asn1ct:compile("People", [ber,verbose]).</span>
+Erlang ASN.1 compiling "People.asn" 
+--{generated,"People.asn1db"}--
+--{generated,"People.hrl"}--
+--{generated,"People.erl"}--
+ok
+3&gt;      </pre><p>ASN.1 module <strong>People</strong> is now accepted and the
+abstract syntax tree is saved in file <strong>People.asn1db</strong>.
+The generated Erlang code is compiled using the Erlang compiler
+and loaded into the Erlang runtime system. There is now an API
+for <strong>encode/2</strong> and <strong>decode/2</strong> in module
+<strong>People</strong>, which is called like:<br/>
+<strong>'People':encode(&lt;Type name&gt;, &lt;Value&gt;)</strong>
+<br/>
+or<br/>
+<strong>'People':decode(&lt;Type name&gt;, &lt;Value&gt;)</strong></p><p>Assume that there is a network
+application that receives instances of the ASN.1 defined
+type <strong>Person</strong>, modifies, and sends them back again:</p><pre><code class="">
+receive
+   {Port,{data,Bytes}} -&gt;
+       case 'People':decode('Person',Bytes) of
+           {ok,P} -&gt;
+               {ok,Answer} = 'People':encode('Person',mk_answer(P)),
+               Port ! {self(),{command,Answer}};
+           {error,Reason} -&gt;
+               exit({error,Reason})
+       end
+    end,      </code></pre><p>In this example, a series of bytes is received from an
+external source and the bytes are then decoded into a valid
+Erlang term. This was achieved with the call
+<strong>'People':decode('Person',Bytes)</strong>, which returned
+an Erlang value of the ASN.1 type <strong>Person</strong>. Then an answer was
+constructed  and encoded using
+<strong>'People':encode('Person',Answer)</strong>, which takes an
+instance of a defined ASN.1 type and transforms it to a
+binary according to the BER or PER encoding rules.</p><p>The encoder and decoder can also be run from the shell:</p><pre>
+2&gt; <span class="input">Rockstar = {'Person',"Some Name",roving,50}.</span>
+{'Person',"Some Name",roving,50}
+3&gt; <span class="input">{ok,Bin} = 'People':encode('Person',Rockstar).</span>
+{ok,&lt;&lt;243,17,19,9,83,111,109,101,32,78,97,109,101,2,1,2,
+      2,1,50&gt;&gt;}
+4&gt; <span class="input">{ok,Person} = 'People':decode('Person',Bin).</span>
+{ok,{'Person',"Some Name",roving,50}}
+5&gt;      </pre><h3>Module Dependencies</h3><p>It is common that ASN.1 modules import defined types, values, and
+other entities from another ASN.1 module.</p><p>Earlier versions of the ASN.1 compiler required that modules
+that were imported from had to be compiled before the module
+that imported. This caused problems when ASN.1 modules had circular
+dependencies.</p><p>Referenced modules are now parsed when the compiler finds an
+entity that is imported. No code is generated for
+the referenced module. However, the compiled modules rely on
+that the referenced modules are also compiled.</p><h3>ASN.1 Application User Interface</h3><p>The <strong>ASN.1</strong> application provides the following two
+separate user interfaces:</p><ul><li> <p>The module <strong>asn1ct</strong>, which provides the compile-time functions
+(including the compiler)</p> </li><li> <p>The module <strong>asn1rt_nif</strong>, which provides the runtime functions
+for the ASN.1 decoder for the BER back end</p> </li></ul><p>The reason for this division of the interfaces into compile-time
+and runtime
+is that only runtime modules (<strong>asn1rt*</strong>) need to be loaded in
+an embedded system. 
+</p><h3>Compile-Time Functions</h3><p>The ASN.1 compiler can be started directly from the command line
+by the <strong>erlc</strong> program. This is convenient when compiling
+many ASN.1 files from the command line or when using Makefiles.
+Some examples of how the <strong>erlc</strong> command can be used to start
+the ASN.1 compiler:</p><pre>
+erlc Person.asn
+erlc -bper Person.asn
+erlc -bber ../Example.asn
+erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn</pre><p>Useful options for the ASN.1 compiler:</p><dl><dt><strong>-b[ber | per | uper]</strong></dt><dd> <p>Choice of encoding rules. If omitted, <strong>ber</strong> is the
+default.</p> </dd><dt><strong>-o OutDirectory</strong></dt><dd> <p>Where to put the generated files. Default is the current
+directory.</p> </dd><dt><strong>-I IncludeDir</strong></dt><dd> <p>Where to search for <strong>.asn1db</strong> files and ASN.1
+source specs to resolve references to other
+modules. This option can be repeated many times if there
+are several places to search in. The compiler
+searches the current directory first.</p> </dd><dt><strong>+der</strong></dt><dd> <p>DER encoding rule. Only when using option <strong>-ber</strong>.</p> </dd><dt><strong>+maps</strong></dt><dd> <p>Use maps instead of records to represent the <strong>SEQUENCE</strong> and
+<strong>SET</strong> types. No <strong>.hrl</strong> files will be generated.
+See the Section <a href="./asn1_getting_started#MAP_SEQ_SET"> Map representation for SEQUENCE and SET</a>
+for more information.</p> </dd><dt><strong>+asn1config</strong></dt><dd> <p>This functionality works together with option
+<strong>ber</strong>. It enables the specialized decodes, see Section
+<a href="asn1_spec">Specialized Decode</a>.</p> </dd><dt><strong>+undec_rest</strong></dt><dd> <p>A buffer that holds a message being decoded can also have
+trailing bytes. If those trailing bytes are important, they
+can be returned along with the decoded value by compiling
+the ASN.1 specification with option <strong>+undec_rest</strong>.
+The return value from the decoder is
+<strong>{ok,Value,Rest}</strong> where <strong>Rest</strong> is a binary
+containing the trailing bytes.</p> </dd><dt><strong>+'Any Erlc Option'</strong></dt><dd> <p>Any option can be added to the Erlang compiler when
+compiling the generated Erlang files. Any option
+unrecognized by the ASN.1 compiler is passed to the
+Erlang compiler.</p> </dd></dl><p>For a complete description of <strong>erlc</strong>, see
+ERTS Reference Manual.</p><p>The compiler and other compile-time functions can also be started
+from the Erlang shell. Here follows a brief
+description of the primary functions. For a
+complete description of each function, see module <strong>asn1ct</strong> in
+the <a href="asn1ct">ASN.1 Reference Manual</a>.</p><p>The compiler is started by <strong>asn1ct:compile/1</strong> with
+default options, or <strong>asn1ct:compile/2</strong> if explicit options
+are given.</p><p>Example:</p><pre>
+asn1ct:compile("H323-MESSAGES.asn1").      </pre><p>This equals:</p><pre>
+asn1ct:compile("H323-MESSAGES.asn1",[ber]).      </pre><p>If PER encoding is wanted:</p><pre>
+asn1ct:compile("H323-MESSAGES.asn1",[per]).      </pre><p>The generic encode and decode functions can be called
+as follows:</p><pre>
+'H323-MESSAGES':encode('SomeChoiceType',{call,&lt;&lt;"octetstring"&gt;&gt;}).
+'H323-MESSAGES':decode('SomeChoiceType',Bytes).      </pre><h3>Runtime Functions</h3><p>When an ASN.1 specification is compiled with option <strong>ber</strong>,
+the <strong>asn1rt_nif</strong> module and the NIF library in
+<strong>asn1/priv_dir</strong> are needed at runtime.</p><p>By calling function <strong>info/0</strong> in a generated module, you
+get information about which compiler options were used.</p><h3>Errors</h3><p>Errors detected at
+compile-time are displayed on the screen together with line
+numbers indicating where in the source file the respective error
+was detected. If no errors are found, an Erlang ASN.1 module is
+created.</p><p>The runtime encoders and decoders execute within a catch and
+return <strong>{ok, Data}</strong> or
+<strong>{error, {asn1, Description}}</strong> where
+<strong>Description</strong> is
+an Erlang term describing the error.</p><p>Currently, <strong>Description</strong> looks like this:
+<strong>{ErrorDescription, StackTrace}</strong>. Applications should
+not depend on the exact contents of <strong>Description</strong> as it
+could change in the future.</p><a name="inlineExamples"></a><h3>Multi-File Compilation</h3><p>There are various reasons for using multi-file compilation:</p><ul><li>To choose the name for the generated module, for example, because you need to compile the same specs for different encoding rules.</li><li>You want only one resulting module.</li></ul><p>Specify which ASN.1 specs to compile in a module with extension
+<strong>.set.asn</strong>. Choose a module name and provide the
+names of the ASN.1 specs. For example, if you have the specs
+<strong>File1.asn</strong>, <strong>File2.asn</strong>, and <strong>File3.asn</strong>, your
+module <strong>MyModule.set.asn</strong> looks as follows:</p><pre>
+File1.asn
+File2.asn
+File3.asn    </pre><p>If you compile with the following, the result is one merged
+module <strong>MyModule.erl</strong> with the generated code from the three
+ASN.1 specs:</p><pre><code class="">
+~&gt; erlc MyModule.set.asn    </code></pre><h3>Remark about Tags</h3><p>Tags used to be important for all users of ASN.1, because it
+was necessary to add tags manually to certain constructs in order
+for the ASN.1 specification to be valid. Example of
+an old-style specification:</p><pre>
+Tags DEFINITIONS ::=
+BEGIN
+  Afters ::= CHOICE { cheese [0] IA5String,
+                      dessert [1] IA5String }
+END </pre><p>Without the tags (the numbers in square brackets) the ASN.1
+compiler refused to compile the file.</p><p>In 1994 the global tagging mode <strong>AUTOMATIC TAGS</strong> was introduced.
+By putting <strong>AUTOMATIC TAGS</strong> in the module header, the ASN.1
+compiler automatically adds tags when needed. The following is the
+same specification in <strong>AUTOMATIC TAGS</strong> mode:</p><pre>
+Tags DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+  Afters ::= CHOICE { cheese IA5String,
+                      dessert IA5String }
+END </pre><p>Tags are not mentioned any more in this User's Guide.</p><a name="ASN1Types"></a><h3>ASN.1 Types</h3><p>This section describes the ASN.1 types including their
+functionality, purpose, and how values are assigned in Erlang.
+</p><p>ASN.1 has both primitive and constructed types:</p><table class="table table-bordered table-hover table-striped"><caption>Supported ASN.1 Types</caption><tbody><tr><td><em>Primitive Types</em></td><td><em>Constructed Types</em></td></tr><tr><td><a href="#BOOLEAN">BOOLEAN</a></td><td><a href="#SEQUENCE">SEQUENCE</a></td></tr><tr><td><a href="#INTEGER">INTEGER</a></td><td><a href="#SET">SET</a></td></tr><tr><td><a href="#REAL">REAL</a></td><td><a href="#CHOICE">CHOICE</a></td></tr><tr><td><a href="#NULL">NULL</a></td><td><a href="#SOF">SET OF and SEQUENCE OF</a></td></tr><tr><td><a href="#ENUMERATED">ENUMERATED</a></td><td><a href="#ANY">ANY</a></td></tr><tr><td><a href="#BIT STRING">BIT STRING</a></td><td><a href="#ANY">ANY DEFINED BY</a></td></tr><tr><td><a href="#OCTET STRING">OCTET STRING</a></td><td><a href="#NegotiationTypes">EXTERNAL</a></td></tr><tr><td><a href="#Character Strings">Character Strings</a></td><td><a href="#NegotiationTypes">EMBEDDED PDV</a></td></tr><tr><td><a href="#OBJECT IDENTIFIER">OBJECT IDENTIFIER</a></td><td><a href="#NegotiationTypes">CHARACTER STRING</a></td></tr><tr><td><a href="#Object Descriptor">Object Descriptor</a></td><td></td></tr><tr><td><a href="#The TIME types">TIME Types</a></td><td></td></tr></tbody></table><a name="TypeNameValue"></a><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The values of each ASN.1 type have their own representation in Erlang, as
+described in the following sections. Users must provide
+these values for encoding according to the representation, as shown in the
+following example:</p></div><pre>
+Operational ::= BOOLEAN --ASN.1 definition    </pre><p>In Erlang code it can look as follows:</p><pre>
+Val = true,
+{ok,Bytes} = MyModule:encode('Operational', Val),    </pre><a name="BOOLEAN"></a><h3>BOOLEAN</h3><p>Booleans in ASN.1 express values that can be either
+<strong>TRUE</strong> or <strong>FALSE</strong>.
+The meanings assigned to <strong>TRUE</strong> and <strong>FALSE</strong> are outside the scope
+of this text.</p><p>In ASN.1 it is possible to have:</p><pre>
+Operational ::= BOOLEAN</pre><p>Assigning a value to type <strong>Operational</strong> in Erlang is possible by
+using the following Erlang code:</p><pre><code class="erl">
+Myvar1 = true,</code></pre><p>Thus, in Erlang the atoms <strong>true</strong> and <strong>false</strong> are used
+to encode a boolean value.</p><a name="INTEGER"></a><h3>INTEGER</h3><p>ASN.1 itself specifies indefinitely large integers. Erlang
+systems with version 4.3 and higher support very large
+integers, in practice indefinitely large integers.</p><p>The concept of subtyping can be applied to integers and
+to other ASN.1 types. The details of subtyping are not
+explained here; for more information, see X.680. Various
+syntaxes are allowed when defining a type as an integer:</p><pre>
+T1 ::= INTEGER
+T2 ::= INTEGER (-2..7)
+T3 ::= INTEGER (0..MAX)
+T4 ::= INTEGER (0&lt;..MAX)
+T5 ::= INTEGER (MIN&lt;..-99)
+T6 ::= INTEGER {red(0),blue(1),white(2)}</pre><p>The Erlang representation of an ASN.1 <strong>INTEGER</strong> is an integer or
+an atom if a <strong>Named Number List</strong> (see <strong>T6</strong> in the previous
+list) is specified.</p><p>The following is an example of Erlang code that assigns values for the
+types in the previous list:</p><pre>
+T1value = 0,
+T2value = 6,
+T6value1 = blue,
+T6value2 = 0,
+T6value3 = white</pre><p>These Erlang variables are now bound to valid instances of
+ASN.1 defined types. This style of value can be passed directly
+to the encoder for transformation into a series of bytes.</p><p>The decoder returns an atom if the value corresponds to a
+symbol in the <strong>Named Number List</strong>.</p><a name="REAL"></a><h3>REAL</h3><p>The following ASN.1 type is used for real numbers:</p><pre>
+R1 ::= REAL</pre><p>It is assigned a value in Erlang as follows:</p><pre>
+R1value1 = "2.14",
+R1value2 = {256,10,-2},</pre><p>In the last line, notice that the tuple {256,10,-2} is the real number
+2.56 in a special notation, which encodes faster than simply
+stating the number as <strong>"2.56"</strong>. The arity three tuple is
+<strong>{Mantissa,Base,Exponent}</strong>, that is, Mantissa * Base^Exponent.</p><a name="NULL"></a><h3>NULL</h3><p>The type <strong>NULL</strong> is suitable where supply and recognition of a value
+is important but the actual value is not.</p><pre>
+Notype ::= NULL</pre><p>This type is assigned in Erlang as follows:</p><pre>
+N1 = 'NULL',</pre><p>The actual value is the quoted atom <strong>'NULL'</strong>.</p><a name="ENUMERATED"></a><h3>ENUMERATED</h3><p>The type <strong>ENUMERATED</strong> can be used when the value you want to
+describe can only take one of a set of predefined values. Example:</p><pre>
+DaysOfTheWeek ::= ENUMERATED { 
+    sunday(1),monday(2),tuesday(3),
+    wednesday(4),thursday(5),friday(6),saturday(7) }</pre><p>For example, to assign a weekday value in Erlang, use the same atom
+as in the <strong>Enumerations</strong> of the type definition:</p><pre>
+Day1 = saturday,</pre><p>The enumerated type is similar to an integer type, when
+defined with a set of predefined values. The difference is that
+an enumerated type can only have specified
+values, whereas an integer can have any value.</p><a name="BIT STRING"></a><h3>BIT STRING</h3><p>The type <strong>BIT STRING</strong> can be used to model information that
+is made up of arbitrary length series of bits. It is intended
+to be used for selection of flags, not for binary files.</p><p>In ASN.1, <strong>BIT STRING</strong> definitions can look as follows:</p><pre>
+Bits1 ::= BIT STRING
+Bits2 ::= BIT STRING {foo(0),bar(1),gnu(2),gnome(3),punk(14)}</pre><p>The following two notations are available for representation of <strong>BIT STRING</strong> values in Erlang and as input to the encode functions:</p><ul><li>A bitstring. By default, a <strong>BIT STRING</strong> with no symbolic names is decoded to an Erlang bitstring.</li><li>A list of atoms corresponding to atoms in the <strong>NamedBitList</strong> in the <strong>BIT STRING</strong> definition. A <strong>BIT STRING</strong> with symbolic names is always decoded to the format shown in the following example:</li></ul><pre>
+Bits1Val1 = &lt;&lt;0:1,1:1,0:1,1:1,1:1&gt;&gt;,
+Bits2Val1 = [gnu,punk],
+Bits2Val2 = &lt;&lt;2#1110:4&gt;&gt;,
+Bits2Val3 = [bar,gnu,gnome],</pre><p><strong>Bits2Val2</strong> and <strong>Bits2Val3</strong> denote the same value.</p><p><strong>Bits2Val1</strong> is assigned symbolic values. The assignment means
+that the bits corresponding to <strong>gnu</strong> and <strong>punk</strong>, that is, bits
+2 and 14 are set to 1, and the rest are set to 0. The symbolic values
+are shown as a list of values. If a named value, which is not
+specified in the type definition, is shown, a runtime error occurs.</p><p><strong>BIT STRING</strong>s can also be subtyped with, for example, a <strong>SIZE</strong>
+specification:</p><pre>
+Bits3 ::= BIT STRING (SIZE(0..31))      </pre><p>This means that no bit higher than 31 can be set.</p><h3>Deprecated Representations for BIT STRING</h3><p>In addition to the representations described earlier, the
+following deprecated representations are available if the
+specification has been compiled with option
+<strong>legacy_erlang_types</strong>:</p><ul><li>Aa a list of binary digits (0 or 1). This format is accepted as input to the encode functions, and a <strong>BIT STRING</strong> is decoded to this format if option <em>legacy_bit_string</em> is given. </li><li>As <strong>{Unused,Binary}</strong> where <strong>Unused</strong> denotes how many trailing zero-bits 0-7 that are unused in the least significant byte in <strong>Binary</strong>. This format is accepted as input to the encode functions, and a <strong>BIT STRING</strong> is decoded to this format if <strong>compact_bit_string</strong> has been given. </li><li>As a hexadecimal number (or an integer). Avoid this as it is easy to misinterpret a <strong>BIT STRING</strong> value in this format. </li></ul><a name="OCTET STRING"></a><h3>OCTET STRING</h3><p><strong>OCTET STRING</strong> is the simplest of all ASN.1 types. <strong>OCTET STRING</strong> only moves or transfers, for example, binary files or other
+unstructured information complying with two rules: the
+bytes consist of octets and encoding is not required.</p><p>It is possible to have the following ASN.1 type definitions:</p><pre>
+O1 ::= OCTET STRING
+O2 ::= OCTET STRING (SIZE(28))      </pre><p>With the following example assignments in Erlang:</p><pre>
+O1Val = &lt;&lt;17,13,19,20,0,0,255,254&gt;&gt;,
+O2Val = &lt;&lt;"must be exactly 28 chars...."&gt;&gt;,</pre><p>By default, an <strong>OCTET STRING</strong> is always represented as
+an Erlang binary. If the specification has been compiled with
+option <strong>legacy_erlang_types</strong>, the encode functions
+accept both lists and binaries, and the decode functions
+decode an <strong>OCTET STRING</strong> to a list.</p><a name="Character Strings"></a><h3>Character Strings</h3><p>ASN.1 supports a wide variety of character sets. The main difference
+between an <strong>OCTET STRING</strong> and a character string is that the
+<strong>OCTET STRING</strong> has no imposed semantics on the bytes delivered.</p><p>However, when using, for example, IA5String (which closely
+resembles ASCII), byte 65 (in decimal
+notation) <em>means</em> character 'A'.
+</p><p>For example, if a defined type is to be a VideotexString and
+an octet is received with the unsigned integer value <strong>X</strong>,
+the octet is to be interpreted as specified in standard
+ITU-T T.100, T.101. 
+</p><p>The  ASN.1 to Erlang compiler
+does not determine the correct interpretation of each BER
+string octet value with different character strings. The
+application is responsible for interpretation
+of octets. Therefore, from the BER
+string point of view, octets are very similar to
+character strings and are compiled in the same way.
+</p><p>When PER is
+used, there is a significant difference in the encoding scheme
+between <strong>OCTET STRING</strong>s and other strings. The constraints
+specified for a type are especially important for PER, where
+they affect the encoding.
+</p><p>Examples:</p><pre>
+Digs ::= NumericString (SIZE(1..3))
+TextFile ::= IA5String (SIZE(0..64000))      </pre><p>The corresponding Erlang assignments:</p><pre>
+DigsVal1 = "456",
+DigsVal2 = "123",
+TextFileVal1 = "abc...xyz...",
+TextFileVal2 = [88,76,55,44,99,121 .......... a lot of characters here ....]</pre><p>The Erlang representation for "BMPString" and
+"UniversalString" is either a list of ASCII values or a list
+of quadruples. The quadruple representation associates to the
+Unicode standard representation of characters. The ASCII
+characters are all represented by quadruples beginning with
+three zeros like {0,0,0,65} for character 'A'. When
+decoding a value for these strings, the result is a list of
+quadruples, or integers when the value is an ASCII character.</p><p>The following example shows how it works. Assume the following
+specification is in file <strong>PrimStrings.asn1</strong>:</p><pre>
+PrimStrings DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+   BMP ::= BMPString
+END    </pre><p>Encoding and decoding some strings:</p><pre>
+1&gt; <span class="input">asn1ct:compile('PrimStrings', [ber]).</span>
+ok
+2&gt; <span class="input">{ok,Bytes1} = 'PrimStrings':encode('BMP', [{0,0,53,53},{0,0,45,56}]).</span>
+{ok,&lt;&lt;30,4,53,54,45,56&gt;&gt;}
+3&gt; <span class="input">'PrimStrings':decode('BMP', Bytes1).</span>
+{ok,[{0,0,53,53},{0,0,45,56}]}
+4&gt; <span class="input">{ok,Bytes2} = 'PrimStrings':encode('BMP', [{0,0,53,53},{0,0,0,65}]).</span>
+{ok,&lt;&lt;30,4,53,53,0,65&gt;&gt;}
+5&gt; <span class="input">'PrimStrings':decode('BMP', Bytes2).</span>
+{ok,[{0,0,53,53},65]}
+6&gt; <span class="input">{ok,Bytes3} = 'PrimStrings':encode('BMP', "BMP string").</span>
+{ok,&lt;&lt;30,20,0,66,0,77,0,80,0,32,0,115,0,116,0,114,0,105,0,110,0,103&gt;&gt;}
+7&gt; <span class="input">'PrimStrings':decode('BMP', Bytes3).</span>
+{ok,"BMP string"}      </pre><p>Type UTF8String is represented as a UTF-8 encoded binary in
+Erlang. Such binaries can be created directly using the binary syntax
+or by converting from a list of Unicode code points using function
+<strong>unicode:characters_to_binary/1</strong>.</p><p>The following shows examples of how UTF-8 encoded binaries can
+be created and manipulated:</p><pre>
+1&gt; <span class="input">Gs = "ÐÐ¾Ð¹ Ð¼Ð°Ð»ÐµÐ½ÑÐºÐ¸Ð¹ ÐÐ½Ð¾Ð¼".</span>
+[1052,1086,1081,32,1084,1072,1083,1077,1085,1100,1082,1080,
+ 1081,32,1043,1085,1086,1084]
+2&gt; <span class="input">Gbin = unicode:characters_to_binary(Gs).</span>
+&lt;&lt;208,156,208,190,208,185,32,208,188,208,176,208,187,208,
+  181,208,189,209,140,208,186,208,184,208,185,32,208,147,
+  208,...&gt;&gt;
+3&gt; <span class="input">Gbin = &lt;&lt;"ÐÐ¾Ð¹ Ð¼Ð°Ð»ÐµÐ½ÑÐºÐ¸Ð¹ ÐÐ½Ð¾Ð¼"/utf8&gt;&gt;.</span>
+&lt;&lt;208,156,208,190,208,185,32,208,188,208,176,208,187,208,
+  181,208,189,209,140,208,186,208,184,208,185,32,208,147,
+  208,...&gt;&gt;
+4&gt; <span class="input">Gs = unicode:characters_to_list(Gbin).</span>
+[1052,1086,1081,32,1084,1072,1083,1077,1085,1100,1082,1080,
+ 1081,32,1043,1085,1086,1084]</pre><p>For details, see the <a href="./unicode">unicode</a>
+module in STDLIB.</p><p>In the following example, this ASN.1 specification is used:</p><pre>
+UTF DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+   UTF ::= UTF8String
+END   </pre><p>Encoding and decoding a string with Unicode characters:</p><pre>
+5&gt; <span class="input">asn1ct:compile('UTF', [ber]).</span>
+ok
+6&gt; <span class="input">{ok,Bytes1} = 'UTF':encode('UTF', &lt;&lt;"ÐÐ½Ð¾Ð¼"/utf8&gt;&gt;).</span>
+{ok,&lt;&lt;12,8,208,147,208,189,208,190,208,188&gt;&gt;}
+7&gt; <span class="input">{ok,Bin1} = 'UTF':decode('UTF', Bytes1).</span>
+{ok,&lt;&lt;208,147,208,189,208,190,208,188&gt;&gt;}
+8&gt; <span class="input">io:format("~ts\n", [Bin1]).</span>
+ÐÐ½Ð¾Ð¼
+ok
+9&gt; <span class="input">unicode:characters_to_list(Bin1).</span>
+[1043,1085,1086,1084]   </pre><a name="OBJECT IDENTIFIER"></a><h3>OBJECT IDENTIFIER</h3><p>The type <strong>OBJECT IDENTIFIER</strong> is used whenever a unique identity is
+required. An ASN.1 module, a transfer syntax, and so on, is identified
+with an <strong>OBJECT IDENTIFIER</strong>. Assume the following example:</p><pre>
+Oid ::= OBJECT IDENTIFIER</pre><p>Therefore, the following example is a valid Erlang instance of
+type 'Oid':</p><pre>
+OidVal1 = {1,2,55},</pre><p>The <strong>OBJECT IDENTIFIER</strong> value is simply a tuple with the
+consecutive values, which must be integers.
+</p><p>The first value is limited to the values 0, 1, or 2. The
+second value must be in the range 0..39 when the first value
+is 0 or 1.
+</p><p>The <strong>OBJECT IDENTIFIER</strong> is an important type and it is
+widely used within different standards to identify various
+objects uniquely. Dubuisson: ASN.1 - Communication Between
+Heterogeneous Systems includes an
+easy-to-understand description of the use of
+<strong>OBJECT IDENTIFIER</strong>.</p><a name="Object Descriptor"></a><h3>Object Descriptor</h3><p>Values of this type can be assigned a value as an ordinary string
+as follows:</p><pre>
+      "This is the value of an Object descriptor"</pre><a name="The TIME types"></a><h3>TIME Types</h3><p>Two time types are defined within ASN.1: Generalized
+Time and Universal Time Coordinated (UTC). Both are assigned a
+value as an ordinary string within double quotes, for example,
+"19820102070533.8".</p><p>For DER encoding, the compiler does not check the validity
+of the time values. The DER requirements upon those strings are
+regarded as a matter for the application to fulfill.</p><a name="SEQUENCE"></a><h3>SEQUENCE</h3><p>The structured types of ASN.1 are constructed from other types
+in a manner similar to the concepts of array and struct in  C.</p><p>A <strong>SEQUENCE</strong> in ASN.1 is
+comparable with a struct in C and a record in Erlang.
+A <strong>SEQUENCE</strong> can be defined as follows:</p><pre>
+Pdu ::= SEQUENCE {
+   a INTEGER,
+   b REAL,
+   c OBJECT IDENTIFIER,
+   d NULL }      </pre><p>This is a 4-component structure called <strong>Pdu</strong>. By default,
+a <strong>SEQUENCE</strong> is represented by a record in Erlang.
+It can also be represented as a map; see
+<a href="./asn1_getting_started#MAP_SEQ_SET"> Map representation for SEQUENCE and SET</a>.
+For each <strong>SEQUENCE</strong> and <strong>SET</strong> in an ASN.1 module an Erlang
+record declaration is generated. For <strong>Pdu</strong>, a record
+like the following is defined:</p><pre>
+-record('Pdu',{a, b, c, d}).      </pre><p>The record declarations for a module <strong>M</strong> are placed in a
+separate <strong>M.hrl</strong> file.</p><p>Values can be assigned in Erlang as follows:</p><pre>
+MyPdu = #'Pdu'{a=22,b=77.99,c={0,1,2,3,4},d='NULL'}.      </pre><p>The decode functions return a record as result when decoding
+a <strong>SEQUENCE</strong> or a <strong>SET</strong>.</p><p>A <strong>SEQUENCE</strong> and a <strong>SET</strong> can contain a component
+with a <strong>DEFAULT</strong> keyword followed by the actual value, which
+is the default value. The <strong>DEFAULT</strong> keyword means that the
+application doing the encoding can omit encoding of the value, which
+results in fewer bytes to send to the receiving application.</p><p>An application can use the atom <strong>asn1_DEFAULT</strong> to indicate
+that the encoding is to be omitted for that position in
+the <strong>SEQUENCE</strong>.</p><p>Depending on the encoding rules, the encoder can also compare
+the given value to the default value and automatically omit the
+encoding if the values are equal. How much effort the encoder makes
+to compare the values depends on the encoding rules. The DER
+encoding rules forbid encoding a value equal to the default value,
+so it has a more thorough and time-consuming comparison than the
+encoders for the other encoding rules.</p><p>In the following example, this ASN.1 specification is used:</p><pre>
+File DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+Seq1 ::= SEQUENCE {
+    a INTEGER DEFAULT 1,
+    b Seq2 DEFAULT {aa TRUE, bb 15}
+}
+
+Seq2 ::= SEQUENCE {
+    aa BOOLEAN,
+    bb INTEGER
+}
+
+Seq3 ::= SEQUENCE {
+    bs BIT STRING {a(0), b(1), c(2)} DEFAULT {a, c}
+}
+END </pre><p>Example where the BER encoder is able to omit encoding
+of the default values:</p><pre>
+1&gt; <span class="input">asn1ct:compile('File', [ber]).</span>
+ok
+2&gt; <span class="input">'File':encode('Seq1', {'Seq1',asn1_DEFAULT,asn1_DEFAULT}).</span>
+{ok,&lt;&lt;48,0&gt;&gt;}
+3&gt; <span class="input">'File':encode('Seq1', {'Seq1',1,{'Seq2',true,15}}).</span>
+{ok,&lt;&lt;48,0&gt;&gt;}   </pre><p>Example with a named <strong>BIT STRING</strong> where the BER
+encoder does not omit the encoding:</p><pre>
+4&gt; <span class="input">'File':encode('Seq3', {'Seq3',asn1_DEFAULT).</span>
+{ok,&lt;&lt;48,0&gt;&gt;}
+5&gt; <span class="input">'File':encode('Seq3', {'Seq3',&lt;&lt;16#101:3&gt;&gt;).</span>
+{ok,&lt;&lt;48,4,128,2,5,160&gt;&gt;}     </pre><p>The DER encoder omits the encoding for the same <strong>BIT STRING</strong>:</p><pre>
+6&gt; <span class="input">asn1ct:compile('File', [ber,der]).</span>
+ok
+7&gt; <span class="input">'File':encode('Seq3', {'Seq3',asn1_DEFAULT).</span>
+{ok,&lt;&lt;48,0&gt;&gt;}
+8&gt; <span class="input">'File':encode('Seq3', {'Seq3',&lt;&lt;16#101:3&gt;&gt;).</span>
+{ok,&lt;&lt;48,0&gt;&gt;}     </pre><a name="SET"></a><h3>SET</h3><p>In Erlang, the <strong>SET</strong> type is used exactly as <strong>SEQUENCE</strong>.
+Notice that if BER or DER encoding rules are used, decoding a
+<strong>SET</strong> is slower than decoding a <strong>SEQUENCE</strong> because the
+components must be sorted.</p><h3>Extensibility for SEQUENCE and SET</h3><p>When a <strong>SEQUENCE</strong> or <strong>SET</strong> contains an extension marker
+and extension components as the following, the type can get more
+components in newer versions of the ASN.1 spec:</p><pre>
+SExt ::= SEQUENCE {
+           a INTEGER,
+           ...,
+           b BOOLEAN }</pre><p>In this case it has got a new
+component <strong>b</strong>. Thus, incoming messages that are decoded
+can have more or fever components than this one.
+</p><p>The component <strong>b</strong> is treated as
+an original component when encoding a message. In this case, as
+it is not an optional element, it must be encoded.
+</p><p>During decoding, the <strong>b</strong> field of the record gets the decoded
+value of the <strong>b</strong>
+component, if present, otherwise the value <strong>asn1_NOVALUE</strong>.</p><a name="MAP_SEQ_SET"></a><h3>Map representation for SEQUENCE and SET</h3><p>If the ASN.1 module has been compiled with option <strong>maps</strong>,
+the types <strong>SEQUENCE</strong> and <strong>SET</strong> are represented as maps.</p><p>In the following example, this ASN.1 specification is used:</p><pre>
+File DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+Seq1 ::= SEQUENCE {
+    a INTEGER DEFAULT 42,
+    b BOOLEAN OPTIONAL,
+    c IA5String
+}
+END   </pre><p>Optional fields are to be omitted from the map if they have
+no value:</p><pre>
+1&gt; <span class="input">asn1ct:compile('File', [per,maps]).</span>
+ok
+2&gt; <span class="input">{ok,E} = 'File':encode('Seq1', #{a=&gt;0,c=&gt;"string"}).</span>
+{ok,&lt;&lt;128,1,0,6,115,116,114,105,110,103&gt;&gt;} </pre><p>When decoding, optional fields will be omitted from the map:</p><pre>
+3&gt; <span class="input">'File':decode('Seq1', E).</span>
+{ok,#{a =&gt; 0,c =&gt; "string"}}   </pre><p>Default values can be omitted from the map:</p><pre>
+4&gt; <span class="input">{ok,E2} = 'File':encode('Seq1', #{c=&gt;"string"}).</span>
+{ok,&lt;&lt;0,6,115,116,114,105,110,103&gt;&gt;}
+5&gt; <span class="input">'File':decode('Seq1', E2).</span>
+{ok,#{a =&gt; 42,c =&gt; "string"}}   </pre><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>It is not allowed to use the atoms <strong>asn1_VALUE</strong> and
+<strong>asn1_DEFAULT</strong> with maps.</p></div><a name="CHOICE"></a><h3>CHOICE</h3><p>The type <strong>CHOICE</strong> is a space saver and is similar to the
+concept of a 'union' in C.</p><p>Assume the following:</p><pre>
+SomeModuleName DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+T ::= CHOICE {
+        x REAL,
+        y INTEGER,
+        z OBJECT IDENTIFIER }
+END </pre><p>It is then possible to assign values as follows:</p><pre>
+TVal1 = {y,17},
+TVal2 = {z,{0,1,2}},</pre><p>A <strong>CHOICE</strong> value is always represented as the tuple
+<strong>{ChoiceAlternative, Val}</strong> where <strong>ChoiceAlternative</strong>
+is an atom denoting the selected choice alternative.
+</p><h3>Extensible CHOICE</h3><p>When a <strong>CHOICE</strong> contains an extension marker and the
+decoder detects an unknown alternative of the <strong>CHOICE</strong>,
+the value is represented as follows:</p><pre>
+{asn1_ExtAlt, BytesForOpenType}</pre><p>Here <strong>BytesForOpenType</strong> is a list of bytes constituting the
+encoding of the "unknown" <strong>CHOICE</strong> alternative.</p><a name="SOF"></a><h3>SET OF and SEQUENCE OF</h3><p>The types <strong>SET OF</strong> and <strong>SEQUENCE OF</strong> correspond
+to the concept of an array
+in several programming languages. The Erlang syntax for
+both types is straightforward, for example:</p><pre>
+Arr1 ::= SET SIZE (5) OF INTEGER (4..9) 
+Arr2 ::= SEQUENCE OF OCTET STRING      </pre><p>In Erlang the following can apply:</p><pre>
+Arr1Val = [4,5,6,7,8],
+Arr2Val = ["abc",[14,34,54],"Octets"],      </pre><p>Notice that the definition of type <strong>SET OF</strong> implies that
+the order of the components is undefined, but in practice there is 
+no difference between <strong>SET OF</strong> and <strong>SEQUENCE OF</strong>.
+The ASN.1 compiler for Erlang does not randomize the order of the
+<strong>SET OF</strong> components before encoding.</p><p>However, for a value of type <strong>SET OF</strong>, the DER
+encoding format requires the elements to be sent in ascending
+order of their encoding, which implies an expensive sorting
+procedure in runtime. Therefore it is recommended to
+use <strong>SEQUENCE OF</strong> instead of <strong>SET OF</strong> if possible.</p><a name="ANY"></a><h3>ANY and ANY DEFINED BY</h3><p>The types <strong>ANY</strong> and <strong>ANY DEFINED BY</strong> have been removed
+from the standard since 1994. It is recommended not to use
+these types any more. They can, however, exist in some old ASN.1
+modules. The idea with this type was to leave a "hole" in a 
+definition where it was possible to
+put unspecified data of any kind, even non-ASN.1 data.</p><p>A value of this type is encoded as an <strong>open type</strong>.</p><p>Instead of <strong>ANY</strong> and <strong>ANY DEFINED BY</strong>, it is
+recommended to use
+<strong>information object class</strong>, <strong>table constraints</strong>, and
+<strong>parameterization</strong>. In particular the construct
+<strong>TYPE-IDENTIFIER.@Type</strong> accomplish the same as the
+deprecated <strong>ANY</strong>.</p><p>See also
+<a href="#Information Object">Information object</a>.</p><a name="NegotiationTypes"></a><h3>EXTERNAL, EMBEDDED PDV, and CHARACTER STRING</h3><p>The types <strong>EXTERNAL</strong>, <strong>EMBEDDED PDV</strong>, and
+<strong>CHARACTER STRING</strong> are used in presentation layer negotiation.
+They are encoded according to their associated type, see X.680.</p><p>The type <strong>EXTERNAL</strong> had a slightly different associated type
+before 1994. X.691 states that encoding must follow
+the older associated type. So, generated encode/decode
+functions convert values of the newer format to the older format
+before encoding. This implies that it is allowed to use
+<strong>EXTERNAL</strong> type values of either format for encoding. Decoded
+values are always returned in the newer format.</p><h3>Embedded Named Types</h3><p>The structured types previously described can have other named
+types as their components. The general syntax to assign a value
+to component <strong>C</strong> of a named ASN.1 type <strong>T</strong> in Erlang
+is the record syntax <strong>#'T'{'C'=Value}</strong>.
+Here <strong>Value</strong> can be a value of yet another type <strong>T2</strong>,
+for example:</p><pre>
+EmbeddedExample DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+B ::= SEQUENCE {
+        a Arr1,
+        b T }
+
+Arr1 ::= SET SIZE (5) OF INTEGER (4..9) 
+
+T ::= CHOICE {
+        x REAL,
+        y INTEGER,
+        z OBJECT IDENTIFIER }
+        END      </pre><p><strong>SEQUENCE</strong> <strong>b</strong> can be encoded as follows in Erlang:</p><pre>
+1&gt; 'EmbeddedExample':encode('B', {'B',[4,5,6,7,8],{x,"7.77"}}).
+{ok,&lt;&lt;5,56,0,8,3,55,55,55,46,69,45,50&gt;&gt;} </pre><h3>Naming of Records in .hrl Files</h3><p>When the option <strong>maps</strong> is given, no <strong>.hrl</strong> files
+will be generated. The rest of this section describes the behavior
+of the compiler when <strong>maps</strong> is not used.</p><p>When an ASN.1 specification is compiled, all defined types of type
+<strong>SET</strong> or <strong>SEQUENCE</strong> result in a corresponding record in the
+generated <strong>.hrl</strong> file. This is because the values for
+<strong>SET</strong> and <strong>SEQUENCE</strong> are represented as records
+by default.</p><p>Some special cases of this functionality are presented in the
+next section.</p><h3>Embedded Structured Types</h3><p>In ASN.1 it is also possible to have components that are themselves
+structured types.
+For example, it is possible to have the following:</p><pre>
+Emb ::= SEQUENCE {
+    a SEQUENCE OF OCTET STRING,
+    b SET {
+       a INTEGER,
+       b INTEGER DEFAULT 66},
+    c CHOICE {
+       a INTEGER,
+       b FooType } }
+
+FooType ::= [3] VisibleString      </pre><p>The following records are generated because of type <strong>Emb</strong>:</p><pre>
+-record('Emb,{a, b, c}).
+-record('Emb_b',{a, b = asn1_DEFAULT}). % the embedded SET type </pre><p>Values of type <strong>Emb</strong> can be assigned as follows:</p><pre><code class="">
+V = #'Emb'{a=["qqqq",[1,2,255]], 
+           b = #'Emb_b'{a=99}, 
+           c ={b,"Can you see this"}}.</code></pre><p>For an embedded type of type <strong>SEQUENCE</strong>/<strong>SET</strong> in a
+<strong>SEQUENCE</strong>/<strong>SET</strong>, the record name is extended with an
+underscore and the component name. If the embedded structure is
+deeper with the <strong>SEQUENCE</strong>, <strong>SET</strong>, or <strong>CHOICE</strong>
+types in the line, each component name/alternative name is
+added to the record name.</p><p>Example:</p><pre>
+Seq ::= SEQUENCE{
+    a CHOICE{
+        b SEQUENCE {
+           c  INTEGER
+        }
+    }
+}      </pre><p>This results in the following record:</p><pre>
+-record('Seq_a_b',{c}).      </pre><p>If the structured type has a component with an embedded
+<strong>SEQUENCE OF</strong>/<strong>SET OF</strong> which embedded type in turn
+is a <strong>SEQUENCE</strong>/<strong>SET</strong>, it gives a record with the
+<strong>SEQUENCE OF</strong>/<strong>SET OF</strong>
+addition as in the following example:</p><pre>
+Seq ::= SEQUENCE {
+    a SEQUENCE OF SEQUENCE {
+           b
+               }
+    c SET OF SEQUENCE {
+           d
+               }
+}      </pre><p>This results in the following records:</p><pre>
+-record('Seq_a_SEQOF'{b}).
+-record('Seq_c_SETOF'{d}).      </pre><p>A parameterized type is to be considered as an embedded
+type. Each time such a type is referenced, an instance of it is
+defined. Thus, in the following example a record with name
+<strong>'Seq_b'</strong> is generated in the <strong>.hrl</strong> file and is used
+to hold values:</p><pre>
+Seq ::= SEQUENCE {
+    b PType{INTEGER}
+}
+
+PType{T} ::= SEQUENCE{
+    id T
+}      </pre><h3>Recursive Types</h3><p>Types that refer to themselves are called recursive types.
+Example:</p><pre>
+Rec ::= CHOICE {
+     nothing NULL,
+     something SEQUENCE {
+          a INTEGER,
+          b OCTET STRING,
+          c Rec }}      </pre><p>This is allowed in ASN.1 and the ASN.1-to-Erlang compiler
+supports this recursive type.
+A value for this type is assigned in Erlang as follows:</p><pre>
+V = {something,#'Rec_something'{a = 77, 
+                                b = "some octets here", 
+                                c = {nothing,'NULL'}}}.      </pre><h3>ASN.1 Values</h3><p>Values can be assigned to an ASN.1 type within the ASN.1 code
+itself, as opposed to the actions in the previous section where
+a value was assigned to an ASN.1 type in Erlang. The full value
+syntax of ASN.1 is supported and X.680 describes in detail how
+to assign values in ASN.1. A short example:</p><pre>
+TT ::= SEQUENCE {
+   a INTEGER,
+   b SET OF OCTET STRING }
+
+tt TT ::= {a 77,b {"kalle","kula"}}    </pre><p>The value defined here can be used in several ways. It can, for
+example, be used as the value in some <strong>DEFAULT</strong> component:</p><pre>
+SS ::= SET {
+    s OBJECT IDENTIFIER,
+    val TT DEFAULT tt }    </pre><p>It can also be used from inside an Erlang program. If this ASN.1
+code is defined in ASN.1 module <strong>Values</strong>, the ASN.1 value
+<strong>tt</strong> can be reached from Erlang as a function call to
+<strong>'Values':tt()</strong> as in the following example:</p><pre>
+1&gt; <span class="input">Val = 'Values':tt().</span>
+{'TT',77,["kalle","kula"]}
+2&gt; <span class="input">{ok,Bytes} = 'Values':encode('TT',Val).</span>
+{ok,&lt;&lt;48,18,128,1,77,161,13,4,5,107,97,108,108,101,4,4,
+      107,117,108,97&gt;&gt;}
+4&gt; <span class="input">'Values':decode('TT',Bytes).</span>
+{ok,{'TT',77,["kalle","kula"]}}
+5&gt;  </pre><p>This example shows that a function is generated by the compiler
+that returns a valid Erlang representation of the value, although
+the value is of a complex type.</p><p>Furthermore, if the option <strong>maps</strong> is not used,
+a macro is generated for each value in the <strong>.hrl</strong>
+file. So, the defined value <strong>tt</strong> can also be extracted by
+<strong>?tt</strong> in application code.</p><h3>Macros</h3><p>The type <strong>MACRO</strong> is not supported. It is no longer part of
+the ASN.1 standard.</p><a name="Information Object"></a><h3>ASN.1 Information Objects (X.681)</h3><p>Information Object Classes, Information Objects, and Information
+Object Sets (in the following called classes, objects, and
+object sets, respectively) are defined in the standard
+definition X.681. Only a brief explanation is given here.</p><p>These constructs makes it possible to define open types, that
+is, values of that type can be of any ASN.1 type. Also,
+relationships can be defined between different types and
+values, as classes can hold types, values, objects, object
+sets, and other classes in their fields. A class can be
+defined in ASN.1 as follows:</p><pre>
+GENERAL-PROCEDURE ::= CLASS {
+      &amp;Message,
+      &amp;Reply               OPTIONAL,
+      &amp;Error               OPTIONAL,
+      &amp;id          PrintableString UNIQUE
+}
+WITH SYNTAX {
+      NEW MESSAGE     &amp;Message
+      [REPLY           &amp;Reply]
+      [ERROR           &amp;Error]
+      ADDRESS          &amp;id
+}    </pre><p>An object is an instance of a class. An object set is a set
+containing objects of a specified class. A definition can look
+as follows:</p><pre>
+object1 GENERAL-PROCEDURE ::= {
+    NEW MESSAGE      PrintableString
+    ADDRESS          "home"
+}
+
+object2 GENERAL-PROCEDURE ::= {
+    NEW MESSAGE INTEGER
+    ERROR INTEGER
+    ADDRESS "remote"
+}</pre><p>The object <strong>object1</strong> is an instance of the class
+<strong>GENERAL-PROCEDURE</strong> and has one type field and one
+fixed type value field. The object <strong>object2</strong> has also an
+optional field <strong>ERROR</strong>, which is a type field. The field
+<strong>ADDRESS</strong> is a <strong>UNIQUE</strong> field. Objects in an object set
+must have unique values in their <strong>UNIQUE</strong> field, as in
+<strong>GENERAL-PROCEDURES</strong>:</p><pre>
+GENERAL-PROCEDURES GENERAL-PROCEDURE ::= {
+    object1 | object2}    </pre><p>You cannot encode a class, object, or object set, only refer to
+it when defining other ASN.1 entities. Typically you refer to a
+class as well as to object sets by table constraints and component
+relation constraints (X.682) in ASN.1 types, as in the following:</p><pre>
+StartMessage  ::= SEQUENCE {
+    msgId  GENERAL-PROCEDURE.&amp;id  ({GENERAL-PROCEDURES}),
+    content GENERAL-PROCEDURE.&amp;Message ({GENERAL-PROCEDURES}{@msgId}),
+    }    </pre><p>In type <strong>StartMessage</strong>, the constraint following field
+<strong>content</strong> tells that in a value of type
+<strong>StartMessage</strong> the value in field <strong>content</strong> must
+come from the same object that is chosen by field <strong>msgId</strong>.</p><p>So, the value
+<strong>#'StartMessage'{msgId="home",content="Any Printable String"}</strong>
+is legal to encode as a <strong>StartMessage</strong> value. However, the value
+<strong>#'StartMessage'{msgId="remote", content="Some String"}</strong>
+is illegal as the constraint in <strong>StartMessage</strong> tells that
+when you have chosen a value from a specific object in object
+set <strong>GENERAL-PROCEDURES</strong> in field 
+<strong>msgId</strong>, you must choose a value from that same object in
+the content field too. In this second case, it is to be
+any <strong>INTEGER</strong> value.</p><p><strong>StartMessage</strong> can in field <strong>content</strong> be
+encoded with a value of any type that an object in object set
+<strong>GENERAL-PROCEDURES</strong> has in its <strong>NEW MESSAGE</strong> field.
+This field refers to a type field
+<strong>&amp;Message</strong> in the class. Field <strong>msgId</strong> is always
+encoded as a <strong>PrintableString</strong>, as the field refers to a
+fixed type in the class.</p><p>In practice, object sets are usually declared to be extensible so
+that more objects can be added to the set later. Extensibility is
+indicated as follows:</p><pre>
+GENERAL-PROCEDURES GENERAL-PROCEDURE ::= {
+    object1 | object2, ...}    </pre><p>When decoding a type that uses an extensible set constraint,
+it is always possible that the value in field <strong>UNIQUE</strong>
+is unknown (that is, the type has been encoded with a later
+version of the ASN.1 specification). The unencoded data is then
+returned wrapped in a tuple as follows:</p><pre>
+{asn1_OPENTYPE,Binary}</pre><p>Here <strong>Binary</strong> is an Erlang binary that contains the encoded
+data. (If option <strong>legacy_erlang_types</strong> has been given,
+only the binary is returned.)</p><h3>Parameterization (X.683)</h3><p>Parameterization, which is defined in X.683, can be used when
+defining types, values, value sets, classes, objects, or object sets.
+A part of a definition can be supplied as a parameter. For
+example, if a <strong>Type</strong> is used in a definition with a certain
+purpose, you want the type name to express the intention. This
+can be done with parameterization.</p><p>When many types (or another ASN.1 entity) only differ in some
+minor cases, but the structure of the types is similar, only
+one general type can be defined and the differences can be supplied
+through parameters.</p><p>Example of use of parameterization:</p><pre>
+General{Type} ::= SEQUENCE
+{
+     number     INTEGER,
+     string     Type
+}
+      
+T1 ::= General{PrintableString}
+
+T2 ::= General{BIT STRING}</pre><p>An example of a value that can be encoded as type <strong>T1</strong> is
+<strong>{12,"hello"}</strong>.</p><p>Notice that the compiler does not generate encode/decode functions
+for parameterized types, only for the instances of the parameterized
+types. Therefore, if a file contains the types <strong>General{}</strong>,
+<strong>T1</strong>, and <strong>T2</strong> as in the previous example, encode/decode
+functions are only generated for <strong>T1</strong> and <strong>T2</strong>.
+</p><a name="SpecializedDecodes"></a><p>When performance is of highest priority and you are interested in
+a limited part of the ASN.1 encoded message before deciding what
+to do with the rest of it, an option is to decode only this small
+part. The situation can be a server that has to decide the
+addressee of a message. The addressee can be interested in
+the entire message, but the server can be a bottleneck that you want
+to spare any unnecessary load.</p><p> Instead of making two <em>complete decodes</em> (the normal case of
+decode), one in the server and one in the addressee, it is only
+necessary to make one <em>specialized decode</em>(in the server)
+and another complete decode(in the addressee). This section
+describes the following two specialized decodes, which support
+to solve this and similar problems:</p><ul><li><em>Exclusive decode</em></li><li><em>Selected decode</em></li></ul><p>This functionality is only provided when using <strong>BER</strong>
+(option <strong>ber</strong>).</p><h3>Exclusive Decode</h3><p>The basic idea with exclusive
+decode is to specify which parts of the message you want to
+exclude from being decoded. These parts remain encoded and are
+returned in the value structure as binaries. They can be decoded
+in turn by passing them to a certain <strong>decode_part/2</strong>
+function. The performance gain is high for large messages.
+You can do an exclusive decode and later one or more
+decodes of the parts, or a second complete decode instead of two or
+more complete decodes.
+</p><h3>Procedure</h3><p>To perform an exclusive decode:
+</p><ul><li><em>Step 1:</em> Decide the name of the function for the exclusive decode.</li><li><p><em>Step 2:</em> Include the following instructions in
+a configuration file:</p> <ul><li>The name of the exclusive decode function</li><li>The name of the ASN.1 specification</li><li>A notation that tells which parts of the message structure to be excluded from decode</li></ul></li><li><em>Step 3</em> Compile with the additional option <strong>asn1config</strong>. The compiler searches for a configuration file with the same name as the ASN.1 specification but with extension <strong>.asn1config</strong>. This configuration file is not the same as used for compilation of a set of files. See Section <a href="#UndecodedPart">Writing an Exclusive Decode Instruction.</a></li></ul><h3>User Interface</h3><p>The runtime user interface for exclusive decode consists of
+the following two functions:</p><ul><li>A function for an exclusive decode, whose name the user decides in the configuration file</li><li>The compiler generates a <strong>decode_part/2</strong> function when exclusive decode is chosen. This function decodes the parts that were left undecoded during the exclusive decode.</li></ul><p>Both functions are described in the following.</p><p>If the exclusive decode function has, for example, the name
+<strong>decode_exclusive</strong> and an ASN.1 encoded message
+<strong>Bin</strong> is to be exclusive decoded, the call is as follows:</p><pre>
+{ok,Excl_Message} = 'MyModule':decode_exclusive(Bin)      </pre><a name="UndecodedPart"></a><p>The result <strong>Excl_Message</strong> has the same structure as a
+complete decode would have, except for the parts of the top type
+that were not decoded. The undecoded parts are on their places
+in the structure on format <strong>{Type_Key,Undecoded_Value}</strong>.
+</p><p>Each undecoded part that is to be decoded must be fed into
+function <strong>decode_part/2</strong> as follows:</p><pre>
+{ok,Part_Message} = 'MyModule':decode_part(Type_Key,Undecoded_Value)</pre><a name="Exclusive Instruction"></a><h3>Writing an Exclusive Decode Instruction</h3><p>This instruction is written in the configuration file
+in the following format:</p><pre>
+Exclusive_Decode_Instruction = {exclusive_decode,{Module_Name,Decode_Instructions}}.
+
+Module_Name = atom()
+
+Decode_Instructions = [Decode_Instruction]+
+
+Decode_Instruction = {Exclusive_Decode_Function_Name,Type_List}
+
+Exclusive_Decode_Function_Name = atom()
+
+Type_List = [Top_Type,Element_List]
+
+Element_List = [Element]+
+
+Element = {Name,parts} |
+          {Name,undecoded} |
+          {Name,Element_List}
+
+Top_Type = atom()
+
+Name = atom()</pre><p>The instruction must be a valid Erlang term ended by a dot.
+</p><p>In <strong>Type_List</strong> the "path" from the top type to each
+undecoded subcomponents is described. The top type of the path is
+an atom, the name of it. The action on each component/type that
+follows is described by one of
+<strong>{Name,parts}, {Name,undecoded}, {Name,Element_List}</strong>.</p><p>The use and effect of the actions are as follows:
+</p><ul><li><strong>{Name,undecoded}</strong> - Tells that the element is left undecoded during the exclusive decode. The type of <strong>Name</strong> can be any ASN.1 type. The value of element <strong>Name</strong> is returned as a tuple (as mentioned in the previous section) in the value structure of the top type.</li><li><strong>{Name,parts}</strong> - The type of <strong>Name</strong> can be one of <strong>SEQUENCE OF</strong> or <strong>SET OF</strong>. The action implies that the different components of <strong>Name</strong> are left undecoded. The value of <strong>Name</strong> is returned as a tuple (as mentioned in the previous section) where the second element is a list of binaries. This is because the representation of a <strong>SEQUENCE OF</strong> or a <strong>SET OF</strong> in Erlang is a list of its internal type. Any of the elements in this list or the entire list can be decoded by function <strong>decode_part</strong>.</li><li><strong>{Name,Element_List}</strong> - This action is used when one or more of the subtypes of <strong>Name</strong> is exclusive decoded.</li></ul><p><strong>Name</strong> in these actions can be a component name of a
+<strong>SEQUENCE OF</strong> or a <strong>SET OF</strong>, or a name of an alternative
+in a <strong>CHOICE</strong>.
+</p><h3>Example</h3><p>In this examples, the definitions from the following ASN.1
+specification are used:</p><a name="Asn1spec"></a><pre><code class="">
+
+GUI DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+Action ::= SEQUENCE 
+ { 
+   number  INTEGER DEFAULT 15,
+   handle  [0] Handle DEFAULT {number  12, on  TRUE}
+ }
+
+Key ::= [11] EXPLICIT Button
+Handle ::= [12] Key
+Button ::= SEQUENCE 
+ {
+   number  INTEGER,
+   on  BOOLEAN
+ }
+
+Window ::= CHOICE 
+ {
+   vsn INTEGER,
+   status E
+ }
+
+Status ::= SEQUENCE 
+ {
+   state INTEGER,
+   buttonList SEQUENCE OF Button,
+   enabled BOOLEAN OPTIONAL,
+   actions CHOICE {
+     possibleActions SEQUENCE OF Action,
+     noOfActions INTEGER
+   }
+ }
+
+
+END
+</code></pre><p>If <strong>Button</strong> is a top type and it is needed to exclude
+component <strong>number</strong> from decode, <strong>Type_List</strong> in the
+instruction in the configuration file is
+<strong>['Button',[{number,undecoded}]]</strong>. If you call the decode
+function <strong>decode_Button_exclusive</strong>, <strong>Decode_Instruction</strong> is
+<strong>{decode_Button_exclusive,['Button',[{number,undecoded}]]}</strong>.
+</p><p>Another top type is <strong>Window</strong> whose subcomponent
+actions in type <strong>Status</strong> and the parts of component
+<strong>buttonList</strong> are to be left undecoded. For this type, the
+function is named <strong>decode__Window_exclusive</strong>. The complete
+<strong>Exclusive_Decode_Instruction</strong> configuration is as follows:</p><pre><code class="">
+
+{exclusive_decode,{'GUI',
+	[{decode_Window_exclusive,['Window',[{status,[{buttonList,parts},{actions,undecoded}]}]]},
+	 {decode_Button_exclusive,['Button',[{number,undecoded}]]}]}}.
+</code></pre><p>The following figure shows the bytes of a <strong>Window:status</strong>
+message. The components <strong>buttonList</strong> and <strong>actions</strong> are
+excluded from decode. Only <strong>state</strong> and <strong>enabled</strong> are decoded
+when <strong>decode__Window_exclusive</strong> is called.</p><img src="exclusive_Win_But.gif" title="Bytes of a Window:status Message"></img><p>Compiling <strong>GUI.asn</strong> including the configuration file is done
+as follows:</p><pre>
+unix&gt; erlc -bber +asn1config GUI.asn
+
+erlang&gt; asn1ct:compile('GUI', [ber,asn1config]).</pre><p>The module can be used as follows:</p><pre>
+1&gt; Button_Msg = {'Button',123,true}.
+{'Button',123,true}
+2&gt; {ok,Button_Bytes} = 'GUI':encode('Button',Button_Msg).
+{ok,[&lt;&lt;48&gt;&gt;,
+     [6],
+     [&lt;&lt;128&gt;&gt;,
+      [1],
+      123],
+     [&lt;&lt;129&gt;&gt;,
+      [1],
+      255]]}
+3&gt; {ok,Exclusive_Msg_Button} = 'GUI':decode_Button_exclusive(list_to_binary(Button_Bytes)).
+{ok,{'Button',{'Button_number',&lt;&lt;28,1,123&gt;&gt;},
+         true}}
+4&gt; 'GUI':decode_part('Button_number',&lt;&lt;128,1,123&gt;&gt;).
+{ok,123}
+5&gt; Window_Msg = 
+{'Window',{status,{'Status',35,
+              [{'Button',3,true},
+               {'Button',4,false},
+               {'Button',5,true},
+               {'Button',6,true},
+               {'Button',7,false},
+               {'Button',8,true},
+               {'Button',9,true},
+               {'Button',10,false},
+               {'Button',11,true},
+               {'Button',12,true},
+               {'Button',13,false},
+               {'Button',14,true}],
+              false,
+              {possibleActions,[{'Action',16,{'Button',17,true}}]}}}}. 
+{'Window',{status,{'Status',35,
+              [{'Button',3,true},
+               {'Button',4,false},
+               {'Button',5,true},
+               {'Button',6,true},
+               {'Button',7,false},
+               {'Button',8,true},
+               {'Button',9,true},
+               {'Button',10,false},
+               {'Button',11,true},
+               {'Button',12,true},
+               {'Button',13,false},
+               {'Button',14,true}],
+              false,
+              {possibleActions,[{'Action',16,{'Button',17,true}}]}}}}
+6&gt; {ok,Window_Bytes}='GUI':encode('Window',Window_Msg).
+{ok,[&lt;&lt;161&gt;&gt;,
+     [127],
+     [&lt;&lt;128&gt;&gt;, ...
+
+
+8&gt; {ok,{status,{'Status',Int,{Type_Key_SeqOf,Val_SEQOF},
+BoolOpt,{Type_Key_Choice,Val_Choice}}}}=
+'GUI':decode_Window_status_exclusive(list_to_binary(Window_Bytes)).
+{ok,{status,{'Status',35,
+        {'Status_buttonList',[&lt;&lt;48,6,128,1,3,129,1,255&gt;&gt;,
+                              &lt;&lt;48,6,128,1,4,129,1,0&gt;&gt;,
+                              &lt;&lt;48,6,128,1,5,129,1,255&gt;&gt;,
+                              &lt;&lt;48,6,128,1,6,129,1,255&gt;&gt;,
+                              &lt;&lt;48,6,128,1,7,129,1,0&gt;&gt;,
+                              &lt;&lt;48,6,128,1,8,129,1,255&gt;&gt;,
+                              &lt;&lt;48,6,128,1,9,129,1,255&gt;&gt;,
+                              &lt;&lt;48,6,128,1,10,129,1,0&gt;&gt;,
+                              &lt;&lt;48,6,128,1,11,129,1,255&gt;&gt;,
+                              &lt;&lt;48,6,128,1,12,129,1,255&gt;&gt;,
+                              &lt;&lt;48,6,128,1,13,129,1,0&gt;&gt;,
+                              &lt;&lt;48,6,128,1,14,129,1,255&gt;&gt;]},
+        false,
+        {'Status_actions',
+&lt;&lt;163,21,160,19,48,17,2,1,16,160,12,172,10,171,8,48,6,128,1,...&gt;&gt;}}}}
+10&gt; 'GUI':decode_part(Type_Key_SeqOf,Val_SEQOF).
+{ok,[{'Button',3,true},
+     {'Button',4,false},
+     {'Button',5,true},
+     {'Button',6,true},
+     {'Button',7,false},
+     {'Button',8,true},
+     {'Button',9,true},
+     {'Button',10,false},
+     {'Button',11,true},
+     {'Button',12,true},
+     {'Button',13,false},
+     {'Button',14,true}]}
+11&gt; 'GUI':decode_part(Type_Key_SeqOf,hd(Val_SEQOF)).
+{ok,{'Button',3,true}}
+12&gt; 'GUI':decode_part(Type_Key_Choice,Val_Choice).  
+{ok,{possibleActions,[{'Action',16,{'Button',17,true}}]}}</pre><h3>Selective Decode</h3><p>This specialized decode decodes a subtype of a
+constructed value and is the fastest method to extract a
+subvalue. This decode is typically used when you want to
+inspect, for example, a version number, to be able to decide what
+to do with the entire value. The result is returned as
+<strong>{ok,Value}</strong> or <strong>{error,Reason}</strong>.
+</p><h3>Procedure</h3><p>To perform a selective decode:
+</p><ul><li><p><em>Step 1:</em> Include the following instructions in
+the configuration file:</p> <ul><li>The name of the user function</li><li>The name of the ASN.1 specification</li><li>A notation that tells which part of the type to be decoded</li></ul></li><li><em>Step 2:</em> Compile with the additional option <strong>asn1config</strong>. The compiler searches for a configuration file with the same name as the ASN.1 specification, but with extension <strong>.asn1config</strong>. In the same file you can also provide configuration specifications for exclusive decode. The generated Erlang module has the usual functionality for encode/decode preserved and the specialized decode functionality added. </li></ul><h3>User Interface</h3><p>The only new user interface function is the one provided by the
+user in the configuration file. The function is started by
+the <strong>ModuleName:FunctionName</strong> notation.
+</p><p>For example, if the configuration file includes the specification
+<strong>{selective_decode,{'ModuleName',[{selected_decode_Window,TypeList}]}}</strong>
+do the selective decode by
+<strong>{ok,Result}='ModuleName':selected_decode_Window(EncodedBinary).</strong></p><a name="Selective Instruction"></a><h3>Writing a Selective Decode Instruction</h3><p>One or more selective decode functions can be described in a
+configuration file. Use the following notation:</p><pre>
+Selective_Decode_Instruction = {selective_decode,{Module_Name,Decode_Instructions}}.
+
+Module_Name = atom()
+
+Decode_Instructions = [Decode_Instruction]+
+
+Decode_Instruction = {Selective_Decode_Function_Name,Type_List}
+
+Selective_Decode_Function_Name = atom()
+
+Type_List = [Top_Type|Element_List]
+
+Element_List = Name|List_Selector
+
+Name = atom()
+
+List_Selector = [integer()]</pre><p>The instruction must be a valid Erlang term ended by a dot.
+</p><ul><li><strong>Module_Name</strong> is the same as the name of the ASN.1 specification, but without the extension.</li><li><strong>Decode_Instruction</strong> is a tuple with your chosen function name and the components from the top type that leads to the single type you want to decode. Ensure to choose a name of your function that is not the same as any of the generated functions.</li><li> The first element of <strong>Type_List</strong> is the top type of the encoded message. In <strong>Element_List</strong>, it is followed by each of the component names that leads to selected type.</li><li>Each name in <strong>Element_List</strong> must be a constructed type except the last name, which can be any type.</li><li><strong>List_Selector</strong> makes it possible to choose one of the encoded components in a a <strong>SEQUENCE OF</strong> or a <strong>SET OF</strong>. It is also possible to go further in that component and pick a subtype of that to decode. So, in the <strong>Type_List</strong>: <strong>['Window',status,buttonList,[1],number]</strong>, component <strong>buttonList</strong> must be of type <strong>SEQUENCE OF</strong> or <strong>SET OF</strong>.</li></ul><p>In the example, component <strong>number</strong> of the first of the encoded
+elements in the <strong>SEQUENCE OF</strong> <strong>buttonList</strong> is selected.
+This applies on the ASN.1 specification in Section
+<a href="#Asn1spec">Writing an Exclusive Decode Instruction</a>.
+</p><h3>Another Example</h3><p>In this example, the same ASN.1 specification as in Section
+<a href="#Asn1spec">Writing an Exclusive Decode Instruction</a>
+is used. The following is a valid selective decode instruction:</p><pre>
+{selective_decode,
+    {'GUI',
+        [{selected_decode_Window1,
+            ['Window',status,buttonList, 
+             [1],
+             number]},
+ {selected_decode_Action,
+     ['Action',handle,number]},
+ {selected_decode_Window2,
+     ['Window',
+      status,
+      actions,
+      possibleActions,
+      [1],
+      handle,number]}]}}.</pre><p>The first instruction,
+<strong>{selected_decode_Window1,['Window',status,buttonList,[1],number]}</strong>
+is described in the previous section.</p><p> The second instruction,
+<strong>{selected_decode_Action,['Action',handle,number]}</strong>, takes
+component <strong>number</strong> in the <strong>handle</strong> component of type
+<strong>Action</strong>. If the value is
+<strong>ValAction = {'Action',17,{'Button',4711,false}}</strong>, the internal
+value 4711 is to be picked by <strong>selected_decode_Action</strong>. In an
+Erlang terminal it looks as follows:</p><pre>
+ValAction = {'Action',17,{'Button',4711,false}}.
+{'Action',17,{'Button',4711,false}}
+7&gt; {ok,Bytes}='GUI':encode('Action',ValAction).
+...
+8&gt; BinBytes = list_to_binary(Bytes).
+&lt;&lt;48,18,2,1,17,160,13,172,11,171,9,48,7,128,2,18,103,129,1,0&gt;&gt;
+9&gt; 'GUI':selected_decode_Action(BinBytes).
+{ok,4711}
+10&gt;</pre><p>The third instruction,
+<strong>['Window',status,actions,possibleActions,[1],handle,number]</strong>,
+works as follows:</p><ul><li><em>Step 1:</em> Starts with type <strong>Window</strong>.</li><li><em>Step 2:</em> Takes component <strong>status</strong> of <strong>Window</strong> that is of type <strong>Status</strong>.</li><li><em>Step 3:</em> Takes <em>actions</em> of type <strong>Status</strong>.</li><li><em>Step 4:</em> Takes <strong>possibleActions</strong> of the internally defined <strong>CHOICE</strong> type.</li><li><em>Step 5:</em> Goes into the first component of <strong>SEQUENCE OF</strong> by <strong>[1]</strong>. That component is of type <strong>Action</strong>.</li><li><em>Step 6:</em> Takes component <strong>handle</strong>.</li><li><em>Step 7:</em> Takes component <strong>number</strong> of type <strong>Button</strong>.</li></ul><p>The following figure shows which components are in <strong>TypeList</strong>
+<strong>['Window',status,actions,possibleActions,[1],handle,number]</strong>:</p><img src="selective_TypeList.gif" title="Elements Specified in Configuration File for Selective Decode of a Subvalue in a Window Message"></img><p>In the following figure, only the marked element is decoded by
+<strong>selected_decode_Window2</strong>:</p><img src="selective_Window2.gif" title="Bytes of a Window:status Message"></img><p>With the following example, you can examine that both
+<strong>selected_decode_Window2</strong> and
+<strong>selected_decode_Window1</strong> decodes the intended subvalue
+of value <strong>Val</strong>:</p><pre>
+1&gt; Val = {'Window',{status,{'Status',12,
+                    [{'Button',13,true},
+                     {'Button',14,false},
+                     {'Button',15,true},
+                     {'Button',16,false}],
+                    true,
+                    {possibleActions,[{'Action',17,{'Button',18,false}},
+                                      {'Action',19,{'Button',20,true}},
+                                      {'Action',21,{'Button',22,false}}]}}}}
+2&gt; {ok,Bytes}='GUI':encode('Window',Val).
+...
+3&gt; Bin = list_to_binary(Bytes).
+&lt;&lt;161,101,128,1,12,161,32,48,6,128,1,13,129,1,255,48,6,128,1,14,129,1,0,48,6,128,1,15,129,...&gt;&gt;
+4&gt; 'GUI':selected_decode_Window1(Bin).
+{ok,13}
+5&gt; 'GUI':selected_decode_Window2(Bin).
+{ok,18}</pre><p>Notice that the value fed into the selective decode
+functions must be a binary.
+</p><h3>Performance</h3><p>To give an indication on the possible performance gain using
+the specialized decodes, some measures have been performed. The
+relative figures in the outcome between selective, exclusive, and
+complete decode (the normal case) depend on the structure of
+the type, the size of the message, and on what level the
+selective and exclusive decodes are specified.
+</p><h3>ASN.1 Specifications, Messages, and Configuration</h3><p>The specifications <a href="#Asn1spec">GUI</a> and
+<a href="http://www.itu.int/ITU-T/asn1/database/itu-t/h/h248/2002/MEDIA-GATEWAY-CONTROL.html">MEDIA-GATEWAY-CONTROL</a>
+were used in the test.
+</p><p>For the <strong>GUI</strong> specification the configuration was as follows:</p><pre>
+{selective_decode,
+  {'GUI',
+    [{selected_decode_Window1,
+         ['Window',
+          status,buttonList,
+          [1],
+          number]},
+     {selected_decode_Window2,
+         ['Window',
+          status,
+          actions,
+          possibleActions,
+          [1],
+          handle,number]}]}}.
+     {exclusive_decode,
+         {'GUI',
+            [{decode_Window_status_exclusive,
+                ['Window',
+                 [{status,
+                     [{buttonList,parts},
+                      {actions,undecoded}]}]]}]}}.</pre><p>The <strong>MEDIA-GATEWAY-CONTROL</strong> configuration was as follows:</p><pre>
+{exclusive_decode,
+  {'MEDIA-GATEWAY-CONTROL',
+    [{decode_MegacoMessage_exclusive,
+        ['MegacoMessage',
+         [{authHeader,undecoded},
+          {mess,
+             [{mId,undecoded},
+              {messageBody,undecoded}]}]]}]}}.
+{selective_decode,
+  {'MEDIA-GATEWAY-CONTROL',
+    [{decode_MegacoMessage_selective,
+         ['MegacoMessage',mess,version]}]}}.</pre><p>The corresponding values were as follows:</p><pre>
+{'Window',{status,{'Status',12,
+              [{'Button',13,true},
+               {'Button',14,false},
+               {'Button',15,true},
+               {'Button',16,false},
+               {'Button',13,true},
+               {'Button',14,false},
+               {'Button',15,true},
+               {'Button',16,false},
+               {'Button',13,true},
+               {'Button',14,false},
+               {'Button',15,true},
+               {'Button',16,false}],
+              true,
+              {possibleActions,
+                 [{'Action',17,{'Button',18,false}},
+                  {'Action',19,{'Button',20,true}},
+                  {'Action',21,{'Button',22,false}},
+                  {'Action',17,{'Button',18,false}},
+                  {'Action',19,{'Button',20,true}},
+                  {'Action',21,{'Button',22,false}},
+                  {'Action',17,{'Button',18,false}},
+                  {'Action',19,{'Button',20,true}},
+                  {'Action',21,{'Button',22,false}},
+                  {'Action',17,{'Button',18,false}},
+                  {'Action',19,{'Button',20,true}},
+                  {'Action',21,{'Button',22,false}},
+                  {'Action',17,{'Button',18,false}},
+                  {'Action',19,{'Button',20,true}},
+                  {'Action',21,{'Button',22,false}},
+                  {'Action',17,{'Button',18,false}},
+                  {'Action',19,{'Button',20,true}},
+                  {'Action',21,{'Button',22,false}}]}}}}
+
+
+{'MegacoMessage',asn1_NOVALUE,
+  {'Message',1,
+    {ip4Address,
+      {'IP4Address',[125,125,125,111],55555}},
+  {transactions,
+    [{transactionReply,
+      {'TransactionReply',50007,asn1_NOVALUE,
+       {actionReplies,
+        [{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,
+          [{auditValueReply,{auditResult,{'AuditResult',
+            {'TerminationID',[],[255,255,255]},
+             [{mediaDescriptor,
+               {'MediaDescriptor',asn1_NOVALUE,
+                {multiStream,
+                 [{'StreamDescriptor',1,
+                   {'StreamParms',
+                    {'LocalControlDescriptor',
+                     sendRecv,
+                     asn1_NOVALUE,
+                     asn1_NOVALUE,
+                     [{'PropertyParm',
+                       [0,11,0,7],
+                       [[52,48]],
+                       asn1_NOVALUE}]},
+                    {'LocalRemoteDescriptor',
+                     [[{'PropertyParm',
+                        [0,0,176,1],
+                        [[48]],
+                        asn1_NOVALUE},
+                       {'PropertyParm',
+                         [0,0,176,8],
+                         [[73,78,32,73,80,52,32,49,50,53,46,49,
+                           50,53,46,49,50,53,46,49,49,49]],
+                         asn1_NOVALUE},
+                       {'PropertyParm',
+                         [0,0,176,15],
+                         [[97,117,100,105,111,32,49,49,49,49,32,
+                           82,84,80,47,65,86,80,32,32,52]],
+                         asn1_NOVALUE},
+                       {'PropertyParm',
+                         [0,0,176,12],
+                         [[112,116,105,109,101,58,51,48]],
+                         asn1_NOVALUE}]]},
+                    {'LocalRemoteDescriptor',
+                     [[{'PropertyParm',
+                         [0,0,176,1],
+                         [[48]],
+                         asn1_NOVALUE},
+                       {'PropertyParm',
+                         [0,0,176,8],
+                         [[73,78,32,73,80,52,32,49,50,52,46,49,50,
+                           52,46,49,50,52,46,50,50,50]],
+                         asn1_NOVALUE},
+                       {'PropertyParm',
+                         [0,0,176,15],
+                         [[97,117,100,105,111,32,50,50,50,50,32,82,
+                           84,80,47,65,86,80,32,32,52]],
+                         asn1_NOVALUE},
+                       {'PropertyParm',
+                         [0,0,176,12],
+                         [[112,116,105,109,101,58,51,48]],
+                         asn1_NOVALUE}]]}}}]}}},
+              {packagesDescriptor,
+               [{'PackagesItem',[0,11],1},
+                {'PackagesItem',[0,11],1}]},
+              {statisticsDescriptor,
+               [{'StatisticsParameter',[0,12,0,4],[[49,50,48,48]]},
+                {'StatisticsParameter',[0,11,0,2],[[54,50,51,48,48]]},
+                {'StatisticsParameter',[0,12,0,5],[[55,48,48]]},
+                {'StatisticsParameter',[0,11,0,3],[[52,53,49,48,48]]},
+                {'StatisticsParameter',[0,12,0,6],[[48,46,50]]},
+                {'StatisticsParameter',[0,12,0,7],[[50,48]]},
+                {'StatisticsParameter',[0,12,0,8],[[52,48]]}]}]}}}]}]}}}]}}}</pre><p>The size of the encoded values was 458 bytes for <strong>GUI</strong> and 464
+bytes for <strong>MEDIA-GATEWAY-CONTROL</strong>.
+</p><h3>Results</h3><p>The ASN.1 specifications in the test were compiled with options
+<strong>ber_bin, optimize, driver</strong> and <strong>asn1config</strong>. Omitting
+option <strong>driver</strong> gives
+higher values for <strong>decode</strong> and <strong>decode_part</strong>. These tests have
+not been rerun using NIFs, but are expected to perform about 5% better
+than the linked-in driver.
+</p><p>The test program runs 10000 decodes on the value, resulting
+in an output with the elapsed time in microseconds for the
+total number of decodes.
+</p><table class="table table-bordered table-hover table-striped"><caption>Results of Complete, Exclusive, and Selective Decode</caption><tbody><tr><td><em>Function</em></td><td><em>Time</em> (microseconds)</td><td><em>Decode Type</em></td><td><em>ASN.1 Specification</em></td><td><em>% of Time versus Complete Decode</em></td></tr><tr><td><strong>decode_MegacoMessage_selective/1</strong></td><td><strong>374045</strong></td><td><strong>Selective</strong></td><td><strong>MEDIA-GATEWAY-CONTROL</strong></td><td><em>8.3</em></td></tr><tr><td><strong>decode_MegacoMessage_exclusive/1</strong></td><td><strong>621107</strong></td><td><strong>Exclusive</strong></td><td><strong>MEDIA-GATEWAY-CONTROL</strong></td><td><em>13.8</em></td></tr><tr><td><strong>decode/2</strong></td><td><strong>4507457</strong></td><td><strong>Complete</strong></td><td><strong>MEDIA-GATEWAY-CONTROL</strong></td><td><em>100</em></td></tr><tr><td><strong>selected_decode_Window1/1</strong></td><td><strong>449585</strong></td><td><strong>Selective</strong></td><td><strong>GUI</strong></td><td><em>7.6</em></td></tr><tr><td><strong>selected_decode_Window2/1</strong></td><td><strong>890666</strong></td><td><strong>Selective</strong></td><td><strong>GUI</strong></td><td><em>15.1</em></td></tr><tr><td><strong>decode_Window_status_exclusive/1</strong></td><td><strong>1251878</strong></td><td><strong>Exclusive</strong></td><td><strong>GUI</strong></td><td><em>21.3</em></td></tr><tr><td><strong>decode/2</strong></td><td><strong>5889197</strong></td><td><strong>Complete</strong></td><td><strong>GUI</strong></td><td><em>100</em></td></tr></tbody></table><p>It is also of interest to know the relation is between
+a complete decode, an exclusive decode followed by
+<strong>decode_part</strong> of the excluded parts, and a selective decode
+followed by a complete decode. Some situations can be compared to
+this simulation, for example, inspect a subvalue and later inspect
+the entire value. The following table shows figures from this
+test. The number of loops and the time unit are the same as in the
+previous test.
+</p><table class="table table-bordered table-hover table-striped"><caption>Results of Complete, Exclusive + decode_part, and Selective + complete decodes</caption><tbody><tr><td><em>Actions</em></td><td><em>Function</em>Â Â Â Â </td><td><em>Time</em> (microseconds)</td><td><em>ASN.1 Specification</em></td><td><em>% of Time vs. Complete Decode</em></td></tr><tr><td><strong>Complete</strong></td><td><strong>decode/2</strong></td><td><strong>4507457</strong></td><td><strong>MEDIA-GATEWAY-CONTROL</strong></td><td><em>100</em></td></tr><tr><td><strong>Selective and Complete</strong></td><td><strong>decode_Â­MegacoMessage_Â­selective/1</strong></td><td><strong>4881502</strong></td><td><strong>MEDIA-GATEWAY-CONTROL</strong></td><td><em>108.3</em></td></tr><tr><td><strong>Exclusive and decode_part</strong></td><td><strong>decode_Â­MegacoMessage_Â­exclusive/1</strong></td><td><strong>5481034</strong></td><td><strong>MEDIA-GATEWAY-CONTROL</strong></td><td><em>112.3</em></td></tr><tr><td><strong>Complete</strong></td><td><strong>decode/2</strong></td><td><strong>5889197</strong></td><td><strong>GUI</strong></td><td><em>100</em></td></tr><tr><td><strong>Selective and Complete</strong></td><td><strong>selected_Â­decode_Â­Window1/1</strong></td><td><strong>6337636</strong></td><td><strong>GUI</strong></td><td><em>107.6</em></td></tr><tr><td><strong>Selective and Complete</strong></td><td><strong>selected_Â­decode_Â­Window2/1</strong></td><td><strong>6795319</strong></td><td><strong>GUI</strong></td><td><em>115.4</em></td></tr><tr><td><strong>Exclusive and decode_part</strong></td><td><strong>decode_Â­Window_Â­status_Â­exclusive/1</strong></td><td><strong>6249200</strong></td><td><strong>GUI</strong></td><td><em>106.1</em></td></tr></tbody></table><p>Other ASN.1 types and values can differ much from these
+figures. It is therefore important that you, in every case where
+you intend to use either of these decodes, perform some tests
+that show if you will benefit your purpose.
+</p><h3>Final Remarks</h3><ul><li>The gain of using selective and exclusive decode instead of a complete decode is greater the bigger the value and the less deep in the structure you have to decode.</li><li>Use selective decode instead of exclusive decode if you are interested in only a single subvalue.</li><li>Exclusive decode followed by <strong>decode_part</strong> decodes is attractive if the parts are sent to different servers for decoding, or if you in some cases are not interested in all parts.</li><li>The fastest selective decode is when the decoded type is a primitive type and not so deep in the structure of the top type. <strong>selected_decode_Window2</strong> decodes a high constructed value, which explains why this operation is relatively slow.</li><li>It can vary from case to case which combination of selective/complete decode or exclusive/part decode is the fastest.</li></ul></body></html>

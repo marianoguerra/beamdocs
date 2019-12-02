@@ -1,0 +1,289 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>ct</h1><h1>ct</h1><p>Main user interface for the Common Test framework.</p><p>Main user interface for the <strong>Common Test</strong> framework.This module implements the command-line interface for running
+tests and basic functions for <strong>Common Test</strong> case issues, such as
+configuration and logging.<em>Test Suite Support Macros</em>The <strong>config</strong> macro is defined in <strong>ct.hrl</strong>. This macro is
+to be used to retrieve information from the <strong>Config</strong> variable sent
+to all test cases. It is used with two arguments; the first is the name
+of the configuration variable to retrieve, the second is the
+<strong>Config</strong> variable supplied to the test case.Possible configuration variables include:<ul><li><p><strong>data_dir</strong> - Data file directory</p></li><li><p><strong>priv_dir</strong> - Scratch file directory</p></li><li><p>Whatever added by
+<a href="./common_test#Module:init_per_suite-1">common_test#Module:init_per_suite-1</a>
+or
+<a href="./common_test#Module:init_per_testcase-2">common_test#Module:init_per_testcase-2</a>
+in the test suite.</p></li></ul></p><h2>Data Types</h2><a name="types"></a><dl><dt> <a name="type-handle"></a> <strong>handle() = pid()</strong> </dt><dd> <p>The identity (handle) of a connection.</p> </dd><dt> <a name="type-config_key"></a> <strong>config_key() = atom()</strong> </dt><dd> <p>A configuration key which exists in a configuration file</p> </dd><dt> <a name="type-target_name"></a><strong>target_name() = atom()</strong> </dt><dd> <p>A name and association to configuration data introduced
+through a require statement, or a call to
+<a href="#require-2">require-2</a>,
+for example,
+<strong>ct:require(mynodename,{node,[telnet]})</strong>.</p> </dd><dt> <a name="type-key_or_name"></a> <strong>key_or_name() = config_key() | target_name()</strong> </dt><dd></dd><dt> <a name="type-conn_log_options"></a> <strong>conn_log_options() = [conn_log_option()]</strong> </dt><dd> <p>Options that can be given to the <strong>cth_conn_log</strong> hook,
+which is used for logging of NETCONF and Telnet
+connections. See
+<a href="./ct_netconfc#Logging">ct_netconfc</a>
+or <a href="./ct_telnet#Logging">ct_telnet</a>
+for description and examples of how to use this hook.</p> </dd><dt> <a name="type-conn_log_option"></a> <strong>conn_log_option() = {log_type,conn_log_type()} | {hosts,[key_or_name()]}</strong> </dt><dd></dd><dt> <a name="type-conn_log_type"></a> <strong>conn_log_type() = raw | pretty | html | silent</strong> </dt><dd></dd><dt> <a name="type-conn_log_mod"></a> <strong>conn_log_mod() = ct_netconfc | ct_telnet</strong> </dt><dd></dd></dl><h1>Functions</h1><h2>abort_current_testcase(Reason) -&gt; ok | {error, ErrorReason}</h2><p>Aborts the currently executing test case.</p><ul><li><span class="v">Reason = term()</span></li><li><span class="v">ErrorReason = no_testcase_running | parallel_group</span></li></ul><a name="abort_current_testcase-1"></a><p>Aborts the currently executing test case. The user must know with
+certainty which test case is currently executing. The function is
+therefore only safe to call from a function that has been called
+(or synchronously invoked) by the test case.</p><p><strong>Reason</strong>, the reason for aborting the test case, is printed
+in the test case log.</p><h2>add_config(Callback, Config) -&gt; ok | {error, Reason}</h2><p>Loads configuration variables using the specified callback module and configuration string.</p><ul><li><span class="v">Callback = atom()</span></li><li><span class="v">Config = string()</span></li><li><span class="v">Reason = term()</span></li></ul><a name="add_config-2"></a><p>Loads configuration variables using the specified callback module and
+configuration string. The callback module is to be either loaded or
+present in the code part. Loaded configuration variables can later
+be removed using function
+<a href="#remove_config-2">remove_config-2</a>.
+</p><h2>break(Comment) -&gt; ok | {error, Reason}</h2><p>Cancels any active timetrap and pause the execution of the current test case until the user calls function continue/0.</p><ul><li><span class="v">Comment = string()</span></li><li><span class="v">Reason = {multiple_cases_running, TestCases} | 'enable break with release_shell option'</span></li><li><span class="v">TestCases = [atom()]</span></li></ul><a name="break-1"></a><p>Cancels any active timetrap and pauses the execution of the
+current test case until the user calls function <strong>continue/0</strong>.
+The user can then interact with the Erlang node running the tests,
+for example, for debugging purposes or for manually executing a
+part of the test case. If a parallel group is executing,
+<a href="#break-2">break-2</a> is to be
+called instead.</p><p>A cancelled timetrap is not automatically reactivated after the
+break, but must be started exlicitly with
+<a href="#timetrap-1">timetrap-1</a>.</p><p>In order for the break/continue functionality to work, <strong>Common Test</strong> must release the shell process controlling <strong>stdin</strong>.
+This is done by setting start option <strong>release_shell</strong>
+to <strong>true</strong>. For details, see section
+<a href="./run_test_chapter#erlang_shell_or_program">Running Tests from the Erlang Shell or from an Erlang Program</a>
+in the User's Guide.</p><h2>break(TestCase, Comment) -&gt; ok | {error, Reason}</h2><p>Works the same way as break/1, only argument TestCase makes it possible to pause a test case executing in a parallel group.</p><ul><li><span class="v">TestCase = atom()</span></li><li><span class="v">Comment = string()</span></li><li><span class="v">Reason = 'test case not running' | 'enable break with release_shell option'</span></li></ul><a name="break-2"></a><p>Works the same way as
+<a href="#break-1">break-1</a>, only
+argument <strong>TestCase</strong> makes it possible to pause a test case
+executing in a parallel group. Function
+<a href="#continue-1">continue-1</a> is to
+be used to resume execution of <strong>TestCase</strong>.</p><p>For details, see
+<a href="#break/1">break/1</a>.</p><h2>capture_get() -&gt; ListOfStrings</h2><p>Equivalent to capture_get([default]).</p><ul><li><span class="v">ListOfStrings = [string()]</span></li></ul><a name="capture_get-0"></a><p>Equivalent to
+<a href="#capture_get-1">ct:capture_get([default])</a>.</p><h2>capture_get(ExclCategories) -&gt; ListOfStrings</h2><p>Returns and purges the list of text strings buffered during the latest session of capturing printouts to stdout.</p><ul><li><span class="v">ExclCategories = [atom()]</span></li><li><span class="v">ListOfStrings = [string()]</span></li></ul><a name="capture_get-1"></a><p>Returns and purges the list of text strings buffered during the
+latest session of capturing printouts to <strong>stdout</strong>. Log
+categories that are to be ignored in <strong>ListOfStrings</strong> can be
+specified with <strong>ExclCategories</strong>.
+If <strong>ExclCategories = []</strong>, no filtering takes place.</p><p>See also
+<a href="#capture_start-0">capture_start-0</a>,
+<a href="#capture_stop-0">capture_stop-0</a>,
+<a href="#log-3">log-3</a>.</p><h2>capture_start() -&gt; ok</h2><p>Starts capturing all text strings printed to stdout during execution of the test case.</p><a name="capture_start-0"></a><p>Starts capturing all text strings printed to <strong>stdout</strong>
+during execution of the test case.</p><p>See also
+<a href="#capture_get-1">capture_get-1</a>,
+<a href="#capture_stop-0">capture_stop-0</a>.</p><h2>capture_stop() -&gt; ok</h2><p>Stops capturing text strings (a session started with capture_start/0).</p><a name="capture_stop-0"></a><p>Stops capturing text strings (a session started with
+<strong>capture_start/0</strong>).</p><p>See also
+<a href="#capture_get-1">capture_get-1</a>,
+<a href="#capture_start-0">capture_start-0</a>.</p><h2>comment(Comment) -&gt; ok</h2><p>Prints the specified Comment in the comment field in the table on the test suite result page.</p><ul><li><span class="v">Comment = term()</span></li></ul><a name="comment-1"></a><p>Prints the specified <strong>Comment</strong> in the comment field in the
+table on the test suite result page.</p><p>If called several times, only the last comment is printed. The
+test case return value <strong>{comment,Comment}</strong> overwrites the
+string set by this function.</p><h2>comment(Format, Args) -&gt; ok</h2><p>Prints the formatted string in the comment field in the table on the test suite result page.</p><ul><li><span class="v">Format = string()</span></li><li><span class="v">Args = list()</span></li></ul><a name="comment-2"></a><p>Prints the formatted string in the comment field in the table
+on the test suite result page.</p><p>Arguments <strong>Format</strong> and <strong>Args</strong> are used in a call to
+<strong>io_lib:format/2</strong> to create the comment string. The behavior
+of <strong>comment/2</strong> is otherwise the same as function
+<a href="#comment-1">comment-1</a>.</p><h2>continue() -&gt; ok</h2><p>This function must be called to continue after a test case (not executing in a parallel group) has called break/1.</p><a name="continue-0"></a><p>This function must be called to continue after a test case
+(not executing in a parallel group) has called function
+<a href="#break-1">break-1</a>.</p><h2>continue(TestCase) -&gt; ok</h2><p>This function must be called to continue after a test case has called break/2.</p><ul><li><span class="v">TestCase = atom()</span></li></ul><a name="continue-1"></a><p>This function must be called to continue after a test case has
+called <a href="#break-2">break-2</a>.
+If the paused test case, <strong>TestCase</strong>, executes in a parallel
+group, this function, rather than <strong>continue/0</strong>, must be used
+to let the test case proceed.</p><h2>decrypt_config_file(EncryptFileName, TargetFileName) -&gt; ok | {error, Reason}</h2><p>Decrypts EncryptFileName, previously generated with encrypt_config_file/2,3.</p><ul><li><span class="v">EncryptFileName = string()</span></li><li><span class="v">TargetFileName = string()</span></li><li><span class="v">Reason = term()</span></li></ul><a name="decrypt_config_file-2"></a><p>Decrypts <strong>EncryptFileName</strong>, previously generated with
+<a href="#encrypt_config_file-2">encrypt_config_file-2</a>.
+The original file contents is saved in the target file. The
+encryption key, a string, must be available in a text file named
+<strong>.ct_config.crypt</strong>, either in the current directory, or the
+home directory of the user (it is searched for in that order).</p><h2>decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) -&gt; ok | {error, Reason}</h2><p>Decrypts EncryptFileName, previously generated with encrypt_config_file/2,3.</p><ul><li><span class="v">EncryptFileName = string()</span></li><li><span class="v">TargetFileName = string()</span></li><li><span class="v">KeyOrFile = {key, string()} | {file, string()}</span></li><li><span class="v">Reason = term()</span></li></ul><a name="decrypt_config_file-3"></a><p>Decrypts <strong>EncryptFileName</strong>, previously generated with
+<a href="#encrypt_config_file-2">encrypt_config_file-2</a>.
+The original file contents is saved in the target file. The key
+must have the same value as that used for encryption.</p><h2>encrypt_config_file(SrcFileName, EncryptFileName) -&gt; ok | {error, Reason}</h2><p>Encrypts the source configuration file with DES3 and saves the result in file EncryptFileName.</p><ul><li><span class="v">SrcFileName = string()</span></li><li><span class="v">EncryptFileName = string()</span></li><li><span class="v">Reason = term()</span></li></ul><a name="encrypt_config_file-2"></a><p>Encrypts the source configuration file with DES3 and saves the result
+in file <strong>EncryptFileName</strong>. The key, a string, must be
+available in a text file named <strong>.ct_config.crypt</strong>, either
+in the current directory, or the home directory of the user (it
+is searched for in that order).</p><p>For information about using encrypted configuration files when
+running tests, see section
+<a href="./config_file_chapter#encrypted_config_files">Encrypted Configuration Files</a> in the User's Guide.</p><p>For details on DES3 encryption/decryption, see application
+<a href="./index">crypto/index</a>.</p><h2>encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) -&gt; ok | {error, Reason}</h2><p>Encrypts the source configuration file with DES3 and saves the result in the target file EncryptFileName.</p><ul><li><span class="v">SrcFileName = string()</span></li><li><span class="v">EncryptFileName = string()</span></li><li><span class="v">KeyOrFile = {key, string()} | {file, string()}</span></li><li><span class="v">Reason = term()</span></li></ul><a name="encrypt_config_file-3"></a><p>Encrypts the source configuration file with DES3 and saves the result
+in the target file <strong>EncryptFileName</strong>. The encryption key
+to use is either the value in <strong>{key,Key}</strong> or the value
+stored in the file specified by <strong>{file,File}</strong>.</p><p>For information about using encrypted configuration files when
+running tests, see section
+<a href="./config_file_chapter#encrypted_config_files">Encrypted Configuration Files</a> in the User's Guide.</p><p>For details on DES3 encryption/decryption, see application
+<a href="./index">crypto/index</a>.</p><h2>fail(Reason) -&gt; ok</h2><p>Terminates a test case with the specified error Reason.</p><ul><li><span class="v">Reason = term()</span></li></ul><a name="fail-1"></a><p>Terminates a test case with the specified error <strong>Reason</strong>.</p><h2>fail(Format, Args) -&gt; ok</h2><p>Terminates a test case with an error message specified by a format string and a list of values (used as arguments to io_lib:format/2).</p><ul><li><span class="v">Format = string()</span></li><li><span class="v">Args = list()</span></li></ul><a name="fail-2"></a><p>Terminates a test case with an error message specified by a
+format string and a list of values (used as arguments to
+<strong>io_lib:format/2</strong>).</p><h2>get_config(Required) -&gt; Value</h2><p>Equivalent to get_config(Required, undefined, []).</p><a name="get_config-1"></a><p>Equivalent to <a href="#get_config-3">get_config-3</a>.</p><h2>get_config(Required, Default) -&gt; Value</h2><p>Equivalent to get_config(Required, Default, []).</p><a name="get_config-2"></a><p>Equivalent to <a href="#get_config-3">get_config-3</a>.</p><h2>get_config(Required, Default, Opts) -&gt; ValueOrElement</h2><p>Reads configuration data values.</p><ul><li><span class="v">Required = KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey}</span></li><li><span class="v">KeyOrName = atom()</span></li><li><span class="v">SubKey = atom()</span></li><li><span class="v">Default = term()</span></li><li><span class="v">Opts = [Opt] | []</span></li><li><span class="v">Opt = element | all</span></li><li><span class="v">ValueOrElement = term() | Default</span></li></ul><a name="get_config-3"></a><p>Reads configuration data values.</p><p>Returns the matching values or configuration elements, given a
+configuration variable key or its associated name (if one has been
+specified with
+<a href="#require-2">require-2</a>
+or a <strong>require</strong> statement).</p><p><em>Example:</em></p><p>Given the following configuration file:</p><pre>
+ {unix,[{telnet,IpAddr},
+        {user,[{username,Username},
+               {password,Password}]}]}.</pre><p>Then:</p><pre>
+ ct:get_config(unix,Default) -&gt; [{telnet,IpAddr}, 
+  {user, [{username,Username}, {password,Password}]}]
+ ct:get_config({unix,telnet},Default) -&gt; IpAddr
+ ct:get_config({unix,user,username},Default) -&gt; Username
+ ct:get_config({unix,ftp},Default) -&gt; Default
+ ct:get_config(unknownkey,Default) -&gt; Default</pre><p>If a configuration variable key has been associated with a name (by
+<a href="#require-2">require-2</a>
+or a <strong>require</strong> statement), the name can be used instead
+of the key to read the value:</p><pre>
+ ct:require(myuser,{unix,user}) -&gt; ok.
+ ct:get_config(myuser,Default) -&gt; [{username,Username}, {password,Password}]</pre><p>If a configuration variable is defined in multiple files, use option
+<strong>all</strong> to access all possible values. The values are returned
+in a list. The order of the elements corresponds to the order
+that the configuration files were specified at startup.</p><p>If configuration elements (key-value tuples) are to be returned as
+result instead of values, use option <strong>element</strong>. The
+returned elements are then on the form <strong>{Required,Value}</strong>.</p><p>See also
+<a href="#get_config-1">get_config-1</a>,
+<a href="#get_config-2">get_config-2</a>,
+<a href="#require-1">require-1</a>,
+<a href="#require-2">require-2</a>.</p><h2>get_event_mgr_ref() -&gt; EvMgrRef</h2><p>Gets a reference to the <strong>Common Test</strong> event manager.</p><ul><li><span class="v">EvMgrRef = atom()</span></li></ul><a name="get_event_mgr_ref-0"></a><p>Gets a reference to the <strong>Common Test</strong> event manager.
+The reference can be used to, for example, add a user-specific
+event handler while tests are running.</p><p><em>Example:</em></p><pre>
+ gen_event:add_handler(ct:get_event_mgr_ref(), my_ev_h, [])</pre><h2>get_progname() -&gt; string()</h2><p>Returns the command used to start this Erlang instance.</p><a name="get_progname-0"></a><p>Returns the command used to start this Erlang instance.
+If this information could not be found, the string
+<strong>"no_prog_name"</strong> is returned.</p><h2>get_status() -&gt; TestStatus | {error, Reason} | no_tests_running</h2><p>Returns status of ongoing test.</p><ul><li><span class="v">TestStatus = [StatusElem]</span></li><li><span class="v">StatusElem = {current, TestCaseInfo} | {successful, Successful} | {failed, Failed} | {skipped, Skipped} | {total, Total}</span></li><li><span class="v">TestCaseInfo = {Suite, TestCase} | [{Suite, TestCase}]</span></li><li><span class="v">Suite = atom()</span></li><li><span class="v">TestCase = atom()</span></li><li><span class="v">Successful = integer()</span></li><li><span class="v">Failed = integer()</span></li><li><span class="v">Skipped = {UserSkipped, AutoSkipped}</span></li><li><span class="v">UserSkipped = integer()</span></li><li><span class="v">AutoSkipped = integer()</span></li><li><span class="v">Total = integer()</span></li><li><span class="v">Reason = term()</span></li></ul><a name="get_status-0"></a><p>Returns status of ongoing test. The returned list contains
+information about which test case is executing (a list of cases
+when a parallel test case group is executing), as well as
+counters for successful, failed, skipped, and total test cases
+so far.</p><h2>get_target_name(Handle) -&gt; {ok, TargetName} | {error, Reason}</h2><p>Returns the name of the target that the specified connection belongs to.</p><ul><li><span class="v">Handle = handle()</span></li><li><span class="v">TargetName = target_name()</span></li></ul><a name="get_target_name-1"></a><p>Returns the name of the target that the specified connection
+belongs to.</p><h2>get_testspec_terms() -&gt; TestSpecTerms | undefined</h2><p>Gets a list of all test specification terms used to configure and run this test.</p><ul><li><span class="v">TestSpecTerms = [{Tag, Value}]</span></li><li><span class="v">Value = [term()]</span></li></ul><a name="get_testspec_terms-0"></a><p>Gets a list of all test specification terms used to configure
+and run this test.</p><h2>get_testspec_terms(Tags) -&gt; TestSpecTerms | undefined</h2><p>Reads one or more terms from the test specification used to configure and run this test.</p><ul><li><span class="v">Tags = [Tag] | Tag</span></li><li><span class="v">Tag = atom()</span></li><li><span class="v">TestSpecTerms = [{Tag, Value}] | {Tag, Value}</span></li><li><span class="v">Value = [{Node, term()}] | [term()]</span></li><li><span class="v">Node = atom()</span></li></ul><a name="get_testspec_terms-1"></a><p>Reads one or more terms from the test specification used to
+configure and run this test. <strong>Tag</strong> is any valid test
+specification tag, for example, <strong>label</strong>, <strong>config</strong>, or
+<strong>logdir</strong>. User-specific terms are also available to read if
+option <strong>allow_user_terms</strong> is set.</p><p>All value tuples returned, except user terms, have the node
+name as first element.</p><p>To read test terms, use <strong>Tag = tests</strong> (rather than
+<strong>suites</strong>, <strong>groups</strong>, or <strong>cases</strong>). <strong>Value</strong> is
+then the list of <em>all</em> tests on the form
+<strong>[{Node,Dir,[{TestSpec,GroupsAndCases1},...]},...]</strong>, where
+<strong>GroupsAndCases = [{Group,[Case]}] | [Case]</strong>.</p><h2>get_timetrap_info() -&gt; {Time, {Scaling,ScaleVal}}</h2><p>Reads information about the timetrap set for the current test case.</p><ul><li><span class="v">Time = integer() | infinity</span></li><li><span class="v">Scaling = true | false</span></li><li><span class="v">ScaleVal = integer()</span></li></ul><a name="get_timetrap_info-0"></a><p>Reads information about the timetrap set for the current test
+case. <strong>Scaling</strong> indicates if <strong>Common Test</strong> will attempt
+to compensate timetraps automatically for runtime delays
+introduced by, for example, tools like cover. <strong>ScaleVal</strong> is
+the value of the current scaling multipler (always 1 if scaling is
+disabled). Note the <strong>Time</strong> is not the scaled result.</p><h2>get_verbosity(Category) -&gt; Level | undefined</h2><p>Read the verbosity level for a logging category.</p><ul><li><span class="v">Category = default | atom()</span></li><li><span class="v">Level = integer()</span></li></ul><a name="get_verbosity-1"></a><p>This function returns the verbosity level for the specified logging
+category. See the <a href="./write_test_chapter#logging"> User's Guide</a> for details. Use the value <strong>default</strong> to read
+the general verbosity level.</p><h2>install(Opts) -&gt; ok | {error, Reason}</h2><p>Installs configuration files and event handlers.</p><ul><li><span class="v">Opts = [Opt]</span></li><li><span class="v">Opt = {config, ConfigFiles} | {event_handler, Modules} | {decrypt, KeyOrFile}</span></li><li><span class="v">ConfigFiles = [ConfigFile]</span></li><li><span class="v">ConfigFile = string()</span></li><li><span class="v">Modules = [atom()]</span></li><li><span class="v">KeyOrFile = {key, Key} | {file, KeyFile}</span></li><li><span class="v">Key = string()</span></li><li><span class="v">KeyFile = string()</span></li></ul><a name="install-1"></a><p>Installs configuration files and event handlers.</p><p>Run this function once before the first test.</p><p><em>Example:</em></p><pre>
+ install([{config,["config_node.ctc","config_user.ctc"]}])</pre><p>This function is automatically run by program <strong>ct_run</strong>.</p><h2>listenv(Telnet) -&gt; [Env]</h2><p>Performs command listenv on the specified Telnet connection and returns the result as a list of key-value pairs.</p><ul><li><span class="v">Telnet = term()</span></li><li><span class="v">Env = {Key, Value}</span></li><li><span class="v">Key = string()</span></li><li><span class="v">Value = string()</span></li></ul><a name="listenv-1"></a><p>Performs command <strong>listenv</strong> on the specified Telnet connection
+and returns the result as a list of key-value pairs.</p><h2>log(Format) -&gt; ok</h2><p>Equivalent to log(default, 50, Format, [], []).</p><a name="log-1"></a><p>Equivalent to
+<a href="#log-5">log-5</a>.</p><h2>log(X1, X2) -&gt; ok</h2><p>Equivalent to log(Category, Importance, Format, FormatArgs, []).</p><ul><li><span class="v">X1 = Category | Importance | Format</span></li><li><span class="v">X2 = Format | FormatArgs</span></li></ul><a name="log-2"></a><p>Equivalent to <a href="#log-5">log-5</a>.</p><h2>log(X1, X2, X3) -&gt; ok</h2><p>Equivalent to log(Category, Importance, Format, FormatArgs, Opts).</p><ul><li><span class="v">X1 = Category | Importance</span></li><li><span class="v">X2 = Importance | Format</span></li><li><span class="v">X3 = Format | FormatArgs | Opts</span></li></ul><a name="log-3"></a><p>Equivalent to <a href="#log-5">log-5</a>.</p><h2>log(X1, X2, X3, X4) -&gt; ok</h2><p>Equivalent to log(Category, Importance, Format, FormatArgs, Opts).</p><ul><li><span class="v">X1 = Category | Importance</span></li><li><span class="v">X2 = Importance | Format</span></li><li><span class="v">X3 = Format | FormatArgs</span></li><li><span class="v">X4 = FormatArgs | Opts</span></li></ul><a name="log-4"></a><p>Equivalent to <a href="#log-5">log-5</a>.</p><h2>log(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</h2><p>Prints from a test case to the log file.</p><ul><li><span class="v">Category = atom()</span></li><li><span class="v">Importance = integer()</span></li><li><span class="v">Format = string()</span></li><li><span class="v">FormatArgs = list()</span></li><li><span class="v">Opts = [Opt]</span></li><li><span class="v">Opt = {heading,string()} | no_css | esc_chars</span></li></ul><a name="log-5"></a><p>Prints from a test case to the log file.</p><p>This function is meant for printing a string directly from a
+test case to the test case log file.</p><p>Default <strong>Category</strong> is <strong>default</strong>,
+default <strong>Importance</strong> is <strong>?STD_IMPORTANCE</strong>,
+and default value for <strong>FormatArgs</strong> is <strong>[]</strong>.</p><p>For details on <strong>Category</strong>, <strong>Importance</strong> and the <strong>no_css</strong>
+option, see section <a href="./write_test_chapter#logging"> Logging - Categories and Verbosity Levels</a> in the User's Guide.</p><p>Common Test will not escape special HTML characters (&lt;, &gt; and &amp;)
+in the text printed with this function, unless the <strong>esc_chars</strong>
+option is used.</p><h2>make_priv_dir() -&gt; ok | {error, Reason}</h2><p>If the test has been started with option create_priv_dir set to manual_per_tc, in order for the test case to use the private directory, it must first create it by calling this function.</p><ul><li><span class="v">Reason = term()</span></li></ul><a name="make_priv_dir-0"></a><p>If the test is started with option <strong>create_priv_dir</strong>
+set to <strong>manual_per_tc</strong>, in order for the test case to use
+the private directory, it must first create it by calling this
+function.</p><h2>notify(Name, Data) -&gt; ok</h2><p>Sends an asynchronous notification of type Name with Data to the <strong>Common Test</strong> event manager.</p><ul><li><span class="v">Name = atom()</span></li><li><span class="v">Data = term()</span></li></ul><a name="notify-2"></a><p>Sends an asynchronous notification of type <strong>Name</strong> with
+<strong>Data</strong>to the Common Test event manager. This can later be
+caught by any installed event manager.</p><p>See also
+<a href="./gen_event">stdlib/gen_event</a>.</p><h2>pal(Format) -&gt; ok</h2><p>Equivalent to pal(default, 50, Format, [], []).</p><a name="pal-1"></a><p>Equivalent to
+<a href="#pal-5">pal-5</a>.</p><h2>pal(X1, X2) -&gt; ok</h2><p>Equivalent to pal(Category, Importance, Format, FormatArgs, []).</p><ul><li><span class="v">X1 = Category | Importance | Format</span></li><li><span class="v">X2 = Format | FormatArgs</span></li></ul><a name="pal-2"></a><p>Equivalent to <a href="#pal-5">pal-5</a>.</p><h2>pal(X1, X2, X3) -&gt; ok</h2><p>Equivalent to pal(Category, Importance, Format, FormatArgs, Opts).</p><ul><li><span class="v">X1 = Category | Importance</span></li><li><span class="v">X2 = Importance | Format</span></li><li><span class="v">X3 = Format | FormatArgs | Opts</span></li></ul><a name="pal-3"></a><p>Equivalent to <a href="#pal-5">pal-5</a>.</p><h2>pal(X1, X2, X3, X4) -&gt; ok</h2><p>Equivalent to pal(Category, Importance, Format, FormatArgs, Opts).</p><ul><li><span class="v">X1 = Category | Importance</span></li><li><span class="v">X2 = Importance | Format</span></li><li><span class="v">X3 = Format | FormatArgs</span></li><li><span class="v">X4 = FormatArgs | Opts</span></li></ul><a name="pal-4"></a><p>Equivalent to <a href="#pal-5">pal-5</a>.</p><h2>pal(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</h2><p>Prints and logs from a test case.</p><ul><li><span class="v">Category = atom()</span></li><li><span class="v">Importance = integer()</span></li><li><span class="v">Format = string()</span></li><li><span class="v">FormatArgs = list()</span></li><li><span class="v">Opts = [Opt]</span></li><li><span class="v">Opt = {heading,string()} | no_css</span></li></ul><a name="pal-5"></a><p>Prints and logs from a test case.</p><p>This function is meant for printing a string from a test case,
+both to the test case log file and to the console.</p><p>Default <strong>Category</strong> is <strong>default</strong>,
+default <strong>Importance</strong> is <strong>?STD_IMPORTANCE</strong>,
+and default value for <strong>FormatArgs</strong> is <strong>[]</strong>.</p><p>For details on <strong>Category</strong> and <strong>Importance</strong>, see section
+<a href="./write_test_chapter#logging">Logging - Categories and Verbosity Levels</a> in the User's Guide.</p><p>Note that special characters in the text (&lt;, &gt; and &amp;) will
+be escaped by Common Test before the text is printed to the log
+file.</p><h2>parse_table(Data) -&gt; {Heading, Table}</h2><p>Parses the printout from an SQL table and returns a list of tuples.</p><ul><li><span class="v">Data = [string()]</span></li><li><span class="v">Heading = tuple()</span></li><li><span class="v">Table = [tuple()]</span></li></ul><a name="parse_table-1"></a><p>Parses the printout from an SQL table and returns a list of
+tuples.</p><p>The printout to parse is typically the result of a <strong>select</strong>
+command in SQL. The returned <strong>Table</strong> is a list of tuples,
+where each tuple is a row in the table.</p><p><strong>Heading</strong> is a tuple of strings representing the headings
+of each column in the table.</p><h2>print(Format) -&gt; ok</h2><p>Equivalent to print(default, 50, Format, [], []).</p><a name="print-1"></a><p>Equivalent to <a href="#print-5">print-5</a>.</p><h2>print(X1, X2) -&gt; ok</h2><p>Equivalent to print(Category, Importance, Format, FormatArgs, []).</p><ul><li><span class="v">X1 = Category | Importance | Format</span></li><li><span class="v">X2 = Format | FormatArgs</span></li></ul><a name="print-2"></a><p>Equivalent to <a href="#print-5">print-5</a>.</p><h2>print(X1, X2, X3) -&gt; ok</h2><p>Equivalent to print(Category, Importance, Format, FormatArgs, Opts).</p><ul><li><span class="v">X1 = Category | Importance</span></li><li><span class="v">X2 = Importance | Format</span></li><li><span class="v">X3 = Format | FormatArgs | Opts</span></li></ul><a name="print-3"></a><p>Equivalent to <a href="#print-5">print-5</a>.</p><h2>print(X1, X2, X3, X4) -&gt; ok</h2><p>Equivalent to print(Category, Importance, Format, FormatArgs, Opts).</p><ul><li><span class="v">X1 = Category | Importance</span></li><li><span class="v">X2 = Importance | Format</span></li><li><span class="v">X3 = Format | FormatArgs</span></li><li><span class="v">X4 = FormatArgs | Opts</span></li></ul><a name="print-4"></a><p>Equivalent to <a href="#print-5">print-5</a>.</p><h2>print(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</h2><p>Prints from a test case to the console.</p><ul><li><span class="v">Category = atom()</span></li><li><span class="v">Importance = integer()</span></li><li><span class="v">Format = string()</span></li><li><span class="v">FormatArgs = list()</span></li><li><span class="v">Opts = [Opt]</span></li><li><span class="v">Opt = {heading,string()}</span></li></ul><a name="print-5"></a><p>Prints from a test case to the console.</p><p>This function is meant for printing a string from a test case to
+the console.</p><p>Default <strong>Category</strong> is <strong>default</strong>,
+default <strong>Importance</strong> is <strong>?STD_IMPORTANCE</strong>,
+and default value for <strong>FormatArgs</strong> is <strong>[]</strong>.</p><p>For details on <strong>Category</strong> and <strong>Importance</strong>, see section
+<a href="./write_test_chapter#logging">Logging - Categories and Verbosity Levels</a> in the User's Guide.</p><h2>reload_config(Required) -&gt; ValueOrElement | {error, Reason}</h2><p>Reloads configuration file containing specified configuration key.</p><ul><li><span class="v">Required = KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey}</span></li><li><span class="v">KeyOrName = atom()</span></li><li><span class="v">SubKey = atom()</span></li><li><span class="v">ValueOrElement = term()</span></li></ul><a name="reload_config-1"></a><p>Reloads configuration file containing specified configuration key.</p><p>This function updates the configuration data from which the
+specified configuration variable was read, and returns the (possibly)
+new value of this variable.</p><p>If some variables were present in the configuration, but are
+not loaded using this function, they are removed from the
+configuration table together with their aliases.</p><h2>remaining_test_procs() -&gt; {TestProcs,SharedGL,OtherGLs}</h2><p>&gt;This function will return the identity of test- and group leader processes that are still running at the time of this call.</p><ul><li><span class="v">TestProcs = [{pid(),GL}]</span></li><li><span class="v">GL = pid()</span></li><li><span class="v">SharedGL = pid()</span></li><li><span class="v">OtherGLs = [pid()]</span></li></ul><a name="remaining_test_procs-0"></a><p>This function will return the identity of test- and group
+leader processes that are still running at the time of this call.
+<strong>TestProcs</strong> are processes in the system that have a Common Test IO
+process as group leader. <strong>SharedGL</strong> is the central Common Test
+IO process, responsible for printing to log files for configuration
+functions and sequentially executing test cases. <strong>OtherGLs</strong> are
+Common Test IO processes that print to log files for test cases
+in parallel test case groups.</p><p>The process information returned by this function may be
+used to locate and terminate remaining processes after tests have
+finished executing. The function would typically by called from
+Common Test Hook functions.</p><p>Note that processes that execute configuration functions or
+test cases are never included in <strong>TestProcs</strong>. It is therefore safe
+to use post configuration hook functions (such as post_end_per_suite,
+post_end_per_group, post_end_per_testcase) to terminate all processes
+in <strong>TestProcs</strong> that have the current group leader process as its group
+leader.</p><p>Note also that the shared group leader (<strong>SharedGL</strong>) must never be
+terminated by the user, only by Common Test. Group leader processes
+for parallel test case groups (<strong>OtherGLs</strong>) may however be terminated
+in post_end_per_group hook functions.</p><h2>remove_config(Callback, Config) -&gt; ok</h2><p>Removes configuration variables (together with their aliases) that were loaded with specified callback module and configuration string.</p><ul><li><span class="v">Callback = atom()</span></li><li><span class="v">Config = string()</span></li><li><span class="v">Reason = term()</span></li></ul><a name="remove_config-2"></a><p>Removes configuration variables (together wih their aliases)
+that were loaded with specified callback module and configuration
+string.</p><h2>require(Required) -&gt; ok | {error, Reason}</h2><p>Checks if the required configuration is available.</p><ul><li><span class="v">Required = Key | {Key, SubKeys} | {Key, SubKey, SubKeys}</span></li><li><span class="v">Key = atom()</span></li><li><span class="v">SubKeys = SubKey | [SubKey]</span></li><li><span class="v">SubKey = atom()</span></li></ul><a name="require-1"></a><p>Checks if the required configuration is available. Arbitrarily
+deep tuples can be specified as <strong>Required</strong>. Only the last
+element of the tuple can be a list of <strong>SubKey</strong>s.</p><p><em>Example 1.</em> Require the variable <strong>myvar</strong>:</p><pre>
+ ok = ct:require(myvar).</pre><p>In this case the configuration file must at least contain:</p><pre>
+ {myvar,Value}.</pre><p><em>Example 2.</em> Require key <strong>myvar</strong> with subkeys
+<strong>sub1</strong> and <strong>sub2</strong>:</p><pre>
+ ok = ct:require({myvar,[sub1,sub2]}).</pre><p>In this case the configuration file must at least contain:</p><pre>
+ {myvar,[{sub1,Value},{sub2,Value}]}.</pre><p><em>Example 3.</em> Require key <strong>myvar</strong> with subkey
+<strong>sub1</strong> with <strong>subsub1</strong>:</p><pre>
+ ok = ct:require({myvar,sub1,sub2}).</pre><p>In this case the configuration file must at least contain:</p><pre>
+ {myvar,[{sub1,[{sub2,Value}]}]}.</pre><p>See also
+<a href="#get_config-1">get_config-1</a>,
+<a href="#get_config-2">get_config-2</a>,
+<a href="#get_config-3">get_config-3</a>,
+<a href="#require-2">require-2</a>.</p><h2>require(Name, Required) -&gt; ok | {error, Reason}</h2><p>Checks if the required configuration is available and gives it a name.</p><ul><li><span class="v">Name = atom()</span></li><li><span class="v">Required = Key | {Key, SubKey} | {Key, SubKey, SubKey}</span></li><li><span class="v">SubKey = Key</span></li><li><span class="v">Key = atom()</span></li></ul><a name="require-2"></a><p>Checks if the required configuration is available and gives it a
+name. The semantics for <strong>Required</strong> is the same as in
+<a href="#require-1">require-1</a> except
+that a list of <strong>SubKey</strong>s cannot be specified.</p><p>If the requested data is available, the subentry is associated
+with <strong>Name</strong> so that the value of the element can be read with
+<a href="#get_config-1">get_config-1</a>
+provided <strong>Name</strong> is used instead of the whole <strong>Required</strong>
+term.</p><p><em>Example:</em></p><p>Require one node with a Telnet connection and an FTP connection.
+Name the node <strong>a</strong>:</p><pre>
+ ok = ct:require(a,{machine,node}).</pre><p>All references to this node can then use the node name. For
+example, a file over FTP is fetched like follows:</p><pre>
+ ok = ct:ftp_get(a,RemoteFile,LocalFile).</pre><p>For this to work, the configuration file must at least contain:</p><pre>
+ {machine,[{node,[{telnet,IpAddr},{ftp,IpAddr}]}]}.</pre><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The behavior of this function changed radically in
+<strong>Common Test</strong> 1.6.2. To keep some backwards compatability,
+it is still possible to do:<br/>
+<strong>ct:require(a,{node,[telnet,ftp]}).</strong><br/>
+This associates the name <strong>a</strong> with the top-level <strong>node</strong>
+entry. For this to work, the configuration file must at least
+contain:<br/>
+<strong>{node,[{telnet,IpAddr},{ftp,IpAddr}]}.</strong></p></div><p>See also
+<a href="#get_config-1">get_config-1</a>,
+<a href="#get_config-2">get_config-2</a>,
+<a href="#get_config-3">get_config-3</a>,
+<a href="#require-1">require-1</a>.</p><h2>run(TestDirs) -&gt; Result</h2><p>Runs all test cases in all suites in the specified directories.</p><ul><li><span class="v">TestDirs = TestDir | [TestDir]</span></li></ul><a name="run-1"></a><p>Runs all test cases in all suites in the specified directories.</p><p>See also <a href="#run-3">run-3</a>.</p><h2>run(TestDir, Suite) -&gt; Result</h2><p>Runs all test cases in the specified suite.</p><a name="run-2"></a><p>Runs all test cases in the specified suite.</p><p>See also <a href="#run-3">run-3</a>.</p><h2>run(TestDir, Suite, Cases) -&gt; Result</h2><p>Runs the specified test cases.</p><ul><li><span class="v">TestDir = string()</span></li><li><span class="v">Suite = atom()</span></li><li><span class="v">Cases = atom() | [atom()]</span></li><li><span class="v">Result = [TestResult] | {error, Reason}</span></li></ul><a name="run-3"></a><p>Runs the specified test cases.</p><p>Requires that
+<a href="#install-1">install-1</a> has been
+run first.</p><p>Suites (<strong>*_SUITE.erl</strong>) files must be stored in <strong>TestDir</strong>
+or <strong>TestDir/test</strong>. All suites are compiled when the test is
+run.</p><h2>run_test(Opts) -&gt; Result</h2><p>Runs tests as specified by the combination of options in Opts.</p><ul><li><span class="v">Opts = [OptTuples]</span></li><li><span class="v">OptTuples = {dir, TestDirs} | {suite, Suites} | {group, Groups} | {testcase, Cases} | {spec, TestSpecs} | {join_specs, Bool} | {label, Label} | {config, CfgFiles} | {userconfig, UserConfig} | {allow_user_terms, Bool} | {logdir, LogDir} | {silent_connections, Conns} | {stylesheet, CSSFile} | {cover, CoverSpecFile} | {cover_stop, Bool} | {step, StepOpts} | {event_handler, EventHandlers} | {include, InclDirs} | {auto_compile, Bool} | {abort_if_missing_suites, Bool} | {create_priv_dir, CreatePrivDir} | {multiply_timetraps, M} | {scale_timetraps, Bool} | {repeat, N} | {duration, DurTime} | {until, StopTime} | {force_stop, ForceStop} | {decrypt, DecryptKeyOrFile} | {refresh_logs, LogDir} | {logopts, LogOpts} | {verbosity, VLevels} | {basic_html, Bool} | {esc_chars, Bool} | {keep_logs,KeepSpec} | {ct_hooks, CTHs} | {enable_builtin_hooks, Bool} | {release_shell, Bool}</span></li><li><span class="v">TestDirs = [string()] | string()</span></li><li><span class="v">Suites = [string()] | [atom()] | string() | atom()</span></li><li><span class="v">Cases = [atom()] | atom()</span></li><li><span class="v">Groups = GroupNameOrPath | [GroupNameOrPath]</span></li><li><span class="v">GroupNameOrPath = [atom()] | atom() | all</span></li><li><span class="v">TestSpecs = [string()] | string()</span></li><li><span class="v">Label = string() | atom()</span></li><li><span class="v">CfgFiles = [string()] | string()</span></li><li><span class="v">UserConfig = [{CallbackMod, CfgStrings}] | {CallbackMod, CfgStrings}</span></li><li><span class="v">CallbackMod = atom()</span></li><li><span class="v">CfgStrings = [string()] | string()</span></li><li><span class="v">LogDir = string()</span></li><li><span class="v">Conns = all | [atom()]</span></li><li><span class="v">CSSFile = string()</span></li><li><span class="v">CoverSpecFile = string()</span></li><li><span class="v">StepOpts = [StepOpt] | []</span></li><li><span class="v">StepOpt = config | keep_inactive</span></li><li><span class="v">EventHandlers = EH | [EH]</span></li><li><span class="v">EH = atom() | {atom(), InitArgs} | {[atom()], InitArgs}</span></li><li><span class="v">InitArgs = [term()]</span></li><li><span class="v">InclDirs = [string()] | string()</span></li><li><span class="v">CreatePrivDir = auto_per_run | auto_per_tc | manual_per_tc</span></li><li><span class="v">M = integer()</span></li><li><span class="v">N = integer()</span></li><li><span class="v">DurTime = string(HHMMSS)</span></li><li><span class="v">StopTime = string(YYMoMoDDHHMMSS) | string(HHMMSS)</span></li><li><span class="v">ForceStop = skip_rest | Bool</span></li><li><span class="v">DecryptKeyOrFile = {key, DecryptKey} | {file, DecryptFile}</span></li><li><span class="v">DecryptKey = string()</span></li><li><span class="v">DecryptFile = string()</span></li><li><span class="v">LogOpts = [LogOpt]</span></li><li><span class="v">LogOpt = no_nl | no_src</span></li><li><span class="v">VLevels = VLevel | [{Category, VLevel}]</span></li><li><span class="v">VLevel = integer()</span></li><li><span class="v">Category = atom()</span></li><li><span class="v">KeepSpec = all | pos_integer()</span></li><li><span class="v">CTHs = [CTHModule | {CTHModule, CTHInitArgs}]</span></li><li><span class="v">CTHModule = atom()</span></li><li><span class="v">CTHInitArgs = term()</span></li><li><span class="v">Result = {Ok, Failed, {UserSkipped, AutoSkipped}} | TestRunnerPid | {error, Reason}</span></li><li><span class="v">Ok = integer()</span></li><li><span class="v">Failed = integer()</span></li><li><span class="v">UserSkipped = integer()</span></li><li><span class="v">AutoSkipped = integer()</span></li><li><span class="v">TestRunnerPid = pid()</span></li><li><span class="v">Reason = term()</span></li></ul><a name="run_test-1"></a><p>Runs tests as specified by the combination of options in
+<strong>Opts</strong>. The options are the same as those used with program
+<strong>ct_run</strong>, see <a href="./ct_run#ct_run">Run Tests from Command Line</a> in the <strong>ct_run</strong> manual page.</p><p>Here a <strong>TestDir</strong> can be used to point out the path to a
+<strong>Suite</strong>. Option <strong>testcase</strong> corresponds to option
+<strong>-case</strong> in program <strong>ct_run</strong>. Configuration files
+specified in <strong>Opts</strong> are installed automatically at startup.</p><p><strong>TestRunnerPid</strong> is returned if <strong>release_shell == true</strong>.
+For details, see
+<a href="#break-1">break-1</a>.</p><p><strong>Reason</strong> indicates the type of error encountered.</p><h2>run_testspec(TestSpec) -&gt; Result</h2><p>Runs a test specified by TestSpec.</p><ul><li><span class="v">TestSpec = [term()]</span></li><li><span class="v">Result = {Ok, Failed, {UserSkipped, AutoSkipped}} | {error, Reason}</span></li><li><span class="v">Ok = integer()</span></li><li><span class="v">Failed = integer()</span></li><li><span class="v">UserSkipped = integer()</span></li><li><span class="v">AutoSkipped = integer()</span></li><li><span class="v">Reason = term()</span></li></ul><a name="run_testspec-1"></a><p>Runs a test specified by <strong>TestSpec</strong>. The same terms are used
+as in test specification files.</p><p><strong>Reason</strong> indicates the type of error encountered.</p><h2>set_verbosity(Category, Level) -&gt; ok</h2><p>Set the verbosity level for a logging category.</p><ul><li><span class="v">Category = default | atom()</span></li><li><span class="v">Level = integer()</span></li></ul><a name="set_verbosity-2"></a><p>Use this function to set, or modify, the verbosity level for a logging
+category. See the <a href="./write_test_chapter#logging"> User's Guide</a> for details. Use the value <strong>default</strong> to set the
+general verbosity level.</p><h2>sleep(Time) -&gt; ok</h2><p>This function, similar to timer:sleep/1, suspends the test case for a specified time.</p><ul><li><span class="v">Time = {hours, Hours} | {minutes, Mins} | {seconds, Secs} | Millisecs | infinity</span></li><li><span class="v">Hours = integer()</span></li><li><span class="v">Mins = integer()</span></li><li><span class="v">Secs = integer()</span></li><li><span class="v">Millisecs = integer() | float()</span></li></ul><a name="sleep-1"></a><p>This function, similar to <strong>timer:sleep/1</strong> in STDLIB,
+suspends the test case for a specified time.
+However, this function also multiplies <strong>Time</strong> with the
+<strong>multiply_timetraps</strong> value (if set) and under certain
+circumstances also scales up the time automatically if
+<strong>scale_timetraps</strong> is set to <strong>true</strong> (default is
+<strong>false</strong>).</p><h2>start_interactive() -&gt; ok</h2><p>Starts <strong>Common Test</strong> in interactive mode.</p><a name="start_interactive-0"></a><p>Starts <strong>Common Test</strong> in interactive mode.</p><p>From this mode, all test case support functions can be executed
+directly from the Erlang shell. The interactive mode can also be
+started from the OS command line with <strong>ct_run -shell [-config File...]</strong>.</p><p>If any functions (for example, Telnet or FTP) using
+"required configuration data" are to be called from the Erlang shell,
+configuration data must first be required with
+<a href="#require-2">require-2</a>.</p><p><em>Example:</em></p><pre>
+ &gt; ct:require(unix_telnet, unix).
+ ok
+ &gt; ct_telnet:open(unix_telnet).
+ {ok,&lt;0.105.0&gt;}
+ &gt; ct_telnet:cmd(unix_telnet, "ls .").
+ {ok,["ls","file1  ...",...]}</pre><h2>step(TestDir, Suite, Case) -&gt; Result</h2><p>Steps through a test case with the debugger.</p><ul><li><span class="v">Case = atom()</span></li></ul><a name="step-3"></a><p>Steps through a test case with the debugger.</p><p>See also <a href="#run-3">run-3</a>.</p><h2>step(TestDir, Suite, Case, Opts) -&gt; Result</h2><p>Steps through a test case with the debugger.</p><ul><li><span class="v">Case = atom()</span></li><li><span class="v">Opts = [Opt] | []</span></li><li><span class="v">Opt = config | keep_inactive</span></li></ul><a name="step-4"></a><p>Steps through a test case with the debugger. If option
+<strong>config</strong> has been specifed, breakpoints are also set on
+the configuration functions in <strong>Suite</strong>.</p><p>See also <a href="#run-3">run-3</a>.</p><h2>stop_interactive() -&gt; ok</h2><p>Exits the interactive mode.</p><a name="stop_interactive-0"></a><p>Exits the interactive mode.</p><p>See also
+<a href="#start_interactive-0">start_interactive-0</a>.
+</p><h2>sync_notify(Name, Data) -&gt; ok</h2><p>Sends a synchronous notification of type Name with Data to the <strong>Common Test</strong> event manager.</p><ul><li><span class="v">Name = atom()</span></li><li><span class="v">Data = term()</span></li></ul><a name="sync_notify-2"></a><p>Sends a synchronous notification of type <strong>Name</strong> with
+<strong>Data</strong> to the <strong>Common Test</strong> event manager. This can later be
+caught by any installed event manager.</p><p>See also
+<a href="./gen_event">stdlib/gen_event</a>.
+</p><h2>testcases(TestDir, Suite) -&gt; Testcases | {error, Reason}</h2><p>Returns all test cases in the specified suite.</p><ul><li><span class="v">TestDir = string()</span></li><li><span class="v">Suite = atom()</span></li><li><span class="v">Testcases = list()</span></li><li><span class="v">Reason = term()</span></li></ul><a name="testcases-2"></a><p>Returns all test cases in the specified suite.</p><h2>timetrap(Time) -&gt; ok</h2><p>Sets a new timetrap for the running test case.</p><ul><li><span class="v">Time = {hours, Hours} | {minutes, Mins} | {seconds, Secs} | Millisecs | infinity | Func</span></li><li><span class="v">Hours = integer()</span></li><li><span class="v">Mins = integer()</span></li><li><span class="v">Secs = integer()</span></li><li><span class="v">Millisecs = integer()</span></li><li><span class="v">Func = {M, F, A} | function()</span></li><li><span class="v">M = atom()</span></li><li><span class="v">F = atom()</span></li><li><span class="v">A = list()</span></li></ul><a name="timetrap-1"></a><p>Sets a new timetrap for the running test case.</p><p>If the argument is <strong>Func</strong>, the timetrap is triggered when
+this function returns. <strong>Func</strong> can also return a new
+<strong>Time</strong> value, which in that case is the value for the new
+timetrap.</p><h2>userdata(TestDir, Suite) -&gt; SuiteUserData | {error, Reason}</h2><p>Returns any data specified with tag userdata in the list of tuples returned from Suite:suite/0.</p><ul><li><span class="v">TestDir = string()</span></li><li><span class="v">Suite = atom()</span></li><li><span class="v">SuiteUserData = [term()]</span></li><li><span class="v">Reason = term()</span></li></ul><a name="userdata-2"></a><p>Returns any data specified with tag <strong>userdata</strong> in the list
+of tuples returned from
+<a href="./common_test#Module:suite-0">common_test#Module:suite-0</a>.</p><h2>userdata(TestDir, Suite, Case::GroupOrCase) -&gt; TCUserData | {error, Reason}</h2><p>Returns any data specified with tag userdata in the list of tuples returned from Suite:group(GroupName) or Suite:Case().</p><ul><li><span class="v">TestDir = string()</span></li><li><span class="v">Suite = atom()</span></li><li><span class="v">GroupOrCase = {group, GroupName} | atom()</span></li><li><span class="v">GroupName = atom()</span></li><li><span class="v">TCUserData = [term()]</span></li><li><span class="v">Reason = term()</span></li></ul><a name="userdata-3"></a><p>Returns any data specified with tag <strong>userdata</strong> in the list
+of tuples returned from <strong>Suite:group(GroupName)</strong> or
+<strong>Suite:Case()</strong>.</p></body></html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Engine Stored Keys</h1><p>
+<a name="engine_key"></a>
+This chapter describes the support in the crypto application for using public and private keys stored in encryption engines.
+</p><h2>Background</h2><p>
+<a href="https://www.openssl.org/">OpenSSL</a> exposes an Engine API, which makes 
+it possible to plug in alternative implementations for some of the cryptographic
+operations implemented by OpenSSL.
+See the chapter <a href="../crypto/engine_load#engine_load">Engine Load</a>
+for details and how to load an Engine.
+</p><p>
+An engine could among other tasks provide a storage for
+private or public keys. Such a storage could be made safer than the normal file system. Those techniques are not
+described in this User's Guide.  Here we concentrate on how to use private or public keys stored in
+such an engine.
+</p><p>
+The storage engine must call <strong>ENGINE_set_load_privkey_function</strong> and <strong>ENGINE_set_load_pubkey_function</strong>.
+See the OpenSSL cryptolib's <a href="https://www.openssl.org/docs/manpages.html">manpages</a>.
+</p><p>
+OTP/Crypto requires that the user provides two or three items of information about the key. The application used
+by the user is usually on a higher level, for example in
+<a href="../ssl/ssl#type-key">SSL</a>. If using
+the crypto application directly, it is required that:
+</p><ul><li>an Engine is loaded, see the chapter on <a href="../crypto/engine_load#engine_load">Engine Load</a> or the <a href="../crypto/crypto#engine_load-3">Reference Manual</a> </li><li>a reference to a key in the Engine is available. This should be an Erlang string or binary and depends on the Engine loaded </li><li>an Erlang map is constructed with the Engine reference, the key reference and possibly a key passphrase if needed by the Engine. See the <a href="../crypto/crypto#type-engine_key_ref">Reference Manual</a> for details of the map. </li></ul><h2>Use Cases</h2><h2>Sign with an engine stored private key</h2><p>
+This example shows how to construct a key reference that is used in a sign operation.
+The actual key is stored in the engine that is loaded at prompt 1.
+</p><pre><code class="">
+1&gt; {ok, EngineRef} = crypto:engine_load(....).
+...
+{ok,#Ref&lt;0.2399045421.3028942852.173962&gt;}
+2&gt; PrivKey = #{engine =&gt; EngineRef,
+               key_id =&gt; "id of the private key in Engine"}.
+...
+3&gt; Signature = crypto:sign(rsa, sha, &lt;&lt;"The message"&gt;&gt;, PrivKey).
+&lt;&lt;65,6,125,254,54,233,84,77,83,63,168,28,169,214,121,76,
+  207,177,124,183,156,185,160,243,36,79,125,230,231,...&gt;&gt;
+      </code></pre><h2>Verify with an engine stored public key</h2><p>
+Here the signature and message in the last example is verifyed using the public key.
+The public key is stored in an engine, only to exemplify that it is possible. The public
+key could of course be handled openly as usual.
+</p><pre><code class="">
+4&gt; PublicKey = #{engine =&gt; EngineRef,
+                 key_id =&gt; "id of the public key in Engine"}.
+...
+5&gt; crypto:verify(rsa, sha, &lt;&lt;"The message"&gt;&gt;, Signature, PublicKey).
+true
+6&gt; 
+      </code></pre><h2>Using a password protected private key</h2><p>
+The same example as the first sign example, except that a password protects the key down in the Engine.
+</p><pre><code class="">
+6&gt; PrivKeyPwd = #{engine =&gt; EngineRef,
+                  key_id =&gt; "id of the pwd protected private key in Engine",
+		  password =&gt; "password"}.
+...
+7&gt; crypto:sign(rsa, sha, &lt;&lt;"The message"&gt;&gt;, PrivKeyPwd).
+&lt;&lt;140,80,168,101,234,211,146,183,231,190,160,82,85,163,
+  175,106,77,241,141,120,72,149,181,181,194,154,175,76,
+  223,...&gt;&gt;
+8&gt; 
+      </code></pre></body></html>

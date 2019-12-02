@@ -1,0 +1,411 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Cross Compiling Erlang/OTP</h1><p><span class="strong">Table of Contents</span></p><ul><li> <a href="#Introduction">Introduction</a> <ul><li> <a href="#Introduction_otpbuild-Versus-configuremake">otp_build Versus configure/make</a> </li><li> <a href="#Introduction_Cross-Configuration">Cross Configuration</a> </li><li> <a href="#Introduction_What-can-be-Cross-Compiled">What can be Cross Compiled?</a> </li><li> <a href="#Introduction_Compatibility">Compatibility</a> </li><li> <a href="#Introduction_Patches">Patches</a> </li></ul> </li><li> <a href="#Build-and-Install-Procedure">Build and Install Procedure</a> <ul><li> <a href="#Build-and-Install-Procedure_Building-With-configuremake-Directly">Building With configure/make Directly</a> <ul><li> <a href="#Build-and-Install-Procedure_Building-With-configuremake-Directly_Building-a-Bootstrap-System">Building a Bootstrap System</a> </li><li> <a href="#Build-and-Install-Procedure_Building-With-configuremake-Directly_Cross-Building-the-System">Cross Building the System</a> </li><li> <a href="#Build-and-Install-Procedure_Building-With-configuremake-Directly_Installing">Installing</a> <ul><li> <a href="#Build-and-Install-Procedure_Building-With-configuremake-Directly_Installing_Installing-Using-Paths-Determined-by-configure">Installing Using Paths Determined by configure</a> </li><li> <a href="#Build-and-Install-Procedure_Building-With-configuremake-Directly_Installing_Installing-Manually">Installing Manually</a> </li></ul> </li></ul> </li><li> <a href="#Build-and-Install-Procedure_Building-With-the-otpbuild-Script">Building With the otp_build Script</a> </li></ul> </li><li> <a href="#Building-and-Installing-the-Documentation">Building and Installing the Documentation</a> </li><li> <a href="#Testing-the-cross-compiled-system">Testing the cross compiled system</a> </li><li> <a href="#Currently-Used-Configuration-Variables">Currently Used Configuration Variables</a> <ul><li> <a href="#Currently-Used-Configuration-Variables_Variables-for-otpbuild-Only">Variables for otp_build Only</a> </li><li> <a href="#Currently-Used-Configuration-Variables_Cross-Compiler-and-Other-Tools">Cross Compiler and Other Tools</a> <ul><li> <a href="#Currently-Used-Configuration-Variables_Cross-Compiler-and-Other-Tools_Dynamic-Erlang-Driver-Linking">Dynamic Erlang Driver Linking</a> </li><li> <a href="#Currently-Used-Configuration-Variables_Cross-Compiler-and-Other-Tools_Large-File-Support">Large File Support</a> </li><li> <a href="#Currently-Used-Configuration-Variables_Cross-Compiler-and-Other-Tools_Other-Tools">Other Tools</a> </li></ul> </li><li> <a href="#Currently-Used-Configuration-Variables_Cross-System-Root-Locations">Cross System Root Locations</a> </li><li> <a href="#Currently-Used-Configuration-Variables_Optional-Feature-and-Bug-Tests">Optional Feature, and Bug Tests</a> </li></ul> </li></ul><a name="Introduction"></a><h2>Introduction</h2><p>
+This document describes how to cross compile Erlang/OTP-22. 
+You are advised to read the whole document before attempting to cross
+compile Erlang/OTP. However, before reading this document, you should read
+the <a href="INSTALL">$ERL_TOP/HOWTO/INSTALL.md</a> document which describes building and installing
+Erlang/OTP in general. <strong>$ERL_TOP</strong> is the top directory in the source tree.
+</p><a name="Introduction_otpbuild-Versus-configuremake"></a><h2>otp_build Versus configure/make</h2><p>
+Building Erlang/OTP can be done either by using the <strong>$ERL_TOP/otp_build</strong>
+script, or by invoking <strong>$ERL_TOP/configure</strong> and <strong>make</strong> directly. Building using
+<strong>otp_build</strong> is easier since it involves fewer steps, but the <strong>otp_build</strong> build
+procedure is not as flexible as the <strong>configure</strong>/<strong>make</strong> build procedure. Note
+that <strong>otp_build configure</strong> will produce a default configuration that differs
+from what <strong>configure</strong> will produce by default. For example, currently
+<strong>--disable-dynamic-ssl-lib</strong> is added to the <strong>configure</strong> command line arguments
+unless <strong>--enable-dynamic-ssl-lib</strong> has been explicitly passed. The binary
+releases that we deliver are built using <strong>otp_build</strong>.  The defaults used by
+<strong>otp_build configure</strong> may change at any time without prior notice.
+</p><a name="Introduction_Cross-Configuration"></a><h2>Cross Configuration</h2><p>
+The <strong>$ERL_TOP/xcomp/erl-xcomp.conf.template</strong> file contains all available cross
+configuration variables and can be used as a template when creating a cross
+compilation configuration. All <a href="#Currently-Used-Configuration-Variables">cross configuration variables</a> are also
+listed at the end of this document. For examples of working cross
+configurations see the <strong>$ERL_TOP/xcomp/erl-xcomp-TileraMDE2.0-tilepro.conf</strong>
+file and the <strong>$ERL_TOP/xcomp/erl-xcomp-x86_64-saf-linux-gnu.conf</strong> file. If the
+default behavior of a variable is satisfactory, the variable does not need to
+be set. However, the <strong>configure</strong> script will issue a warning when a default
+value is used. When a variable has been set, no warning will be issued.
+</p><p>
+A cross configuration file can be passed to <strong>otp_build configure</strong> using the
+<strong>--xcomp-conf</strong> command line argument. Note that <strong>configure</strong> does not accept
+this command line argument. When using the <strong>configure</strong> script directly, pass
+the configuration variables as arguments to <strong>configure</strong> using a
+<strong>&lt;VARIABLE&gt;=&lt;VALUE&gt;</strong> syntax. Variables can also be passed as environment
+variables to <strong>configure</strong>. However, if you pass the configuration in the
+environment, make sure to unset all of these environment variables before
+invoking <strong>make</strong>; otherwise, the environment variables might set make variables
+in some applications, or parts of some applications, and you may end up with
+an erroneously configured build. 
+</p><a name="Introduction_What-can-be-Cross-Compiled"></a><h2>What can be Cross Compiled?</h2><p>
+All Erlang/OTP applications except the <strong>wx</strong> application can be cross compiled.
+The build of the <strong>wx</strong> driver will currently be automatically disabled when
+cross compiling.
+</p><a name="Introduction_Compatibility"></a><h2>Compatibility</h2><p>
+The build system, including cross compilation configuration variables used,
+may be subject to non backward compatible changes without prior notice.
+Current cross build system has been tested when cross compiling some Linux/GNU
+systems, but has only been partly tested for more esoteric platforms. The
+VxWorks example file is highly dependent on our environment and is here more
+or less only for internal use.
+</p><a name="Introduction_Patches"></a><h2>Patches</h2><p>
+Please submit any patches for cross compiling in a way consistent with this
+system. All input is welcome as we have a very limited set of cross compiling
+environments to test with. If a new configuration variable is needed, add it
+to <strong>$ERL_TOP/xcomp/erl-xcomp.conf.template</strong>, and use it in <strong>configure.in</strong>.
+Other files that might need to be updated are:
+</p><ul><li> <strong>$ERL_TOP/xcomp/erl-xcomp-vars.sh</strong> </li><li> <strong>$ERL_TOP/erl-build-tool-vars.sh</strong> </li><li> <strong>$ERL_TOP/erts/aclocal.m4</strong> </li><li> <strong>$ERL_TOP/xcomp/README.md</strong> </li><li> <strong>$ERL_TOP/xcomp/erl-xcomp-*.conf</strong> </li></ul><p>
+Note that this might be an incomplete list of files that need to be updated.
+</p><p>
+General information on how to submit patches can be found at:
+<a href="http://wiki.github.com/erlang/otp/submitting-patches">http://wiki.github.com/erlang/otp/submitting-patches</a>
+</p><a name="Build-and-Install-Procedure"></a><h2>Build and Install Procedure</h2><p>
+If you are building in Git, you want to read the <a href="./INSTALL#How-to-Build-and-Install-ErlangOTP">Building in Git</a> section
+of <a href="INSTALL">$ERL_TOP/HOWTO/INSTALL.md</a> before proceeding.
+</p><p>
+We will first go through the <strong>configure</strong>/<strong>make</strong> build procedure which people
+probably are most familiar with.
+</p><a name="Build-and-Install-Procedure_Building-With-configuremake-Directly"></a><h2>Building With configure/make Directly</h2><p>
+(1)
+</p><p>
+Change directory into the top directory of the Erlang/OTP source tree.
+</p><pre><code class="">
+$ cd $ERL_TOP
+</code></pre><p>
+In order to compile Erlang code, a small Erlang bootstrap system has to be
+built, or an Erlang/OTP system of the same release as the one being built
+has to be provided in the <strong>$PATH</strong>. The Erlang/OTP for the target system will
+be built using this Erlang system, together with the cross compilation tools
+provided.
+</p><p>
+If you want to build using a compatible Erlang/OTP system in the <strong>$PATH</strong>,
+jump to (3).
+</p><a name="Build-and-Install-Procedure_Building-With-configuremake-Directly_Building-a-Bootstrap-System"></a><h2>Building a Bootstrap System</h2><p>
+(2)
+</p><pre><code class="">
+$ ./configure --enable-bootstrap-only
+$ make
+</code></pre><p>
+The <strong>--enable-bootstrap-only</strong> argument to <strong>configure</strong> isn't strictly necessary,
+but will speed things up. It will only run <strong>configure</strong> in applications
+necessary for the bootstrap, and will disable a lot of things not needed by
+the bootstrap system. If you run <strong>configure</strong> without <strong>--enable-boostrap-only</strong>
+you also have to run make as <strong>make bootstrap</strong>; otherwise, the whole system will
+be built.
+</p><a name="Build-and-Install-Procedure_Building-With-configuremake-Directly_Cross-Building-the-System"></a><h2>Cross Building the System</h2><p>
+(3)
+</p><pre><code class="">
+$ ./configure --host=&lt;HOST&gt; --build=&lt;BUILD&gt; [Other Config Args]
+$ make
+</code></pre><p>
+<strong>&lt;HOST&gt;</strong> is the host/target system that you build for. It does not have to be
+a full <strong>CPU-VENDOR-OS</strong> triplet, but can be. The full <strong>CPU-VENDOR-OS</strong> triplet
+will be created by executing <strong>$ERL_TOP/erts/autoconf/config.sub &lt;HOST&gt;</strong>. If
+<strong>config.sub</strong> fails, you need to be more specific.
+</p><p>
+<strong>&lt;BUILD&gt;</strong> should equal the <strong>CPU-VENDOR-OS</strong> triplet of the system that you
+build on. If you execute <strong>$ERL_TOP/erts/autoconf/config.guess</strong>, it will in
+most cases print the triplet you want to use for this.
+</p><p>
+Pass the cross compilation variables as command line arguments to <strong>configure</strong>
+using a <strong>&lt;VARIABLE&gt;=&lt;VALUE&gt;</strong> syntax.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+You can <em>not</em> pass a configuration file using the <strong>--xcomp-conf</strong>
+argument when you invoke <strong>configure</strong> directly. The <strong>--xcomp-conf</strong> argument
+can only be passed to <strong>otp_build configure</strong>.
+</p></div><p>
+<strong>make</strong> will verify that the Erlang/OTP system used when building is of the
+same release as the system being built, and will fail if this is not the case.
+It is possible, however not recommended, to force the cross compilation even
+though the wrong Erlang/OTP system is used. This by invoking <strong>make</strong> like this:
+<strong>make ERL_XCOMP_FORCE_DIFFERENT_OTP=yes</strong>.
+</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>
+Invoking <strong>make ERL_XCOMP_FORCE_DIFFERENT_OTP=yes</strong> might fail,
+silently produce suboptimal code, or silently produce erroneous code.
+</p></div><a name="Build-and-Install-Procedure_Building-With-configuremake-Directly_Installing"></a><h2>Installing</h2><p>
+You can either install using the installation paths determined by <strong>configure</strong>
+(4), or install manually using (5).
+</p><a name="Build-and-Install-Procedure_Building-With-configuremake-Directly_Installing_Installing-Using-Paths-Determined-by-configure"></a><h2>Installing Using Paths Determined by configure</h2><p>
+(4)
+</p><pre><code class="">
+$ make install DESTDIR=&lt;TEMPORARY_PREFIX&gt;
+</code></pre><p>
+<strong>make install</strong> will install at a location specified when doing <strong>configure</strong>.
+<strong>configure</strong> arguments specifying where the installation should reside are for
+example: <strong>--prefix</strong>, <strong>--exec-prefix</strong>, <strong>--libdir</strong>, <strong>--bindir</strong>, etc. By default
+it will install under <strong>/usr/local</strong>. You typically do not want to install your
+cross build under <strong>/usr/local</strong> on your build machine. Using <a href="http://www.gnu.org/prep/standards/html_node/DESTDIR.html">DESTDIR</a>
+will cause the installation paths to be prefixed by <strong>$DESTDIR</strong>. This makes it
+possible to install and package the installation on the build machine without
+having to place the installation in the same directory on the build machine as
+it should be executed from on the target machine.
+</p><p>
+When <strong>make install</strong> has finished, change directory into <strong>$DESTDIR</strong>, package
+the system, move it to the target machine, and unpack it. Note that the
+installation will only be working on the target machine at the location
+determined by <strong>configure</strong>.
+</p><a name="Build-and-Install-Procedure_Building-With-configuremake-Directly_Installing_Installing-Manually"></a><h2>Installing Manually</h2><p>
+(5)
+</p><pre><code class="">
+$ make release RELEASE_ROOT=&lt;RELEASE_DIR&gt;
+</code></pre><p>
+<strong>make release</strong> will copy what you have built for the target machine to
+<strong>&lt;RELEASE_DIR&gt;</strong>. The <strong>Install</strong> script will not be run. The content of
+<strong>&lt;RELEASE_DIR&gt;</strong> is what by default ends up in <strong>/usr/local/lib/erlang</strong>.
+</p><p>
+The <strong>Install</strong> script used when installing Erlang/OTP requires common Unix
+tools such as <strong>sed</strong> to be present in your <strong>$PATH</strong>. If your target system
+does not have such tools, you need to run the <strong>Install</strong> script on your
+build machine before packaging Erlang/OTP. The <strong>Install</strong> script should
+currently be invoked as follows in the directory where it resides
+(the top directory):
+</p><pre><code class="">
+$ ./Install [-cross] [-minimal|-sasl] &lt;ERL_ROOT&gt;
+</code></pre><p>
+where:
+</p><ul><li> <strong>-minimal</strong> Creates an installation that starts up a minimal amount of applications, i.e., only <strong>kernel</strong> and <strong>stdlib</strong> are started. The minimal system is normally enough, and is what <strong>make install</strong> uses. </li><li> <strong>-sasl</strong> Creates an installation that also starts up the <strong>sasl</strong> application. </li><li> <strong>-cross</strong> For cross compilation. Informs the install script that it is run on the build machine. </li><li> <strong>&lt;ERL_ROOT&gt;</strong> - The absolute path to the Erlang installation to use at run time. This is often the same as the current working directory, but does not have to be. It can follow any other path through the file system to the same directory. </li></ul><p>
+If neither <strong>-minimal</strong>, nor <strong>-sasl</strong> is passed as argument you will be
+prompted.
+</p><p>
+You can now either do:
+</p><p>
+(6)
+</p><ul><li> <p>Decide where the installation should be located on the target machine,
+run the <strong>Install</strong> script on the build machine, and package the installed
+installation. The installation just need to be unpacked at the right
+location on the target machine:
+</p> <pre><code class="">
+$ cd &lt;RELEASE_DIR&gt;
+$ ./Install -cross [-minimal|-sasl] &lt;ABSOLUTE_INSTALL_DIR_ON_TARGET&gt;
+</code></pre> </li></ul><p>
+or:
+</p><p>
+(7)
+</p><ul><li> <p>Package the installation in <strong>&lt;RELEASE_DIR&gt;</strong>, place it wherever you want
+on your target machine, and run the <strong>Install</strong> script on your target
+machine:
+</p> <pre><code class="">
+$ cd &lt;ABSOLUTE_INSTALL_DIR_ON_TARGET&gt;
+$ ./Install [-minimal|-sasl] &lt;ABSOLUTE_INSTALL_DIR_ON_TARGET&gt;
+</code></pre> </li></ul><a name="Build-and-Install-Procedure_Building-With-the-otpbuild-Script"></a><h2>Building With the otp_build Script</h2><p>
+(8)
+</p><pre><code class="">
+$ cd $ERL_TOP
+</code></pre><p>
+(9)
+</p><pre><code class="">
+$ ./otp_build configure --xcomp-conf=&lt;FILE&gt; [Other Config Args]
+</code></pre><p>
+alternatively:
+</p><pre><code class="">
+$ ./otp_build configure --host=&lt;HOST&gt; --build=&lt;BUILD&gt; [Other Config Args]
+</code></pre><p>
+If you have your cross compilation configuration in a file, pass it using the
+<strong>--xcomp-conf=&lt;FILE&gt;</strong> command line argument. If not, pass <strong>--host=&lt;HOST&gt;</strong>,
+<strong>--build=&lt;BUILD&gt;</strong>, and the configuration variables using a <strong>&lt;VARIABLE&gt;=&lt;VALUE&gt;</strong>
+syntax on the command line  (same as in (3)). Note that <strong>&lt;HOST&gt;</strong> and <strong>&lt;BUILD&gt;</strong>
+have to be passed one way or the other; either by using <strong>erl_xcomp_host=&lt;HOST&gt;</strong>
+and <strong>erl_xcomp_build=&lt;BUILD&gt;</strong> in the configuration file, or by using the
+<strong>--host=&lt;HOST&gt;</strong>, and <strong>--build=&lt;BUILD&gt;</strong> command line arguments.
+</p><p>
+<strong>otp_build configure</strong> will configure both for the boostrap system on the
+build machine and the cross host system.
+</p><p>
+(10)
+</p><pre><code class="">
+$ ./otp_build boot -a
+</code></pre><p>
+<strong>otp_build boot -a</strong> will first build a bootstrap system for the build machine
+and then do the cross build of the system.
+</p><p>
+(11)
+</p><pre><code class="">
+$ ./otp_build release -a &lt;RELEASE_DIR&gt;
+</code></pre><p>
+<strong>otp_build release -a</strong> will do the same as (5), and you will after this have
+to do a manual install either by doing (6), or (7).
+</p><a name="Building-and-Installing-the-Documentation"></a><h2>Building and Installing the Documentation</h2><p>
+After the system has been cross built you can build and install the
+documentation the same way as after a native build of the system. See the
+<a href="./INSTALL#How-to-Build-and-Install-ErlangOTP_How-to-Build-the-Documentation">How to Build the Documentation</a> section in the <a href="INSTALL">$ERL_TOP/HOWTO/INSTALL.md</a>
+document for information on how to build the documentation.
+</p><a name="Testing-the-cross-compiled-system"></a><h2>Testing the cross compiled system</h2><p>
+Some of the tests that come with erlang use native code to test. This means
+that when cross compiling erlang you also have to cross compile test suites
+in order to run tests on the target host. To do this you first have to release
+the tests as usual.
+</p><pre><code class="">
+$ make release_tests
+</code></pre><p>
+or
+</p><pre><code class="">
+$ ./otp_build tests
+</code></pre><p>
+The tests will be released into <strong>$ERL_TOP/release/tests</strong>. After releasing the
+tests you have to install the tests on the build machine. You supply the same
+xcomp file as to <strong>./otp_build</strong> in (9).
+</p><pre><code class="">
+$ cd $ERL_TOP/release/tests/test_server/
+$ $ERL_TOP/bootstrap/bin/erl -eval 'ts:install([{xcomp,"&lt;FILE&gt;"}])' -s ts compile_testcases -s init stop
+</code></pre><p>
+You should get a lot of printouts as the testcases are compiled. Once done you
+should copy the entire <strong>$ERL_TOP/release/tests</strong> folder to the cross host system.
+</p><p>
+Then go to the cross host system and setup the erlang installed in (4) or (5)
+to be in your <strong>$PATH</strong>. Then go to what previously was
+<strong>$ERL_TOP/release/tests/test_server</strong> and issue the following command.
+</p><pre><code class="">
+$ erl -s ts install -s ts run all_tests -s init stop
+</code></pre><p>
+The configure should be skipped and all tests should hopefully pass. For more
+details about how to use ts run <strong>erl -s ts help -s init stop</strong>
+</p><a name="Currently-Used-Configuration-Variables"></a><h2>Currently Used Configuration Variables</h2><p>
+Note that you cannot define arbitrary variables in a cross compilation
+configuration file. Only the ones listed below will be guaranteed to be
+visible throughout the whole execution of all <strong>configure</strong> scripts. Other
+variables needs to be defined as arguments to <strong>configure</strong> or exported in
+the environment.
+</p><a name="Currently-Used-Configuration-Variables_Variables-for-otpbuild-Only"></a><h2>Variables for otp_build Only</h2><p>
+Variables in this section are only used, when configuring Erlang/OTP for
+cross compilation using <strong>$ERL_TOP/otp_build configure</strong>.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+These variables currently have <em>no</em> effect if you configure using
+the <strong>configure</strong> script directly.
+</p></div><ul><li> <p><strong>erl_xcomp_build</strong> - The build system used. This value will be passed as
+<strong>--build=$erl_xcomp_build</strong> argument to the <strong>configure</strong> script. It does
+not have to be a full <strong>CPU-VENDOR-OS</strong> triplet, but can be. The full
+<strong>CPU-VENDOR-OS</strong> triplet will be created by
+<strong>$ERL_TOP/erts/autoconf/config.sub $erl_xcomp_build</strong>. If set to <strong>guess</strong>,
+the build system will be guessed using
+<strong>$ERL_TOP/erts/autoconf/config.guess</strong>.
+</p> </li><li> <p><strong>erl_xcomp_host</strong> - Cross host/target system to build for. This value will
+be passed as <strong>--host=$erl_xcomp_host</strong> argument to the <strong>configure</strong> script.
+It does not have to be a full <strong>CPU-VENDOR-OS</strong> triplet, but can be. The
+full <strong>CPU-VENDOR-OS</strong> triplet will be created by
+<strong>$ERL_TOP/erts/autoconf/config.sub $erl_xcomp_host</strong>.
+</p> </li><li> <p><strong>erl_xcomp_configure_flags</strong> - Extra configure flags to pass to the
+<strong>configure</strong> script.
+</p> </li></ul><a name="Currently-Used-Configuration-Variables_Cross-Compiler-and-Other-Tools"></a><h2>Cross Compiler and Other Tools</h2><p>
+If the cross compilation tools are prefixed by <strong>&lt;HOST&gt;-</strong> you probably do
+not need to set these variables (where <strong>&lt;HOST&gt;</strong> is what has been passed as
+<strong>--host=&lt;HOST&gt;</strong> argument to <strong>configure</strong>).
+</p><p>
+All variables in this section can also be used when native compiling.
+</p><ul><li> <p><strong>CC</strong> - C compiler.
+</p> </li><li> <p><strong>CFLAGS</strong> - C compiler flags.
+</p> </li><li> <p><strong>STATIC_CFLAGS</strong> - Static C compiler flags.
+</p> </li><li> <p><strong>CFLAG_RUNTIME_LIBRARY_PATH</strong> - This flag should set runtime library
+search path for the shared libraries. Note that this actually is a
+linker flag, but it needs to be passed via the compiler.
+</p> </li><li> <p><strong>CPP</strong> - C pre-processor.
+</p> </li><li> <p><strong>CPPFLAGS</strong> - C pre-processor flags.
+</p> </li><li> <p><strong>CXX</strong> - C++ compiler.
+</p> </li><li> <p><strong>CXXFLAGS</strong> - C++ compiler flags.
+</p> </li><li> <p><strong>LD</strong> - Linker.
+</p> </li><li> <p><strong>LDFLAGS</strong> - Linker flags.
+</p> </li><li> <p><strong>LIBS</strong> - Libraries.
+</p> </li></ul><a name="Currently-Used-Configuration-Variables_Cross-Compiler-and-Other-Tools_Dynamic-Erlang-Driver-Linking"></a><h2>Dynamic Erlang Driver Linking</h2><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+Either set all or none of the <strong>DED_LD*</strong> variables.
+</p></div><ul><li> <p><strong>DED_LD</strong> - Linker for Dynamically loaded Erlang Drivers.
+</p> </li><li> <p><strong>DED_LDFLAGS</strong> - Linker flags to use with <strong>DED_LD</strong>.
+</p> </li><li> <p><strong>DED_LD_FLAG_RUNTIME_LIBRARY_PATH</strong> - This flag should set runtime library
+search path for shared libraries when linking with <strong>DED_LD</strong>.
+</p> </li></ul><a name="Currently-Used-Configuration-Variables_Cross-Compiler-and-Other-Tools_Large-File-Support"></a><h2>Large File Support</h2><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+Either set all or none of the <strong>LFS_*</strong> variables.
+</p></div><ul><li> <p><strong>LFS_CFLAGS</strong> - Large file support C compiler flags.
+</p> </li><li> <p><strong>LFS_LDFLAGS</strong> - Large file support linker flags.
+</p> </li><li> <p><strong>LFS_LIBS</strong> - Large file support libraries.
+</p> </li></ul><a name="Currently-Used-Configuration-Variables_Cross-Compiler-and-Other-Tools_Other-Tools"></a><h2>Other Tools</h2><ul><li> <p><strong>RANLIB</strong> - <strong>ranlib</strong> archive index tool.
+</p> </li><li> <p><strong>AR</strong> - <strong>ar</strong> archiving tool.
+</p> </li><li> <p><strong>GETCONF</strong> - <strong>getconf</strong> system configuration inspection tool. <strong>getconf</strong> is
+currently used for finding out large file support flags to use, and
+on Linux systems for finding out if we have an NPTL thread library or
+not.
+</p> </li></ul><a name="Currently-Used-Configuration-Variables_Cross-System-Root-Locations"></a><h2>Cross System Root Locations</h2><ul><li> <p><strong>erl_xcomp_sysroot</strong> - The absolute path to the system root of the cross
+compilation environment. Currently, the <strong>crypto</strong>, <strong>odbc</strong>, <strong>ssh</strong> and
+<strong>ssl</strong> applications need the system root. These applications will be
+skipped if the system root has not been set. The system root might be
+needed for other things too. If this is the case and the system root
+has not been set, <strong>configure</strong> will fail and request you to set it.
+</p> </li><li> <p><strong>erl_xcomp_isysroot</strong> - The absolute path to the system root for includes
+of the cross compilation environment. If not set, this value defaults
+to <strong>$erl_xcomp_sysroot</strong>, i.e., only set this value if the include system
+root path is not the same as the system root path.
+</p> </li></ul><a name="Currently-Used-Configuration-Variables_Optional-Feature-and-Bug-Tests"></a><h2>Optional Feature, and Bug Tests</h2><p>
+These tests cannot (always) be done automatically when cross compiling. You
+usually do not need to set these variables.
+</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>
+Setting these variables wrong may cause hard to detect
+runtime errors. If you need to change these values, <em>really</em> make sure
+that the values are correct.
+</p></div><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+Some of these values will override results of tests performed
+by <strong>configure</strong>, and some will not be used until <strong>configure</strong> is sure that
+it cannot figure the result out.
+</p></div><p>
+The <strong>configure</strong> script will issue a warning when a default value is used.
+When a variable has been set, no warning will be issued.
+</p><ul><li> <p><strong>erl_xcomp_after_morecore_hook</strong> - <strong>yes|no</strong>. Defaults to <strong>no</strong>. If <strong>yes</strong>,
+the target system must have a working <strong>__after_morecore_hook</strong> that can be
+used for tracking used <strong>malloc()</strong> implementations core memory usage.
+This is currently only used by unsupported features.
+</p> </li><li> <p><strong>erl_xcomp_bigendian</strong> - <strong>yes|no</strong>. No default. If <strong>yes</strong>, the target system
+must be big endian. If <strong>no</strong>, little endian. This can often be
+automatically detected, but not always. If not automatically detected,
+<strong>configure</strong> will fail unless this variable is set. Since no default
+value is used, <strong>configure</strong> will try to figure this out automatically.
+</p> </li><li> <p><strong>erl_xcomp_double_middle</strong> - <strong>yes|no</strong>. Defaults to <strong>no</strong>. 
+If <strong>yes</strong>, the target system must have doubles in "middle-endian" format. If
+<strong>no</strong>, it has "regular" endianness. 	
+</p> </li><li> <p><strong>erl_xcomp_clock_gettime_cpu_time</strong> - <strong>yes|no</strong>. Defaults to <strong>no</strong>. If <strong>yes</strong>,
+the target system must have a working <strong>clock_gettime()</strong> implementation
+that can be used for retrieving process CPU time.
+</p> </li><li> <p><strong>erl_xcomp_getaddrinfo</strong> - <strong>yes|no</strong>. Defaults to <strong>no</strong>. If <strong>yes</strong>, the target
+system must have a working <strong>getaddrinfo()</strong> implementation that can
+handle both IPv4 and IPv6.
+</p> </li><li> <p><strong>erl_xcomp_gethrvtime_procfs_ioctl</strong> - <strong>yes|no</strong>. Defaults to <strong>no</strong>. If <strong>yes</strong>,
+the target system must have a working <strong>gethrvtime()</strong> implementation and
+is used with procfs <strong>ioctl()</strong>.
+</p> </li><li> <p><strong>erl_xcomp_dlsym_brk_wrappers</strong> - <strong>yes|no</strong>. Defaults to <strong>no</strong>. If <strong>yes</strong>, the
+target system must have a working <strong>dlsym(RTLD_NEXT, &lt;S&gt;)</strong> implementation
+that can be used on <strong>brk</strong> and <strong>sbrk</strong> symbols used by the <strong>malloc()</strong>
+implementation in use, and by this track the <strong>malloc()</strong> implementations
+core memory usage. This is currently only used by unsupported features.
+</p> </li><li> <p><strong>erl_xcomp_kqueue</strong> - <strong>yes|no</strong>. Defaults to <strong>no</strong>. If <strong>yes</strong>, the target
+system must have a working <strong>kqueue()</strong> implementation that returns a file
+descriptor which can be used by <strong>poll()</strong> and/or <strong>select()</strong>. If <strong>no</strong> and
+the target system has not got <strong>epoll()</strong> or <strong>/dev/poll</strong>, the kernel-poll
+feature will be disabled.
+</p> </li><li> <p><strong>erl_xcomp_linux_clock_gettime_correction</strong> - <strong>yes|no</strong>. Defaults to <strong>yes</strong> on
+Linux; otherwise, <strong>no</strong>. If <strong>yes</strong>, <strong>clock_gettime(CLOCK_MONOTONIC, _)</strong> on
+the target system must work. This variable is recommended to be set to
+<strong>no</strong> on Linux systems with kernel versions less than 2.6.
+</p> </li><li> <p><strong>erl_xcomp_linux_nptl</strong> - <strong>yes|no</strong>. Defaults to <strong>yes</strong> on Linux; otherwise,
+<strong>no</strong>. If <strong>yes</strong>, the target system must have NPTL (Native POSIX Thread
+Library). Older Linux systems have LinuxThreads instead of NPTL (Linux
+kernel versions typically less than 2.6).
+</p> </li><li> <p><strong>erl_xcomp_linux_usable_sigaltstack</strong> - <strong>yes|no</strong>. Defaults to <strong>yes</strong> on Linux;
+otherwise, <strong>no</strong>. If <strong>yes</strong>, <strong>sigaltstack()</strong> must be usable on the target
+system. <strong>sigaltstack()</strong> on Linux kernel versions less than 2.4 are
+broken.
+</p> </li><li> <p><strong>erl_xcomp_linux_usable_sigusrx</strong> - <strong>yes|no</strong>. Defaults to <strong>yes</strong>. If <strong>yes</strong>,
+the <strong>SIGUSR1</strong> and <strong>SIGUSR2</strong> signals must be usable by the ERTS. Old
+LinuxThreads thread libraries (Linux kernel versions typically less than
+2.2) used these signals and made them unusable by the ERTS.
+</p> </li><li> <p><strong>erl_xcomp_poll</strong> - <strong>yes|no</strong>. Defaults to <strong>no</strong> on Darwin/MacOSX; otherwise,
+<strong>yes</strong>. If <strong>yes</strong>, the target system must have a working <strong>poll()</strong>
+implementation that also can handle devices. If <strong>no</strong>, <strong>select()</strong> will be
+used instead of <strong>poll()</strong>.
+</p> </li><li> <p><strong>erl_xcomp_putenv_copy</strong> - <strong>yes|no</strong>. Defaults to <strong>no</strong>. If <strong>yes</strong>, the target
+system must have a <strong>putenv()</strong> implementation that stores a copy of the
+key/value pair.
+</p> </li><li> <p><strong>erl_xcomp_reliable_fpe</strong> - <strong>yes|no</strong>. Defaults to <strong>no</strong>. If <strong>yes</strong>, the target
+system must have reliable floating point exceptions.
+</p> </li><li> <p><strong>erl_xcomp_posix_memalign</strong> - <strong>yes|no</strong>. Defaults to <strong>yes</strong> if <strong>posix_memalign</strong>
+system call exists; otherwise <strong>no</strong>. If <strong>yes</strong>, the target system must have a
+<strong>posix_memalign</strong> implementation that accepts larger than page size
+alignment.
+</p> </li><li> <p><strong>erl_xcomp_code_model_small</strong> - <strong>yes|no</strong>. Default to <strong>no</strong>. If <strong>yes</strong>, the target
+system must place the beam.smp executable in the lower 2 GB of memory. That is it
+should not use position independent executable.
+</p> </li></ul></body></html>

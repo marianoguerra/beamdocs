@@ -1,0 +1,247 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Tables and Databases</h1><h2>Ets, Dets, and Mnesia</h2><p>Every example using Ets has a corresponding example in
+Mnesia. In general, all Ets examples also apply to Dets tables.</p><h2>Select/Match Operations</h2><p>Select/match operations on Ets and Mnesia tables can become
+very expensive operations. They usually need to scan the complete
+table. Try to structure the data to minimize the need for select/match
+operations. However, if you require a select/match operation,
+it is still more efficient than using <strong>tab2list</strong>.
+Examples of this and of how to avoid select/match are provided in
+the following sections. The functions
+<strong>ets:select/2</strong> and <strong>mnesia:select/3</strong> are to be preferred
+over <strong>ets:match/2</strong>, <strong>ets:match_object/2</strong>, and
+<strong>mnesia:match_object/3</strong>.</p><p>In some circumstances, the select/match operations do not need
+to scan the complete table.
+For example, if part of the key is bound when searching an
+<strong>ordered_set</strong> table, or if it is a Mnesia
+table and there is a secondary index on the field that is
+selected/matched. If the key is fully bound, there is
+no point in doing a select/match, unless you have a bag table
+and are only interested in a subset of the elements with
+the specific key.</p><p>When creating a record to be used in a select/match operation, you
+want most of the fields to have the value "_". The easiest and
+fastest way to do that is as follows:</p><pre>
+#person{age = 42, _ = '_'}. </pre><h2>Deleting an Element</h2><p>The <strong>delete</strong> operation is considered
+successful if the element was not present in the table. Hence
+all attempts to check that the element is present in the
+Ets/Mnesia table before deletion are unnecessary. Here follows
+an example for Ets tables:</p><p><em>DO</em></p><pre>
+...
+ets:delete(Tab, Key),
+...</pre><p><em>DO NOT</em></p><pre>
+...
+case ets:lookup(Tab, Key) of
+    [] -&gt;
+        ok;
+    [_|_] -&gt;
+        ets:delete(Tab, Key)
+end,
+...</pre><h2>Fetching Data</h2><p>Do not fetch data that you already have.</p><p>Consider that you have a module that handles the abstract data
+type <strong>Person</strong>. You export the interface function
+<strong>print_person/1</strong>, which uses the internal functions
+<strong>print_name/1</strong>, <strong>print_age/1</strong>, and
+<strong>print_occupation/1</strong>.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>If the function <strong>print_name/1</strong>, and so on, had been interface
+functions, the situation would have been different, as you
+do not want the user of the interface to know about the
+internal data representation. </p></div><p><em>DO</em></p><pre><code class="erl">
+%%% Interface function
+print_person(PersonId) -&gt;
+    %% Look up the person in the named table person,
+    case ets:lookup(person, PersonId) of
+        [Person] -&gt;
+            print_name(Person),
+            print_age(Person),
+            print_occupation(Person);
+        [] -&gt;
+            io:format("No person with ID = ~p~n", [PersonID])
+    end.
+
+%%% Internal functions
+print_name(Person) -&gt; 
+    io:format("No person ~p~n", [Person#person.name]).
+                      
+print_age(Person) -&gt; 
+    io:format("No person ~p~n", [Person#person.age]).
+
+print_occupation(Person) -&gt; 
+    io:format("No person ~p~n", [Person#person.occupation]).</code></pre><p><em>DO NOT</em></p><pre><code class="erl">
+%%% Interface function
+print_person(PersonId) -&gt;
+    %% Look up the person in the named table person,
+    case ets:lookup(person, PersonId) of
+        [Person] -&gt;
+            print_name(PersonID),
+            print_age(PersonID),
+            print_occupation(PersonID);
+        [] -&gt;
+            io:format("No person with ID = ~p~n", [PersonID])
+    end.
+
+%%% Internal functionss
+print_name(PersonID) -&gt; 
+    [Person] = ets:lookup(person, PersonId),
+    io:format("No person ~p~n", [Person#person.name]).
+
+print_age(PersonID) -&gt; 
+    [Person] = ets:lookup(person, PersonId),
+    io:format("No person ~p~n", [Person#person.age]).
+
+print_occupation(PersonID) -&gt; 
+    [Person] = ets:lookup(person, PersonId),
+    io:format("No person ~p~n", [Person#person.occupation]).</code></pre><h2>Non-Persistent Database Storage</h2><p>For non-persistent database storage, prefer Ets tables over
+Mnesia <strong>local_content</strong> tables. Even the Mnesia <strong>dirty_write</strong>
+operations carry a fixed overhead compared to Ets writes.
+Mnesia must check if the table is replicated or has indices,
+this involves at least one Ets lookup for each
+<strong>dirty_write</strong>. Thus, Ets writes is always faster than
+Mnesia writes.</p><h2>tab2list</h2><p>Assuming an Ets table that uses <strong>idno</strong> as key
+and contains the following:</p><pre>
+[#person{idno = 1, name = "Adam",  age = 31, occupation = "mailman"},
+ #person{idno = 2, name = "Bryan", age = 31, occupation = "cashier"},
+ #person{idno = 3, name = "Bryan", age = 35, occupation = "banker"},
+ #person{idno = 4, name = "Carl",  age = 25, occupation = "mailman"}]</pre><p>If you <em>must</em> return all data stored in the Ets table, you
+can use <strong>ets:tab2list/1</strong>.  However, usually you are only
+interested in a subset of the information in which case
+<strong>ets:tab2list/1</strong> is expensive. If you only want to extract
+one field from each record, for example, the age of every person,
+then:</p><p><em>DO</em></p><pre>
+...
+ets:select(Tab,[{ #person{idno='_', 
+                          name='_', 
+                          age='$1', 
+                          occupation = '_'},
+                [],
+                ['$1']}]),
+...</pre><p><em>DO NOT</em></p><pre>
+...
+TabList = ets:tab2list(Tab),
+lists:map(fun(X) -&gt; X#person.age end, TabList),
+...</pre><p>If you are only interested in the age of all persons named
+"Bryan", then:</p><p><em>DO</em></p><pre>
+...
+ets:select(Tab,[{ #person{idno='_', 
+                          name="Bryan", 
+                          age='$1', 
+                          occupation = '_'},
+                [],
+                ['$1']}]),
+...</pre><p><em>DO NOT</em></p><pre>
+...
+TabList = ets:tab2list(Tab),
+lists:foldl(fun(X, Acc) -&gt; case X#person.name of
+                                "Bryan" -&gt;
+                                    [X#person.age|Acc];
+                                 _ -&gt;
+                                     Acc
+                           end
+             end, [], TabList),
+...</pre><p><em>REALLY DO NOT</em></p><pre>
+...
+TabList = ets:tab2list(Tab),
+BryanList = lists:filter(fun(X) -&gt; X#person.name == "Bryan" end,
+                         TabList),
+lists:map(fun(X) -&gt; X#person.age end, BryanList),
+...</pre><p>If you need all information stored in the Ets table about
+persons named "Bryan", then:</p><p><em>DO</em></p><pre>
+...
+ets:select(Tab, [{#person{idno='_', 
+                          name="Bryan", 
+                          age='_', 
+                          occupation = '_'}, [], ['$_']}]),
+...</pre><p><em>DO NOT</em></p><pre>
+...
+TabList = ets:tab2list(Tab),
+lists:filter(fun(X) -&gt; X#person.name == "Bryan" end, TabList),
+...</pre><h2>Ordered_set Tables</h2><p>If the data in the table is to be accessed so that the order
+of the keys in the table is significant, the table type
+<strong>ordered_set</strong> can be used instead of the more usual
+<strong>set</strong> table type. An <strong>ordered_set</strong> is always
+traversed in Erlang term order regarding the key field
+so that the return values from functions such as <strong>select</strong>,
+<strong>match_object</strong>, and <strong>foldl</strong> are ordered by the key
+values. Traversing an <strong>ordered_set</strong> with the <strong>first</strong> and
+<strong>next</strong> operations also returns the keys ordered.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>An <strong>ordered_set</strong> only guarantees that
+objects are processed in <em>key</em> order.
+Results from functions such as
+<strong>ets:select/2</strong> appear in <em>key</em> order even if
+the key is not included in the result.</p></div><h2>Ets-Specific</h2><h2>Using Keys of Ets Table</h2><p>An Ets table is a single-key table (either a hash table or a
+tree ordered by the key) and is to be used as one. In other
+words, use the key to look up things whenever possible. A
+lookup by a known key in a <strong>set</strong> Ets table is constant and for
+an <strong>ordered_set</strong> Ets table it is O(logN). A key lookup is always
+preferable to a call where the whole table has to be
+scanned. In the previous examples, the field <strong>idno</strong> is the
+key of the table and all lookups where only the name is known
+result in a complete scan of the (possibly large) table
+for a matching result.</p><p>A simple solution would be to use the <strong>name</strong> field as
+the key instead of the <strong>idno</strong> field, but that would cause
+problems if the names were not unique. A more general solution would
+be to create a second table with <strong>name</strong> as key and
+<strong>idno</strong> as data, that is, to index (invert) the table regarding
+the <strong>name</strong> field. Clearly, the second table would have to be
+kept consistent with the master table. Mnesia can do this
+for you, but a home brew index table can be very efficient
+compared to the overhead involved in using Mnesia.</p><p>An index table for the table in the previous examples would
+have to be a bag (as keys would appear more than once) and can
+have the following contents:</p><pre>
+[#index_entry{name="Adam", idno=1},
+ #index_entry{name="Bryan", idno=2},
+ #index_entry{name="Bryan", idno=3},
+ #index_entry{name="Carl", idno=4}]</pre><p>Given this index table, a lookup of the <strong>age</strong> fields for
+all persons named "Bryan" can be done as follows:</p><pre>
+...
+MatchingIDs = ets:lookup(IndexTable,"Bryan"),
+lists:map(fun(#index_entry{idno = ID}) -&gt;
+                 [#person{age = Age}] = ets:lookup(PersonTable, ID),
+                 Age
+          end,
+          MatchingIDs),
+...</pre><p>Notice that this code never uses <strong>ets:match/2</strong> but
+instead uses the <strong>ets:lookup/2</strong> call. The
+<strong>lists:map/2</strong> call is only used to traverse the <strong>idno</strong>s
+matching the name "Bryan" in the table; thus the number of lookups
+in the master table is minimized.</p><p>Keeping an index table introduces some overhead when
+inserting records in the table. The number of operations gained
+from the table must therefore be compared against the number of
+operations inserting objects in the table. However, notice that the
+gain is significant when the key can be used to lookup elements.</p><h2>Mnesia-Specific</h2><h2>Secondary Index</h2><p>If you frequently do a lookup on a field that is not the
+key of the table, you lose performance using
+"mnesia:select/match_object" as this function traverses the
+whole table. You can create a secondary index instead and
+use "mnesia:index_read" to get faster access, however this
+requires more memory.</p><p><em>Example</em></p><pre>
+-record(person, {idno, name, age, occupation}).
+        ...
+{atomic, ok} = 
+mnesia:create_table(person, [{index,[#person.age]},
+                              {attributes,
+                                    record_info(fields, person)}]),
+{atomic, ok} = mnesia:add_table_index(person, age), 
+...
+
+PersonsAge42 =
+     mnesia:dirty_index_read(person, 42, #person.age),
+...</pre><h2>Transactions</h2><p>Using transactions is a way to guarantee that the distributed
+Mnesia database remains consistent, even when many different
+processes update it in parallel. However, if you have
+real-time requirements it is recommended to use <strong>dirty</strong>
+operations instead of transactions. When using <strong>dirty</strong>
+operations, you lose the consistency guarantee; this is usually
+solved by only letting one process update the table. Other
+processes must send update requests to that process.</p><p><em>Example</em></p><pre>
+...
+% Using transaction
+
+Fun = fun() -&gt;
+          [mnesia:read({Table, Key}),
+           mnesia:read({Table2, Key2})]
+      end, 
+
+{atomic, [Result1, Result2]}  = mnesia:transaction(Fun),
+...
+
+% Same thing using dirty operations
+...
+
+Result1 = mnesia:dirty_read({Table, Key}),
+Result2 = mnesia:dirty_read({Table2, Key2}),
+...</pre></body></html>

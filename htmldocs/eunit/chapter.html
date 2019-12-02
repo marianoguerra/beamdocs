@@ -1,0 +1,567 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>EUnit - a Lightweight Unit Testing Framework for Erlang
+</h1><p>EUnit is a unit testing framework for Erlang. It is very powerful
+and flexible, is easy to use, and has small syntactical overhead.</p><ul><li><p><a href="#Unit_testing">Unit testing</a></p></li><li><p><a href="#Terminology">Terminology</a></p></li><li><p><a href="#Getting_started">Getting started</a></p></li><li><p><a href="#EUnit_macros">EUnit macros</a></p></li><li><p><a href="#EUnit_test_representation">EUnit test representation</a></p></li></ul><p>EUnit builds on ideas from the family of unit testing frameworks for
+Object Oriented languages that originated with JUnit by Beck and Gamma
+(and Beck's previous framework SUnit for Smalltalk). However, EUnit uses
+techniques more adapted to functional and concurrent programming, and is
+typically less verbose than its relatives.</p><p>Although EUnit uses many preprocessor macros, they have been designed to
+be as nonintrusive as possible, and should not cause conflicts with
+existing code. Adding EUnit tests to a module should thus not normally
+require changing existing code. Furthermore, tests that only exercise
+the exported functions of a module can always be placed in a completely
+separate module, avoiding any conflicts entirely.</p><a name="Unit_testing"></a><h2>Unit testing</h2><p>Unit Testing is testing of individual program "units" in relative
+isolation. There is no particular size requirement: a unit can be a
+function, a module, a process, or even a whole application, but the most
+typical testing units are individual functions or modules. In order to
+test a unit, you specify a set of individual tests, set up the smallest
+necessary environment for being able to run those tests (often, you
+don't need to do any setup at all), you run the tests and collect the
+results, and finally you do any necessary cleanup so that the test can
+be run again later. A Unit Testing Framework tries to help you in each
+stage of this process, so that it is easy to write tests, easy to run
+them, and easy to see which tests failed (so you can fix the bugs).</p><a name="Advantages_of_unit_testing"></a><h2>Advantages of unit testing</h2><dl><dt>Reduces the risks of changing the program</dt><dd><p>Most programs will be modified during their lifetime: bugs will be
+fixed, features will be added, optimizations may become necessary, or
+the code will need to be refactored or cleaned up in other ways to
+make it easier to work with. But every change to a working program is
+a risk of introducing new bugs - or reintroducing bugs that had
+previously been fixed. Having a set of unit tests that you can run
+with very little effort makes it easy to know that the code still
+works as it should (this use is called <em>regression testing</em>;
+see <a href="#Terminology">Terminology</a>). This goes a long way to reduce the
+resistance to changing and refactoring code.</p></dd><dt>Helps guide and speed up the development process</dt><dd><p>By focusing on getting the code to pass the tests, the programmer
+can become more productive, not overspecify or get lost in premature
+optimizations, and create code that is correct from the very beginning
+(so-called <em>test-driven development</em>; see <a href="#Terminology">Terminology</a>).</p></dd><dt>Helps separate interface from implementation</dt><dd><p>When writing tests, the programmer may discover dependencies
+(in order to get the tests to run) that ought not to be there, and
+which need to be abstracted away to get a cleaner design. This helps
+eliminate bad dependencies before they spread throughout the
+code.</p></dd><dt>Makes component integration easier</dt><dd><p>By testing in a bottom-up fashion, beginning with the smallest
+program units and creating a confidence in that they work as they
+should, it becomes easier to test that a higher-level component,
+consisting of several such units, also behaves according to
+specification (known as <em>integration testing</em>; see <a href="#Terminology">Terminology</a>).</p></dd><dt>Is self-documenting</dt><dd><p>The tests can be read as documentation, typically showing both
+examples of correct and incorrect usage, along with the expected
+consequences.</p></dd></dl><a name="Terminology"></a><h2>Terminology</h2><dl><dt>Unit testing</dt><dd><p>Testing that a program unit behaves as it is supposed to do (in
+itself), according to its specifications. Unit tests have an important
+function as regression tests, when the program later is modified for
+some reason, since they check that the program still behaves according
+to specification.</p></dd><dt>Regression testing</dt><dd><p>Running a set of tests after making changes to a program, to check
+that the program behaves as it did before the changes (except, of
+course, for any intentional changes in behaviour). Unit tests are
+important as regression tests, but regression testing can involve more
+than just unit testing, and may also test behaviour that might not be
+part of the normal specification (such as bug-for-bug-compatibility).
+</p></dd><dt>Integration testing</dt><dd><p>Testing that a number of individually developed program units
+(assumed to already have been separately unit tested) work together as
+expected. Depending on the system being developed, integration testing
+may be as simple as "just another level of unit testing", but might
+also involve other kinds of tests (compare <em>system testing</em>).
+</p></dd><dt>System testing</dt><dd><p>Testing that a complete system behaves according to its
+specification. Specifically, system testing should not require knowing
+any details about the implementation. It typically involves testing
+many different aspects of the system behaviour apart from the basic
+functionality, such as performance, usability, and reliability.</p></dd><dt>Test-driven development</dt><dd><p>A program development technique where you continuously write tests
+<em>before</em> you implement the code that is supposed to pass those
+tests. This can help you focus on solving the right problems, and not
+make a more complicated implementation than necessary, by letting the
+unit tests determine when a program is "done": if it fulfils its
+specifications, there is no need to keep adding functionality.</p></dd><dt>Mock object</dt><dd><p>Sometimes, testing some unit <strong>A</strong> (e.g., a function) requires that
+it collaborates somehow with some other unit <strong>B</strong> (perhaps being passed
+as an argument, or by reference) - but <strong>B</strong> has not been implemented
+yet. A "mock object" - an object which, for the purposes of testing
+<strong>A</strong>, looks and behaves like a real <strong>B</strong> - might then be used instead.
+(This is of course only useful if it would be significantly more work
+to implement a real <strong>B</strong> than to create a mock object.)</p></dd><dt>Test case</dt><dd><p>A single, well-defined test, that somehow can be uniquely
+identified. When executed, the test case either <em>passes</em> or
+<em>fails</em>; the test report should identify exactly which test
+cases failed.</p></dd><dt>Test suite</dt><dd><p>A collection of test cases, generally with a specific, common
+target for testing, such as a single function, module, or subsystem. A
+test suite may also be recursively composed by smaller test
+suites.</p></dd></dl><a name="Getting_started"></a><h2>Getting started</h2><ul><li><p><a href="#Including_the_EUnit_header_file">Including the EUnit header file</a></p></li><li><p><a href="#Writing_simple_test_functions">Writing simple test functions</a></p></li><li><p><a href="#Running_EUnit">Running EUnit</a></p></li><li><p><a href="#Writing_test_generating_functions">Writing test generating functions</a></p></li><li><p><a href="#An_example">An example</a></p></li><li><p><a href="#Disabling_testing">Disabling testing</a></p></li><li><p><a href="#Avoiding_compile-time_dependency_on_EUnit">Avoiding compile-time dependency on EUnit</a></p></li></ul><a name="Including_the_EUnit_header_file"></a><h2>Including the EUnit header file</h2><p>
+The simplest way to use EUnit in an Erlang module is to add the
+following line at the beginning of the module (after the <strong>-module</strong>
+declaration, but before any function definitions):
+</p><pre>   -include_lib("eunit/include/eunit.hrl").</pre><p>
+This will have the following effect:
+</p><ul><li><p>Creates an exported function <strong>test()</strong> (unless testing is turned
+off, and the module does not already contain a test() function), that
+can be used to run all the unit tests defined in the module</p></li><li><p>Causes all functions whose names match <strong>..._test()</strong> or <strong>..._test_()</strong>
+to be automatically exported from the module (unless testing is
+turned off, or the <strong>EUNIT_NOAUTO</strong> macro is defined)</p></li><li><p>Makes all the preprocessor macros of EUnit available, to help
+writing tests</p></li></ul><p>
+<em>Note:</em> For <strong>-include_lib(...)</strong> to work, the Erlang
+module search path <em>must</em> contain a directory whose name ends in
+<strong>eunit/ebin</strong> (pointing to the <strong>ebin</strong> subdirectory of the EUnit
+installation directory). If EUnit is installed as <strong>lib/eunit</strong> under your
+Erlang/OTP system directory, its <strong>ebin</strong> subdirectory will be
+automatically added to the search path when Erlang starts. Otherwise,
+you need to add the directory explicitly, by passing a <strong>-pa</strong> flag to the
+<strong>erl</strong> or <strong>erlc</strong> command. For example, a Makefile could contain the
+following action for compiling <strong>.erl</strong> files:
+</p><pre>   erlc -pa "path/to/eunit/ebin" $(ERL_COMPILE_FLAGS) -o$(EBIN) $&lt;</pre><p>
+or if you want Eunit to always be available when you run Erlang
+interactively, you can add a line like the following to your
+<strong>$HOME/.erlang</strong> file:
+</p><pre>   code:add_path("/path/to/eunit/ebin").</pre><a name="Writing_simple_test_functions"></a><h2>Writing simple test functions</h2><p>The EUnit framework makes it extremely easy to write unit tests in
+Erlang. There are a few different ways of writing them, though, so we
+start with the simplest:</p><p>A function with a name ending in <strong>..._test()</strong> is recognized by EUnit as
+a simple test function - it takes no arguments, and its execution either
+succeeds (returning some arbitrary value that EUnit will throw away), or
+fails by throwing an exception of some kind (or by not terminating, in
+which case it will be aborted after a while).</p><p>An example of a simple test function could be the following:
+</p><pre>   reverse_test() -&gt; lists:reverse([1,2,3]).</pre><p>
+This just tests that the function <strong>lists:reverse(List)</strong> does not crash
+when <strong>List</strong> is <strong>[1,2,3]</strong>. It is not a great test, but many people write
+simple functions like this one to test the basic functionality of their
+code, and those tests can be used directly by EUnit, without changes,
+as long as their function names match.</p><p><a name="Use_exceptions_to_signal_failure"></a><em>Use exceptions to signal failure</em>
+To write more interesting tests, we need to make them crash (throw an
+exception) when they don't get the result they expect. A simple way of
+doing this is to use pattern matching with <strong>=</strong>, as in the following
+examples:
+</p><pre>   reverse_nil_test() -&gt; [] = lists:reverse([]).
+   reverse_one_test() -&gt; [1] = lists:reverse([1]).
+   reverse_two_test() -&gt; [2,1] = lists:reverse([1,2]).</pre><p>
+If there was some bug in <strong>lists:reverse/1</strong> that made it return something
+other than <strong>[2,1]</strong> when it got <strong>[1,2]</strong> as input, then the last test
+above would throw a <strong>badmatch</strong> error. The first two (we assume they do
+not get a <strong>badmatch</strong>) would simply return <strong>[]</strong> and <strong>[1]</strong>, respectively,
+so both succeed. (Note that EUnit is not psychic: if you write a test
+that returns a value, even if it is the wrong value, EUnit will consider
+it a success. You must make sure that the test is written so that it
+causes a crash if the result is not what it should be.)</p><p><a name="Using_assert_macros"></a><em>Using assert macros</em>
+If you want to use Boolean operators for your tests, the <strong>assert</strong>
+macro comes in handy (see <a href="#EUnit_macros">EUnit macros</a> for details):
+</p><pre>   length_test() -&gt; ?assert(length([1,2,3]) =:= 3).</pre><p>
+The <strong>?assert(Expression)</strong> macro will evaluate <strong>Expression</strong>, and if that
+does not evaluate to <strong>true</strong>, it will throw an exception; otherwise it
+just returns <strong>ok</strong>. In the above example, the test will thus fail if the
+call to <strong>length</strong> does not return 3.</p><a name="Running_EUnit"></a><h2>Running EUnit</h2><p>If you have added the declaration
+<strong>-include_lib("eunit/include/eunit.hrl")</strong> to your module, as described
+above, you only need to compile the module, and run the automatically
+exported function <strong>test()</strong>. For example, if your module was named <strong>m</strong>,
+then calling <strong>m:test()</strong> will run EUnit on all the tests defined in the
+module. You do not need to write <strong>-export</strong> declarations for the test
+functions. This is all done by magic.</p><p>You can also use the function <a href="./eunit#test-1">eunit:test/1</a> to run arbitrary
+tests, for example to try out some more advanced test descriptors (see
+<a href="#EUnit_test_representation">EUnit test representation</a>). For example, running
+<strong>eunit:test(m)</strong> does the same thing as the auto-generated function
+<strong>m:test()</strong>, while <strong>eunit:test({inparallel, m})</strong> runs the same test
+cases but executes them all in parallel.</p><p><a name="Putting_tests_in_separate_modules"></a><em>Putting tests in separate modules</em>
+</p><p>If you want to separate your test code from your normal code (at least
+for testing the exported functions), you can simply write the test
+functions in a module named <strong>m_tests</strong> (note: not <strong>m_test</strong>), if your
+module is named <strong>m</strong>. Then, whenever you ask EUnit to test the module
+<strong>m</strong>, it will also look for the module <strong>m_tests</strong> and run those tests as
+well. See <strong>ModuleName</strong> in the section <a href="#Primitives">Primitives</a> for details.</p><p><a name="EUnit_captures_standard_output"></a><em>EUnit captures standard output</em>
+</p><p>If your test code writes to the standard output, you may be surprised to
+see that the text does not appear on the console when the tests are
+running. This is because EUnit captures all standard output from test
+functions (this also includes setup and cleanup functions, but not
+generator functions), so that it can be included in the test report if
+errors occur. To bypass EUnit and print text directly to the console
+while testing, you can write to the <strong>user</strong> output stream, as in
+<strong>io:format(user, "~w", [Term])</strong>. The recommended way of doing this is to
+use the EUnit <a href="#Debugging_macros">Debugging macros</a>, which make it much simpler.</p><a name="Writing_test_generating_functions"></a><h2>Writing test generating functions</h2><p>A drawback of simple test functions is that you must write a separate
+function (with a separate name) for each test case. A more compact way
+of writing tests (and much more flexible, as we shall see), is to write
+functions that <em>return</em> tests, instead of <em>being</em> tests.</p><p>A function with a name ending in <strong>..._test_()</strong> (note the final
+underscore) is recognized by EUnit as a <em>test generator</em>
+function. Test generators return a <em>representation</em> of a <em>set of tests</em> to be executed by EUnit.</p><p><a name="Representing_a_test_as_data"></a><em>Representing a test as data</em>
+The most basic representation of a test is a single fun-expression that
+takes no arguments. For example, the following test generator:
+</p><pre>   basic_test_() -&gt;
+       fun () -&gt; ?assert(1 + 1 =:= 2) end.</pre><p>
+will have the same effect as the following simple test:
+</p><pre>   simple_test() -&gt;
+       ?assert(1 + 1 =:= 2).</pre><p>
+(in fact, EUnit will handle all simple tests just like it handles
+fun-expressions: it will put them in a list, and run them one by one).</p><p><a name="Using_macros_to_write_tests"></a><em>Using macros to write tests</em>
+To make tests more compact and readable, as well as automatically add
+information about the line number in the source code where a test
+occurred (and reduce the number of characters you have to type), you can
+use the <strong>_test</strong> macro (note the initial underscore character), like
+this:
+</p><pre>   basic_test_() -&gt;
+       ?_test(?assert(1 + 1 =:= 2)).</pre><p>
+The <strong>_test</strong> macro takes any expression (the "body") as argument, and
+places it within a fun-expression (along with some extra information).
+The body can be any kind of test expression, just like the body of a
+simple test function.</p><p><a name="Underscore-prefixed_macros_create_test_objects"></a><em>Underscore-prefixed macros create test objects</em>
+But this example can be made even shorter! Most test macros, such as the
+family of <strong>assert</strong> macros, have a corresponding form with an initial
+underscore character, which automatically adds a <strong>?_test(...)</strong> wrapper.
+The above example can then simply be written:
+</p><pre>   basic_test_() -&gt;
+       ?_assert(1 + 1 =:= 2).</pre><p>
+which has exactly the same meaning (note the <strong>_assert</strong> instead of
+<strong>assert</strong>). You can think of the initial underscore as signalling
+<em>test object</em>.</p><a name="An_example"></a><h2>An example</h2><p>
+Sometimes, an example says more than a thousand words. The following
+small Erlang module shows how EUnit can be used in practice.
+</p><pre>   -module(fib).
+   -export([fib/1]).
+   -include_lib("eunit/include/eunit.hrl").
+
+   fib(0) -&gt; 1;
+   fib(1) -&gt; 1;
+   fib(N) when N &gt; 1 -&gt; fib(N-1) + fib(N-2).
+
+   fib_test_() -&gt;
+       [?_assert(fib(0) =:= 1),
+	?_assert(fib(1) =:= 1),
+	?_assert(fib(2) =:= 2),
+	?_assert(fib(3) =:= 3),
+	?_assert(fib(4) =:= 5),
+	?_assert(fib(5) =:= 8),
+	?_assertException(error, function_clause, fib(-1)),
+	?_assert(fib(31) =:= 2178309)
+       ].</pre><p>(Author's note: When I first wrote this example, I happened to write a
+<strong>*</strong> instead of <strong>+</strong> in the <strong>fib</strong> function. Of course, this showed up
+immediately when I ran the tests.)</p><p>See <a href="#EUnit_test_representation">EUnit test representation</a> for a full list of all the ways
+you can specify test sets in EUnit.</p><a name="Disabling_testing"></a><h2>Disabling testing</h2><p>
+Testing can be turned off by defining the <strong>NOTEST</strong> macro when compiling,
+for example as an option to <strong>erlc</strong>, as in:
+</p><pre>   erlc -DNOTEST my_module.erl</pre><p>
+or by adding a macro definition to the code, <em>before the EUnit header file is included</em>:
+</p><pre>   -define(NOTEST, 1).</pre><p>
+(the value is not important, but should typically be 1 or <strong>true</strong>).
+Note that unless the <strong>EUNIT_NOAUTO</strong> macro is defined, disabling testing
+will also automatically strip all test functions from the code, except
+for any that are explicitly declared as exported.</p><p>For instance, to use EUnit in your application, but with testing turned
+off by default, put the following lines in a header file:
+</p><pre>   -define(NOTEST, true).
+   -include_lib("eunit/include/eunit.hrl").</pre><p>
+and then make sure that every module of your application includes that
+header file. This means that you have a only a single place to modify in
+order to change the default setting for testing. To override the <strong>NOTEST</strong>
+setting without modifying the code, you can define <strong>TEST</strong> in a compiler
+option, like this:
+</p><pre>   erlc -DTEST my_module.erl</pre><p>See <a href="#Compilation_control_macros">Compilation control macros</a> for details about these
+macros.</p><a name="Avoiding_compile-time_dependency_on_EUnit"></a><h2>Avoiding compile-time dependency on EUnit</h2><p>
+If you are distributing the source code for your application for other
+people to compile and run, you probably want to ensure that the code
+compiles even if EUnit is not available. Like the example in the
+previous section, you can put the following lines in a common header
+file:
+</p><pre>   -ifdef(TEST).
+   -include_lib("eunit/include/eunit.hrl").
+   -endif.</pre><p>
+and, of course, also make sure that you place all test code that uses
+EUnit macros within <strong>-ifdef(TEST)</strong> or <strong>-ifdef(EUNIT)</strong> sections.</p><a name="EUnit_macros"></a><h2>EUnit macros</h2><p>Although all the functionality of EUnit is available even without the
+use of preprocessor macros, the EUnit header file defines a number of
+such macros in order to make it as easy as possible to write unit tests
+as compactly as possible and without getting too many details in the
+way.</p><p>Except where explicitly stated, using EUnit macros will never introduce
+run-time dependencies on the EUnit library code, regardless of whether
+your code is compiled with testing enabled or disabled.</p><ul><li><p><a href="#Basic_macros">Basic macros</a></p></li><li><p><a href="#Compilation_control_macros">Compilation control macros</a></p></li><li><p><a href="#Utility_macros">Utility macros</a></p></li><li><p><a href="#Assert_macros">Assert macros</a></p></li><li><p><a href="#Macros_for_running_external_commands">Macros for running external commands</a></p></li><li><p><a href="#Debugging_macros">Debugging macros</a></p></li></ul><a name="Basic_macros"></a><h2>Basic macros</h2><dl><dt><strong>_test(Expr)</strong></dt><dd><p>Turns <strong>Expr</strong> into a "test object", by wrapping it in a
+fun-expression and a source line number. Technically, this is the same
+as <strong>{?LINE, fun () -&gt; (Expr) end}</strong>.
+</p></dd></dl><a name="Compilation_control_macros"></a><h2>Compilation control macros</h2><dl><dt><strong>EUNIT</strong></dt><dd><p>This macro is always defined to <strong>true</strong> whenever EUnit is enabled at
+compile time. This is typically used to place testing code within
+conditional compilation, as in:
+</p><pre>   -ifdef(EUNIT).
+       % test code here
+       ...
+   -endif.</pre><p>
+e.g., to ensure that the code can be compiled without including the
+EUnit header file, when testing is disabled. See also the macros <strong>TEST</strong>
+and <strong>NOTEST</strong>.
+</p></dd><dt><strong>EUNIT_NOAUTO</strong></dt><dd><p>If this macro is defined, the automatic exporting or stripping of
+test functions will be disabled.
+</p></dd><dt><strong>TEST</strong></dt><dd><p>This macro is always defined (to <strong>true</strong>, unless previously defined
+by the user to have another value) whenever EUnit is enabled at compile
+time. This can be used to place testing code within conditional
+compilation; see also the macros <strong>NOTEST</strong> and <strong>EUNIT</strong>.</p> <p>For testing code that is strictly dependent on EUnit, it may be
+preferable to use the <strong>EUNIT</strong> macro for this purpose, while for code
+that uses more generic testing conventions, using the <strong>TEST</strong> macro may
+be preferred.</p> <p>The <strong>TEST</strong> macro can also be used to override the <strong>NOTEST</strong> macro. If
+<strong>TEST</strong> is defined <em>before</em> the EUnit header file is
+included (even if <strong>NOTEST</strong> is also defined), then the code will be
+compiled with EUnit enabled.
+</p></dd><dt><strong>NOTEST</strong></dt><dd><p>This macro is always defined (to <strong>true</strong>, unless previously defined
+by the user to have another value) whenever EUnit is <em>disabled</em>
+at compile time. (Compare the <strong>TEST</strong> macro.)</p> <p>This macro can also be used for conditional compilation, but is more
+typically used to disable testing: If <strong>NOTEST</strong> is defined
+<em>before</em> the EUnit header file is included, and <strong>TEST</strong>
+is <em>not</em> defined, then the code will be compiled with EUnit
+disabled. See also <a href="#Disabling_testing">Disabling testing</a>.
+</p></dd><dt><strong>NOASSERT</strong></dt><dd><p>If this macro is defined, the assert macros will have no effect,
+when testing is also disabled. See <a href="#Assert_macros">Assert macros</a>. When
+testing is enabled, the assert macros are always enabled automatically
+and cannot be disabled.
+</p></dd><dt><strong>ASSERT</strong></dt><dd><p>If this macro is defined, it overrides the NOASSERT macro, forcing
+the assert macros to always be enabled regardless of other settings.
+</p></dd><dt><strong>NODEBUG</strong></dt><dd><p>If this macro is defined, the debugging macros will have no effect.
+See <a href="#Debugging_macros">Debugging macros</a>. <strong>NODEBUG</strong> also implies <strong>NOASSERT</strong>,
+unless testing is enabled.
+</p></dd><dt><strong>DEBUG</strong></dt><dd><p>If this macro is defined, it overrides the NODEBUG macro, forcing
+the debugging macros to be enabled.
+</p></dd></dl><a name="Utility_macros"></a><h2>Utility macros</h2><p>The following macros can make tests more compact and readable:</p><dl><dt><strong>LET(Var,Arg,Expr)</strong></dt><dd><p>Creates a local binding <strong>Var = Arg</strong> in <strong>Expr</strong>. (This is the same as
+<strong>(fun(Var)-&gt;(Expr)end)(Arg)</strong>.) Note that the binding is not exported
+outside of <strong>Expr</strong>, and that within <strong>Expr</strong>, this binding of <strong>Var</strong> will
+shadow any binding of <strong>Var</strong> in the surrounding scope.
+</p></dd><dt><strong>IF(Cond,TrueCase,FalseCase)</strong></dt><dd><p>Evaluates <strong>TrueCase</strong> if <strong>Cond</strong> evaluates to <strong>true</strong>, or otherwise
+evaluates <strong>FalseCase</strong> if <strong>Cond</strong> evaluates to <strong>false</strong>. (This is the same
+as <strong>(case (Cond) of true-&gt;(TrueCase); false-&gt;(FalseCase) end)</strong>.) Note
+that it is an error if <strong>Cond</strong> does not yield a boolean value.
+</p></dd></dl><a name="Assert_macros"></a><h2>Assert macros</h2><p>(Note that these macros also have corresponding forms which start with
+an "<strong>_</strong>" (underscore) character, as in <strong>?_assert(BoolExpr)</strong>, that create
+a "test object" instead of performing the test immediately. This is
+equivalent to writing <strong>?_test(assert(BoolExpr))</strong>, etc.)</p><p>If the macro <strong>NOASSERT</strong> is defined before the EUnit header file is
+included, these macros have no effect when testing is also disabled; see
+<a href="#Compilation_control_macros">Compilation control macros</a> for details.</p><dl><dt><strong>assert(BoolExpr)</strong></dt><dd><p>Evaluates the expression <strong>BoolExpr</strong>, if testing is enabled. Unless
+the result is <strong>true</strong>, an informative exception will be generated. If
+there is no exception, the result of the macro expression is the atom
+<strong>ok</strong>, and the value of <strong>BoolExpr</strong> is discarded. If testing is disabled,
+the macro will not generate any code except the atom <strong>ok</strong>, and
+<strong>BoolExpr</strong> will not be evaluated.</p> <p>Typical usage:
+</p><pre>   ?assert(f(X, Y) =:= [])</pre><p>
+The <strong>assert</strong> macro can be used anywhere in a program, not just in unit
+tests, to check pre/postconditions and invariants. For example:
+</p><pre>   some_recursive_function(X, Y, Z) -&gt;
+       ?assert(X + Y &gt; Z),
+       ...</pre><p>
+</p></dd><dt><strong>assertNot(BoolExpr)</strong></dt><dd><p>Equivalent to <strong>assert(not (BoolExpr))</strong>.
+</p></dd><dt><strong>assertMatch(GuardedPattern, Expr)</strong></dt><dd><p>Evaluates <strong>Expr</strong> and matches the result against <strong>GuardedPattern</strong>, if
+testing is enabled. If the match fails, an informative exception will be
+generated; see the <strong>assert</strong> macro for further details. <strong>GuardedPattern</strong>
+can be anything that you can write on the left hand side of the <strong>-&gt;</strong>
+symbol in a case-clause, except that it cannot contain comma-separated
+guard tests.</p> <p>The main reason for using <strong>assertMatch</strong> also for simple matches, instead
+of matching with <strong>=</strong>, is that it produces more detailed error messages.</p> <p>Examples:
+</p><pre>   ?assertMatch({found, {fred, _}}, lookup(bloggs, Table))</pre><pre>   ?assertMatch([X|_] when X &gt; 0, binary_to_list(B))</pre><p>
+</p></dd><dt><strong>assertNotMatch(GuardedPattern, Expr)</strong></dt><dd><p>The inverse case of assertMatch, for convenience.
+</p></dd><dt><strong>assertEqual(Expect, Expr)</strong></dt><dd><p>Evaluates the expressions <strong>Expect</strong> and <strong>Expr</strong> and compares the
+results for equality, if testing is enabled. If the values are not
+equal, an informative exception will be generated; see the <strong>assert</strong>
+macro for further details.</p> <p><strong>assertEqual</strong> is more suitable than <strong>assertMatch</strong> when the
+left-hand side is a computed value rather than a simple pattern, and
+gives more details than <strong>?assert(Expect =:= Expr)</strong>.</p> <p>Examples:
+</p><pre>   ?assertEqual("b" ++ "a", lists:reverse("ab"))</pre><pre>   ?assertEqual(foo(X), bar(Y))</pre><p>
+</p></dd><dt><strong>assertNotEqual(Unexpected, Expr)</strong></dt><dd><p>The inverse case of assertEqual, for convenience.
+</p></dd><dt><strong>assertException(ClassPattern, TermPattern, Expr)</strong></dt><dd></dd><dt><strong>assertError(TermPattern, Expr)</strong></dt><dd></dd><dt><strong>assertExit(TermPattern, Expr)</strong></dt><dd></dd><dt><strong>assertThrow(TermPattern, Expr)</strong></dt><dd><p>Evaluates <strong>Expr</strong>, catching any exception and testing that it matches
+the expected <strong>ClassPattern:TermPattern</strong>. If the match fails, or if no
+exception is thrown by <strong>Expr</strong>, an informative exception will be
+generated; see the <strong>assert</strong> macro for further details. The
+<strong>assertError</strong>, <strong>assertExit</strong>, and <strong>assertThrow</strong> macros, are equivalent to
+using <strong>assertException</strong> with a <strong>ClassPattern</strong> of <strong>error</strong>, <strong>exit</strong>, or
+<strong>throw</strong>, respectively.</p> <p>Examples:
+</p><pre>   ?assertError(badarith, X/0)</pre><pre>   ?assertExit(normal, exit(normal))</pre><pre>   ?assertException(throw, {not_found,_}, throw({not_found,42}))</pre><p>
+</p></dd></dl><a name="Macros_for_running_external_commands"></a><h2>Macros for running external commands</h2><p>Keep in mind that external commands are highly dependent on the
+operating system. You can use the standard library function <strong>os:type()</strong>
+in test generator functions, to produce different sets of tests
+depending on the current operating system.</p><p>Note: these macros introduce a run-time dependency on the EUnit library
+code, if compiled with testing enabled.</p><dl><dt><strong>assertCmd(CommandString)</strong></dt><dd><p>Runs <strong>CommandString</strong> as an external command, if testing is enabled.
+Unless the returned status value is 0, an informative exception will be
+generated. If there is no exception, the result of the macro expression
+is the atom <strong>ok</strong>. If testing is disabled, the macro will not generate
+any code except the atom <strong>ok</strong>, and the command will not be executed.</p> <p>Typical usage:
+</p><pre>   ?assertCmd("mkdir foo")</pre><p>
+</p></dd><dt><strong>assertCmdStatus(N, CommandString)</strong></dt><dd><p>Like the <strong>assertCmd(CommandString)</strong> macro, but generates an
+exception unless the returned status value is <strong>N</strong>.
+</p></dd><dt><strong>assertCmdOutput(Text, CommandString)</strong></dt><dd><p>Runs <strong>CommandString</strong> as an external command, if testing is enabled.
+Unless the output produced by the command exactly matches the specified
+string <strong>Text</strong>, an informative exception will be generated. (Note that
+the output is normalized to use a single LF character as line break on
+all platforms.) If there is no exception, the result of the macro
+expression is the atom <strong>ok</strong>. If testing is disabled, the macro will not
+generate any code except the atom <strong>ok</strong>, and the command will not be
+executed.
+</p></dd><dt><strong>cmd(CommandString)</strong></dt><dd><p>Runs <strong>CommandString</strong> as an external command. Unless the returned
+status value is 0 (indicating success), an informative exception will be
+generated; otherwise, the result of the macro expression is the output
+produced by the command, as a flat string. The output is normalized to
+use a single LF character as line break on all platforms.</p> <p>This macro is useful in the setup and cleanup sections of fixtures,
+e.g., for creating and deleting files or perform similar operating
+system specific tasks, to make sure that the test system is informed of
+any failures.</p> <p>A Unix-specific example:
+</p><pre>   {setup,
+    fun () -&gt; ?cmd("mktemp") end,
+    fun (FileName) -&gt; ?cmd("rm " ++ FileName) end,
+    ...}</pre><p>
+</p></dd></dl><a name="Debugging_macros"></a><h2>Debugging macros</h2><p>To help with debugging, EUnit defines several useful macros for printing
+messages directly to the console (rather than to the standard output).
+Furthermore, these macros all use the same basic format, which includes
+the file and line number where they occur, making it possible in some
+development environments (e.g., when running Erlang in an Emacs buffer)
+to simply click on the message and jump directly to the corresponding
+line in the code.</p><p>If the macro <strong>NODEBUG</strong> is defined before the EUnit header file is
+included, these macros have no effect; see
+<a href="#Compilation_control_macros">Compilation control macros</a> for details.</p><dl><dt><strong>debugHere</strong></dt><dd><p>Just prints a marker showing the current file and line number. Note
+that this is an argument-less macro. The result is always <strong>ok</strong>.</p></dd><dt><strong>debugMsg(Text)</strong></dt><dd><p>Outputs the message <strong>Text</strong> (which can be a plain string, an IO-list,
+or just an atom). The result is always <strong>ok</strong>.</p></dd><dt><strong>debugFmt(FmtString, Args)</strong></dt><dd><p>This formats the text like <strong>io:format(FmtString, Args)</strong> and outputs
+it like <strong>debugMsg</strong>. The result is always <strong>ok</strong>.</p></dd><dt><strong>debugVal(Expr)</strong></dt><dd><p>Prints both the source code for <strong>Expr</strong> and its current value. E.g.,
+<strong>?debugVal(f(X))</strong> might be displayed as "<strong>f(X) = 42</strong>". (Large terms are
+truncated to the depth given by the macro <strong>EUNIT_DEBUG_VAL_DEPTH</strong>, which
+defaults to 15 but can be overridden by the user.) The result is always the
+value of <strong>Expr</strong>, so this macro can be wrapped around any expression to
+display its value when the code is compiled with debugging enabled.</p></dd><dt><strong>debugVal(Expr, Depth)</strong></dt><dd><p>Like <strong>debugVal(Expr)</strong>, but prints terms truncated to the given depth.</p></dd><dt><strong>debugTime(Text,Expr)</strong></dt><dd><p>Prints <strong>Text</strong> and the wall clock time for evaluation of <strong>Expr</strong>. The
+result is always the value of <strong>Expr</strong>, so this macro can be wrapped
+around any expression to show its run time when the code is compiled
+with debugging enabled. For example, <strong>List1 = ?debugTime("sorting", lists:sort(List))</strong> might show as "<strong>sorting: 0.015 s</strong>".</p></dd></dl><p>
+</p><a name="EUnit_test_representation"></a><h2>EUnit test representation</h2><p>The way EUnit represents tests and test sets as data is flexible,
+powerful, and concise. This section describes the representation in
+detail.</p><ul><li><p><a href="#Simple_test_objects">Simple test objects</a></p></li><li><p><a href="#Test_sets_and_deep_lists">Test sets and deep lists</a></p></li><li><p><a href="#Titles">Titles</a></p></li><li><p><a href="#Primitives">Primitives</a></p></li><li><p><a href="#Control">Control</a></p></li><li><p><a href="#Fixtures">Fixtures</a></p></li><li><p><a href="#Lazy_generators">Lazy generators</a></p></li></ul><a name="Simple_test_objects"></a><h2>Simple test objects</h2><p>
+A <em>simple test object</em> is one of the following:
+</p><ul><li><p>A nullary functional value (i.e., a fun that takes zero
+arguments). Examples:
+</p><pre>   fun () -&gt; ... end</pre><pre>   fun some_function/0</pre><pre>   fun some_module:some_function/0</pre><p>
+</p></li><li><p>A tuple <strong>{test, ModuleName, FunctionName}</strong>, where <strong>ModuleName</strong> and
+<strong>FunctionName</strong> are atoms, referring to the function
+<strong>ModuleName:FunctionName/0</strong></p></li><li><p>(Obsolete) A pair of atoms <strong>{ModuleName, FunctionName}</strong>, equivalent to
+<strong>{test, ModuleName, FunctionName}</strong> if nothing else matches first. This
+might be removed in a future version.</p></li><li><p>A pair <strong>{LineNumber, SimpleTest}</strong>, where <strong>LineNumber</strong> is a
+nonnegative integer and <strong>SimpleTest</strong> is another simple test
+object. <strong>LineNumber</strong> should indicate the source line of the test.
+Pairs like this are usually only created via <strong>?_test(...)</strong> macros;
+see <a href="#Basic_macros">Basic macros</a>.</p></li></ul><p>
+In brief, a simple test object consists of a single function that takes
+no arguments (possibly annotated with some additional metadata, i.e., a
+line number). Evaluation of the function either <em>succeeds</em>, by
+returning some value (which is ignored), or <em>fails</em>, by throwing
+an exception.</p><a name="Test_sets_and_deep_lists"></a><h2>Test sets and deep lists</h2><p>A test set can be easily created by placing a sequence of test objects
+in a list. If <strong>T_1</strong>, ..., <strong>T_N</strong> are individual test objects, then <strong>[T_1, ..., T_N]</strong> is a test set consisting of those objects (in that order).</p><p>Test sets can be joined in the same way: if <strong>S_1</strong>, ..., <strong>S_K</strong> are test
+sets, then <strong>[S_1, ..., S_K]</strong> is also a test set, where the tests of
+<strong>S_i</strong> are ordered before those of <strong>S_(i+1)</strong>, for each subset <strong>S_i</strong>.</p><p>Thus, the main representation of test sets is <em>deep lists</em>, and
+a simple test object can be viewed as a test set containing only a
+single test; there is no difference between <strong>T</strong> and <strong>[T]</strong>.</p><p>A module can also be used to represent a test set; see <strong>ModuleName</strong>
+under <a href="#Primitives">Primitives</a> below.</p><a name="Titles"></a><h2>Titles</h2><p>Any test or test set <strong>T</strong> can be annotated with a title, by wrapping it
+in a pair <strong>{Title, T}</strong>, where <strong>Title</strong> is a string. For convenience, any
+test which is normally represented using a tuple can simply be given a
+title string as the first element, i.e., writing <strong>{"The Title", ...}</strong>
+instead of adding an extra tuple wrapper as in <strong>{"The Title", {...}}</strong>.</p><a name="Primitives"></a><h2>Primitives</h2><p>
+The following are primitives, which do not contain other test sets as
+arguments:
+</p><dl><dt><strong>ModuleName::atom()</strong> </dt><dd><p>A single atom represents a module name, and is equivalent to
+<strong>{module, ModuleName}</strong>. This is often used as in the call
+<strong>eunit:test(some_module)</strong>.
+</p></dd><dt><strong>{module, ModuleName::atom()}</strong> </dt><dd><p>This composes a test set from the exported test functions of the
+named module, i.e., those functions with arity zero whose names end
+with <strong>_test</strong> or <strong>_test_</strong>. Basically, the <strong>..._test()</strong> functions become
+simple tests, while the <strong>..._test_()</strong> functions become generators.</p> <p>In addition, EUnit will also look for another module whose name is
+<strong>ModuleName</strong> plus the suffix <strong>_tests</strong>, and if it exists, all the tests
+from that module will also be added. (If <strong>ModuleName</strong> already contains
+the suffix <strong>_tests</strong>, this is not done.) E.g., the specification
+<strong>{module, mymodule}</strong> will run all tests in the modules <strong>mymodule</strong> and
+<strong>mymodule_tests</strong>. Typically, the <strong>_tests</strong> module should only contain
+test cases that use the public interface of the main module (and no
+other code).
+</p></dd><dt><strong>{application, AppName::atom(), Info::list()}</strong> </dt><dd><p>This is a normal Erlang/OTP application descriptor, as found in an
+<strong>.app</strong> file. The resulting test set consists of the modules listed in
+the <strong>modules</strong> entry in <strong>Info</strong>.
+</p></dd><dt><strong>{application, AppName::atom()}</strong> </dt><dd><p>This creates a test set from all the modules belonging to the
+specified application, by consulting the application's <strong>.app</strong> file
+(see <strong>{file, FileName}</strong>), or if no such file exists, by testing all
+object files in the application's <strong>ebin</strong>-directory (see <strong>{dir, Path}</strong>); if that does not exist, the <strong>code:lib_dir(AppName)</strong> directory
+is used.
+</p></dd><dt><strong>Path::string()</strong> </dt><dd><p>A single string represents the path of a file or directory, and is
+equivalent to <strong>{file, Path}</strong>, or <strong>{dir, Path}</strong>, respectively, depending
+on what <strong>Path</strong> refers to in the file system.
+</p></dd><dt><strong>{file, FileName::string()}</strong> </dt><dd><p>If <strong>FileName</strong> has a suffix that indicates an object file (<strong>.beam</strong>),
+EUnit will try to reload the module from the specified file and test it.
+Otherwise, the file is assumed to be a text file containing test
+specifications, which will be read using the standard library function
+<strong>file:path_consult/2</strong>.</p> <p>Unless the file name is absolute, the file is first searched for
+relative to the current directory, and then using the normal search path
+(<strong>code:get_path()</strong>). This means that the names of typical "app" files
+can be used directly, without a path, e.g., <strong>"mnesia.app"</strong>.
+</p></dd><dt><strong>{dir, Path::string()}</strong> </dt><dd><p>This tests all object files in the specified directory, as if they
+had been individually specified using <strong>{file, FileName}</strong>.
+</p></dd><dt><strong>{generator, GenFun::(() -&gt; Tests)}</strong> </dt><dd><p>The generator function <strong>GenFun</strong> is called to produce a test
+set.
+</p></dd><dt><strong>{generator, ModuleName::atom(), FunctionName::atom()}</strong> </dt><dd><p>The function <strong>ModuleName:FunctionName()</strong> is called to produce a test
+set.
+</p></dd><dt><strong>{with, X::any(), [AbstractTestFun::((any()) -&gt; any())]}</strong> </dt><dd><p>Distributes the value <strong>X</strong> over the unary functions in the list,
+turning them into nullary test functions. An <strong>AbstractTestFun</strong> is like
+an ordinary test fun, but takes one argument instead of zero - it's
+basically missing some information before it can be a proper test. In
+practice, <strong>{with, X, [F_1, ..., F_N]}</strong> is equivalent to <strong>[fun () -&gt; F_1(X) end, ..., fun () -&gt; F_N(X) end]</strong>. This is particularly useful if
+your abstract test functions are already implemented as proper
+functions: <strong>{with, FD, [fun filetest_a/1, fun filetest_b/1, fun filetest_c/1]}</strong> is equivalent to <strong>[fun () -&gt; filetest_a(FD) end, fun () -&gt; filetest_b(FD) end, fun () -&gt; filetest_c(FD) end]</strong>, but much more
+compact. See also <a href="#Fixtures">Fixtures</a>, below.
+</p></dd></dl><a name="Control"></a><h2>Control</h2><p>
+The following representations control how and where tests are executed:
+</p><dl><dt><strong>{spawn, Tests}</strong></dt><dd><p>Runs the specified tests in a separate subprocess, while the current
+test process waits for it to finish. This is useful for tests that need
+a fresh, isolated process state. (Note that EUnit always starts at least
+one such a subprocess automatically; tests are never executed by the
+caller's own process.)</p></dd><dt><strong>{spawn, Node::atom(), Tests}</strong></dt><dd><p>Like <strong>{spawn, Tests}</strong>, but runs the specified tests on the given
+Erlang node.</p></dd><dt><strong>{timeout, Time::number(), Tests}</strong></dt><dd><p>Runs the specified tests under the given timeout. Time is in
+seconds; e.g., 60 means one minute and 0.1 means 1/10th of a second. If
+the timeout is exceeded, the unfinished tests will be forced to
+terminate. Note that if a timeout is set around a fixture, it includes
+the time for setup and cleanup, and if the timeout is triggered, the
+entire fixture is abruptly terminated (without running the
+cleanup). The default timeout for an individual test is 5 seconds.</p></dd><dt><strong>{inorder, Tests}</strong></dt><dd><p>Runs the specified tests in strict order. Also see <strong>{inparallel, Tests}</strong>. By default, tests are neither marked as <strong>inorder</strong> or
+<strong>inparallel</strong>, but may be executed as the test framework chooses.</p></dd><dt><strong>{inparallel, Tests}</strong></dt><dd><p>Runs the specified tests in parallel (if possible). Also see
+<strong>{inorder, Tests}</strong>.</p></dd><dt><strong>{inparallel, N::integer(), Tests}</strong></dt><dd><p>Like <strong>{inparallel, Tests}</strong>, but running no more than <strong>N</strong> subtests
+simultaneously.</p></dd></dl><a name="Fixtures"></a><h2>Fixtures</h2><p>A "fixture" is some state that is necessary for a particular set of
+tests to run. EUnit's support for fixtures makes it easy to set up such
+state locally for a test set, and automatically tear it down again when
+the test set is finished, regardless of the outcome (success, failures,
+timeouts, etc.).</p><p>To make the descriptions simpler, we first list some definitions:
+</p><table class="table table-bordered table-hover table-striped"><tbody><tr><td><strong>Setup</strong></td><td><strong>() -&gt; (R::any())</strong></td></tr><tr><td><strong>SetupX</strong></td><td><strong>(X::any()) -&gt; (R::any())</strong></td></tr><tr><td><strong>Cleanup</strong></td><td><strong>(R::any()) -&gt; any()</strong></td></tr><tr><td><strong>CleanupX</strong></td><td><strong>(X::any(), R::any()) -&gt; any()</strong></td></tr><tr><td><strong>Instantiator</strong></td><td><strong>((R::any()) -&gt; Tests) | {with, [AbstractTestFun::((any()) -&gt; any())]}</strong></td></tr><tr><td><strong>Where</strong></td><td><strong>local | spawn | {spawn, Node::atom()}</strong></td></tr></tbody></table><p>
+(these are explained in more detail further below.)</p><p>The following representations specify fixture handling for test sets:
+</p><dl><dt><strong>{setup, Setup, Tests | Instantiator}</strong></dt><dd></dd><dt><strong>{setup, Setup, Cleanup, Tests | Instantiator}</strong></dt><dd></dd><dt><strong>{setup, Where, Setup, Tests | Instantiator}</strong></dt><dd></dd><dt><strong>{setup, Where, Setup, Cleanup, Tests | Instantiator}</strong></dt><dd><p><strong>setup</strong> sets up a single fixture for running all of the specified
+tests, with optional teardown afterwards. The arguments are described in
+detail below.
+</p></dd><dt><strong>{node, Node::atom(), Tests | Instantiator}</strong></dt><dd></dd><dt><strong>{node, Node::atom(), Args::string(), Tests | Instantiator}</strong></dt><dd><p><strong>node</strong> is like <strong>setup</strong>, but with a built-in behaviour: it starts a
+slave node for the duration of the tests. The atom <strong>Node</strong> should have
+the format <strong>nodename@full.machine.name</strong>, and <strong>Args</strong> are the optional
+arguments to the new node; see <strong>slave:start_link/3</strong> for details.
+</p></dd><dt><strong>{foreach, Where, Setup, Cleanup, [Tests | Instantiator]}</strong></dt><dd></dd><dt><strong>{foreach, Setup, Cleanup, [Tests | Instantiator]}</strong></dt><dd></dd><dt><strong>{foreach, Where, Setup, [Tests | Instantiator]}</strong></dt><dd></dd><dt><strong>{foreach, Setup, [Tests | Instantiator]}</strong></dt><dd><p><strong>foreach</strong> is used to set up a fixture and optionally tear it down
+afterwards, repeated for each single one of the specified test sets.
+</p></dd><dt><strong>{foreachx, Where, SetupX, CleanupX, Pairs::[{X::any(), ((X::any(), R::any()) -&gt; Tests)}]}</strong></dt><dd></dd><dt><strong>{foreachx, SetupX, CleanupX, Pairs}</strong></dt><dd></dd><dt><strong>{foreachx, Where, SetupX, Pairs}</strong></dt><dd></dd><dt><strong>{foreachx, SetupX, Pairs}</strong></dt><dd><p><strong>foreachx</strong> is like <strong>foreach</strong>, but uses a list of pairs, each
+containing an extra argument <strong>X</strong> and an extended instantiator function.
+</p></dd></dl><p>A <strong>Setup</strong> function is executed just before any of the specified tests
+are run, and a <strong>Cleanup</strong> function is executed when no more of the
+specified tests will be run, regardless of the reason. A <strong>Setup</strong>
+function takes no argument, and returns some value which will be passed
+as it is to the <strong>Cleanup</strong> function. A <strong>Cleanup</strong> function should do
+whatever necessary and return some arbitrary value, such as the atom
+<strong>ok</strong>. (<strong>SetupX</strong> and <strong>CleanupX</strong> functions are similar, but receive one
+additional argument: some value <strong>X</strong>, which depends on the context.) When
+no <strong>Cleanup</strong> function is specified, a dummy function is used which has
+no effect.</p><p>An <strong>Instantiator</strong> function receives the same value as the <strong>Cleanup</strong>
+function, i.e., the value returned by the <strong>Setup</strong> function. It should
+then behave much like a generator (see <a href="#Primitives">Primitives</a>), and
+return a test set whose tests have been <em>instantiated</em> with the
+given value. A special case is the syntax <strong>{with, [AbstractTestFun]}</strong>
+which represents an instantiator function that distributes the value
+over a list of unary functions; see <a href="#Primitives">Primitives</a>: <strong>{with, X, [...]}</strong> for more details.</p><p>A <strong>Where</strong> term controls how the specified tests are executed. The
+default is <strong>spawn</strong>, which means that the current process handles the
+setup and teardown, while the tests are executed in a subprocess.
+<strong>{spawn, Node}</strong> is like <strong>spawn</strong>, but runs the subprocess on the
+specified node. <strong>local</strong> means that the current process will handle both
+setup/teardown and running the tests - the drawback is that if a test
+times out so that the process is killed, the <em>cleanup will not be performed</em>; hence, avoid this for persistent fixtures such as file
+operations. In general, <strong>local</strong> should only be used when:
+</p><ul><li><p>the setup/teardown needs to be executed by the process that will
+run the tests;</p></li><li><p>no further teardown needs to be done if the process is killed
+(i.e., no state outside the process was affected by the setup)</p></li></ul><a name="Lazy_generators"></a><h2>Lazy generators</h2><p>Sometimes, it can be convenient not to produce the whole set of test
+descriptions before the testing begins; for example, if you want to
+generate a huge amount of tests that would take up too much space to
+keep in memory all at once.</p><p>It is fairly easy to write a generator which, each time it is called,
+either produces an empty list if it is done, or otherwise produces a
+list containing a single test case plus a new generator which will
+produce the rest of the tests. This demonstrates the basic pattern:</p><pre>   lazy_test_() -&gt;
+       lazy_gen(10000).
+
+   lazy_gen(N) -&gt;
+       {generator,
+        fun () -&gt;
+            if N &gt; 0 -&gt;
+                   [?_test(...)
+                    | lazy_gen(N-1)];
+               true -&gt;
+                   []
+            end
+        end}.</pre><p>When EUnit traverses the test representation in order to run the tests,
+the new generator will not be called to produce the next test until the
+previous test has been executed.</p><p>Note that it is easiest to write this kind of recursive generator using
+a help function, like the <strong>lazy_gen/1</strong> function above. It can also be
+written using a recursive fun, if you prefer to not clutter your
+function namespace and are comfortable with writing that kind of code.
+</p></body></html>

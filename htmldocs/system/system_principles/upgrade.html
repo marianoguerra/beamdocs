@@ -1,0 +1,49 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Upgrade when Erlang/OTP has Changed</h1><a name="upgrade section"></a><h2>Introduction</h2><a name="upgrade"></a><p>As of Erlang/OTP 17, most applications deliver a valid
+application upgrade file (<strong>appup</strong>). In earlier releases, a
+majority of the applications in Erlang/OTP did not support
+upgrade. Many of the applications use the
+<strong>restart_application</strong> instruction. These are applications
+for which it is not crucial to support real soft upgrade, for
+example, tools and library applications. The
+<strong>restart_application</strong> instruction
+ensures that all modules in the application are reloaded and
+thereby running the new code.</p><h2>Upgrade of Core Applications</h2><p>The core applications ERTS, Kernel, STDLIB,
+and SASL never allow real soft upgrade, but require the
+Erlang emulator to be restarted. This is indicated to the
+<strong>release_handler</strong> by the upgrade instruction
+<strong>restart_new_emulator</strong>. This instruction is always the
+very first instruction executed, and it restarts the
+emulator with the new versions of the above mentioned core
+applications and the old versions of all other applications.
+When the node is back up, all other upgrade instructions are
+executed, making sure each application is finally running its
+new version.</p><p>It might seem strange to do a two-step upgrade instead of
+just restarting the emulator with the new version of all
+applications. The reason for this design decision is to allow
+<strong>code_change</strong> functions to have side effects, for example,
+changing data on disk. It also guarantees that the upgrade
+mechanism for non-core applications does not differ depending
+on whether or not core applications are changed at the same time.</p><p>If, however, the more brutal variant is preferred, the
+the release upgrade file can be handwritten using only the
+single upgrade instruction <strong>restart_emulator</strong>. This
+instruction, in contrast to <strong>restart_new_emulator</strong>,
+causes the emulator to restart with the new versions of
+<em>all</em> applications.</p><p><em>Note:</em> If other instructions are included before
+<strong>restart_emulator</strong> in the handwritten <strong>relup</strong> file,
+they are executed in the old emulator. This is a big risk
+since there is no guarantee that new beam code can be loaded
+into the old emulator. Adding instructions after
+<strong>restart_emulator</strong> has no effect as the
+<strong>release_handler</strong> will not execute them.</p><p>For information about the release upgrade file, see the
+<a href="./relup">relup(4)</a> manual page
+in SASL.
+For more information about upgrade instructions, see the
+<a href="./appup">appup(4)</a> manual page
+in SASL.</p><h2>Applications that Still do Not Allow Code Upgrade</h2><p>A few applications, such as HiPE, do not support upgrade.
+This is indicated by an application upgrade file containing only
+<strong>{Vsn,[],[]}</strong>. Any attempt at creating a release upgrade file
+with such input fails. The only way to force an upgrade involving
+applications like this is to
+handwrite the file <strong>relup</strong>, preferably as described above
+with only the <strong>restart_emulator</strong> instruction.</p></body></html>

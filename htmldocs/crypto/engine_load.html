@@ -1,0 +1,57 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Engine Load</h1><p>
+<a name="engine_load"></a>
+This chapter describes the support for loading encryption engines in the crypto application.
+</p><h2>Background</h2><p>
+OpenSSL exposes an Engine API, which makes it possible to plug in alternative
+implementations for some or all of the cryptographic operations implemented by OpenSSL.
+When configured appropriately, OpenSSL calls the engine's implementation of these
+operations instead of its own.
+</p><p>
+Typically, OpenSSL engines provide a hardware implementation of specific cryptographic
+operations. The hardware implementation usually offers improved performance over its
+software-based counterpart, which is known as cryptographic acceleration.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The file name requirement on the engine dynamic library can differ between SSL versions.</p></div><h2>Use Cases</h2><h2>Dynamically load an engine from default directory</h2><p>
+If the engine is located in the OpenSSL/LibreSSL installation <strong>engines</strong> directory.
+</p><pre><code class="">
+1&gt; {ok, Engine} = crypto:engine_load(&lt;&lt;"otp_test_engine"&gt;&gt;, [], []).
+ {ok, #Ref}</code></pre><h2>Load an engine with the dynamic engine</h2><p>
+Load an engine with the help of the dynamic engine by giving the path to the library.
+</p><pre><code class="">
+ 2&gt; {ok, Engine} = crypto:engine_load(&lt;&lt;"dynamic"&gt;&gt;,
+                                      [{&lt;&lt;"SO_PATH"&gt;&gt;,
+                                        &lt;&lt;"/some/path/otp_test_engine.so"&gt;&gt;},
+                                       {&lt;&lt;"ID"&gt;&gt;, &lt;&lt;"MD5"&gt;&gt;},
+                                       &lt;&lt;"LOAD"&gt;&gt;],
+                                      []).
+ {ok, #Ref}</code></pre><h2>Load an engine and replace some methods</h2><p>
+Load an engine with the help of the dynamic engine and just
+replace some engine methods.
+</p><pre><code class="">
+ 3&gt; Methods = crypto:engine_get_all_methods() -- [engine_method_dh,engine_method_rand,
+engine_method_ciphers,engine_method_digests, engine_method_store,
+engine_method_pkey_meths, engine_method_pkey_asn1_meths].
+[engine_method_rsa,engine_method_dsa,
+ engine_method_ecdh,engine_method_ecdsa]
+ 4&gt; {ok, Engine} = crypto:engine_load(&lt;&lt;"dynamic"&gt;&gt;,
+                                      [{&lt;&lt;"SO_PATH"&gt;&gt;,
+                                        &lt;&lt;"/some/path/otp_test_engine.so"&gt;&gt;},
+                                       {&lt;&lt;"ID"&gt;&gt;, &lt;&lt;"MD5"&gt;&gt;},
+                                       &lt;&lt;"LOAD"&gt;&gt;],
+                                      [],
+		                      Methods).
+ {ok, #Ref}</code></pre><h2>Load with the ensure loaded function</h2><p>
+This function makes sure the engine is loaded just once and the ID is added to the internal
+engine list of OpenSSL. The following calls to the function will check if the ID is loaded
+and then just get a new reference to the engine.
+</p><pre><code class="">
+ 5&gt; {ok, Engine} = crypto:ensure_engine_loaded(&lt;&lt;"MD5"&gt;&gt;,
+                                               &lt;&lt;"/some/path/otp_test_engine.so"&gt;&gt;).
+ {ok, #Ref}</code></pre><p>
+To unload it use crypto:ensure_engine_unloaded/1 which removes the ID from the internal list
+before unloading the engine.
+</p><pre><code class="">
+ 6&gt; crypto:ensure_engine_unloaded(&lt;&lt;"MD5"&gt;&gt;).
+ ok</code></pre><h2>List all engines currently loaded</h2><pre><code class="">
+ 5&gt; crypto:engine_list().
+[&lt;&lt;"dynamic"&gt;&gt;, &lt;&lt;"MD5"&gt;&gt;]</code></pre></body></html>

@@ -1,0 +1,127 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Records</h1><h2>Records and Tuples</h2><p>The main advantage of using records rather than tuples is that
+fields in a record are accessed by name, whereas fields in a
+tuple are accessed by position. To illustrate these differences,
+suppose that you want to represent a person with the tuple
+<strong>{Name, Address, Phone}</strong>.</p><p>To write functions that manipulate this data, remember the following:</p><ul><li>The <strong>Name</strong> field is the first element of the tuple.</li><li>The <strong>Address</strong> field is the second element.</li><li>The <strong>Phone</strong> field is the third element.</li></ul><p>For example, to extract data from a variable <strong>P</strong>
+that contains such a tuple, you can write the following code
+and then use pattern matching to extract the relevant fields:</p><pre><code class="">
+Name = element(1, P),
+Address = element(2, P),
+...</code></pre><p>Such code is difficult to read and understand, and errors
+occur if the numbering of the elements in the tuple is wrong.
+If the data representation of the fields is changed, by re-ordering,
+adding, or removing fields, all references to
+the person tuple must be checked and possibly modified.</p><p>Records allow references to the fields by name, instead of by
+position. In the following example, a record instead of a tuple
+is used to store the data:</p><pre><code class="">
+-record(person, {name, phone, address}).</code></pre><p>This enables references to the fields of the record by name.
+For example, if <strong>P</strong> is a variable whose value is a
+<strong>person</strong> record, the following code access
+the name and address fields of the records:</p><pre><code class="">
+Name = P#person.name,
+Address = P#person.address,
+...</code></pre><p>Internally, records are represented using tagged tuples:</p><pre><code class="">
+{person, Name, Phone, Address}</code></pre><h2>Defining a Record</h2><p>This following definition of a <strong>person</strong> is used in several
+examples in this section. Three fields are included, <strong>name</strong>,
+<strong>phone</strong>, and <strong>address</strong>. The default values for
+<strong>name</strong> and <strong>phone</strong> is "" and [], respectively.
+The default value for <strong>address</strong> is the atom
+<strong>undefined</strong>, since no default value is supplied for this
+field:</p><pre>
+-record(person, {name = "", phone = [], address}).</pre><p>The record must be defined in the shell to enable
+use of the record syntax in the examples:</p><pre>
+&gt; <span class="input">rd(person, {name = "", phone = [], address}).</span>
+person</pre><p>This is because record definitions are only available
+at compile time, not at runtime. For details on records
+in the shell, see the
+<a href="./shell">shell(3)</a>
+manual page in STDLIB.</p><h2>Creating a Record</h2><p>A new <strong>person</strong> record is created as follows:</p><pre>
+&gt; <span class="input">#person{phone=[0,8,2,3,4,3,1,2], name="Robert"}.</span>
+#person{name = "Robert",phone = [0,8,2,3,4,3,1,2],address = undefined}</pre><p>As the <strong>address</strong> field was omitted, its default value
+is used.</p><p>From Erlang 5.1/OTP R8B, a value to all
+fields in a record can be set with the special field <strong>_</strong>.
+<strong>_</strong> means "all fields not explicitly specified".</p><p><em>Example:</em></p><pre>
+&gt; <span class="input">#person{name = "Jakob", _ = '_'}.</span>
+#person{name = "Jakob",phone = '_',address = '_'}</pre><p>It is primarily intended to be used in <strong>ets:match/2</strong> and
+<strong>mnesia:match_object/3</strong>, to set record fields to the atom
+<strong>'_'</strong>. (This is a wildcard in <strong>ets:match/2</strong>.)</p><h2>Accessing a Record Field</h2><p>The following example shows how to access a record field:</p><pre>
+&gt; <span class="input">P = #person{name = "Joe", phone = [0,8,2,3,4,3,1,2]}.</span>
+#person{name = "Joe",phone = [0,8,2,3,4,3,1,2],address = undefined}
+&gt; <span class="input">P#person.name.</span>
+"Joe"</pre><h2>Updating a Record</h2><p>The following example shows how to update a record:</p><pre>
+&gt; <span class="input">P1 = #person{name="Joe", phone=[1,2,3], address="A street"}.</span>
+#person{name = "Joe",phone = [1,2,3],address = "A street"}
+&gt; <span class="input">P2 = P1#person{name="Robert"}.</span>
+#person{name = "Robert",phone = [1,2,3],address = "A street"}</pre><h2>Type Testing</h2><p>The following example shows that the guard succeeds if
+<strong>P</strong> is record of type <strong>person</strong>:</p><pre>
+foo(P) when is_record(P, person) -&gt; a_person;
+foo(_) -&gt; not_a_person.</pre><h2>Pattern Matching</h2><p>Matching can be used in combination with records, as shown in
+the following example:</p><pre>
+&gt; <span class="input">P3 = #person{name="Joe", phone=[0,0,7], address="A street"}.</span>
+#person{name = "Joe",phone = [0,0,7],address = "A street"}
+&gt; <span class="input">#person{name = Name} = P3, Name.</span>
+"Joe"</pre><p>The following function takes a list of <strong>person</strong> records
+and searches for the phone number of a person with a particular
+name:</p><pre><code class="">
+find_phone([#person{name=Name, phone=Phone} | _], Name) -&gt;
+    {found,  Phone};
+find_phone([_| T], Name) -&gt;
+    find_phone(T, Name);
+find_phone([], Name) -&gt;
+    not_found.</code></pre><p>The fields referred to in the pattern can be given in any order.</p><h2>Nested Records</h2><p>The value of a field in a record can be an instance of a
+record. Retrieval of nested data can be done stepwise, or in a
+single step, as shown in the following example:</p><pre>
+-record(name, {first = "Robert", last = "Ericsson"}).
+-record(person, {name = #name{}, phone}).
+
+demo() -&gt;
+  P = #person{name= #name{first="Robert",last="Virding"}, phone=123},
+  First = (P#person.name)#name.first.</pre><p>Here, <strong>demo()</strong> evaluates to <strong>"Robert"</strong>.</p><h2>A Longer Example</h2><p>Comments are embedded in the following example:</p><pre>
+%% File: person.hrl
+
+%%-----------------------------------------------------------
+%% Data Type: person
+%% where:
+%%    name:  A string (default is undefined).
+%%    age:   An integer (default is undefined).
+%%    phone: A list of integers (default is []).
+%%    dict:  A dictionary containing various information 
+%%           about the person. 
+%%           A {Key, Value} list (default is the empty list).
+%%------------------------------------------------------------
+-record(person, {name, age, phone = [], dict = []}).</pre><pre>
+-module(person).
+-include("person.hrl").
+-compile(export_all). % For test purposes only.
+
+%% This creates an instance of a person.
+%%   Note: The phone number is not supplied so the
+%%         default value [] will be used.
+
+make_hacker_without_phone(Name, Age) -&gt;
+   #person{name = Name, age = Age, 
+           dict = [{computer_knowledge, excellent}, 
+                   {drinks, coke}]}.
+
+%% This demonstrates matching in arguments
+
+print(#person{name = Name, age = Age,
+              phone = Phone, dict = Dict}) -&gt;
+  io:format("Name: ~s, Age: ~w, Phone: ~w ~n" 
+            "Dictionary: ~w.~n", [Name, Age, Phone, Dict]).
+
+%% Demonstrates type testing, selector, updating.
+
+birthday(P) when record(P, person) -&gt; 
+   P#person{age = P#person.age + 1}.
+
+register_two_hackers() -&gt;
+   Hacker1 = make_hacker_without_phone("Joe", 29),
+   OldHacker = birthday(Hacker1),
+   % The central_register_server should have 
+   % an interface function for this.
+   central_register_server ! {register_person, Hacker1},
+   central_register_server ! {register_person, 
+             OldHacker#person{name = "Robert", 
+                              phone = [0,8,3,2,4,5,3,1]}}.</pre></body></html>

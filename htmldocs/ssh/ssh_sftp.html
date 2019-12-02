@@ -1,0 +1,117 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>ssh_sftp</h1><h1>ssh_sftp</h1><p>SFTP client.</p><p>This module implements an SSH FTP (SFTP) client. SFTP is a
+secure, encrypted file transfer service available for
+SSH.</p><h2>DATA TYPES</h2><p>Type definitions that are used more than once in this module,
+or abstractions to indicate the intended use of the data type, or both:
+</p><dl><dt><strong>reason()</strong></dt><dd> <p>= <strong>atom() | string() | tuple() </strong>A description of the reason why an operation failed.</p> <p>
+The <strong>atom()</strong> value is formed from the sftp error codes in the protocol-level responses as defined in 
+<a href="https://tools.ietf.org/id/draft-ietf-secsh-filexfer-13.txt">draft-ietf-secsh-filexfer-13.txt</a>
+section 9.1.
+</p> <p>
+The codes are named as <strong>SSH_FX_*</strong> which are transformed into lowercase of the star-part.
+E.g. the error code <strong>SSH_FX_NO_SUCH_FILE</strong>
+will cause the <strong>reason()</strong> to be <strong>no_such_file</strong>.
+</p> <p>The <strong>string()</strong> reason is the error information from the server in case of an exit-signal.  If that information is empty, the reason is the exit signal name.
+</p> <p>The <strong>tuple()</strong> reason are other errors like the <strong>{exit_status,integer()}</strong> if the exit status is not 0.
+</p> </dd><dt><strong>connection_ref() =</strong></dt><dd><p><strong>opaque()</strong> - as returned by 
+<a href="./ssh#connect-3">ssh#connect-3</a></p></dd><dt><strong>timeout()</strong></dt><dd><p>= <strong>infinity | integer()</strong> in milliseconds. Default infinity.</p></dd></dl><h2>Time-outs</h2><p>If the request functions for the SFTP channel return <strong>{error, timeout}</strong>,
+no answer was received from the server within the expected time.</p><p>The request may have reached the server and may have been performed.
+However, no answer was received from the server within the expected time.</p><h1>Functions</h1><h2>apread(ChannelPid, Handle, Position, Len) -&gt; {async, N} | {error, reason()}</h2><p>Reads asynchronously from an open file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Position = integer()</span></li><li><span class="v">Len = integer()</span></li><li><span class="v">N = term()</span></li></ul><p>The <strong>apread/4</strong> function reads from a specified position,
+combining the <a href="#position-3">position-3</a> and 
+<a href="#aread-3">aread-3</a> functions.</p><h2>apwrite(ChannelPid, Handle, Position, Data) -&gt; {async, N} | {error, reason()}</h2><p>Writes asynchronously to an open file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Position = integer()</span></li><li><span class="v">Len = integer()</span></li><li><span class="v">Data = binary()</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">N = term()</span></li></ul><p>The <strong>apwrite/4</strong> function writes to a specified position,
+combining the <a href="#position-3">position-3</a> and 
+<a href="#awrite-3">awrite-3</a> functions.</p><h2>aread(ChannelPid, Handle, Len) -&gt; {async, N} | {error, reason()}</h2><p>Reads asynchronously from an open file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Position = integer()</span></li><li><span class="v">Len = integer()</span></li><li><span class="v">N = term()</span></li></ul><p>Reads from an open file, without waiting for the result. If the
+handle is valid, the function returns <strong>{async, N}</strong>, where <strong>N</strong>
+is a term guaranteed to be unique between calls of <strong>aread</strong>.
+The actual data is sent as a message to the calling process. This
+message has the form <strong>{async_reply, N, Result}</strong>, where
+<strong>Result</strong> is the result from the read, either <strong>{ok, Data}</strong>,
+<strong>eof</strong>, or <strong>{error, reason()}</strong>.</p><h2>awrite(ChannelPid, Handle, Data) -&gt; {async, N} | {error, reason()}</h2><p>Writes asynchronously to an open file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Position = integer()</span></li><li><span class="v">Len = integer()</span></li><li><span class="v">Data = binary()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Writes to an open file, without waiting for the result. If the
+handle is valid, the function returns <strong>{async, N}</strong>, where <strong>N</strong>
+is a term guaranteed to be unique between calls of
+<strong>awrite</strong>. The result of the <strong>write</strong> operation is sent
+as a message to the calling process. This message has the form
+<strong>{async_reply, N, Result}</strong>, where <strong>Result</strong> is the result
+from the write, either <strong>ok</strong>, or <strong>{error, reason()}</strong>.</p><h2>close(ChannelPid, Handle) -&gt;</h2><h2>close(ChannelPid, Handle, Timeout) -&gt; ok | {error, reason()}</h2><p>Closes an open handle.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Closes a handle to an open file or directory on the server.</p><h2>delete(ChannelPid, Name) -&gt;</h2><h2>delete(ChannelPid, Name, Timeout) -&gt; ok | {error, reason()}</h2><p>Deletes a file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Name = string()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Deletes the file specified by <strong>Name</strong>.
+</p><h2>del_dir(ChannelPid, Name) -&gt;</h2><h2>del_dir(ChannelPid, Name, Timeout) -&gt; ok | {error, reason()}</h2><p>Deletes an empty directory.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Name = string()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Deletes a directory specified by <strong>Name</strong>.
+The directory must be empty before it can be successfully deleted.
+</p><h2>list_dir(ChannelPid, Path) -&gt;</h2><h2>list_dir(ChannelPid, Path, Timeout) -&gt; {ok, Filenames} | {error, reason()}</h2><p>Lists the directory.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Path = string()</span></li><li><span class="v">Filenames = [Filename]</span></li><li><span class="v">Filename = string()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Lists the given directory on the server, returning the
+filenames as a list of strings.</p><h2>make_dir(ChannelPid, Name) -&gt;</h2><h2>make_dir(ChannelPid, Name, Timeout) -&gt; ok | {error, reason()}</h2><p>Creates a directory.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Name = string()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Creates a directory specified by <strong>Name</strong>. <strong>Name</strong>
+must be a full path to a new directory. The directory can only be
+created in an existing directory.</p><h2>make_symlink(ChannelPid, Name, Target) -&gt;</h2><h2>make_symlink(ChannelPid, Name, Target, Timeout) -&gt; ok | {error, reason()}</h2><p>Creates a symbolic link.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Name = string()</span></li><li><span class="v">Target = string()</span></li></ul><p>Creates a symbolic link pointing to <strong>Target</strong> with the
+name <strong>Name</strong>.
+</p><h2>open(ChannelPid, File, Mode) -&gt;</h2><h2>open(ChannelPid, File, Mode, Timeout) -&gt; {ok, Handle} | {error, reason()}</h2><p>Opens a file and returns a handle.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">File = string()</span></li><li><span class="v">Mode = [Modeflag]</span></li><li><span class="v">Modeflag = read | write | creat | trunc | append | binary</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">Handle = term()</span></li></ul><p>Opens a file on the server and returns a handle, which
+can be used for reading or writing.</p><h2>opendir(ChannelPid, Path) -&gt;</h2><h2>opendir(ChannelPid, Path, Timeout) -&gt; {ok, Handle} | {error, reason()}</h2><p>Opens a directory and returns a handle.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Path = string()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Opens a handle to a directory on the server. The handle
+can be used for reading directory contents.</p><h2>open_tar(ChannelPid, Path, Mode) -&gt;</h2><h2>open_tar(ChannelPid, Path, Mode, Timeout) -&gt; {ok, Handle} | {error, reason()}</h2><p>Opens a tar file on the server to which <strong>ChannelPid</strong> is connected and returns a handle.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Path = string()</span></li><li><span class="v">Mode = [read] | [write] | [read,EncryptOpt] | [write,DecryptOpt]</span></li><li><span class="v">EncryptOpt = {crypto,{InitFun,EncryptFun,CloseFun}}</span></li><li><span class="v">DecryptOpt = {crypto,{InitFun,DecryptFun}}</span></li><li><span class="v">InitFun = (fun() -&gt; {ok,CryptoState}) | (fun() -&gt; {ok,CryptoState,ChunkSize})</span></li><li><span class="v">CryptoState = any()</span></li><li><span class="v">ChunkSize = undefined | pos_integer()</span></li><li><span class="v">EncryptFun = (fun(PlainBin,CryptoState) -&gt; EncryptResult)</span></li><li><span class="v">EncryptResult = {ok,EncryptedBin,CryptoState} | {ok,EncryptedBin,CryptoState,ChunkSize}</span></li><li><span class="v">PlainBin = binary()</span></li><li><span class="v">EncryptedBin = binary()</span></li><li><span class="v">DecryptFun = (fun(EncryptedBin,CryptoState) -&gt; DecryptResult)</span></li><li><span class="v">DecryptResult = {ok,PlainBin,CryptoState} | {ok,PlainBin,CryptoState,ChunkSize}</span></li><li><span class="v">CloseFun = (fun(PlainBin,CryptoState) -&gt; {ok,EncryptedBin})</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Opens a handle to a tar file on the server, associated with <strong>ChannelPid</strong>.
+The handle can be used for remote tar creation and extraction, as defined by the
+<a href="../stdlib/erl_tar#init-3">erl_tar:init/3</a> function.
+</p><p> For code exampel see Section
+<a href="using_ssh">SFTP Client with TAR Compression and Encryption</a> in
+the ssh Users Guide. </p><p>The <strong>crypto</strong> mode option is applied to the generated stream of bytes prior to sending
+them to the SFTP server. This is intended for encryption but can be used for other
+purposes.
+</p><p>The <strong>InitFun</strong> is applied once
+prior to any other <strong>crypto</strong> operation. The returned <strong>CryptoState</strong> is then folded into
+repeated applications of the <strong>EncryptFun</strong> or <strong>DecryptFun</strong>. The binary returned
+from those funs are sent further to the remote SFTP server. Finally, if doing encryption,
+the <strong>CloseFun</strong> is applied to the last piece of data. The <strong>CloseFun</strong> is
+responsible for padding (if needed) and encryption of that last piece.
+</p><p>The <strong>ChunkSize</strong> defines the size of the <strong>PlainBin</strong>s that <strong>EncodeFun</strong> is applied
+to. If the <strong>ChunkSize</strong> is <strong>undefined</strong>, the size of the <strong>PlainBin</strong>s varies,
+because this is	intended for stream crypto, whereas a fixed <strong>ChunkSize</strong> is intended for block crypto.
+<strong>ChunkSize</strong>s can be changed in the return from the <strong>EncryptFun</strong> or
+<strong>DecryptFun</strong>. The value can be changed between <strong>pos_integer()</strong> and <strong>undefined</strong>.
+</p><h2>position(ChannelPid, Handle, Location) -&gt;</h2><h2>position(ChannelPid, Handle, Location, Timeout) -&gt; {ok, NewPosition | {error, reason()}</h2><p>Sets the file position of a file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Location = Offset | {bof, Offset} | {cur, Offset} | {eof, Offset} | bof | cur | eof</span></li><li><span class="v">Offset = integer()</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">NewPosition = integer()</span></li></ul><p>Sets the file position of the file referenced by <strong>Handle</strong>.
+Returns <strong>{ok, NewPosition}</strong> (as an absolute offset) if
+successful, otherwise <strong>{error, reason()}</strong>. <strong>Location</strong> is
+one of the following:</p><dl><dt><strong>Offset</strong></dt><dd> <p>The same as <strong>{bof, Offset}</strong>.</p> </dd><dt><strong>{bof, Offset}</strong></dt><dd> <p>Absolute offset.</p> </dd><dt><strong>{cur, Offset}</strong></dt><dd> <p>Offset from the current position.</p> </dd><dt><strong>{eof, Offset}</strong></dt><dd> <p>Offset from the end of file.</p> </dd><dt><strong>bof | cur | eof</strong></dt><dd> <p>The same as eariler with <strong>Offset</strong> 0,
+that is, <strong>{bof, 0} | {cur, 0} | {eof, 0}</strong>.
+</p> </dd></dl><h2>pread(ChannelPid, Handle, Position, Len) -&gt;</h2><h2>pread(ChannelPid, Handle, Position, Len, Timeout) -&gt; {ok, Data} | eof | {error, reason()}</h2><p>Reads from an open file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Position = integer()</span></li><li><span class="v">Len = integer()</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">Data = string() | binary()</span></li></ul><p>The <strong>pread/3,4</strong> function reads from a specified position,
+combining the <a href="#position-3">position-3</a> and 
+<a href="#read-3">read-3</a> functions.</p><h2>pwrite(ChannelPid, Handle, Position, Data) -&gt; ok</h2><h2>pwrite(ChannelPid, Handle, Position, Data, Timeout) -&gt; ok | {error, reason()}</h2><p>Writes to an open file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Position = integer()</span></li><li><span class="v">Data = iolist()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>The <strong>pwrite/3,4</strong> function writes to a specified position,
+combining the <a href="#position-3">position-3</a> and 
+<a href="#write-3">write-3</a> functions.</p><h2>read(ChannelPid, Handle, Len) -&gt;</h2><h2>read(ChannelPid, Handle, Len, Timeout) -&gt; {ok, Data} | eof | {error, reason()}</h2><p>Reads from an open file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Len = integer()</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">Data = string() | binary()</span></li></ul><p>Reads <strong>Len</strong> bytes from the file referenced by
+<strong>Handle</strong>. Returns <strong>{ok, Data}</strong>, <strong>eof</strong>, or
+<strong>{error, reason()}</strong>. If the file is opened with <strong>binary</strong>,
+<strong>Data</strong> is a binary, otherwise it is a string.</p><p>If the file is read past <strong>eof</strong>, only the remaining bytes
+are read and returned. If no bytes are read, <strong>eof</strong>
+is returned.</p><h2>read_file(ChannelPid, File) -&gt;</h2><h2>read_file(ChannelPid, File, Timeout) -&gt; {ok, Data} | {error, reason()}</h2><p>Reads a file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">File = string()</span></li><li><span class="v">Data = binary()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Reads a file from the server, and returns the data in a binary.</p><h2>read_file_info(ChannelPid, Name) -&gt;</h2><h2>read_file_info(ChannelPid, Name, Timeout) -&gt; {ok, FileInfo} | {error, reason()}</h2><p>Gets information about a file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Name = string()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">FileInfo = record()</span></li></ul><p>Returns a <strong>file_info</strong> record from the file system object specified by
+<strong>Name</strong> or <strong>Handle</strong>. See
+<a href="../kernel/file#read_file_info-2">file:read_file_info/2</a>
+for information about the record.
+</p><p>
+Depending on the underlying OS:es links might be followed and info on the final file, directory
+etc is returned. See <a href="#read_link_info-2">ssh_sftp::read_link_info/2</a>
+on how to get information on links instead.
+</p><h2>read_link(ChannelPid, Name) -&gt;</h2><h2>read_link(ChannelPid, Name, Timeout) -&gt; {ok, Target} | {error, reason()}</h2><p>Reads symbolic link.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Name = string()</span></li><li><span class="v">Target = string()</span></li></ul><p>Reads the link target from the symbolic link specified by <strong>name</strong>.
+</p><h2>read_link_info(ChannelPid, Name) -&gt; {ok, FileInfo} | {error, reason()}</h2><h2>read_link_info(ChannelPid, Name, Timeout) -&gt; {ok, FileInfo} | {error, reason()}</h2><p>Gets information about a symbolic link.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Name = string()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">FileInfo = record()</span></li></ul><p>Returns a <strong>file_info</strong> record from the symbolic
+link specified by <strong>Name</strong> or <strong>Handle</strong>.
+See
+<a href="../kernel/file#read_link_info-2">file:read_link_info/2</a>
+for information about the record.
+</p><h2>rename(ChannelPid, OldName, NewName) -&gt;</h2><h2>rename(ChannelPid, OldName, NewName, Timeout) -&gt; ok | {error, reason()}</h2><p>Renames a file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">OldName = string()</span></li><li><span class="v">NewName = string()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Renames a file named <strong>OldName</strong> and gives it the name
+<strong>NewName</strong>.
+</p><h2>start_channel(ConnectionRef) -&gt;</h2><h2>start_channel(ConnectionRef, Options) -&gt;
+      {ok, Pid} | {error, reason()|term()}</h2><h2>start_channel(Host, Options) -&gt;</h2><h2>start_channel(Host, Port, Options) -&gt; 
+      {ok, Pid, ConnectionRef} | {error, reason()|term()}</h2><h2>start_channel(TcpSocket) -&gt;</h2><h2>start_channel(TcpSocket, Options) -&gt;
+      {ok, Pid, ConnectionRef} | {error, reason()|term()}</h2><p>Starts an SFTP client.</p><ul><li><span class="v">Host = string()</span></li><li><span class="v">ConnectionRef = connection_ref()</span></li><li><span class="v">Port = integer()</span></li><li><span class="v">TcpSocket = port()</span></li><li><span class="d">The socket is supposed to be from  or  with option {active,false}</span></li><li><span class="v">Options = [{Option, Value}]</span></li></ul><p>If no connection reference is provided, a connection is set
+up, and the new connection is returned. An SSH channel process
+is started to handle the communication with the SFTP server.
+The returned <strong>pid</strong> for this process is to be used as input to
+all other API functions in this module.</p><p>Options:</p><dl><dt><strong>{timeout, timeout()}</strong></dt><dd> <p>There are two ways to set a timeout for the underlying ssh connection:</p> <ul><li>If the connection timeout option <strong>connect_timeout</strong> is set, that value is used also for the negotiation timeout and this option (<strong>timeout</strong>) is ignored.</li><li>Otherwise, this option (<strong>timeout</strong>) is used as the negotiation timeout only and there is no connection timeout set</li></ul> <p>The value defaults to <strong>infinity</strong>.</p> </dd><dt> <strong>{sftp_vsn, integer()}</strong> </dt><dd> <p>
+Desired SFTP protocol version.
+The actual version is the minimum of
+the desired version and the maximum supported
+versions by the SFTP server.
+</p> </dd></dl><p>All other options are directly passed to
+<a href="ssh">ssh:connect/3</a> or ignored if a
+connection is already provided.</p><h2>stop_channel(ChannelPid) -&gt; ok</h2><p>Stops the SFTP client channel.</p><ul><li><span class="v">ChannelPid = pid()</span></li></ul><p>Stops an SFTP channel. Does not close the SSH connection.
+Use <a href="./ssh#close-1">ssh:close/1</a> to close it.</p><h2>write(ChannelPid, Handle, Data) -&gt;</h2><h2>write(ChannelPid, Handle, Data, Timeout) -&gt; ok | {error, reason()}</h2><p>Writes to an open file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Position = integer()</span></li><li><span class="v">Data = iolist()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Writes <strong>data</strong> to the file referenced by <strong>Handle</strong>.
+The file is to be opened with <strong>write</strong> or <strong>append</strong>
+flag. Returns <strong>ok</strong> if successful or <strong>{error, reason()}</strong>
+otherwise.</p><h2>write_file(ChannelPid, File, Iolist) -&gt;</h2><h2>write_file(ChannelPid, File, Iolist, Timeout) -&gt; ok | {error, reason()}</h2><p>Writes a file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">File = string()</span></li><li><span class="v">Iolist = iolist()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Writes a file to the server.	The file is created if it does not exist
+but overwritten if it exists.</p><h2>write_file_info(ChannelPid, Name, Info) -&gt;</h2><h2>write_file_info(ChannelPid, Name, Info, Timeout) -&gt; ok | {error, reason()}</h2><p>Writes information for a file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Name = string()</span></li><li><span class="v">Info = record()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Writes file information from a <strong>file_info</strong> record to the
+file specified by <strong>Name</strong>. See
+<a href="../kernel/file#write_file_info-2">file:write_file_info/[2,3]</a>
+for information about the record.
+</p></body></html>

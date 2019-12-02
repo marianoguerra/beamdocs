@@ -1,0 +1,295 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Embedded Systems</h1><h1>Embedded Systems</h1><p><a name="embedded systems user guide"></a>This section describes the issues that are specific
+for running Erlang on an embedded system.
+It describes the differences in installing and starting
+Erlang compared to how it is done for a non-embedded system.There is also target architecture-specific information in
+the top-level README file of the Erlang distribution.</p><a name="embedded solaris"></a><p>This section describes the operating system-specific parts
+of OTP that relate to Solaris.</p><h4>Memory Use</h4><p>Solaris takes about 17 MB of RAM on a system with 64 MB of
+total RAM. This leaves about 47 MB for the applications. If
+the system uses swapping, these figures cannot be improved
+because unnecessary daemon processes are swapped out. However,
+if swapping is disabled, or if the swap space is of limited
+resource in the system, it becomes necessary to kill off
+unnecessary daemon processes.</p><h4>Disk Space Use</h4><p>The disk space required by Solaris can be minimized by using the
+Core User support installation. It requires about 80 MB of
+disk space. This installs only the minimum software required to
+boot and run Solaris. The disk space can be further reduced by
+deleting unnecessary individual files. However, unless disk
+space is a critical resource the effort required and the risks
+involved cannot be justified.</p><h4>Installing an Embedded System</h4><p>This section is about installing an embedded system.
+The following topics are considered:
+</p><ul><li>Creating user and installation directory</li><li>Installing an embedded system</li><li>Configuring automatic start at boot</li><li>Making a hardware watchdog available</li><li>Changing permission for reboot</li><li>Setting TERM environment variable</li><li>Adding patches</li><li>Installing module os_sup in application os_mon</li></ul><p>Several of the procedures in this section require expert
+knowledge of the Solaris operating system. For most of them
+super user privilege is needed.</p><h4>Creating User and Installation Directory</h4><p>It is recommended that the embedded environment is run by an
+ordinary user, that is, a user who does not have super user
+privileges.</p><p>In this section, it is assumed that the username is
+<strong>otpuser</strong> and that the home directory of that user is:</p><pre>
+        /export/home/otpuser</pre><p>It is also assumed that in the home directory of
+<strong>otpuser</strong>, there is a directory named <strong>otp</strong>, the
+full path of which is:</p><pre>
+        /export/home/otpuser/otp</pre><p>This directory is the <em>installation directory</em> of the
+embedded environment.</p><h4>Installing an Embedded System</h4><p>The procedure for installing an embedded system
+is the same as for an ordinary system (see
+Installation Guide), except for the following:</p><ul><li>The (compressed) tape archive file is to be extracted in the installation directory defined above.</li><li>It is not needed to link the start script to a standard directory like <strong>/usr/local/bin</strong>.</li></ul><h4>Configuring Automatic Start at Boot</h4><p>A true embedded system must start when the system boots.
+This section accounts for the necessary configurations
+needed to achieve that.</p><p>The embedded system and all the applications start
+automatically if the script file shown below is added to
+directory <strong>/etc/rc3.d</strong>. The file must be owned and
+readable by <strong>root</strong>. Its name cannot be arbitrarily
+assigned; the following name is recommended:</p><pre>
+        S75otp.system</pre><p>For more details on initialization (and termination)
+scripts, and naming thereof, see the Solaris documentation.</p><pre>
+#!/bin/sh
+#  
+#  File name:  S75otp.system
+#  Purpose:    Automatically starts Erlang and applications when the 
+#              system starts
+#  Author:     janne@erlang.ericsson.se
+#  Resides in: /etc/rc3.d
+#
+
+if [ ! -d /usr/bin ]
+then                    # /usr not mounted
+        exit
+fi
+
+killproc() {            # kill the named process(es)
+        pid=`/usr/bin/ps -e |
+             /usr/bin/grep -w $1 |
+             /usr/bin/sed -e 's/^  *//' -e 's/ .*//'`
+        [ "$pid" != "" ] &amp;&amp; kill $pid
+}
+
+# Start/stop processes required for Erlang
+
+case "$1" in
+'start')
+        # Start the Erlang emulator
+        #
+        su - otpuser -c "/export/home/otpuser/otp/bin/start" &amp;
+        ;;
+'stop')
+        killproc beam
+        ;;
+*)
+        echo "Usage: $0 { start | stop }"
+        ;;
+esac</pre><p>File <strong>/export/home/otpuser/otp/bin/start</strong> referred to
+in the above script is precisely the <strong>start</strong> script
+described in <em>Starting Erlang</em>. The
+script variable <strong>OTP_ROOT</strong> in that <strong>start</strong> script
+corresponds to the following example path used in this
+section:</p><pre>
+        /export/home/otpuser/otp</pre><p>The <strong>start</strong> script is to be edited accordingly.</p><p>Use of the <strong>killproc</strong> procedure in the above script can
+be combined with a call to <strong>erl_call</strong>, for example:</p><pre>
+        $SOME_PATH/erl_call -n Node init stop</pre><p>To take Erlang down gracefully, see the <strong>erl_call(1)</strong>
+manual page in <strong>erl_interface</strong> for details on the use
+of <strong>erl_call</strong>. However,
+that requires that Erlang runs as a distributed node, which is
+not always the case.</p><p>The <strong>killproc</strong> procedure is not to be removed. The
+purpose is here to move from run level 3 (multi-user mode with
+networking resources) to run level 2 (multi-user mode without
+such resources), in which Erlang is not to run.</p><h4>Making Hardware Watchdog Available</h4><p>For Solaris running on VME boards from Force Computers,
+the onboard hardware watchdog can be activated,
+provided a VME bus driver is added to the operating system
+(see also Installation Problems).</p><p>See also the <strong>heart(3)</strong> manual page in Kernel.</p><h4>Changing Permissions for Reboot</h4><p>If the <strong>HEART_COMMAND</strong> environment variable is to be set
+in the <strong>start</strong> script in
+<em>Starting Erlang</em>, and if the value is to be set to the
+path of the Solaris <strong>reboot</strong> command, that is:</p><pre>
+        HEART_COMMAND=/usr/sbin/reboot</pre><p>then the ownership and file permissions for
+<strong>/usr/sbin/reboot</strong> must be changed as follows:</p><pre>
+        chown 0 /usr/sbin/reboot
+        chmod 4755 /usr/sbin/reboot</pre><p>See also the <strong>heart(3)</strong> manual page in Kernel.</p><h4>Setting TERM Environment Variable</h4><p>When the Erlang runtime system is automatically started from
+the <strong>S75otp.system</strong> script, the <strong>TERM</strong> environment
+variable must be set. The following is a minimal setting:</p><pre>
+        TERM=sun</pre><p>This is to be added to the <strong>start</strong> script.</p><h4>Adding Patches</h4><p>For proper functioning of flushing file system data to disk on
+Solaris 2.5.1, the version-specific patch with number
+103640-02 must be added to the operating system. Other
+patches might be needed, see the release README file
+<strong>&lt;ERL_INSTALL_DIR&gt;/README</strong>.</p><h4>Installing Module os_sup in Application os_mon</h4><p>The following four installation procedures require super user
+privilege:</p><h4>Installation</h4><ul><li><em>Make a copy of the Solaris standard configuration file for syslogd:</em> <ul><li>Make a copy of the Solaris standard configuration file for <strong>syslogd</strong>. This file is usually named <strong>syslog.conf</strong> and found in directory <strong>/etc</strong>.</li><li>The filename of the copy must be <strong>syslog.conf.ORIG</strong>. The directory location is optional; usually it is <strong>/etc</strong>. A simple way to do this is to issue the following command: <pre><code class="">
+cp /etc/syslog.conf /etc/syslog.conf.ORIG</code></pre> </li></ul> </li><li><em>Make an Erlang-specific configuration file for syslogd:</em> <ul><li>Make an edited copy of the backup copy previously made.</li><li>The filename must be <strong>syslog.conf.OTP</strong>. The path must be the same as the backup copy.</li><li>The format of the configuration file is found in the <strong>syslog.conf(5)</strong> manual page, by issuing the command <strong>man syslog.conf</strong>.</li><li>Usually a line is added that is to state: <ul><li>Which types of information that is to be supervised by Erlang</li><li>The name of the file (actually a named pipe) that is to receive the information</li></ul> </li><li>If, for example, only information originating from the UNIX kernel is to be supervised, the line is to begin with <strong>kern.LEVEL</strong>. For the possible values of <strong>LEVEL</strong>, see <strong>syslog.conf(5)</strong>.</li><li>After at least one tab-character, the line added is to contain the full name of the named pipe where <strong>syslogd</strong> writes its information. The path must be the same as for the files <strong>syslog.conf.ORIG</strong> and <strong>syslog.conf.OTP</strong>. The filename must be <strong>syslog.otp</strong>.</li><li>If the directory for the files <strong>syslog.conf.ORIG</strong> and <strong>syslog.conf.OTP</strong> is <strong>/etc</strong>, the line in <strong>syslog.conf.OTP</strong> is as follows: <pre><code class="">
+kern.LEVEL                /etc/syslog.otp</code></pre> </li></ul> </li><li><em>Check the file privileges of the configuration files:</em> <ul><li>The configuration files is to have <strong>rw-r--r--</strong> file privileges and be owned by root.</li><li>A simple way to do this is to issue these commands: <pre><code class="">
+chmod 644 /etc/syslog.conf
+chmod 644 /etc/syslog.conf.ORIG
+chmod 644 /etc/syslog.conf.OTP</code></pre> </li><li>Notice that if the files <strong>syslog.conf.ORIG</strong> and <strong>syslog.conf.OTP</strong> are not in directory <strong>/etc</strong>, the file path in the second and third command must be modified.</li></ul> </li><li><em>Modify file privileges and ownership of the mod_syslog utility:</em> <ul><li>The file privileges and ownership of the <strong>mod_syslog</strong> utility must be modified.</li><li><p>The full name of the binary executable file is
+derived from the position of application <strong>os_mon</strong>
+in the file system by adding
+<strong>/priv/bin/mod_syslog</strong>. The generic full name
+of the binary executable file is thus:</p> <pre><code class="">
+&lt;OTP_ROOT&gt;/lib/os_mon-&lt;REV&gt;/priv/bin/mod_syslog</code></pre> <p><em>Example:</em> If the path to <strong>otp-root</strong> is
+<strong>/usr/otp</strong>, then the path to the <strong>os_mon</strong>
+application is <strong>/usr/otp/lib/os_mon-1.0</strong>
+(assuming revision 1.0) and the full name of the
+binary executable file is
+<strong>/usr/otp/lib/os_mon-1.0/priv/bin/mod_syslog</strong>.</p> </li><li>The binary executable file must be owned by root, have <strong>rwsr-xr-x</strong> file privileges, in particular the <strong>setuid</strong> bit of the user must be set.</li><li><p>A simple way to do this is to issue the following
+commands:</p> <pre><code class="">
+cd &lt;OTP_ROOT&gt;/lib/os_mon-&lt;REV&gt;/priv/bin/mod_syslog
+chmod 4755 mod_syslog
+chown root mod_syslog</code></pre> </li></ul> </li></ul><h4>Testing the Application Configuration File</h4><p>The following procedure does not require root privilege:</p><ul><li>Ensure that the configuration parameters for the <strong>os_sup</strong> module in the <strong>os_mon</strong> application are correct.</li><li><p>Browse the application configuration file (do
+<em>not</em> edit it). The full name of the application
+configuration file is derived from the position of the
+<strong>os_mon</strong> application in the file system by adding
+<strong>/ebin/os_mon.app</strong>.</p> <p>The generic full name of the file is thus:</p> <pre><code class="">
+&lt;OTP_ROOT&gt;/lib/os_mon-&lt;REV&gt;/ebin/os_mon.app.</code></pre> <p><em>Example:</em> If the path to <strong>otp-root</strong> is
+<strong>/usr/otp</strong>, then the path to the <strong>os_mon</strong> application
+is <strong>/usr/otp/lib/os_mon-1.0 </strong> (assuming revision 1.0) and
+the full name of the binary executable file is
+<strong>/usr/otp/lib/os_mon-1.0/ebin/os_mon.app</strong>.</p> </li><li>Ensure that the following configuration parameters have correct values:</li></ul><table class="table table-bordered table-hover table-striped"><caption>Configuration Parameters</caption><tbody><tr><td><em>Parameter</em></td><td><em>Function</em></td><td><em>Standard value</em></td></tr><tr><td><strong>start_os_sup</strong></td><td>Specifies if <strong>os_sup</strong> is to be started or not.</td><td><strong>true</strong> for the first instance on the hardware; <strong>false</strong> for the other instances</td></tr><tr><td><strong>os_sup_own</strong></td><td>The directory for (1) back-up copy and (2) Erlang-specific configuration file for <strong>syslogd</strong></td><td><strong>"/etc"</strong></td></tr><tr><td><strong>os_sup_syslogconf</strong></td><td>The full name for the Solaris standard configuration file for <strong>syslogd</strong></td><td><strong>"/etc/syslog.conf"</strong></td></tr><tr><td><strong>error_tag</strong></td><td>The tag for the messages that are sent to the error logger in the Erlang runtime system</td><td><strong>std_error</strong></td></tr></tbody></table><p>If the values listed in <strong>os_mon.app</strong> do not suit
+your needs, do <em>not</em> edit that file. Instead
+<em>override</em> the values in a <em>system configuration file</em>, the full pathname of which is given
+on the command line to <strong>erl</strong>.</p><p><em>Example:</em> Contents of an application configuration
+file:</p><pre>
+          [{os_mon, [{start_os_sup, true}, {os_sup_own, "/etc"}, 
+          {os_sup_syslogconf, "/etc/syslog.conf"}, {os_sup_errortag, std_error}]}].</pre><h4>Related Documents</h4><p>See the <strong>os_mon(3)</strong> application,
+the <strong>application(3)</strong> manual page in Kernel,
+and the <strong>erl(1)</strong> manual page in ERTS.</p><h4>Installation Problems</h4><p>The hardware watchdog timer, which is controlled by the
+<strong>heart</strong> port program, requires package <strong>FORCEvme</strong>,
+which contains the VME bus driver, to be
+installed. However, this driver can clash with the Sun
+<strong>mcp</strong> driver and cause the system to refuse to
+boot. To cure this problem, the following lines are
+to be added to <strong>/etc/system</strong>:</p><ul><li><strong>exclude: drv/mcp</strong></li><li><strong>exclude: drv/mcpzsa</strong></li><li><strong>exclude: drv/mcpp</strong></li></ul><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>It is recommended to add these lines to avoid a clash.
+The clash can make it impossible to boot the system.</p></div><h4>Starting Erlang</h4><p>This section describes how an embedded system is started. Four
+programs are involved and they normally reside in the directory
+<strong>&lt;ERL_INSTALL_DIR&gt;/bin</strong>. The only exception is
+the <strong>start</strong> program, which can be located anywhere, and
+is also the only program that must be modified by the user.</p><p>In an embedded system, there is usually no interactive shell.
+However, an operator can attach to the Erlang
+system by command <strong>to_erl</strong>. The operator is then
+connected to the Erlang shell and can give ordinary Erlang
+commands. All interaction with the system through this shell is
+logged in a special directory.</p><p>Basically, the procedure is as follows:</p><ul><li>The <strong>start</strong> program is called when the machine is started.</li><li>It calls <strong>run_erl</strong>, which sets up things so the operator can attach to the system.</li><li>It calls <strong>start_erl</strong>, which calls the correct version of <strong>erlexec</strong> (which is located in <strong>&lt;ERL_INSTALL_DIR&gt;/erts-EVsn/bin</strong>) with the correct <strong>boot</strong> and <strong>config</strong> files.</li></ul><h4>Programs</h4><h4>start</h4><p>This program is called when the machine is started. It can
+be modified or rewritten to suit a special system. By
+default, it must be called <strong>start</strong> and reside in
+<strong>&lt;ERL_INSTALL_DIR&gt;/bin</strong>. Another start
+program can be used, by using configuration parameter
+<strong>start_prg</strong> in application SASL.</p><p>The start program must call <strong>run_erl</strong> as shown below.
+It must also take an optional parameter, which defaults to
+<strong>&lt;ERL_INSTALL_DIR&gt;/releases/start_erl.data</strong>.</p><p>This program is to set static parameters and environment
+variables such as <strong>-sname Name</strong> and <strong>HEART_COMMAND</strong>
+to reboot the machine.</p><p>The <strong>&lt;RELDIR&gt;</strong> directory is where new release
+packets are installed, and where the release handler keeps
+information about releases. For more information, see the
+<strong>release_handler(3)</strong> manual page in SASL.</p><p>The following script illustrates the default behaviour of the
+program:</p><pre><code class="">
+#!/bin/sh
+# Usage: start [DataFile]
+#
+ROOTDIR=/usr/local/otp
+
+if [ -z "$RELDIR" ]
+then
+   RELDIR=$ROOTDIR/releases
+fi
+
+START_ERL_DATA=${1:-$RELDIR/start_erl.data}
+
+$ROOTDIR/bin/run_erl /tmp/ $ROOTDIR/log "exec $ROOTDIR/bin/start_erl \ 
+                     $ROOTDIR $RELDIR $START_ERL_DATA" &gt; /dev/null 2&gt;&amp;1 &amp;</code></pre><p>The following script illustrates a modification where the node
+is given the name <strong>cp1</strong>, and where the environment variables
+<strong>HEART_COMMAND</strong> and <strong>TERM</strong> have been added to the
+previous script:</p><pre><code class="">
+#!/bin/sh
+# Usage: start [DataFile]
+#
+HEART_COMMAND=/usr/sbin/reboot
+TERM=sun
+export HEART_COMMAND TERM
+
+ROOTDIR=/usr/local/otp
+
+if [ -z "$RELDIR" ]
+then
+   RELDIR=$ROOTDIR/releases
+fi
+
+START_ERL_DATA=${1:-$RELDIR/start_erl.data}
+
+$ROOTDIR/bin/run_erl /tmp/ $ROOTDIR/log "exec $ROOTDIR/bin/start_erl \ 
+      $ROOTDIR $RELDIR $START_ERL_DATA -heart -sname cp1" &gt; /dev/null 2&gt;&amp;1 &amp;</code></pre><p>If a diskless and/or read-only client node is about to start,
+file <strong>start_erl.data</strong> is located in the client directory at
+the master node. Thus, the <strong>START_ERL_DATA</strong> line is to look
+like:</p><pre><code class="">
+CLIENTDIR=$ROOTDIR/clients/clientname
+START_ERL_DATA=${1:-$CLIENTDIR/bin/start_erl.data}</code></pre><h4>run_erl</h4><p>This program is used to start the emulator, but you will not
+be connected to the shell. <strong>to_erl</strong> is used to connect to
+the Erlang shell.</p><pre><code class="">
+Usage: run_erl pipe_dir/ log_dir "exec command [parameters ...]"</code></pre><p>Here:</p><ul><li><strong>pipe_dir/</strong> is to be <strong>/tmp/</strong> (<strong>to_erl</strong> uses this name by default).</li><li><strong>log_dir</strong> is where the log files are written.</li><li><strong>command [parameters]</strong> is executed.</li><li>Everything written to <strong>stdin</strong> and <strong>stdout</strong> is logged in <strong>log_dir</strong>.</li></ul><p>Log files are written in <strong>log_dir</strong>. Each log file
+has a name of the form <strong>erlang.log.N</strong>, where N is a
+generation number, ranging from 1 to 5. Each log file holds up
+to 100 kB text. As time goes by, the following log files are
+found in the log file directory:</p><pre><code class="">
+erlang.log.1
+erlang.log.1, erlang.log.2
+erlang.log.1, erlang.log.2, erlang.log.3
+erlang.log.1, erlang.log.2, erlang.log.3, erlang.log.4
+erlang.log.2, erlang.log.3, erlang.log.4, erlang.log.5
+erlang.log.3, erlang.log.4, erlang.log.5, erlang.log.1
+...</code></pre><p>The most recent log file is the rightmost in each row. That
+is, the most recent file is the one with the highest number, or
+if there are already four files, the one before the skip.</p><p>When a log file is opened (for appending or created), a time
+stamp is written to the file. If nothing has been written to
+the log files for 15 minutes, a record is inserted that says
+that we are still alive.</p><h4>to_erl</h4><p>This program is used to attach to a running Erlang runtime
+system, started with <strong>run_erl</strong>.</p><pre><code class="">
+Usage: to_erl [pipe_name | pipe_dir]</code></pre><p>Here <strong>pipe_name</strong> defaults to <strong>/tmp/erlang.pipe.N</strong>.</p><p>To disconnect from the shell without exiting the Erlang
+system, type <strong>Ctrl-D</strong>.</p><h4>start_erl</h4><p>This program starts the Erlang emulator with parameters
+<strong>-boot</strong> and <strong>-config</strong> set. It reads data about
+where these files are located from a file named
+<strong>start_erl.data</strong>, which is located in
+<strong>&lt;RELDIR&gt;</strong>.
+Each new release introduces a new data file. This file is
+automatically generated by the release handler in Erlang.</p><p>The following script illustrates the behaviour of the program:</p><pre><code class="">
+#!/bin/sh
+#
+# This program is called by run_erl. It starts
+# the Erlang emulator and sets -boot and -config parameters.
+# It should only be used at an embedded target system.
+#
+# Usage: start_erl RootDir RelDir DataFile [ErlFlags ...]
+#
+ROOTDIR=$1
+shift
+RELDIR=$1
+shift
+DataFile=$1
+shift
+
+ERTS_VSN=`awk '{print $1}' $DataFile`
+VSN=`awk '{print $2}' $DataFile`
+
+BINDIR=$ROOTDIR/erts-$ERTS_VSN/bin
+EMU=beam
+PROGNAME=`echo $0 | sed 's/.*\///'`
+export EMU
+export ROOTDIR
+export BINDIR
+export PROGNAME
+export RELDIR
+
+exec $BINDIR/erlexec -boot $RELDIR/$VSN/start -config $RELDIR/$VSN/sys $*</code></pre><p>If a diskless and/or read-only client node with the
+SASL configuration parameter <strong>static_emulator</strong> set
+to <strong>true</strong> is about to start, the <strong>-boot</strong> and
+<strong>-config</strong> flags must be changed.</p><p>As such a client cannot
+read a new <strong>start_erl.data</strong> file (the file cannot
+be changed dynamically). The boot and config files are
+always fetched from the same place (but with new contents if
+a new release has been installed).</p><p>The <strong>release_handler</strong>
+copies these files to the <strong>bin</strong> directory in the client
+directory at the master nodes whenever a new release is made
+permanent.</p><p>Assuming the same <strong>CLIENTDIR</strong> as above, the last line
+is to look like:</p><pre><code class="">
+exec $BINDIR/erlexec -boot $CLIENTDIR/bin/start \ 
+     -config $CLIENTDIR/bin/sys $*</code></pre><a name="windows nt"></a><p>This section describes the operating system-specific parts of OTP
+that relate to Windows NT.</p><p>A normal installation of Windows NT 4.0, with Service Pack 4 or
+later, is required for an embedded Windows NT running OTP.</p><h4>Memory Use</h4><p>RAM memory of 96 MB is recommended to run OTP on Windows NT.
+A system with less than 64 MB of RAM is not recommended.</p><h4>Disk Space Use</h4><p>A minimum Windows NT installation with networking needs 250 MB,
+and an extra 130 MB for the swap file.</p><h4>Installing an Embedded System</h4><p>Normal Windows NT installation is performed. No additional
+application programs are needed, such as Internet Explorer or
+web server. Networking with TCP/IP is required.</p><p>Service Pack 4 or later must be installed.</p><h4>Hardware Watchdog</h4><p>For Windows NT running on standard PCs with ISA and/or PCI bus,
+an extension card with a hardware watchdog can be installed.</p><p>For more information, see the <strong>heart(3)</strong> manual page in
+Kernel.</p><h4>Starting Erlang</h4><p>On an embedded system, the <strong>erlsrv</strong> module is to be used
+to install the Erlang process as a Windows system service.
+This service can start after Windows NT has booted.</p><p>For more information, see the <strong>erlsrv</strong> manual page
+in ERTS.</p></body></html>

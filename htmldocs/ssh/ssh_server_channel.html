@@ -1,0 +1,45 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>ssh_server_channel</h1><h1>ssh_server_channel</h1><p>-behaviour(ssh_server_channel). (Replaces ssh_daemon_channel)
+</p><p>SSH services (clients and servers) are implemented as channels
+that are multiplexed over an SSH connection and communicates over
+the <a href="http://www.ietf.org/rfc/rfc4254.txt"> SSH Connection Protocol</a>. This module provides a callback API
+that takes care of generic channel aspects for daemons, such as flow control
+and close messages. It lets the callback functions take care of
+the service (application) specific parts. This behavior also ensures
+that the channel process honors the principal of an OTP-process so
+that it can be part of a supervisor tree. This is a requirement of
+channel processes implementing a subsystem that will be added to
+the <strong>ssh</strong> applications supervisor tree.
+</p><h2>Callback Functions</h2><p>
+The following functions are to be exported from a
+<strong>ssh_server_channel</strong> callback module.
+</p><h1>Functions</h1><h2>Module:init(Args) -&gt; {ok, State} | {ok, State, timeout()} |
+      {stop, Reason}</h2><p>Makes necessary initializations and returns the initial channel state if the initializations succeed.</p><ul><li><span class="v">Args = term()</span></li><li><span class="d">Last argument to start_link/4.</span></li><li><span class="v">State = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Makes necessary initializations and returns the initial channel
+state if the initializations succeed.
+</p><p>The time-out values that can be returned
+have the same semantics as in a <a href="./gen_server">gen_server</a>.
+If the time-out occurs, <a href="#Module:handle_msg-2">handle_msg/2</a>
+is called as <strong>handle_msg(timeout, State)</strong>.
+</p><h2>Module:handle_msg(Msg, State) -&gt; {ok, State} |
+      {stop, ChannelId, State}</h2><p>Handles other messages than SSH connection protocol, call, or cast messages sent to the channel.</p><ul><li><span class="v">Msg = timeout | term()</span></li><li><span class="v">ChannelId = </span></li><li><span class="v">State = term() </span></li></ul><p>Handles other messages than SSH Connection Protocol, call, or
+cast messages sent to the channel. 
+</p><p>Possible Erlang 'EXIT' messages is to be handled by this
+function and all channels are to handle the following message.</p><dl><dt><strong>{ssh_channel_up, ssh:channel_id(), ssh:connection_ref()}</strong></dt><dd><p>This is the first message that the channel receives.
+This is especially useful if the
+server wants to send a message to the client without first
+receiving a message from it. If the message is not
+useful for your particular scenario, ignore it by
+immediately returning <strong>{ok, State}</strong>.
+</p></dd></dl><h2>Module:handle_ssh_msg(Msg, State) -&gt; {ok, State} | {stop,
+      ChannelId, State}</h2><p>Handles <strong>ssh</strong> connection protocol messages.</p><ul><li><span class="v">Msg = ssh_connection:event()</span></li><li><span class="v">ChannelId = </span></li><li><span class="v">State = term()</span></li></ul><p>Handles SSH Connection Protocol messages that may need
+service-specific attention. For details,
+see <a href="ssh_connection"> ssh_connection:event()</a>.
+</p><p>The following message is taken care of by the
+<strong>ssh_server_channel</strong> behavior.</p><dl><dt><strong>{closed, ssh:channel_id()}</strong></dt><dd><p>The channel behavior sends a close message to the
+other side, if such a message has not already been sent.
+Then it terminates the channel with reason <strong>normal</strong>.</p></dd></dl><h2>Module:terminate(Reason, State) -&gt; _</h2><p>Does cleaning up before channel process termination. </p><ul><li><span class="v">Reason = term()</span></li><li><span class="v">State = term()</span></li></ul><p>This function is called by a channel process when it is
+about to terminate. Before this function is called, <a href="./ssh_connection#close-2"> ssh_connection:close/2 </a> is called, if it has not been called earlier.
+This function does any necessary cleaning
+up. When it returns, the channel process terminates with
+reason <strong>Reason</strong>. The return value is ignored.
+</p></body></html>

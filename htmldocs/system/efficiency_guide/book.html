@@ -1,0 +1,1045 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Efficiency Guide</h1><h1>Efficiency Guide</h1><h4>Purpose</h4><p>"Premature optimization is the root of all evil"
+(D.E. Knuth)</p><p>Efficient code can be well-structured and clean, based
+on a sound overall architecture and sound algorithms.
+Efficient code can be highly implementation-code that bypasses
+documented interfaces and takes advantage of obscure quirks in
+the current implementation.</p><p>Ideally, your code only contains the first type of efficient
+code. If that turns out to be too slow, profile the application
+to find out where the performance bottlenecks are and optimize only the
+bottlenecks. Let other code stay as clean as possible.</p><p>This Efficiency Guide cannot really teach you how to write efficient
+code. It can give you a few pointers about what to avoid and what to use,
+and some understanding of how certain language features are implemented.
+This guide does not include general tips about optimization that
+works in any language, such as moving common calculations out of loops.</p><h4>Prerequisites</h4><p>It is assumed that you are familiar with the Erlang programming
+language and the OTP concepts.</p><a name="myths"></a><p>Some truths seem to live on well beyond their best-before date,
+perhaps because "information" spreads faster from person-to-person
+than a single release note that says, for example, that body-recursive
+calls have become faster.</p><p>This section tries to kill the old truths (or semi-truths) that have
+become myths.</p><h4>Myth: Tail-Recursive Functions are Much Faster
+    Than Recursive Functions</h4><p><a name="tail_recursive"></a>According to the myth,
+using a tail-recursive function that builds a list in reverse
+followed by a call to <strong>lists:reverse/1</strong> is faster than
+a body-recursive function that builds the list in correct order;
+the reason being that body-recursive functions use more memory than
+tail-recursive functions.</p><p>That was true to some extent before R12B. It was even more true
+before R7B. Today, not so much. A body-recursive function
+generally uses the same amount of memory as a tail-recursive
+function. It is generally not possible to predict whether the
+tail-recursive or the body-recursive version will be
+faster. Therefore, use the version that makes your code cleaner
+(hint: it is usually the body-recursive version).</p><p>For a more thorough discussion about tail and body recursion,
+see <a href="http://ferd.ca/erlang-s-tail-recursion-is-not-a-silver-bullet.html">Erlang's Tail Recursion is Not a Silver Bullet</a>.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>A tail-recursive function that does not need to reverse the
+list at the end is faster than a body-recursive function,
+as are tail-recursive functions that do not construct any terms at all
+(for example, a function that sums all integers in a list).</p></div><h4>Myth: Operator "++" is Always Bad</h4><p>The <strong>++</strong> operator has, somewhat undeservedly, got a bad reputation.
+It probably has something to do with code like the following,
+which is the most inefficient way there is to reverse a list:</p><p><em>DO NOT</em></p><pre><code class="erl">
+naive_reverse([H|T]) -&gt;
+    naive_reverse(T)++[H];
+naive_reverse([]) -&gt;
+    [].</code></pre><p>As the <strong>++</strong> operator copies its left operand, the result
+is copied repeatedly, leading to quadratic complexity.</p><p>But using <strong>++</strong> as follows is not bad:</p><p><em>OK</em></p><pre><code class="erl">
+naive_but_ok_reverse([H|T], Acc) -&gt;
+    naive_but_ok_reverse(T, [H]++Acc);
+naive_but_ok_reverse([], Acc) -&gt;
+    Acc.</code></pre><p>Each list element is copied only once.
+The growing result <strong>Acc</strong> is the right operand
+for the <strong>++</strong> operator, and it is <em>not</em> copied.</p><p>Experienced Erlang programmers would write as follows:</p><p><em>DO</em></p><pre><code class="erl">
+vanilla_reverse([H|T], Acc) -&gt;
+    vanilla_reverse(T, [H|Acc]);
+vanilla_reverse([], Acc) -&gt;
+    Acc.</code></pre><p>This is slightly more efficient because here you do not build a
+list element only to copy it directly. (Or it would be more efficient
+if the compiler did not automatically rewrite <strong>[H]++Acc</strong>
+to <strong>[H|Acc]</strong>.)</p><h4>Myth: Strings are Slow</h4><p>String handling can be slow if done improperly.
+In Erlang, you need to think a little more about how the strings
+are used and choose an appropriate representation. If you
+use regular expressions, use the
+<a href="./re">re</a> module in STDLIB
+instead of the obsolete <strong>regexp</strong> module.</p><h4>Myth: Repairing a Dets File is Very Slow</h4><p>The repair time is still proportional to the number of records
+in the file, but Dets repairs used to be much slower in the past.
+Dets has been massively rewritten and improved.</p><h4>Myth: BEAM is a Stack-Based Byte-Code Virtual Machine
+    (and Therefore Slow)</h4><p>BEAM is a register-based virtual machine. It has 1024 virtual registers
+that are used for holding temporary values and for passing arguments when
+calling functions. Variables that need to survive a function call are saved
+to the stack.</p><p>BEAM is a threaded-code interpreter. Each instruction is word pointing
+directly to executable C-code, making instruction dispatching very fast.</p><h4>Myth: Use "_" to Speed Up Your Program When a Variable
+    is Not Used</h4><p>That was once true, but from R6B the BEAM compiler can see
+that a variable is not used.</p><p>Similarly, trivial transformations on the source-code level
+such as converting a <strong>case</strong> statement to clauses at the
+top-level of the function seldom makes any difference to the
+generated code.</p><h4>Myth: A NIF Always Speeds Up Your Program</h4><p>Rewriting Erlang code to a NIF to make it faster should be
+seen as a last resort. It is only guaranteed to be dangerous,
+but not guaranteed to speed up the program.</p><p>Doing too much work in each NIF call will
+<a href="../erts/erl_nif#WARNING">degrade responsiveness of the VM</a>. Doing too little work may mean that
+the gain of the faster processing in the NIF is eaten up by
+the overhead of calling the NIF and checking the arguments.</p><p>Be sure to read about
+<a href="../erts/erl_nif#lengthy_work">Long-running NIFs</a>
+before writing a NIF.</p><p>This section lists a few modules and BIFs to watch out for, not only
+from a performance point of view.</p><h4>Timer Module</h4><p>Creating timers using <a href="../erts/erlang#send_after/3">erlang:send_after/3</a>
+and
+<a href="../erts/erlang#start_timer/3">erlang:start_timer/3</a>,
+is much more efficient than using the timers provided by the
+<a href="./timer">timer</a> module in STDLIB.
+The <strong>timer</strong> module uses a separate process to manage the timers.
+That process can easily become overloaded if many processes
+create and cancel timers frequently (especially when using the
+SMP emulator).</p><p>The functions in the <strong>timer</strong> module that do not manage timers
+(such as <strong>timer:tc/3</strong> or <strong>timer:sleep/1</strong>), do not call the
+timer-server process and are therefore harmless.</p><h4>list_to_atom/1</h4><p>Atoms are not garbage-collected. Once an atom is created, it is never
+removed. The emulator terminates if the limit for the number
+of atoms (1,048,576 by default) is reached.</p><p>Therefore, converting arbitrary input strings to atoms can be
+dangerous in a system that runs continuously.
+If only certain well-defined atoms are allowed as input,
+<a href="../erts/erlang#list_to_existing_atom/1">list_to_existing_atom/1</a>
+can be used to
+to guard against a denial-of-service attack. (All atoms that are allowed
+must have been created earlier, for example, by simply using all of them
+in a module and loading that module.)</p><p>Using <strong>list_to_atom/1</strong> to construct an atom that is passed to
+<strong>apply/3</strong> as follows, is quite expensive and not recommended
+in time-critical code:</p><pre><code class="erl">
+apply(list_to_atom("some_prefix"++Var), foo, Args)</code></pre><h4>length/1</h4><p>The time for calculating the length of a list is proportional to the
+length of the list, as opposed to <strong>tuple_size/1</strong>, <strong>byte_size/1</strong>,
+and <strong>bit_size/1</strong>, which all execute in constant time.</p><p>Normally, there is no need to worry about the speed of <strong>length/1</strong>,
+because it is efficiently implemented in C. In time-critical code,
+you might want to avoid it if the input list could potentially be very
+long.</p><p>Some uses of <strong>length/1</strong> can be replaced by matching.
+For example, the following code:</p><pre><code class="erl">
+foo(L) when length(L) &gt;= 3 -&gt;
+    ...</code></pre><p>can be rewritten to:</p><pre><code class="erl">
+foo([_,_,_|_]=L) -&gt;
+   ...</code></pre><p>One slight difference is that <strong>length(L)</strong> fails if <strong>L</strong>
+is an improper list, while the pattern in the second code fragment
+accepts an improper list.</p><h4>setelement/3</h4><p><a href="../erts/erlang#setelement/3">setelement/3</a>
+copies the tuple it modifies. Therefore, updating a tuple in a loop
+using <strong>setelement/3</strong> creates a new copy of the tuple every time.</p><p>There is one exception to the rule that the tuple is copied.
+If the compiler clearly can see that destructively updating the tuple would
+give the same result as if the tuple was copied, the call to
+<strong>setelement/3</strong> is replaced with a special destructive <strong>setelement</strong>
+instruction. In the following code sequence, the first <strong>setelement/3</strong>
+call copies the tuple and modifies the ninth element:</p><pre><code class="erl">
+multiple_setelement(T0) -&gt;
+    T1 = setelement(9, T0, bar),
+    T2 = setelement(7, T1, foobar),
+    setelement(5, T2, new_value).</code></pre><p>The two following <strong>setelement/3</strong> calls modify
+the tuple in place.</p><p>For the optimization to be applied, <em>all</em> the followings conditions
+must be true:</p><ul><li>The indices must be integer literals, not variables or expressions.</li><li>The indices must be given in descending order.</li><li>There must be no calls to another function in between the calls to <strong>setelement/3</strong>.</li><li>The tuple returned from one <strong>setelement/3</strong> call must only be used in the subsequent call to <strong>setelement/3</strong>.</li></ul><p>If the code cannot be structured as in the <strong>multiple_setelement/1</strong>
+example, the best way to modify multiple elements in a large tuple is to
+convert the tuple to a list, modify the list, and convert it back to
+a tuple.</p><h4>size/1</h4><p><strong>size/1</strong> returns the size for both tuples and binaries.</p><p>Using the BIFs <strong>tuple_size/1</strong> and <strong>byte_size/1</strong>
+gives the compiler and the runtime system more opportunities for
+optimization. Another advantage is that the BIFs give Dialyzer more
+type information.</p><h4>split_binary/2</h4><p>It is usually more efficient to split a binary using matching
+instead of calling the <strong>split_binary/2</strong> function.
+Furthermore, mixing bit syntax matching and <strong>split_binary/2</strong>
+can prevent some optimizations of bit syntax matching.</p><p><em>DO</em></p><pre><code class="">
+        &lt;&lt;Bin1:Num/binary,Bin2/binary&gt;&gt; = Bin,</code></pre><p><em>DO NOT</em></p><pre><code class="">
+        {Bin1,Bin2} = split_binary(Bin, Num)</code></pre><p>Binaries can be efficiently built in the following way:</p><p><em>DO</em></p><pre><code class="erl">
+my_list_to_binary(List) -&gt;
+    my_list_to_binary(List, &lt;&lt;&gt;&gt;).
+
+my_list_to_binary([H|T], Acc) -&gt;
+    my_list_to_binary(T, &lt;&lt;Acc/binary,H&gt;&gt;);
+my_list_to_binary([], Acc) -&gt;
+    Acc.</code></pre><p>Binaries can be efficiently matched like this:</p><p><em>DO</em></p><pre><code class="erl">
+my_binary_to_list(&lt;&lt;H,T/binary&gt;&gt;) -&gt;
+    [H|my_binary_to_list(T)];
+my_binary_to_list(&lt;&lt;&gt;&gt;) -&gt; [].</code></pre><h4>How Binaries are Implemented</h4><p>Internally, binaries and bitstrings are implemented in the same way.
+In this section, they are called <em>binaries</em> because that is what
+they are called in the emulator source code.</p><p>Four types of binary objects are available internally:</p><ul><li><p>Two are containers for binary data and are called:</p> <ul><li><em>Refc binaries</em> (short for <em>reference-counted binaries</em>)</li><li><em>Heap binaries</em></li></ul></li><li><p>Two are merely references to a part of a binary and
+are called:</p> <ul><li><em>sub binaries</em></li><li><em>match contexts</em></li></ul></li></ul><a name="refc_binary"></a><h4>Refc Binaries</h4><p>Refc binaries consist of two parts:</p><ul><li>An object stored on the process heap, called a <em>ProcBin</em></li><li>The binary object itself, stored outside all process heaps</li></ul><p>The binary object can be referenced by any number of ProcBins from any
+number of processes. The object contains a reference counter to keep track
+of the number of references, so that it can be removed when the last
+reference disappears.</p><p>All ProcBin objects in a process are part of a linked list, so that
+the garbage collector can keep track of them and decrement the reference
+counters in the binary when a ProcBin disappears.</p><a name="heap_binary"></a><h4>Heap Binaries</h4><p>Heap binaries are small binaries, up to 64 bytes, and are stored
+directly on the process heap. They are copied when the process is
+garbage-collected and when they are sent as a message. They do not
+require any special handling by the garbage collector.</p><h4>Sub Binaries</h4><p>The reference objects <em>sub binaries</em> and
+<em>match contexts</em> can reference part of
+a refc binary or heap binary.</p><p><a name="sub_binary"></a>A <em>sub binary</em>
+is created by <strong>split_binary/2</strong> and when
+a binary is matched out in a binary pattern. A sub binary is a reference
+into a part of another binary (refc or heap binary, but never into another
+sub binary). Therefore, matching out a binary is relatively cheap because
+the actual binary data is never copied.</p><h4>Match Context</h4><a name="match_context"></a><p>A <em>match context</em> is similar to a sub binary, but is
+optimized for binary matching. For example, it contains a direct
+pointer to the binary data. For each field that is matched out of
+a binary, the position in the match context is incremented.</p><p>The compiler tries to avoid generating code that
+creates a sub binary, only to shortly afterwards create a new match
+context and discard the sub binary. Instead of creating a sub binary,
+the match context is kept.</p><p>The compiler can only do this optimization if it knows
+that the match context will not be shared. If it would be shared, the
+functional properties (also called referential transparency) of Erlang
+would break.</p><h4>Constructing Binaries</h4><p>Appending to a binary or bitstring
+is specially optimized by the <em>runtime system</em>:</p><pre><code class="erl">
+&lt;&lt;Binary/binary, ...&gt;&gt;
+&lt;&lt;Binary/bitstring, ...&gt;&gt;</code></pre><p>As the runtime system handles the optimization (instead of
+the compiler), there are very few circumstances in which the optimization
+does not work.</p><p>To explain how it works, let us examine the following code line
+by line:</p><pre><code class="erl">
+Bin0 = &lt;&lt;0&gt;&gt;,                    %% 1
+Bin1 = &lt;&lt;Bin0/binary,1,2,3&gt;&gt;,    %% 2
+Bin2 = &lt;&lt;Bin1/binary,4,5,6&gt;&gt;,    %% 3
+Bin3 = &lt;&lt;Bin2/binary,7,8,9&gt;&gt;,    %% 4
+Bin4 = &lt;&lt;Bin1/binary,17&gt;&gt;,       %% 5 !!!
+{Bin4,Bin3}                      %% 6</code></pre><ul><li>Line 1 (marked with the <strong>%% 1</strong> comment), assigns a <a href="#heap_binary">heap binary</a> to the <strong>Bin0</strong> variable.</li><li>Line 2 is an append operation. As <strong>Bin0</strong> has not been involved in an append operation, a new <a href="#refc_binary">refc binary</a> is created and the contents of <strong>Bin0</strong> is copied into it. The <em>ProcBin</em> part of the refc binary has its size set to the size of the data stored in the binary, while the binary object has extra space allocated. The size of the binary object is either twice the size of <strong>Bin1</strong> or 256, whichever is larger. In this case it is 256.</li><li>Line 3 is more interesting. <strong>Bin1</strong> <em>has</em> been used in an append operation, and it has 252 bytes of unused storage at the end, so the 3 new bytes are stored there.</li><li>Line 4. The same applies here. There are 249 bytes left, so there is no problem storing another 3 bytes.</li><li>Line 5. Here, something <em>interesting</em> happens. Notice that the result is not appended to the previous result in <strong>Bin3</strong>, but to <strong>Bin1</strong>. It is expected that <strong>Bin4</strong> will be assigned the value <strong>&lt;&lt;0,1,2,3,17&gt;&gt;</strong>. It is also expected that <strong>Bin3</strong> will retain its value (<strong>&lt;&lt;0,1,2,3,4,5,6,7,8,9&gt;&gt;</strong>). Clearly, the runtime system cannot write byte <strong>17</strong> into the binary, because that would change the value of <strong>Bin3</strong> to <strong>&lt;&lt;0,1,2,3,4,17,6,7,8,9&gt;&gt;</strong>.</li></ul><p>The runtime system sees that <strong>Bin1</strong> is the result
+from a previous append operation (not from the latest append operation),
+so it <em>copies</em> the contents of <strong>Bin1</strong> to a new binary,
+reserve extra storage, and so on. (Here is not explained how the
+runtime system can know that it is not allowed to write into <strong>Bin1</strong>;
+it is left as an exercise to the curious reader to figure out how it is
+done by reading the emulator sources, primarily <strong>erl_bits.c</strong>.)</p><h4>Circumstances That Force Copying</h4><p>The optimization of the binary append operation requires that
+there is a <em>single</em> ProcBin and a <em>single reference</em> to the
+ProcBin for the binary. The reason is that the binary object can be
+moved (reallocated) during an append operation, and when that happens,
+the pointer in the ProcBin must be updated. If there would be more than
+one ProcBin pointing to the binary object, it would not be possible to
+find and update all of them.</p><p>Therefore, certain operations on a binary mark it so that
+any future append operation will be forced to copy the binary.
+In most cases, the binary object will be shrunk at the same time 
+to reclaim the extra space allocated for growing.</p><p>When appending to a binary as follows, only the binary returned
+from the latest append operation will support further cheap append
+operations:</p><pre><code class="erl">
+Bin = &lt;&lt;Bin0,...&gt;&gt;</code></pre><p>In the code fragment in the beginning of this section,
+appending to <strong>Bin</strong> will be cheap, while appending to <strong>Bin0</strong>
+will force the creation of a new binary and copying of the contents
+of <strong>Bin0</strong>.</p><p>If a binary is sent as a message to a process or port, the binary
+will be shrunk and any further append operation will copy the binary
+data into a new binary. For example, in the following code fragment
+<strong>Bin1</strong> will be copied in the third line:</p><pre><code class="erl">
+Bin1 = &lt;&lt;Bin0,...&gt;&gt;,
+PortOrPid ! Bin1,
+Bin = &lt;&lt;Bin1,...&gt;&gt;  %% Bin1 will be COPIED
+</code></pre><p>The same happens if you insert a binary into an Ets
+table, send it to a port using <strong>erlang:port_command/2</strong>, or
+pass it to
+<a href="../erts/erl_nif#enif_inspect_binary">enif_inspect_binary</a>
+in a NIF.</p><p>Matching a binary will also cause it to shrink and the next append
+operation will copy the binary data:</p><pre><code class="erl">
+Bin1 = &lt;&lt;Bin0,...&gt;&gt;,
+&lt;&lt;X,Y,Z,T/binary&gt;&gt; = Bin1,
+Bin = &lt;&lt;Bin1,...&gt;&gt;  %% Bin1 will be COPIED
+</code></pre><p>The reason is that a
+<a href="#match_context">match context</a>
+contains a direct pointer to the binary data.</p><p>If a process simply keeps binaries (either in "loop data" or in the
+process
+dictionary), the garbage collector can eventually shrink the binaries.
+If only one such binary is kept, it will not be shrunk. If the process
+later appends to a binary that has been shrunk, the binary object will
+be reallocated to make place for the data to be appended.</p><h4>Matching Binaries</h4><p>Let us revisit the example in the beginning of the previous section:</p><p><em>DO</em></p><pre><code class="erl">
+my_binary_to_list(&lt;&lt;H,T/binary&gt;&gt;) -&gt;
+    [H|my_binary_to_list(T)];
+my_binary_to_list(&lt;&lt;&gt;&gt;) -&gt; [].</code></pre><p>The first time <strong>my_binary_to_list/1</strong> is called,
+a <a href="#match_context">match context</a>
+is created. The match context points to the first
+byte of the binary. 1 byte is matched out and the match context
+is updated to point to the second byte in the binary.</p><p>At this point it would make sense to create a
+<a href="#sub_binary">sub binary</a>,
+but in this particular example the compiler sees that
+there will soon be a call to a function (in this case,
+to <strong>my_binary_to_list/1</strong> itself) that immediately will
+create a new match context and discard the sub binary.</p><p>Therefore <strong>my_binary_to_list/1</strong> calls itself
+with the match context instead of with a sub binary. The instruction
+that initializes the matching operation basically does nothing
+when it sees that it was passed a match context instead of a binary.</p><p>When the end of the binary is reached and the second clause matches,
+the match context will simply be discarded (removed in the next
+garbage collection, as there is no longer any reference to it).</p><p>To summarize, <strong>my_binary_to_list/1</strong> only needs to create
+<em>one</em> match context and no sub binaries.</p><p>Notice that the match context in <strong>my_binary_to_list/1</strong>
+was discarded when the entire binary had been traversed. What happens if
+the iteration stops before it has reached the end of the binary? Will
+the optimization still work?</p><pre><code class="erl">
+after_zero(&lt;&lt;0,T/binary&gt;&gt;) -&gt;
+    T;
+after_zero(&lt;&lt;_,T/binary&gt;&gt;) -&gt;
+    after_zero(T);
+after_zero(&lt;&lt;&gt;&gt;) -&gt;
+    &lt;&lt;&gt;&gt;.
+  </code></pre><p>Yes, it will. The compiler will remove the building of the sub binary in
+the second clause:</p><pre><code class="erl">
+...
+after_zero(&lt;&lt;_,T/binary&gt;&gt;) -&gt;
+    after_zero(T);
+...</code></pre><p>But it will generate code that builds a sub binary in the first clause:</p><pre><code class="erl">
+after_zero(&lt;&lt;0,T/binary&gt;&gt;) -&gt;
+    T;
+...</code></pre><p>Therefore, <strong>after_zero/1</strong> builds one match context and one sub binary
+(assuming it is passed a binary that contains a zero byte).</p><p>Code like the following will also be optimized:</p><pre><code class="erl">
+all_but_zeroes_to_list(Buffer, Acc, 0) -&gt;
+    {lists:reverse(Acc),Buffer};
+all_but_zeroes_to_list(&lt;&lt;0,T/binary&gt;&gt;, Acc, Remaining) -&gt;
+    all_but_zeroes_to_list(T, Acc, Remaining-1);
+all_but_zeroes_to_list(&lt;&lt;Byte,T/binary&gt;&gt;, Acc, Remaining) -&gt;
+    all_but_zeroes_to_list(T, [Byte|Acc], Remaining-1).</code></pre><p>The compiler removes building of sub binaries in the second and third
+clauses, and it adds an instruction to the first clause that converts
+<strong>Buffer</strong> from a match context to a sub binary (or do nothing if
+<strong>Buffer</strong> is a binary already).</p><p>But in more complicated code, how can one know whether the
+optimization is applied or not?</p><a name="bin_opt_info"></a><h4>Option bin_opt_info</h4><p>Use the <strong>bin_opt_info</strong> option to have the compiler print a lot of 
+information about binary optimizations. It can be given either to the
+compiler or <strong>erlc</strong>:</p><pre><code class="erl">
+erlc +bin_opt_info Mod.erl</code></pre><p>or passed through an environment variable:</p><pre><code class="erl">
+export ERL_COMPILER_OPTIONS=bin_opt_info</code></pre><p>Notice that the <strong>bin_opt_info</strong> is not meant to be a permanent
+option added to your <strong>Makefile</strong>s, because all messages that it
+generates cannot be eliminated. Therefore, passing the option through
+the environment is in most cases the most practical approach.</p><p>The warnings look as follows:</p><pre><code class="erl">
+./efficiency_guide.erl:60: Warning: NOT OPTIMIZED: binary is returned from the function
+./efficiency_guide.erl:62: Warning: OPTIMIZED: match context reused</code></pre><p>To make it clearer exactly what code the warnings refer to, the
+warnings in the following examples are inserted as comments
+after the clause they refer to, for example:</p><pre><code class="erl">
+after_zero(&lt;&lt;0,T/binary&gt;&gt;) -&gt;
+         %% BINARY CREATED: binary is returned from the function
+    T;
+after_zero(&lt;&lt;_,T/binary&gt;&gt;) -&gt;
+         %% OPTIMIZED: match context reused
+    after_zero(T);
+after_zero(&lt;&lt;&gt;&gt;) -&gt;
+    &lt;&lt;&gt;&gt;.</code></pre><p>The warning for the first clause says that the creation of a sub
+binary cannot be delayed, because it will be returned.
+The warning for the second clause says that a sub binary will not be
+created (yet).</p><h4>Unused Variables</h4><p>The compiler figures out if a variable is unused. The same
+code is generated for each of the following functions:</p><pre><code class="erl">
+count1(&lt;&lt;_,T/binary&gt;&gt;, Count) -&gt; count1(T, Count+1);
+count1(&lt;&lt;&gt;&gt;, Count) -&gt; Count.
+
+count2(&lt;&lt;H,T/binary&gt;&gt;, Count) -&gt; count2(T, Count+1);
+count2(&lt;&lt;&gt;&gt;, Count) -&gt; Count.
+
+count3(&lt;&lt;_H,T/binary&gt;&gt;, Count) -&gt; count3(T, Count+1);
+count3(&lt;&lt;&gt;&gt;, Count) -&gt; Count.</code></pre><p>In each iteration, the first 8 bits in the binary will be skipped,
+not matched out.</p><h4>Historical Note</h4><p>Binary handling was significantly improved in R12B. Because
+code that was efficient in R11B might not be efficient in R12B,
+and vice versa, earlier revisions of this Efficiency Guide contained
+some information about binary handling in R11B.</p><h4>Creating a List</h4><p>Lists can only be built starting from the end and attaching list
+elements at the beginning. If you use the "<strong>++</strong>" operator as
+follows, a new list is created that is a copy of the elements in
+<strong>List1</strong>, followed by <strong>List2</strong>:</p><pre><code class="erl">
+List1 ++ List2</code></pre><p>Looking at how <strong>lists:append/1</strong> or <strong>++</strong> would be
+implemented in plain Erlang, clearly the first list is copied:</p><pre><code class="erl">
+append([H|T], Tail) -&gt;
+    [H|append(T, Tail)];
+append([], Tail) -&gt;
+    Tail.</code></pre><p>When recursing and building a list, it is important to ensure
+that you attach the new elements to the beginning of the list. In
+this way, you will build <em>one</em> list, not hundreds or thousands
+of copies of the growing result list.</p><p>Let us first see how it is not to be done:</p><p><em>DO NOT</em></p><pre><code class="erl">
+bad_fib(N) -&gt;
+    bad_fib(N, 0, 1, []).
+
+bad_fib(0, _Current, _Next, Fibs) -&gt;
+    Fibs;
+bad_fib(N, Current, Next, Fibs) -&gt; 
+    bad_fib(N - 1, Next, Current + Next, Fibs ++ [Current]).</code></pre><p>Here more than one list is built. In each iteration step a new list
+is created that is one element longer than the new previous list.</p><p>To avoid copying the result in each iteration, build the list in
+reverse order and reverse the list when you are done:</p><p><em>DO</em></p><pre><code class="erl">
+tail_recursive_fib(N) -&gt;
+    tail_recursive_fib(N, 0, 1, []).
+
+tail_recursive_fib(0, _Current, _Next, Fibs) -&gt;
+    lists:reverse(Fibs);
+tail_recursive_fib(N, Current, Next, Fibs) -&gt; 
+    tail_recursive_fib(N - 1, Next, Current + Next, [Current|Fibs]).</code></pre><h4>List Comprehensions</h4><p>Lists comprehensions still have a reputation for being slow.
+They used to be implemented using funs, which used to be slow.</p><p>A list comprehension:</p><pre><code class="erl">
+[Expr(E) || E &lt;- List]</code></pre><p>is basically translated to a local function:</p><pre><code class="erl">
+'lc^0'([E|Tail], Expr) -&gt;
+    [Expr(E)|'lc^0'(Tail, Expr)];
+'lc^0'([], _Expr) -&gt; [].</code></pre><p>If the result of the list comprehension will <em>obviously</em>
+not be used, a list will not be constructed. For example, in this code:</p><pre><code class="erl">
+[io:put_chars(E) || E &lt;- List],
+ok.</code></pre><p>or in this code:</p><pre><code class="erl">
+...
+case Var of
+    ... -&gt;
+        [io:put_chars(E) || E &lt;- List];
+    ... -&gt;
+end,
+some_function(...),
+...</code></pre><p>the value is not assigned to a variable, not passed to another function,
+and not returned. This means that there is no need to construct a list and
+the compiler will simplify the code for the list comprehension to:</p><pre><code class="erl">
+'lc^0'([E|Tail], Expr) -&gt;
+    Expr(E),
+    'lc^0'(Tail, Expr);
+'lc^0'([], _Expr) -&gt; [].</code></pre><p>The compiler also understands that assigning to '_' means that
+the value will not used. Therefore, the code in the following example
+will also be optimized:</p><pre><code class="erl">
+_ = [io:put_chars(E) || E &lt;- List],
+ok.</code></pre><h4>Deep and Flat Lists</h4><p><a href="../stdlib/lists#flatten/1">lists:flatten/1</a>
+builds an entirely new list. It is therefore expensive, and even
+<em>more</em> expensive than the <strong>++</strong> operator (which copies its
+left argument, but not its right argument).</p><p>In the following situations, you can easily avoid calling
+<strong>lists:flatten/1</strong>:</p><ul><li>When sending data to a port. Ports understand deep lists so there is no reason to flatten the list before sending it to the port.</li><li>When calling BIFs that accept deep lists, such as <a href="../erts/erlang#list_to_binary/1">list_to_binary/1</a> or <a href="../erts/erlang#iolist_to_binary/1">iolist_to_binary/1</a>.</li><li>When you know that your list is only one level deep, you can use <a href="../stdlib/lists#append/1">lists:append/1</a>.</li></ul><h4>Port Example</h4><p><em>DO</em></p><pre>
+      ...
+      port_command(Port, DeepList)
+      ...</pre><p><em>DO NOT</em></p><pre>
+      ...
+      port_command(Port, lists:flatten(DeepList))
+      ...</pre><p>A common way to send a zero-terminated string to a port is the following:</p><p><em>DO NOT</em></p><pre>
+      ...
+      TerminatedStr = String ++ [0], % String="foo" =&gt; [$f, $o, $o, 0]
+      port_command(Port, TerminatedStr)
+      ...</pre><p>Instead:</p><p><em>DO</em></p><pre>
+      ...
+      TerminatedStr = [String, 0], % String="foo" =&gt; [[$f, $o, $o], 0]
+      port_command(Port, TerminatedStr) 
+      ...</pre><h4>Append Example</h4><p><em>DO</em></p><pre>
+      &gt; lists:append([[1], [2], [3]]).
+      [1,2,3]
+      &gt;</pre><p><em>DO NOT</em></p><pre>
+      &gt; lists:flatten([[1], [2], [3]]).
+      [1,2,3]
+      &gt;</pre><h4>Recursive List Functions</h4><p>In section about myths, the following myth was exposed:
+<a href="./myths#tail_recursive">Tail-Recursive Functions are Much Faster Than Recursive Functions</a>.</p><p>There is usually not much difference between
+a body-recursive list function and tail-recursive function that reverses
+the list at the end. Therefore, concentrate on writing beautiful code
+and forget about the performance of your list functions. In the
+time-critical parts of your code (and only there), <em>measure</em>
+before rewriting your code.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This section is about list functions that <em>construct</em>
+lists. A tail-recursive function that does not construct a list runs
+in constant space, while the corresponding body-recursive function
+uses stack space proportional to the length of the list.</p></div><p>For example, a function that sums a list of integers, is
+<em>not</em> to be written as follows:</p><p><em>DO NOT</em></p><pre><code class="erl">
+recursive_sum([H|T]) -&gt; H+recursive_sum(T);
+recursive_sum([])    -&gt; 0.</code></pre><p>Instead:</p><p><em>DO</em></p><pre><code class="erl">
+sum(L) -&gt; sum(L, 0).
+
+sum([H|T], Sum) -&gt; sum(T, Sum + H);
+sum([], Sum)    -&gt; Sum.</code></pre><h4>Pattern Matching</h4><p>Pattern matching in function head as well as in <strong>case</strong> and
+<strong>receive</strong> clauses are optimized by the compiler. With a few
+exceptions, there is nothing to gain by rearranging clauses.</p><p>One exception is pattern matching of binaries. The compiler
+does not rearrange clauses that match binaries. Placing the
+clause that matches against the empty binary <em>last</em> is usually
+slightly faster than placing it <em>first</em>.</p><p>The following is a rather unnatural example to show another
+exception:</p><p><em>DO NOT</em></p><pre><code class="erl">
+atom_map1(one) -&gt; 1;
+atom_map1(two) -&gt; 2;
+atom_map1(three) -&gt; 3;
+atom_map1(Int) when is_integer(Int) -&gt; Int;
+atom_map1(four) -&gt; 4;
+atom_map1(five) -&gt; 5;
+atom_map1(six) -&gt; 6.</code></pre><p>The problem is the clause with the variable <strong>Int</strong>.
+As a variable can match anything, including the atoms
+<strong>four</strong>, <strong>five</strong>, and <strong>six</strong>, which the following clauses
+also match, the compiler must generate suboptimal code that
+executes as follows:</p><ul><li>First, the input value is compared to <strong>one</strong>, <strong>two</strong>, and <strong>three</strong> (using a single instruction that does a binary search; thus, quite efficient even if there are many values) to select which one of the first three clauses to execute (if any).</li><li>If none of the first three clauses match, the fourth clause match as a variable always matches.</li><li>If the guard test <strong>is_integer(Int)</strong> succeeds, the fourth clause is executed.</li><li>If the guard test fails, the input value is compared to <strong>four</strong>, <strong>five</strong>, and <strong>six</strong>, and the appropriate clause is selected. (There is a <strong>function_clause</strong> exception if none of the values matched.)</li></ul><p>Rewriting to either:</p><p><em>DO</em></p><pre><code class="erl">
+atom_map2(one) -&gt; 1;
+atom_map2(two) -&gt; 2;
+atom_map2(three) -&gt; 3;
+atom_map2(four) -&gt; 4;
+atom_map2(five) -&gt; 5;
+atom_map2(six) -&gt; 6;
+atom_map2(Int) when is_integer(Int) -&gt; Int.</code></pre><p>or:</p><p><em>DO</em></p><pre><code class="erl">
+atom_map3(Int) when is_integer(Int) -&gt; Int;
+atom_map3(one) -&gt; 1;
+atom_map3(two) -&gt; 2;
+atom_map3(three) -&gt; 3;
+atom_map3(four) -&gt; 4;
+atom_map3(five) -&gt; 5;
+atom_map3(six) -&gt; 6.</code></pre><p>gives slightly more efficient matching code.</p><p>Another example:</p><p><em>DO NOT</em></p><pre><code class="erl">
+map_pairs1(_Map, [], Ys) -&gt;
+    Ys;
+map_pairs1(_Map, Xs, [] ) -&gt;
+    Xs;
+map_pairs1(Map, [X|Xs], [Y|Ys]) -&gt;
+    [Map(X, Y)|map_pairs1(Map, Xs, Ys)].</code></pre><p>The first argument is <em>not</em> a problem. It is variable, but it
+is a variable in all clauses. The problem is the variable in the second
+argument, <strong>Xs</strong>, in the middle clause. Because the variable can
+match anything, the compiler is not allowed to rearrange the clauses,
+but must generate code that matches them in the order written.</p><p>If the function is rewritten as follows, the compiler is free to
+rearrange the clauses:</p><p><em>DO</em></p><pre><code class="erl">
+map_pairs2(_Map, [], Ys) -&gt;
+    Ys;
+map_pairs2(_Map, [_|_]=Xs, [] ) -&gt;
+    Xs;
+map_pairs2(Map, [X|Xs], [Y|Ys]) -&gt;
+    [Map(X, Y)|map_pairs2(Map, Xs, Ys)].</code></pre><p>The compiler will generate code similar to this:</p><p><em>DO NOT (already done by the compiler)</em></p><pre><code class="erl">
+explicit_map_pairs(Map, Xs0, Ys0) -&gt;
+    case Xs0 of
+	[X|Xs] -&gt;
+	    case Ys0 of
+		[Y|Ys] -&gt;
+		    [Map(X, Y)|explicit_map_pairs(Map, Xs, Ys)];
+		[] -&gt;
+		    Xs0
+	    end;
+	[] -&gt;
+	    Ys0
+    end.</code></pre><p>This is slightly faster for probably the most common case
+that the input lists are not empty or very short.
+(Another advantage is that Dialyzer can deduce a better type
+for the <strong>Xs</strong> variable.)</p><h4>Function Calls</h4><p>This is an intentionally rough guide to the relative costs of
+different calls. It is based on benchmark figures run on
+Solaris/Sparc:</p><ul><li>Calls to local or external functions (<strong>foo()</strong>, <strong>m:foo()</strong>) are the fastest calls.</li><li>Calling or applying a fun (<strong>Fun()</strong>, <strong>apply(Fun, [])</strong>) is about <em>three times</em> as expensive as calling a local function.</li><li>Applying an exported function (<strong>Mod:Name()</strong>, <strong>apply(Mod, Name, [])</strong>) is about twice as expensive as calling a fun or about <em>six times</em> as expensive as calling a local function.</li></ul><h4>Notes and Implementation Details</h4><p>Calling and applying a fun does not involve any hash-table lookup.
+A fun contains an (indirect) pointer to the function that implements
+the fun.</p><p><strong>apply/3</strong> must look up the code for the function to execute
+in a hash table. It is therefore always slower than a
+direct call or a fun call.</p><p>It no longer matters (from a performance point of view)
+whether you write:</p><pre><code class="erl">
+Module:Function(Arg1, Arg2)</code></pre><p>or:</p><pre><code class="erl">
+apply(Module, Function, [Arg1,Arg2])</code></pre><p>The compiler internally rewrites the latter code into the
+former.</p><p>The following code is slightly slower because the shape of the
+list of arguments is unknown at compile time.</p><pre><code class="erl">
+apply(Module, Function, Arguments)</code></pre><h4>Memory Usage in Recursion</h4><p>When writing recursive functions, it is preferable to make them
+tail-recursive so that they can execute in constant memory space:</p><p><em>DO</em></p><pre><code class="">
+list_length(List) -&gt;
+    list_length(List, 0).
+
+list_length([], AccLen) -&gt; 
+    AccLen; % Base case
+
+list_length([_|Tail], AccLen) -&gt;
+    list_length(Tail, AccLen + 1). % Tail-recursive</code></pre><p><em>DO NOT</em></p><pre><code class="">
+list_length([]) -&gt;
+    0. % Base case
+list_length([_ | Tail]) -&gt;
+    list_length(Tail) + 1. % Not tail-recursive</code></pre><h4>Ets, Dets, and Mnesia</h4><p>Every example using Ets has a corresponding example in
+Mnesia. In general, all Ets examples also apply to Dets tables.</p><h4>Select/Match Operations</h4><p>Select/match operations on Ets and Mnesia tables can become
+very expensive operations. They usually need to scan the complete
+table. Try to structure the data to minimize the need for select/match
+operations. However, if you require a select/match operation,
+it is still more efficient than using <strong>tab2list</strong>.
+Examples of this and of how to avoid select/match are provided in
+the following sections. The functions
+<strong>ets:select/2</strong> and <strong>mnesia:select/3</strong> are to be preferred
+over <strong>ets:match/2</strong>, <strong>ets:match_object/2</strong>, and
+<strong>mnesia:match_object/3</strong>.</p><p>In some circumstances, the select/match operations do not need
+to scan the complete table.
+For example, if part of the key is bound when searching an
+<strong>ordered_set</strong> table, or if it is a Mnesia
+table and there is a secondary index on the field that is
+selected/matched. If the key is fully bound, there is
+no point in doing a select/match, unless you have a bag table
+and are only interested in a subset of the elements with
+the specific key.</p><p>When creating a record to be used in a select/match operation, you
+want most of the fields to have the value "_". The easiest and
+fastest way to do that is as follows:</p><pre>
+#person{age = 42, _ = '_'}. </pre><h4>Deleting an Element</h4><p>The <strong>delete</strong> operation is considered
+successful if the element was not present in the table. Hence
+all attempts to check that the element is present in the
+Ets/Mnesia table before deletion are unnecessary. Here follows
+an example for Ets tables:</p><p><em>DO</em></p><pre>
+...
+ets:delete(Tab, Key),
+...</pre><p><em>DO NOT</em></p><pre>
+...
+case ets:lookup(Tab, Key) of
+    [] -&gt;
+        ok;
+    [_|_] -&gt;
+        ets:delete(Tab, Key)
+end,
+...</pre><h4>Fetching Data</h4><p>Do not fetch data that you already have.</p><p>Consider that you have a module that handles the abstract data
+type <strong>Person</strong>. You export the interface function
+<strong>print_person/1</strong>, which uses the internal functions
+<strong>print_name/1</strong>, <strong>print_age/1</strong>, and
+<strong>print_occupation/1</strong>.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>If the function <strong>print_name/1</strong>, and so on, had been interface
+functions, the situation would have been different, as you
+do not want the user of the interface to know about the
+internal data representation. </p></div><p><em>DO</em></p><pre><code class="erl">
+%%% Interface function
+print_person(PersonId) -&gt;
+    %% Look up the person in the named table person,
+    case ets:lookup(person, PersonId) of
+        [Person] -&gt;
+            print_name(Person),
+            print_age(Person),
+            print_occupation(Person);
+        [] -&gt;
+            io:format("No person with ID = ~p~n", [PersonID])
+    end.
+
+%%% Internal functions
+print_name(Person) -&gt; 
+    io:format("No person ~p~n", [Person#person.name]).
+                      
+print_age(Person) -&gt; 
+    io:format("No person ~p~n", [Person#person.age]).
+
+print_occupation(Person) -&gt; 
+    io:format("No person ~p~n", [Person#person.occupation]).</code></pre><p><em>DO NOT</em></p><pre><code class="erl">
+%%% Interface function
+print_person(PersonId) -&gt;
+    %% Look up the person in the named table person,
+    case ets:lookup(person, PersonId) of
+        [Person] -&gt;
+            print_name(PersonID),
+            print_age(PersonID),
+            print_occupation(PersonID);
+        [] -&gt;
+            io:format("No person with ID = ~p~n", [PersonID])
+    end.
+
+%%% Internal functionss
+print_name(PersonID) -&gt; 
+    [Person] = ets:lookup(person, PersonId),
+    io:format("No person ~p~n", [Person#person.name]).
+
+print_age(PersonID) -&gt; 
+    [Person] = ets:lookup(person, PersonId),
+    io:format("No person ~p~n", [Person#person.age]).
+
+print_occupation(PersonID) -&gt; 
+    [Person] = ets:lookup(person, PersonId),
+    io:format("No person ~p~n", [Person#person.occupation]).</code></pre><h4>Non-Persistent Database Storage</h4><p>For non-persistent database storage, prefer Ets tables over
+Mnesia <strong>local_content</strong> tables. Even the Mnesia <strong>dirty_write</strong>
+operations carry a fixed overhead compared to Ets writes.
+Mnesia must check if the table is replicated or has indices,
+this involves at least one Ets lookup for each
+<strong>dirty_write</strong>. Thus, Ets writes is always faster than
+Mnesia writes.</p><h4>tab2list</h4><p>Assuming an Ets table that uses <strong>idno</strong> as key
+and contains the following:</p><pre>
+[#person{idno = 1, name = "Adam",  age = 31, occupation = "mailman"},
+ #person{idno = 2, name = "Bryan", age = 31, occupation = "cashier"},
+ #person{idno = 3, name = "Bryan", age = 35, occupation = "banker"},
+ #person{idno = 4, name = "Carl",  age = 25, occupation = "mailman"}]</pre><p>If you <em>must</em> return all data stored in the Ets table, you
+can use <strong>ets:tab2list/1</strong>.  However, usually you are only
+interested in a subset of the information in which case
+<strong>ets:tab2list/1</strong> is expensive. If you only want to extract
+one field from each record, for example, the age of every person,
+then:</p><p><em>DO</em></p><pre>
+...
+ets:select(Tab,[{ #person{idno='_', 
+                          name='_', 
+                          age='$1', 
+                          occupation = '_'},
+                [],
+                ['$1']}]),
+...</pre><p><em>DO NOT</em></p><pre>
+...
+TabList = ets:tab2list(Tab),
+lists:map(fun(X) -&gt; X#person.age end, TabList),
+...</pre><p>If you are only interested in the age of all persons named
+"Bryan", then:</p><p><em>DO</em></p><pre>
+...
+ets:select(Tab,[{ #person{idno='_', 
+                          name="Bryan", 
+                          age='$1', 
+                          occupation = '_'},
+                [],
+                ['$1']}]),
+...</pre><p><em>DO NOT</em></p><pre>
+...
+TabList = ets:tab2list(Tab),
+lists:foldl(fun(X, Acc) -&gt; case X#person.name of
+                                "Bryan" -&gt;
+                                    [X#person.age|Acc];
+                                 _ -&gt;
+                                     Acc
+                           end
+             end, [], TabList),
+...</pre><p><em>REALLY DO NOT</em></p><pre>
+...
+TabList = ets:tab2list(Tab),
+BryanList = lists:filter(fun(X) -&gt; X#person.name == "Bryan" end,
+                         TabList),
+lists:map(fun(X) -&gt; X#person.age end, BryanList),
+...</pre><p>If you need all information stored in the Ets table about
+persons named "Bryan", then:</p><p><em>DO</em></p><pre>
+...
+ets:select(Tab, [{#person{idno='_', 
+                          name="Bryan", 
+                          age='_', 
+                          occupation = '_'}, [], ['$_']}]),
+...</pre><p><em>DO NOT</em></p><pre>
+...
+TabList = ets:tab2list(Tab),
+lists:filter(fun(X) -&gt; X#person.name == "Bryan" end, TabList),
+...</pre><h4>Ordered_set Tables</h4><p>If the data in the table is to be accessed so that the order
+of the keys in the table is significant, the table type
+<strong>ordered_set</strong> can be used instead of the more usual
+<strong>set</strong> table type. An <strong>ordered_set</strong> is always
+traversed in Erlang term order regarding the key field
+so that the return values from functions such as <strong>select</strong>,
+<strong>match_object</strong>, and <strong>foldl</strong> are ordered by the key
+values. Traversing an <strong>ordered_set</strong> with the <strong>first</strong> and
+<strong>next</strong> operations also returns the keys ordered.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>An <strong>ordered_set</strong> only guarantees that
+objects are processed in <em>key</em> order.
+Results from functions such as
+<strong>ets:select/2</strong> appear in <em>key</em> order even if
+the key is not included in the result.</p></div><h4>Ets-Specific</h4><h4>Using Keys of Ets Table</h4><p>An Ets table is a single-key table (either a hash table or a
+tree ordered by the key) and is to be used as one. In other
+words, use the key to look up things whenever possible. A
+lookup by a known key in a <strong>set</strong> Ets table is constant and for
+an <strong>ordered_set</strong> Ets table it is O(logN). A key lookup is always
+preferable to a call where the whole table has to be
+scanned. In the previous examples, the field <strong>idno</strong> is the
+key of the table and all lookups where only the name is known
+result in a complete scan of the (possibly large) table
+for a matching result.</p><p>A simple solution would be to use the <strong>name</strong> field as
+the key instead of the <strong>idno</strong> field, but that would cause
+problems if the names were not unique. A more general solution would
+be to create a second table with <strong>name</strong> as key and
+<strong>idno</strong> as data, that is, to index (invert) the table regarding
+the <strong>name</strong> field. Clearly, the second table would have to be
+kept consistent with the master table. Mnesia can do this
+for you, but a home brew index table can be very efficient
+compared to the overhead involved in using Mnesia.</p><p>An index table for the table in the previous examples would
+have to be a bag (as keys would appear more than once) and can
+have the following contents:</p><pre>
+[#index_entry{name="Adam", idno=1},
+ #index_entry{name="Bryan", idno=2},
+ #index_entry{name="Bryan", idno=3},
+ #index_entry{name="Carl", idno=4}]</pre><p>Given this index table, a lookup of the <strong>age</strong> fields for
+all persons named "Bryan" can be done as follows:</p><pre>
+...
+MatchingIDs = ets:lookup(IndexTable,"Bryan"),
+lists:map(fun(#index_entry{idno = ID}) -&gt;
+                 [#person{age = Age}] = ets:lookup(PersonTable, ID),
+                 Age
+          end,
+          MatchingIDs),
+...</pre><p>Notice that this code never uses <strong>ets:match/2</strong> but
+instead uses the <strong>ets:lookup/2</strong> call. The
+<strong>lists:map/2</strong> call is only used to traverse the <strong>idno</strong>s
+matching the name "Bryan" in the table; thus the number of lookups
+in the master table is minimized.</p><p>Keeping an index table introduces some overhead when
+inserting records in the table. The number of operations gained
+from the table must therefore be compared against the number of
+operations inserting objects in the table. However, notice that the
+gain is significant when the key can be used to lookup elements.</p><h4>Mnesia-Specific</h4><h4>Secondary Index</h4><p>If you frequently do a lookup on a field that is not the
+key of the table, you lose performance using
+"mnesia:select/match_object" as this function traverses the
+whole table. You can create a secondary index instead and
+use "mnesia:index_read" to get faster access, however this
+requires more memory.</p><p><em>Example</em></p><pre>
+-record(person, {idno, name, age, occupation}).
+        ...
+{atomic, ok} = 
+mnesia:create_table(person, [{index,[#person.age]},
+                              {attributes,
+                                    record_info(fields, person)}]),
+{atomic, ok} = mnesia:add_table_index(person, age), 
+...
+
+PersonsAge42 =
+     mnesia:dirty_index_read(person, 42, #person.age),
+...</pre><h4>Transactions</h4><p>Using transactions is a way to guarantee that the distributed
+Mnesia database remains consistent, even when many different
+processes update it in parallel. However, if you have
+real-time requirements it is recommended to use <strong>dirty</strong>
+operations instead of transactions. When using <strong>dirty</strong>
+operations, you lose the consistency guarantee; this is usually
+solved by only letting one process update the table. Other
+processes must send update requests to that process.</p><p><em>Example</em></p><pre>
+...
+% Using transaction
+
+Fun = fun() -&gt;
+          [mnesia:read({Table, Key}),
+           mnesia:read({Table2, Key2})]
+      end, 
+
+{atomic, [Result1, Result2]}  = mnesia:transaction(Fun),
+...
+
+% Same thing using dirty operations
+...
+
+Result1 = mnesia:dirty_read({Table, Key}),
+Result2 = mnesia:dirty_read({Table2, Key2}),
+...</pre><h4>Creating an Erlang Process</h4><p>An Erlang process is lightweight compared to threads and
+processes in operating systems.</p><p>A newly spawned Erlang process uses 309 words of memory
+in the non-SMP emulator without HiPE support. (SMP support
+and HiPE support both add to this size.) The size can
+be found as follows:</p><pre>
+Erlang (BEAM) emulator version 5.6 [async-threads:0] [kernel-poll:false]
+
+Eshell V5.6  (abort with ^G)
+1&gt; <span class="input">Fun = fun() -&gt; receive after infinity -&gt; ok end end.</span>
+#Fun&lt;...&gt;
+2&gt; <span class="input">{_,Bytes} = process_info(spawn(Fun), memory).</span>
+{memory,1232}
+3&gt; <span class="input">Bytes div erlang:system_info(wordsize).</span>
+309</pre><p>The size includes 233 words for the heap area (which includes the
+stack). The garbage collector increases the heap as needed.</p><p>The main (outer) loop for a process <em>must</em> be tail-recursive.
+Otherwise, the stack grows until the process terminates.</p><p><em>DO NOT</em></p><pre><code class="erl">
+loop() -&gt; 
+  receive
+     {sys, Msg} -&gt;
+         handle_sys_msg(Msg),
+         loop();
+     {From, Msg} -&gt;
+          Reply = handle_msg(Msg),
+          From ! Reply,
+          loop()
+  end,
+  io:format("Message is processed~n", []).</code></pre><p>The call to <strong>io:format/2</strong> will never be executed, but a
+return address will still be pushed to the stack each time
+<strong>loop/0</strong> is called recursively. The correct tail-recursive
+version of the function looks as follows:</p><p><em>DO</em></p><pre><code class="erl">
+   loop() -&gt; 
+      receive
+         {sys, Msg} -&gt;
+            handle_sys_msg(Msg),
+            loop();
+         {From, Msg} -&gt;
+            Reply = handle_msg(Msg),
+            From ! Reply,
+            loop()
+    end.</code></pre><h4>Initial Heap Size</h4><p>The default initial heap size of 233 words is quite conservative
+to support Erlang systems with hundreds of thousands or
+even millions of processes. The garbage collector grows and
+shrinks the heap as needed.</p><p>In a system that use comparatively few processes, performance
+<em>might</em> be improved by increasing the minimum heap size
+using either the <strong>+h</strong> option for
+<a href="./erl">erl</a> or on a process-per-process
+basis using the <strong>min_heap_size</strong> option for
+<a href="../erts/erlang#spawn_opt/4">spawn_opt/4</a>.</p><p>The gain is twofold:</p><ul><li>Although the garbage collector grows the heap, it grows it step-by-step, which is more costly than directly establishing a larger heap when the process is spawned.</li><li>The garbage collector can also shrink the heap if it is much larger than the amount of data stored on it; setting the minimum heap size prevents that.</li></ul><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>The emulator probably uses more memory, and because garbage
+collections occur less frequently, huge binaries can be
+kept much longer.</p></div><p>In systems with many processes, computation tasks that run
+for a short time can be spawned off into a new process with
+a higher minimum heap size. When the process is done, it sends
+the result of the computation to another process and terminates.
+If the minimum heap size is calculated properly, the process might
+not have to do any garbage collections at all.
+<em>This optimization is not to be attempted without proper measurements.</em></p><h4>Process Messages</h4><p>All data in messages between Erlang processes is copied,
+except for
+<a href="./binaryhandling#refc_binary">refc binaries</a>
+on the same Erlang node.</p><p>When a message is sent to a process on another Erlang node,
+it is first encoded to the Erlang External Format before
+being sent through a TCP/IP socket. The receiving Erlang node decodes
+the message and distributes it to the correct process.</p><h4>Constant Pool</h4><p>Constant Erlang terms (also called <em>literals</em>) are
+kept in constant pools; each loaded module has its own pool.
+The following function does not build the tuple every time
+it is called (only to have it discarded the next time the garbage
+collector was run), but the tuple is located in the module's
+constant pool:</p><p><em>DO</em></p><pre><code class="erl">
+days_in_month(M) -&gt;
+    element(M, {31,28,31,30,31,30,31,31,30,31,30,31}).</code></pre><p>But if a constant is sent to another process (or stored in
+an Ets table), it is <em>copied</em>.
+The reason is that the runtime system must be able
+to keep track of all references to constants to unload code
+containing constants properly. (When the code is unloaded,
+the constants are copied to the heap of the processes that refer
+to them.) The copying of constants might be eliminated in a future
+Erlang/OTP release.</p><h4>Loss of Sharing</h4><p>Shared subterms are <em>not</em> preserved in the following
+cases:</p><ul><li>When a term is sent to another process</li><li>When a term is passed as the initial process arguments in the <strong>spawn</strong> call</li><li>When a term is stored in an Ets table</li></ul><p>That is an optimization. Most applications do not send messages
+with shared subterms.</p><p>The following example shows how a shared subterm can be created:</p><pre><code class="erl">
+kilo_byte() -&gt;
+    kilo_byte(10, [42]).
+
+kilo_byte(0, Acc) -&gt;
+    Acc;
+kilo_byte(N, Acc) -&gt;
+    kilo_byte(N-1, [Acc|Acc]).</code></pre><p><strong>kilo_byte/1</strong> creates a deep list.
+If <strong>list_to_binary/1</strong> is called, the deep list can be
+converted to a binary of 1024 bytes:</p><pre>
+1&gt; <span class="input">byte_size(list_to_binary(efficiency_guide:kilo_byte())).</span>
+1024</pre><p>Using the <strong>erts_debug:size/1</strong> BIF, it can be seen that the
+deep list only requires 22 words of heap space:</p><pre>
+2&gt; <span class="input">erts_debug:size(efficiency_guide:kilo_byte()).</span>
+22</pre><p>Using the <strong>erts_debug:flat_size/1</strong> BIF, the size of the
+deep list can be calculated if sharing is ignored. It becomes
+the size of the list when it has been sent to another process
+or stored in an Ets table:</p><pre>
+3&gt; <span class="input">erts_debug:flat_size(efficiency_guide:kilo_byte()).</span>
+4094</pre><p>It can be verified that sharing will be lost if the data is
+inserted into an Ets table:</p><pre>
+4&gt; <span class="input">T = ets:new(tab, []).</span>
+#Ref&lt;0.1662103692.2407923716.214181&gt;
+5&gt; <span class="input">ets:insert(T, {key,efficiency_guide:kilo_byte()}).</span>
+true
+6&gt; <span class="input">erts_debug:size(element(2, hd(ets:lookup(T, key)))).</span>
+4094
+7&gt; <span class="input">erts_debug:flat_size(element(2, hd(ets:lookup(T, key)))).</span>
+4094</pre><p>When the data has passed through an Ets table,
+<strong>erts_debug:size/1</strong> and <strong>erts_debug:flat_size/1</strong>
+return the same value. Sharing has been lost.</p><p>In a future Erlang/OTP release, it might be implemented a
+way to (optionally) preserve sharing.</p><h4>SMP Emulator</h4><p>The SMP emulator (introduced in R11B) takes advantage of a
+multi-core or multi-CPU computer by running several Erlang scheduler
+threads (typically, the same as the number of cores). Each scheduler
+thread schedules Erlang processes in the same way as the Erlang scheduler
+in the non-SMP emulator.</p><p>To gain performance by using the SMP emulator, your application
+<em>must have more than one runnable Erlang process</em> most of the time.
+Otherwise, the Erlang emulator can still only run one Erlang process
+at the time, but you must still pay the overhead for locking. Although
+Erlang/OTP tries to reduce the locking overhead as much as possible,
+it will never become exactly zero.</p><p>Benchmarks that appear to be concurrent are often sequential.
+The estone benchmark, for example, is entirely sequential. So is
+the most common implementation of the "ring benchmark"; usually one process
+is active, while the others wait in a <strong>receive</strong> statement.</p><p>This section provides a brief overview on how to write efficient
+drivers.</p><p>It is assumed that you have a good understanding of drivers.</p><h4>Drivers and Concurrency</h4><p>The runtime system always takes a lock before running
+any code in a driver.</p><p>By default, that lock is at the driver level, that is,
+if several ports have been opened to the same driver, only code for
+one port at the same time can be running.</p><p>A driver can be configured to have one lock for each port instead.</p><p>If a driver is used in a functional way (that is, holds no state,
+but only does some heavy calculation and returns a result), several
+ports with registered names can be opened beforehand, and the port to
+be used can be chosen based on the scheduler ID as follows:</p><pre><code class="">
+-define(PORT_NAMES(),
+	{some_driver_01, some_driver_02, some_driver_03, some_driver_04,
+	 some_driver_05, some_driver_06, some_driver_07, some_driver_08,
+	 some_driver_09, some_driver_10, some_driver_11, some_driver_12,
+	 some_driver_13, some_driver_14, some_driver_15, some_driver_16}).
+
+client_port() -&gt;
+    element(erlang:system_info(scheduler_id) rem tuple_size(?PORT_NAMES()) + 1,
+	    ?PORT_NAMES()).</code></pre><p>As long as there are no more than 16 schedulers, there will never
+be any lock contention on the port lock for the driver.</p><h4>Avoiding Copying Binaries When Calling a Driver</h4><p>There are basically two ways to avoid copying a binary that is
+sent to a driver:</p><ul><li><p>If the <strong>Data</strong> argument for
+<a href="../erts/erlang#port_control/3">port_control/3</a>
+is a binary, the driver will be passed a pointer to the contents of
+the binary and the binary will not be copied. If the <strong>Data</strong>
+argument is an iolist (list of binaries and lists), all binaries in
+the iolist will be copied.</p> <p>Therefore, if you want to send both a pre-existing binary and some
+extra data to a driver without copying the binary, you must call
+<strong>port_control/3</strong> twice; once with the binary and once with the
+extra data. However, that will only work if there is only one
+process communicating with the port (because otherwise another process
+can call the driver in-between the calls).</p></li><li><p>Implement an <strong>outputv</strong> callback (instead of an
+<strong>output</strong> callback) in the driver. If a driver has an
+<strong>outputv</strong> callback, refc binaries passed in an iolist
+in the <strong>Data</strong> argument for
+<a href="../erts/erlang#port_command/2">port_command/2</a>
+will be passed as references to the driver.</p></li></ul><h4>Returning Small Binaries from a Driver</h4><p>The runtime system can represent binaries up to 64 bytes as
+heap binaries. They are always copied when sent in messages,
+but they require less memory if they are not sent to another
+process and garbage collection is cheaper.</p><p>If you know that the binaries you return are always small, you
+are advised to use driver API calls that do not require a pre-allocated
+binary, for example,
+<a href="../erts/erl_driver#driver_output">driver_output()</a>
+or
+<a href="../erts/erl_driver#erl_drv_output_term">erl_drv_output_term()</a>,
+using the <strong>ERL_DRV_BUF2BINARY</strong> format,
+to allow the runtime to construct a heap binary.</p><h4>Returning Large Binaries without Copying from a Driver</h4><p>To avoid copying data when a large binary is sent or returned from
+the driver to an Erlang process, the driver must first allocate the
+binary and then send it to an Erlang process in some way.</p><p>Use
+<a href="../erts/erl_driver#driver_alloc_binary">driver_alloc_binary()</a>
+to allocate a binary.</p><p>There are several ways to send a binary created with
+<strong>driver_alloc_binary()</strong>:</p><ul><li>From the <strong>control</strong> callback, a binary can be returned if <a href="../erts/erl_driver#set_port_control_flags">set_port_control_flags()</a> has been called with the flag value <strong>PORT_CONTROL_FLAG_BINARY</strong>.</li><li>A single binary can be sent with <a href="../erts/erl_driver#driver_output_binary">driver_output_binary()</a>.</li><li>Using <a href="../erts/erl_driver#erl_drv_output_term">erl_drv_output_term()</a> or <a href="../erts/erl_driver#erl_drv_send_term">erl_drv_send_term()</a>, a binary can be included in an Erlang term.</li></ul><h4>Memory</h4><p>A good start when programming efficiently is to know
+how much memory different data types and operations require. It is
+implementation-dependent how much memory the Erlang data types and
+other items consume, but the following table shows some figures for
+the <strong>erts-8.0</strong> system in OTP 19.0.</p><p>The unit of measurement is memory words. There exists both a
+32-bit and a 64-bit implementation. A word is therefore 4 bytes or
+8 bytes, respectively.</p><table class="table table-bordered table-hover table-striped"><caption>Memory Size of Different Data Types</caption><tbody><tr><td><em>Data Type</em></td><td><em>Memory Size</em></td></tr><tr><td>Small integer</td><td>1 word.<br/> On 32-bit architectures: -134217729 &lt; i &lt; 134217728 (28 bits).<br/> On 64-bit architectures: -576460752303423489 &lt; i &lt; 576460752303423488 (60 bits).</td></tr><tr><td>Large integer</td><td>3..N words.</td></tr><tr><td>Atom</td><td>1 word.<br/> An atom refers into an atom table, which also consumes memory. The atom text is stored once for each unique atom in this table. The atom table is <em>not</em> garbage-collected.</td></tr><tr><td>Float</td><td>On 32-bit architectures: 4 words.<br/> On 64-bit architectures: 3 words.</td></tr><tr><td>Binary</td><td>3..6 words + data (can be shared).</td></tr><tr><td>List</td><td>1 word + 1 word per element + the size of each element.</td></tr><tr><td>String (is the same as a list of integers)</td><td>1 word + 2 words per character.</td></tr><tr><td>Tuple</td><td>2 words + the size of each element.</td></tr><tr><td>Small Map</td><td>5 words + the size of all keys and values.</td></tr><tr><td>Large Map (&gt; 32 keys)</td><td> <strong>N</strong> x <strong>F</strong> words + the size of all keys and values.<br/> <strong>N</strong> is the number of keys in the Map.<br/> <strong>F</strong> is a sparsity factor that can vary between 1.6 and 1.8 due to the probabilistic nature of the internal HAMT data structure. </td></tr><tr><td>Pid</td><td>1 word for a process identifier from the current local node + 5 words for a process identifier from another node.<br/> A process identifier refers into a process table and a node table, which also consumes memory.</td></tr><tr><td>Port</td><td>1 word for a port identifier from the current local node + 5 words for a port identifier from another node.<br/> A port identifier refers into a port table and a node table, which also consumes memory.</td></tr><tr><td>Reference</td><td>On 32-bit architectures: 5 words for a reference from the current local node + 7 words for a reference from another node.<br/> On 64-bit architectures: 4 words for a reference from the current local node + 6 words for a reference from another node.<br/> A reference refers into a node table, which also consumes memory.</td></tr><tr><td>Fun</td><td>9..13 words + the size of environment.<br/> A fun refers into a fun table, which also consumes memory.</td></tr><tr><td>Ets table</td><td>Initially 768 words + the size of each element (6 words + the size of Erlang data). The table grows when necessary.</td></tr><tr><td>Erlang process</td><td>338 words when spawned, including a heap of 233 words.</td></tr></tbody></table><h4>System Limits</h4><p>The Erlang language specification puts no limits on the number of
+processes, length of atoms, and so on. However, for performance and
+memory saving reasons, there will always be limits in a practical
+implementation of the Erlang language and execution environment.</p><table class="table table-bordered table-hover table-striped"><caption>System Limits</caption><tbody><tr><td>Processes</td><td>The maximum number of simultaneously alive Erlang processes is by default 262,144. This limit can be configured at startup. For more information, see the <a href="../erts/erl#max_processes">erts/erl#max_processes</a> command-line flag in the <a href="./erl">erts/erl</a> manual page in ERTS.</td></tr><tr><td>Known nodes</td><td>A remote node Y must be known to node X if there exists any pids, ports, references, or funs (Erlang data types) from Y on X, or if X and Y are connected. The maximum number of remote nodes simultaneously/ever known to a node is limited by the <a href="#atoms">maximum number of atoms</a> available for node names. All data concerning remote nodes, except for the node name atom, are garbage-collected.</td></tr><tr><td>Connected nodes</td><td>The maximum number of simultaneously connected nodes is limited by either the maximum number of simultaneously known remote nodes, <a href="#ports">the maximum number of (Erlang) ports</a> available, or <a href="#files_sockets">the maximum number of sockets</a> available.</td></tr><tr><td>Characters in an atom</td><td>255.</td></tr><tr><td><a name="atoms"></a>Atoms</td><td>By default, the maximum number of atoms is 1,048,576. This limit can be raised or lowered using the <strong>+t</strong> option.</td></tr><tr><td>Elements in a tuple</td><td>The maximum number of elements in a tuple is 16,777,215 (24-bit unsigned integer).</td></tr><tr><td>Size of binary</td><td>In the 32-bit implementation of Erlang, 536,870,911 bytes is the largest binary that can be constructed or matched using the bit syntax. In the 64-bit implementation, the maximum size is 2,305,843,009,213,693,951 bytes. If the limit is exceeded, bit syntax construction fails with a <strong>system_limit</strong> exception, while any attempt to match a binary that is too large fails. This limit is enforced starting in R11B-4.<br/> In earlier Erlang/OTP releases, operations on too large binaries in general either fail or give incorrect results. In future releases, other operations that create binaries (such as <strong>list_to_binary/1</strong>) will probably also enforce the same limit.</td></tr><tr><td>Total amount of data allocated by an Erlang node</td><td>The Erlang runtime system can use the complete 32-bit (or 64-bit) address space, but the operating system often limits a single process to use less than that.</td></tr><tr><td>Length of a node name</td><td>An Erlang node name has the form host@shortname or host@longname. The node name is  used as an atom within the system, so the maximum size of 255 holds also for the node name.</td></tr><tr><td><a name="ports"></a>Open ports</td><td>The maximum number of simultaneously open Erlang ports is often by default 16,384. This limit can be configured at startup. For more information, see the <a href="../erts/erl#max_ports">erts/erl#max_ports</a> command-line flag in the <a href="./erl">erts/erl</a> manual page in ERTS.</td></tr><tr><td><a name="files_sockets"></a>Open files and sockets</td><td>The maximum number of simultaneously open files and sockets depends on <a href="#ports">the maximum number of Erlang ports</a> available, as well as on operating system-specific settings and limits.</td></tr><tr><td>Number of arguments to a function or fun</td><td>255</td></tr><tr><td><a name="unique_references"></a>Unique References on a Runtime System Instance</td><td>Each scheduler thread has its own set of references, and all other threads have a shared set of references. Each set of references consist of <strong>2â¶â´ - 1</strong> unique references. That is, the total amount of unique references that can be produced on a runtime system instance is <strong>(NoSchedulers + 1) Ã (2â¶â´ - 1)</strong>. <br/><br/> If a scheduler thread create a new reference each nano second, references will at earliest be reused after more than 584 years. That is, for the foreseeable future they are unique enough.</td></tr><tr><td><a name="unique_integers"></a>Unique Integers on a Runtime System Instance</td><td> There are two types of unique integers both created using the <a href="../erts/erlang#unique_integer/1">erlang:unique_integer()</a> BIF: <br/><br/> <em>1.</em> Unique integers created <em>with</em> the <strong>monotonic</strong> modifier consist of a set of <strong>2â¶â´ - 1</strong> unique integers. <br/><br/> <em>2.</em> Unique integers created <em>without</em> the <strong>monotonic</strong> modifier consist of a set of <strong>2â¶â´ - 1</strong> unique integers per scheduler thread and a set of <strong>2â¶â´ - 1</strong> unique integers shared by other threads. That is, the total amount of unique integers without the <strong>monotonic</strong> modifier is <strong>(NoSchedulers + 1) Ã (2â¶â´ - 1)</strong>. <br/><br/> If a unique integer is created each nano second, unique integers will at earliest be reused after more than 584 years. That is, for the foreseeable future they are unique enough. </td></tr></tbody></table><h4>Do Not Guess About Performance - Profile</h4><p>Even experienced software developers often guess wrong about where
+the performance bottlenecks are in their programs. Therefore, profile
+your program to see where the performance
+bottlenecks are and concentrate on optimizing them.</p><p>Erlang/OTP contains several tools to help finding bottlenecks:</p><ul><li><p><a href="./fprof">tools/fprof</a> provides
+the most detailed information about where the program time is spent,
+but it significantly slows down the program it profiles.</p></li><li><p><a href="./eprof">tools/eprof</a> provides
+time information of each function used in the program. No call graph is
+produced, but <strong>eprof</strong> has considerable less impact on the program it
+profiles.</p> <p>If the program is too large to be profiled by <strong>fprof</strong> or
+<strong>eprof</strong>, <strong>cprof</strong> can be used to locate code parts that
+are to be more thoroughly profiled using <strong>fprof</strong> or <strong>eprof</strong>.</p></li><li><p><a href="./cprof">tools/cprof</a> is the
+most lightweight tool, but it only provides execution counts on a
+function basis (for all processes, not per process).</p></li><li><p><a href="./dbg">runtime_tools/dbg</a> is the
+generic erlang tracing frontend. By using the <strong>timestamp</strong> or
+<strong>cpu_timestamp</strong> options it can be used to time how long function
+calls in a live system take.</p></li><li><p><a href="./lcnt">tools/lcnt</a> is used
+to find contention points in the Erlang Run-Time System's internal
+locking mechanisms. It is useful when looking for bottlenecks in
+interaction between process, port, ets tables and other entities
+that can be run in parallel.</p></li></ul><p>The tools are further described in
+<a href="#profiling_tools">Tools</a>.</p><p>There are also several open source tools outside of Erlang/OTP
+that can be used to help profiling. Some of them are:</p><ul><li><a href="https://github.com/isacssouza/erlgrind">erlgrind</a> can be used to visualize fprof data in kcachegrind.</li><li><a href="https://github.com/proger/eflame">eflame</a> is an alternative to fprof that displays the profiling output as a flamegraph.</li><li><a href="https://ferd.github.io/recon/index.html">recon</a> is a collection of Erlang profiling and debugging tools. This tool comes with an accompanying E-book called <a href="https://www.erlang-in-anger.com/">Erlang in Anger</a>.</li></ul><h4>Memory profiling</h4><pre>eheap_alloc: Cannot allocate 1234567890 bytes of memory (of type "heap").</pre><p>The above slogan is one of the more common reasons for Erlang to terminate.
+For unknown reasons the Erlang Run-Time System failed to allocate memory to
+use. When this happens a crash dump is generated that contains information
+about the state of the system as it ran out of memory. Use the
+<a href="./cdv">observer/cdv</a> to get a
+view of the memory is being used. Look for processes with large heaps or
+many messages, large ets tables, etc.</p><p>When looking at memory usage in a running system the most basic function
+to get information from is <a href="../erts/erlang#memory/0">erts/erlang#memory/0</a>. It returns the current memory usage
+of the system. <a href="./instrument">tools/instrument</a>
+can be used to get a more detailed breakdown of where memory is used.</p><p>Processes, ports and ets tables can then be inspecting using their
+respective info functions, i.e.
+<a href="../erts/erlang#process_info_memory">erts/erlang#process_info_memory</a>,
+<a href="../erts/erlang#port_info_memory">erts/erlang#port_info_memory</a> and
+<a href="../stdlib/ets#info/1">stdlib/ets#info/1</a>.
+</p><p>Sometimes the system can enter a state where the reported memory
+from <strong>erlang:memory(total)</strong> is very different from the
+memory reported by the OS. This can be because of internal
+fragmentation within the Erlang Run-Time System. Data about
+how memory is allocated can be retrieved using
+<a href="../erts/erlang#system_info_allocator">erts/erlang#system_info_allocator</a>.
+The data you get from that function is very raw and not very plesant to read.
+<a href="http://ferd.github.io/recon/recon_alloc.html">recon_alloc</a>
+can be used to extract useful information from system_info
+statistics counters.</p><h4>Large Systems</h4><p>For a large system, it can be interesting to run profiling
+on a simulated and limited scenario to start with. But bottlenecks
+have a tendency to appear or cause problems only when
+many things are going on at the same time, and when
+many nodes are involved. Therefore, it is also desirable to run
+profiling in a system test plant on a real target system.</p><p>For a large system, you do not want to run the profiling
+tools on the whole system. Instead you want to concentrate on
+central processes and modules, which contribute for a big part
+of the execution.</p><p>There are also some tools that can be used to get a view of the
+whole system with more or less overhead.</p><ul><li><a href="./observer">observer/observer</a> is a GUI tool that can connect to remote nodes and display a variety of information about the running system.</li><li><a href="./etop">observer/etop</a> is a command line tool that can connect to remote nodes and display information similar to what the UNIX tool top shows.</li><li><a href="./msacc">runtime_tools/msacc</a> allows the user to get a view of what the Erlang Run-Time system is spending its time doing. Has a very low overhead, which makes it useful to run in heavily loaded systems to get some idea of where to start doing more granular profiling.</li></ul><h4>What to Look For</h4><p>When analyzing the result file from the profiling activity,
+look for functions that are called many
+times and have a long "own" execution time (time excluding calls
+to other functions). Functions that are called a lot of
+times can also be interesting, as even small things can add
+up to quite a bit if repeated often. Also
+ask yourself what you can do to reduce this time. The following
+are appropriate types of questions to ask yourself:</p><ul><li>Is it possible to reduce the number of times the function is called?</li><li>Can any test be run less often if the order of tests is changed?</li><li>Can any redundant tests be removed?</li><li>Does any calculated expression give the same result each time?</li><li>Are there other ways to do this that are equivalent and more efficient?</li><li>Can another internal data representation be used to make things more efficient?</li></ul><p>These questions are not always trivial to answer. Some
+benchmarks might be needed to back up your theory and to avoid
+making things slower if your theory is wrong. For details, see
+<a href="#benchmark">Benchmarking</a>.</p><h4>Tools</h4><a name="profiling_tools"></a><h4>fprof</h4><p><strong>fprof</strong> measures the execution time for each function,
+both own time, that is, how much time a function has used for its
+own execution, and accumulated time, that is, including called
+functions. The values are displayed per process. You also get
+to know how many times each function has been called.</p><p><strong>fprof</strong> is based on trace to file to minimize runtime
+performance impact. Using <strong>fprof</strong> is just a matter of
+calling a few library functions, see the
+<a href="./fprof">fprof</a> manual page in
+Tools.</p><h4>eprof</h4><p><strong>eprof</strong> is based on the Erlang <strong>trace_info</strong> BIFs.
+<strong>eprof</strong> shows how much time has been used by each process,
+and in which function calls this time has been spent. Time is
+shown as percentage of total time and absolute time. For more
+information, see the <a href="./eprof">eprof</a>
+manual page in Tools.</p><h4>cprof</h4><p><strong>cprof</strong> is something in between <strong>fprof</strong> and
+<strong>cover</strong> regarding features. It counts how many times each
+function is called when the program is run, on a per module
+basis. <strong>cprof</strong> has a low performance degradation effect
+(compared with <strong>fprof</strong>) and does not need to recompile
+any modules to profile (compared with <strong>cover</strong>).
+For more information, see the
+<a href="./cprof">cprof</a> manual page in
+Tools.</p><h4>Tool Summary</h4><table class="table table-bordered table-hover table-striped"><caption>Tool Summary</caption><tbody><tr><td><em>Tool</em></td><td><em>Results</em></td><td><em>Size of Result</em></td><td><em>Effects on Program Execution Time</em></td><td><em>Records Number of Calls</em></td><td><em>Records Execution Time</em></td><td><em>Records Called by</em></td><td><em>Records Garbage Collection</em></td></tr><tr><td><strong>fprof</strong></td><td>Per process to screen/file</td><td>Large</td><td>Significant slowdown</td><td>Yes</td><td>Total and own</td><td>Yes</td><td>Yes</td></tr><tr><td><strong>eprof</strong></td><td>Per process/function to screen/file</td><td>Medium</td><td>Small slowdown</td><td>Yes</td><td>Only total</td><td>No</td><td>No</td></tr><tr><td><strong>cprof</strong></td><td>Per module to caller</td><td>Small</td><td>Small slowdown</td><td>Yes</td><td>No</td><td>No</td><td>No</td></tr></tbody></table><h4>dbg</h4><p><strong>dbg</strong> is a generic Erlang trace tool. By using the
+<strong>timestamp</strong> or <strong>cpu_timestamp</strong> options it can be used
+as a precision instrument to profile how long time a function
+call takes for a specific process. This can be very useful when
+trying to understand where time is spent in a heavily loaded
+system as it is possible to limit the scope of what is profiled
+to be very small.
+For more information, see the
+<a href="./dbg">dbg</a> manual page in
+Runtime Tools.</p><h4>lcnt</h4><p><strong>lcnt</strong> is used to profile interactions inbetween
+entities that run in parallel. For example if you have
+a process that all other processes in the system needs
+to interact with (maybe it has some global configuration),
+then <strong>lcnt</strong> can be used to figure out if the interaction
+with that process is a problem.</p><p>In the Erlang Run-time System entities are only run in parallel
+when there are multiple schedulers. Therefore <strong>lcnt</strong> will
+show more contention points (and thus be more useful) on systems
+using many schedulers on many cores.</p><p>For more information, see the
+<a href="./lcnt">lcnt</a> manual page in Tools.</p><a name="benchmark"></a><h4>Benchmarking</h4><p>The main purpose of benchmarking is to find out which
+implementation of a given algorithm or function is the fastest.
+Benchmarking is far from an exact science. Today's operating systems
+generally run background tasks that are difficult to turn off.
+Caches and multiple CPU cores does not facilitate benchmarking.
+It would be best to run UNIX computers in single-user mode when
+benchmarking, but that is inconvenient to say the least for casual
+testing.</p><p>Benchmarks can measure wall-clock time or CPU time.</p><ul><li><a href="../stdlib/timer#tc/3">timer:tc/3</a> measures wall-clock time. The advantage with wall-clock time is that I/O, swapping, and other activities in the operating system kernel are included in the measurements. The disadvantage is that the measurements vary a lot. Usually it is best to run the benchmark several times and note the shortest time, which is to be the minimum time that is possible to achieve under the best of circumstances.</li><li><a href="../erts/erlang#statistics/1">statistics/1</a> with argument <strong>runtime</strong> measures CPU time spent in the Erlang virtual machine. The advantage with CPU time is that the results are more consistent from run to run. The disadvantage is that the time spent in the operating system kernel (such as swapping and I/O) is not included. Therefore, measuring CPU time is misleading if any I/O (file or socket) is involved.</li></ul><p>It is probably a good idea to do both wall-clock measurements and
+CPU time measurements.</p><p>Some final advice:</p><ul><li>The granularity of both measurement types can be high. Therefore, ensure that each individual measurement lasts for at least several seconds.</li><li>To make the test fair, each new test run is to run in its own, newly created Erlang process. Otherwise, if all tests run in the same process, the later tests start out with larger heap sizes and therefore probably do fewer garbage collections. Also consider restarting the Erlang emulator between each test.</li><li>Do not assume that the fastest implementation of a given algorithm on computer architecture X is also the fastest on computer architecture Y.</li></ul><p>We belive that the truth finally has caught with the following,
+retired myths.</p><a name="retired_myths"></a><h4>Myth: Funs are Slow</h4><p>Funs used to be very slow, slower than <strong>apply/3</strong>.
+Originally, funs were implemented using nothing more than
+compiler trickery, ordinary tuples, <strong>apply/3</strong>, and a great
+deal of ingenuity.</p><p>But that is history. Funs was given its own data type
+in R6B and was further optimized in R7B.
+Now the cost for a fun call falls roughly between the cost for a call
+to a local function and <strong>apply/3</strong>.</p><h4>Myth: List Comprehensions are Slow</h4><p>List comprehensions used to be implemented using funs, and in the
+old days funs were indeed slow.</p><p>Nowadays, the compiler rewrites list comprehensions into an ordinary
+recursive function. Using a tail-recursive function with
+a reverse at the end would be still faster. Or would it?
+That leads us to the myth that tail-recursive functions are faster
+than body-recursive functions.</p><h4>Myth: List subtraction ("--" operator) is slow</h4><p>List subtraction used to have a run-time complexity proportional to the
+product of the length of its operands, so it was extremely slow when both
+lists were long.</p><p>As of OTP 22 the run-time complexity is "n log n" and the operation will
+complete quickly even when both lists are very long. In fact, it is
+faster and uses less memory than the commonly used workaround to convert
+both lists to ordered sets before subtracting them with
+<strong>ordsets:subtract/2</strong>.</p></body></html>

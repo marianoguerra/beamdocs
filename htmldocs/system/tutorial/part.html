@@ -1,0 +1,1481 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Interoperability Tutorial</h1><a name="interoperability tutorial"></a><p>This section informs on interoperability, that is, information
+exchange, between Erlang and other programming languages. The
+included examples mainly treat interoperability between Erlang and
+C.</p><h3>Purpose</h3><p>The purpose of this tutorial is to describe different
+interoperability mechanisms that can be used when integrating a
+program written in Erlang with a program written in another
+programming language, from the Erlang programmer's
+perspective.</p><h3>Prerequisites</h3><p>It is assumed that you are a skilled Erlang programmer,
+familiar with concepts such as Erlang data types, processes,
+messages, and error handling.</p><p>To illustrate the interoperability principles, C programs
+running in a UNIX environment have been used. It is assumed that
+you have enough knowledge to apply these principles to the
+relevant programming languages and platforms.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>For readability, the example code is kept as simple as
+possible. For example, it does not include error handling,
+which might be vital in a real-life system.</p></div><h3>Built-In Mechanisms</h3><p>Two interoperability mechanisms are built into the Erlang
+runtime system, <em>distributed Erlang</em> and <em>ports</em>.
+A variation of ports is <em>linked-in drivers</em>.</p><a name="dist"></a><h3>Distributed Erlang</h3><p>An Erlang runtime system is made a distributed Erlang node by
+giving it a name. A distributed Erlang node can connect to,
+and monitor, other nodes. It can also spawn processes at other
+nodes. Message passing and error handling between processes at
+different nodes are transparent. A number of useful STDLIB
+modules are available in a distributed Erlang system. For
+example, <strong>global</strong>, which provides global name
+registration. The distribution mechanism is implemented using
+TCP/IP sockets.</p><p><em>When to use:</em> Distributed Erlang is primarily used
+for Erlang-Erlang communication. It can also be used for
+communication between Erlang and C, if the C program is
+implemented as a C node, see
+<a href="#cnode">C and Java Libraries</a>.</p><p><em>Where to read more:</em> Distributed Erlang and some distributed
+programming techniques are described in the Erlang book.</p><p>For more information, see <a href="../doc/getting_started/conc_prog#Distributed Programming"> Distributed Programming.</a></p><p>Relevant manual pages are the following:</p><ul><li><a href="./erlang">erlang</a> manual page in ERTS (describes the BIFs)</li><li><a href="./global">global</a> manual page in Kernel</li><li><a href="./net_adm">net_adm</a> manual page in Kernel</li><li><a href="./pg2">pg2</a> manual page in Kernel</li><li><a href="./rpc">rpc</a> manual page in Kernel</li><li><a href="./pool">pool</a> manual page in STDLIB</li><li><a href="./slave">slave</a> manual page in STDLIB</li></ul><h3>Ports and Linked-In Drivers</h3><p>Ports provide the basic mechanism for communication with the
+external world, from Erlang's point of view. The ports provide
+a byte-oriented interface to an external program. When a port
+is created, Erlang can communicate with it by sending and
+receiving lists of bytes (not Erlang terms). This means that
+the programmer might have to invent a suitable encoding and
+decoding scheme.</p><p>The implementation of the port mechanism depends on the
+platform. For UNIX, pipes are used and the external program is
+assumed to read from standard input and write to standard
+output. The external program can be written in any programming
+language as long as it can handle the interprocess
+communication mechanism with which the port is
+implemented.</p><p>The external program resides in another OS process than the
+Erlang runtime system. In some cases this is not acceptable.
+Consider, for example, drivers with very hard time
+requirements. It is therefore possible to write a program in C
+according to certain principles, and dynamically link it to
+the Erlang runtime system. This is called a <em>linked-in driver</em>.</p><p><em>When to use:</em> Ports can be used for all kinds of
+interoperability situations where the Erlang program and the
+other program runs on the same machine. Programming is fairly
+straight-forward.</p><p>Linked-in drivers involves writing certain call-back
+functions in C. This requires very good skills as the code is
+linked to the Erlang runtime system.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>A faulty linked-in driver causes the entire Erlang runtime
+system to leak memory, hang, or crash.</p></div><p><em>Where to read more:</em> Ports are described in section
+"Miscellaneous Items" of the Erlang book. Linked-in drivers
+are described in Appendix E.</p><p>The BIF <strong>open_port/2</strong> is documented in the
+<a href="./erlang">erlang</a> manual page in
+ERTS.</p><p>For linked-in drivers, the programmer needs to read the
+<a href="./erl_ddll">erl_ddll</a> manual
+page in Kernel.</p><p><em>Examples:</em> Port example in <a href="c_port"> Ports</a>.</p><h3>C and Java Libraries</h3><h3>Erl_Interface</h3><p>The program at the other side of a port is often a C program.
+To help the C programmer, the Erl_Interface library
+has been developed, including the following five parts:</p><ul><li> <strong>erl_marshal</strong>, <strong>erl_eterm</strong>, <strong>erl_format</strong>, and <strong>erl_malloc</strong>: Handling of the Erlang external term format</li><li> <strong>erl_connect</strong>: Communication with distributed Erlang, see <a href="#cnode">C nodes</a> below</li><li> <strong>erl_error</strong>: Error print routines</li><li> <strong>erl_global</strong>: Access globally registered names</li><li> <strong>Registry</strong>: Store and backup of key-value pairs</li></ul><p>The Erlang external term format is a representation of an
+Erlang term as a sequence of bytes, that is, a binary.
+Conversion between the two representations is done using the
+following BIFs:</p><pre>
+Binary = term_to_binary(Term)
+Term = binary_to_term(Binary)</pre><p>A port can be set to use binaries instead of lists of bytes.
+It is then not necessary to invent any encoding/decoding
+scheme. Erl_Interface functions are used for unpacking the
+binary and convert it into a struct similar to an Erlang term.
+Such a struct can be manipulated in different ways, be
+converted to the Erlang external format, and sent to
+Erlang.</p><p><em>When to use:</em> In C code, in conjunction with Erlang binaries.</p><p><em>Where to read more:</em> See the Erlang Interface User's
+Guide, Command Reference, and Library Reference. In Erlang/OTP
+R5B, and earlier versions, the information is part of the
+Kernel application.</p><p><em>Examples:</em> Erl_Interface example in
+<a href="erl_interface">Erl_Interface</a>.</p><a name="cnode"></a><h3>C Nodes</h3><p>A C program that uses the Erl_Interface functions for setting
+up a connection to, and communicating with, a distributed
+Erlang node is called a <em>C node</em>, or a <em>hidden node</em>. The main advantage with a C node is that the
+communication from the Erlang programmer's perspective is
+extremely easy, as the C program behaves as a distributed
+Erlang node.</p><p><em>When to use:</em> C nodes can typically be used on device
+processors (as opposed to control processors) where C is a
+better choice than Erlang due to memory limitations or
+application characteristics, or both.</p><p><em>Where to read more:</em> See the <strong>erl_connect</strong> part
+of the Erl_Interface documentation. The programmer also needs
+to be familiar with TCP/IP sockets, see Sockets in <a href="#sockets">Standard Protocols</a> and Distributed Erlang in <a href="#dist">Built-In Mechanisms</a>.</p><p><em>Example:</em> C node example in <a href="cnode"> C Nodes</a>.</p><h3>Jinterface</h3><p>In Erlang/OTP R6B, a library similar to Erl_Interface for
+Java was added called <em>jinterface</em>. It provides a tool
+for Java programs to communicate with Erlang nodes.</p><h3>Standard Protocols</h3><p>Sometimes communication between an Erlang program and another
+program using a standard protocol is desirable. Erlang/OTP
+currently supports TCP/IP and UDP <em>sockets</em>: as
+follows:</p><ul><li>SNMP</li><li>HTTP</li><li>IIOP (CORBA)</li></ul><p>Using one of the latter three requires good knowledge about the
+protocol and is not covered by this tutorial. See the SNMP,
+Inets, and Orber applications, respectively.</p><a name="sockets"></a><h3>Sockets</h3><p>Simply put, connection-oriented socket communication (TCP/IP)
+consists of an initiator socket ("server") started at a
+certain host with a certain port number. A connector socket
+("client"), which is aware of the initiator host name and port
+number, can connect to it and data can be sent between
+them.</p><p>Connection-less socket communication (UDP) consists of an
+initiator socket at a certain host with a certain port number
+and a connector socket sending data to it.</p><p>For a detailed description of the socket concept, refer to a
+suitable book about network programming. A suggestion is
+<em>UNIX Network Programming, Volume 1: Networking APIs - Sockets and XTI</em> by W. Richard Stevens, ISBN:
+013490012X.</p><p>In Erlang/OTP, access to TCP/IP and UDP sockets is provided
+by the modules <strong>gen_tcp</strong> and <strong>gen_udp</strong> in
+Kernel. Both are easy to use and do not require
+detailed knowledge about the socket concept.</p><p><em>When to use:</em> For programs running on the same or on
+another machine than the Erlang program.</p><p><em>Where to read more:</em> See the <a href="./gen_tcp">gen_tcp</a> and the <a href="./gen_udp">gen_udp</a> manual pages in
+Kernel.</p><h3>IC and CORBA</h3><p>IC (Erlang IDL Compiler) is an interface generator that, given
+an IDL interface specification, automatically generates stub
+code in Erlang, C, or Java. See the IC User's Guide and IC
+Reference Manual.</p><p>For details, see the
+<a href="https://github.com/erlang/corba">corba repository</a>.</p><h3>Old Applications</h3><p>Two old applications are of interest regarding
+interoperability. Both have been replaced by IC and are
+mentioned here for reference only:</p><ul><li><p>IG - Removed from Erlang/OTP R6B.</p> <p>IG (Interface Generator) automatically generated code for
+port or socket communication between an Erlang program and a
+C program, given a C header file with certain keywords.</p> </li><li><p>Jive -  Removed from Erlang/OTP R7B.</p> <p>Jive provided a simple interface between an Erlang program
+and a Java program.</p> </li></ul><h3>Description</h3><p>A common interoperability situation is when you want to incorporate
+a piece of code, solving a complex problem, in your Erlang
+program. Suppose for example, that you have the following C
+functions that you would like to call from Erlang:</p><pre><code class="">
+
+/* complex.c */
+
+int foo(int x) {
+  return x+1;
+}
+
+int bar(int y) {
+  return y*2;
+}
+</code></pre><p>The functions are deliberately kept as simple as possible, for
+readability reasons.</p><p>From an Erlang perspective, it is preferable to be able to call
+<strong>foo</strong> and <strong>bar</strong> without having to bother about that
+they are C functions:</p><pre>
+% Erlang code
+...
+Res = complex:foo(X),
+...</pre><p>Here, the communication with C is hidden in the implementation
+of <strong>complex.erl</strong>.
+In the following sections, it is shown how this module can be
+implemented using the different interoperability mechanisms.</p><p>This section outlines an example of how to solve the example
+problem in the <a href="example">previous section</a>
+by using a port.</p><p>The scenario is illustrated in the following figure:</p><img src="../tutorial/port.gif" title="Port Communication"></img><h3>Erlang Program</h3><p>All communication between Erlang and C must be established by
+creating the port. The Erlang process that creates a port is
+said to be <em>the connected process</em> of the port. All
+communication to and from the port must go through the connected
+process. If the connected process terminates, the port also
+terminates (and the external program, if it is written
+properly).</p><p>The port is created using the BIF <strong>open_port/2</strong> with
+<strong>{spawn,ExtPrg}</strong> as the first argument. The string
+<strong>ExtPrg</strong> is the name of the external program, including any
+command line arguments. The second argument is a list of
+options, in this case only <strong>{packet,2}</strong>. This option says
+that a 2 byte length indicator is to be used to simplify the
+communication between C and Erlang. The Erlang port
+automatically adds the length indicator, but this must be done
+explicitly in the external C program.</p><p>The process is also set to trap exits, which enables detection
+of failure of the external program:</p><pre>
+-module(complex1).
+-export([start/1, init/1]).
+
+start(ExtPrg) -&gt;
+  spawn(?MODULE, init, [ExtPrg]).
+
+init(ExtPrg) -&gt;
+  register(complex, self()),
+  process_flag(trap_exit, true),
+  Port = open_port({spawn, ExtPrg}, [{packet, 2}]),
+  loop(Port).</pre><p>Now <strong>complex1:foo/1</strong> and <strong>complex1:bar/1</strong> can be
+implemented. Both send a message to the <strong>complex</strong> process
+and receive the following replies:</p><pre>
+foo(X) -&gt;
+  call_port({foo, X}).
+bar(Y) -&gt;
+  call_port({bar, Y}).
+
+call_port(Msg) -&gt;
+  complex ! {call, self(), Msg},
+  receive
+    {complex, Result} -&gt;
+      Result
+  end.</pre><p>The <strong>complex</strong> process does the following:</p><ul><li>Encodes the message into a sequence of bytes.</li><li>Sends it to the port.</li><li>Waits for a reply.</li><li>Decodes the reply.</li><li>Sends it back to the caller:</li></ul><pre>
+loop(Port) -&gt;
+  receive
+    {call, Caller, Msg} -&gt;
+      Port ! {self(), {command, encode(Msg)}},
+      receive
+        {Port, {data, Data}} -&gt;
+          Caller ! {complex, decode(Data)}
+      end,
+      loop(Port)
+  end.</pre><p>Assuming that both the arguments and the results from the C
+functions are less than 256, a simple encoding/decoding scheme
+is employed. In this scheme, <strong>foo</strong> is represented by byte
+1, <strong>bar</strong> is represented by 2, and the argument/result is
+represented by a single byte as well:</p><pre>
+encode({foo, X}) -&gt; [1, X];
+encode({bar, Y}) -&gt; [2, Y].
+
+decode([Int]) -&gt; Int.</pre><p>The resulting Erlang program, including functionality for
+stopping the port and detecting port failures, is as follows:
+</p><pre><code class="">
+
+-module(complex1).
+-export([start/1, stop/0, init/1]).
+-export([foo/1, bar/1]).
+
+start(ExtPrg) -&gt;
+    spawn(?MODULE, init, [ExtPrg]).
+stop() -&gt;
+    complex ! stop.
+
+foo(X) -&gt;
+    call_port({foo, X}).
+bar(Y) -&gt;
+    call_port({bar, Y}).
+
+call_port(Msg) -&gt;
+    complex ! {call, self(), Msg},
+    receive
+	{complex, Result} -&gt;
+	    Result
+    end.
+
+init(ExtPrg) -&gt;
+    register(complex, self()),
+    process_flag(trap_exit, true),
+    Port = open_port({spawn, ExtPrg}, [{packet, 2}]),
+    loop(Port).
+
+loop(Port) -&gt;
+    receive
+	{call, Caller, Msg} -&gt;
+	    Port ! {self(), {command, encode(Msg)}},
+	    receive
+		{Port, {data, Data}} -&gt;
+		    Caller ! {complex, decode(Data)}
+	    end,
+	    loop(Port);
+	stop -&gt;
+	    Port ! {self(), close},
+	    receive
+		{Port, closed} -&gt;
+		    exit(normal)
+	    end;
+	{'EXIT', Port, Reason} -&gt;
+	    exit(port_terminated)
+    end.
+
+encode({foo, X}) -&gt; [1, X];
+encode({bar, Y}) -&gt; [2, Y].
+
+decode([Int]) -&gt; Int.
+</code></pre><h3>C Program</h3><p>On the C side, it is necessary to write functions for receiving
+and sending data with 2 byte length indicators from/to Erlang.
+By default, the C program is to read from standard input (file
+descriptor 0) and write to standard output (file descriptor 1).
+Examples of such functions, <strong>read_cmd/1</strong> and
+<strong>write_cmd/2</strong>, follows:</p><pre><code class="">
+
+/* erl_comm.c */
+
+typedef unsigned char byte;
+
+read_cmd(byte *buf)
+{
+  int len;
+
+  if (read_exact(buf, 2) != 2)
+    return(-1);
+  len = (buf[0] &lt;&lt; 8) | buf[1];
+  return read_exact(buf, len);
+}
+
+write_cmd(byte *buf, int len)
+{
+  byte li;
+
+  li = (len &gt;&gt; 8) &amp; 0xff;
+  write_exact(&amp;li, 1);
+  
+  li = len &amp; 0xff;
+  write_exact(&amp;li, 1);
+
+  return write_exact(buf, len);
+}
+
+read_exact(byte *buf, int len)
+{
+  int i, got=0;
+
+  do {
+    if ((i = read(0, buf+got, len-got)) &lt;= 0)
+      return(i);
+    got += i;
+  } while (got&lt;len);
+
+  return(len);
+}
+
+write_exact(byte *buf, int len)
+{
+  int i, wrote = 0;
+
+  do {
+    if ((i = write(1, buf+wrote, len-wrote)) &lt;= 0)
+      return (i);
+    wrote += i;
+  } while (wrote&lt;len);
+
+  return (len);
+}
+</code></pre><p>Notice that <strong>stdin</strong> and <strong>stdout</strong> are for buffered
+input/output and must <em>not</em> be used for the communication
+with Erlang.</p><p>In the <strong>main</strong> function, the C program is to listen for a
+message from Erlang and, according to the selected
+encoding/decoding scheme, use the first byte to determine which
+function to call and the second byte as argument to the
+function. The result of calling the function is then to be sent
+back to Erlang:</p><pre><code class="">
+
+/* port.c */
+
+typedef unsigned char byte;
+
+int main() {
+  int fn, arg, res;
+  byte buf[100];
+
+  while (read_cmd(buf) &gt; 0) {
+    fn = buf[0];
+    arg = buf[1];
+    
+    if (fn == 1) {
+      res = foo(arg);
+    } else if (fn == 2) {
+      res = bar(arg);
+    }
+
+    buf[0] = res;
+    write_cmd(buf, 1);
+  }
+}
+      
+</code></pre><p>Notice that the C program is in a <strong>while</strong>-loop, checking
+for the return value of <strong>read_cmd/1</strong>. This is because the C
+program must detect when the port closes and terminates.</p><h3>Running the Example</h3><p><em>Step 1.</em> Compile the C code:</p><pre>
+unix&gt; <span class="input">gcc -o extprg complex.c erl_comm.c port.c</span></pre><p><em>Step 2.</em> Start Erlang and compile the Erlang code:</p><pre>
+unix&gt; <span class="input">erl</span>
+Erlang (BEAM) emulator version 4.9.1.2
+
+Eshell V4.9.1.2 (abort with ^G)
+1&gt; <span class="input">c(complex1).</span>
+{ok,complex1}</pre><p><em>Step 3.</em> Run the example:</p><pre>
+2&gt; <span class="input">complex1:start("extprg").</span>
+&lt;0.34.0&gt;
+3&gt; <span class="input">complex1:foo(3).</span>
+4
+4&gt; <span class="input">complex1:bar(5).</span>
+10
+5&gt; <span class="input">complex1:stop().</span>
+stop</pre><p>This section outlines an example of how to solve the example
+problem in <a href="example">Problem Example</a> by
+using a port and Erl_Interface. It is necessary to read the port
+example in <a href="c_port">Ports</a> before reading
+this section.</p><h3>Erlang Program</h3><p>The following example shows an Erlang program communicating
+with a C program over a plain port with home made encoding:</p><pre><code class="">
+
+-module(complex1).
+-export([start/1, stop/0, init/1]).
+-export([foo/1, bar/1]).
+
+start(ExtPrg) -&gt;
+    spawn(?MODULE, init, [ExtPrg]).
+stop() -&gt;
+    complex ! stop.
+
+foo(X) -&gt;
+    call_port({foo, X}).
+bar(Y) -&gt;
+    call_port({bar, Y}).
+
+call_port(Msg) -&gt;
+    complex ! {call, self(), Msg},
+    receive
+	{complex, Result} -&gt;
+	    Result
+    end.
+
+init(ExtPrg) -&gt;
+    register(complex, self()),
+    process_flag(trap_exit, true),
+    Port = open_port({spawn, ExtPrg}, [{packet, 2}]),
+    loop(Port).
+
+loop(Port) -&gt;
+    receive
+	{call, Caller, Msg} -&gt;
+	    Port ! {self(), {command, encode(Msg)}},
+	    receive
+		{Port, {data, Data}} -&gt;
+		    Caller ! {complex, decode(Data)}
+	    end,
+	    loop(Port);
+	stop -&gt;
+	    Port ! {self(), close},
+	    receive
+		{Port, closed} -&gt;
+		    exit(normal)
+	    end;
+	{'EXIT', Port, Reason} -&gt;
+	    exit(port_terminated)
+    end.
+
+encode({foo, X}) -&gt; [1, X];
+encode({bar, Y}) -&gt; [2, Y].
+
+decode([Int]) -&gt; Int.
+</code></pre><p>There are two differences when using Erl_Interface on the C
+side compared to the example in <a href="c_port"> Ports</a>, using only the plain port:</p><ul><li>As Erl_Interface operates on the Erlang external term format, the port must be set to use binaries.</li><li>Instead of inventing an encoding/decoding scheme, the <strong>term_to_binary/1</strong> and <strong>binary_to_term/1</strong> BIFs are to be used.</li></ul><p>That is:</p><pre>
+open_port({spawn, ExtPrg}, [{packet, 2}])</pre><p>is replaced with:</p><pre>
+open_port({spawn, ExtPrg}, [{packet, 2}, binary])</pre><p>And:</p><pre>
+Port ! {self(), {command, encode(Msg)}},
+receive
+  {Port, {data, Data}} -&gt;
+    Caller ! {complex, decode(Data)}
+end</pre><p>is replaced with:</p><pre>
+Port ! {self(), {command, term_to_binary(Msg)}},
+receive
+  {Port, {data, Data}} -&gt;
+    Caller ! {complex, binary_to_term(Data)}
+end</pre><p>The resulting Erlang program is as follows:</p><pre><code class="">
+
+-module(complex2).
+-export([start/1, stop/0, init/1]).
+-export([foo/1, bar/1]).
+
+start(ExtPrg) -&gt;
+    spawn(?MODULE, init, [ExtPrg]).
+stop() -&gt;
+    complex ! stop.
+
+foo(X) -&gt;
+    call_port({foo, X}).
+bar(Y) -&gt;
+    call_port({bar, Y}).
+
+call_port(Msg) -&gt;
+    complex ! {call, self(), Msg},
+    receive
+	{complex, Result} -&gt;
+	    Result
+    end.
+
+init(ExtPrg) -&gt;
+    register(complex, self()),
+    process_flag(trap_exit, true),
+    Port = open_port({spawn, ExtPrg}, [{packet, 2}, binary]),
+    loop(Port).
+
+loop(Port) -&gt;
+    receive
+	{call, Caller, Msg} -&gt;
+	    Port ! {self(), {command, term_to_binary(Msg)}},
+	    receive
+		{Port, {data, Data}} -&gt;
+		    Caller ! {complex, binary_to_term(Data)}
+	    end,
+	    loop(Port);
+	stop -&gt;
+	    Port ! {self(), close},
+	    receive
+		{Port, closed} -&gt;
+		    exit(normal)
+	    end;
+	{'EXIT', Port, Reason} -&gt;
+	    exit(port_terminated)
+    end.
+</code></pre><p>Notice that calling <strong>complex2:foo/1</strong> and
+<strong>complex2:bar/1</strong> results in the tuple <strong>{foo,X}</strong> or
+<strong>{bar,Y}</strong> being sent to the <strong>complex</strong> process, which
+codes them as binaries and sends them to the port. This means
+that the C program must be able to handle these two tuples.</p><h3>C Program</h3><p>The following example shows a C program communicating with an
+Erlang program over a plain port with home made encoding:</p><pre><code class="">
+
+/* port.c */
+
+typedef unsigned char byte;
+
+int main() {
+  int fn, arg, res;
+  byte buf[100];
+
+  while (read_cmd(buf) &gt; 0) {
+    fn = buf[0];
+    arg = buf[1];
+    
+    if (fn == 1) {
+      res = foo(arg);
+    } else if (fn == 2) {
+      res = bar(arg);
+    }
+
+    buf[0] = res;
+    write_cmd(buf, 1);
+  }
+}
+      
+</code></pre><p>Compared to the C program in <a href="c_port"> Ports</a>, using only the plain port, the
+<strong>while</strong>-loop must be rewritten. Messages coming from the
+port is on the Erlang external term format. They must be
+converted into an <strong>ETERM</strong> struct, which is a C struct
+similar to an Erlang term. The result of calling <strong>foo()</strong> or
+<strong>bar()</strong> must be converted to the Erlang external term
+format before being sent back to the port. But before calling
+any other Erl_Interface function, the memory handling must be
+initiated:</p><pre>
+erl_init(NULL, 0);</pre><p>The following functions, <strong>read_cmd()</strong> and
+<strong>write_cmd()</strong>, from the <strong>erl_comm.c</strong> example in
+<a href="c_port">Ports</a> can still be
+used for reading from and writing to the port:
+</p><pre><code class="">
+
+/* erl_comm.c */
+
+typedef unsigned char byte;
+
+read_cmd(byte *buf)
+{
+  int len;
+
+  if (read_exact(buf, 2) != 2)
+    return(-1);
+  len = (buf[0] &lt;&lt; 8) | buf[1];
+  return read_exact(buf, len);
+}
+
+write_cmd(byte *buf, int len)
+{
+  byte li;
+
+  li = (len &gt;&gt; 8) &amp; 0xff;
+  write_exact(&amp;li, 1);
+  
+  li = len &amp; 0xff;
+  write_exact(&amp;li, 1);
+
+  return write_exact(buf, len);
+}
+
+read_exact(byte *buf, int len)
+{
+  int i, got=0;
+
+  do {
+    if ((i = read(0, buf+got, len-got)) &lt;= 0)
+      return(i);
+    got += i;
+  } while (got&lt;len);
+
+  return(len);
+}
+
+write_exact(byte *buf, int len)
+{
+  int i, wrote = 0;
+
+  do {
+    if ((i = write(1, buf+wrote, len-wrote)) &lt;= 0)
+      return (i);
+    wrote += i;
+  } while (wrote&lt;len);
+
+  return (len);
+}
+</code></pre><p>The function <strong>erl_decode()</strong> from <strong>erl_marshal</strong>
+converts the binary into an <strong>ETERM</strong> struct:</p><pre>
+int main() {
+  ETERM *tuplep;
+
+  while (read_cmd(buf) &gt; 0) {
+    tuplep = erl_decode(buf);</pre><p>Here, <strong>tuplep</strong> points to an <strong>ETERM</strong> struct
+representing a tuple with two elements; the function name (atom)
+and the argument (integer). Using the function
+<strong>erl_element()</strong> from <strong>erl_eterm</strong>, these elements can
+be extracted, but they must also be declared as pointers to an
+<strong>ETERM</strong> struct:</p><pre>
+    fnp = erl_element(1, tuplep);
+    argp = erl_element(2, tuplep);</pre><p>The macros <strong>ERL_ATOM_PTR</strong> and <strong>ERL_INT_VALUE</strong> from
+<strong>erl_eterm</strong> can be used to obtain the actual values of the
+atom and the integer. The atom value is represented as a string.
+By comparing this value with the strings "foo" and "bar", it can
+be decided which function to call:</p><pre>
+    if (strncmp(ERL_ATOM_PTR(fnp), "foo", 3) == 0) {
+      res = foo(ERL_INT_VALUE(argp));
+    } else if (strncmp(ERL_ATOM_PTR(fnp), "bar", 3) == 0) {
+      res = bar(ERL_INT_VALUE(argp));
+    }</pre><p>Now an <strong>ETERM</strong> struct that represents the integer result
+can be constructed using the function <strong>erl_mk_int()</strong> from
+<strong>erl_eterm</strong>. The function
+<strong>erl_format()</strong> from the module <strong>erl_format</strong> can also
+be used:</p><pre>
+    intp = erl_mk_int(res);</pre><p>The resulting <strong>ETERM</strong> struct is converted into the Erlang
+external term format using the function <strong>erl_encode()</strong> from
+<strong>erl_marshal</strong> and sent to Erlang using
+<strong>write_cmd()</strong>:</p><pre>
+    erl_encode(intp, buf);
+    write_cmd(buf, erl_eterm_len(intp));</pre><p>Finally, the memory allocated by the <strong>ETERM</strong> creating
+functions must be freed:</p><pre>
+    erl_free_compound(tuplep);
+    erl_free_term(fnp);
+    erl_free_term(argp);
+    erl_free_term(intp);</pre><p>The resulting C program is as follows:</p><pre><code class="">
+
+/* ei.c */
+
+#include "erl_interface.h"
+#include "ei.h"
+
+typedef unsigned char byte;
+
+int main() {
+  ETERM *tuplep, *intp;
+  ETERM *fnp, *argp;
+  int res;
+  byte buf[100];
+  long allocated, freed;
+
+  erl_init(NULL, 0);
+
+  while (read_cmd(buf) &gt; 0) {
+    tuplep = erl_decode(buf);
+    fnp = erl_element(1, tuplep);
+    argp = erl_element(2, tuplep);
+    
+    if (strncmp(ERL_ATOM_PTR(fnp), "foo", 3) == 0) {
+      res = foo(ERL_INT_VALUE(argp));
+    } else if (strncmp(ERL_ATOM_PTR(fnp), "bar", 3) == 0) {
+      res = bar(ERL_INT_VALUE(argp));
+    }
+
+    intp = erl_mk_int(res);
+    erl_encode(intp, buf);
+    write_cmd(buf, erl_term_len(intp));
+
+    erl_free_compound(tuplep);
+    erl_free_term(fnp);
+    erl_free_term(argp);
+    erl_free_term(intp);
+  }
+}
+      
+</code></pre><h3>Running the Example</h3><p><em>Step 1.</em> Compile the C code. This provides the paths to
+the include files <strong>erl_interface.h</strong> and <strong>ei.h</strong>, and
+also to the libraries <strong>erl_interface</strong> and <strong>ei</strong>:</p><pre>
+unix&gt; <span class="input">gcc -o extprg -I/usr/local/otp/lib/erl_interface-3.9.2/include \\ </span>
+<span class="input">      -L/usr/local/otp/lib/erl_interface-3.9.2/lib \\ </span>
+<span class="input">      complex.c erl_comm.c ei.c -lerl_interface -lei -lpthread</span></pre><p>In Erlang/OTP R5B and later versions of OTP, the <strong>include</strong>
+and <strong>lib</strong> directories are situated under
+<strong>OTPROOT/lib/erl_interface-VSN</strong>, where <strong>OTPROOT</strong> is
+the root directory of the OTP installation
+(<strong>/usr/local/otp</strong> in the recent example) and <strong>VSN</strong> is
+the version of the Erl_interface application (3.2.1 in the
+recent example).</p><p>In R4B and earlier versions of OTP, <strong>include</strong> and <strong>lib</strong>
+are situated under <strong>OTPROOT/usr</strong>.</p><p><em>Step 2.</em> Start Erlang and compile the Erlang code:</p><pre>
+unix&gt; <span class="input">erl</span>
+Erlang (BEAM) emulator version 4.9.1.2
+
+Eshell V4.9.1.2 (abort with ^G)
+1&gt; <span class="input">c(complex2).</span>
+{ok,complex2}</pre><p><em>Step 3.</em> Run the example:</p><pre>
+2&gt; <span class="input">complex2:start("./extprg").</span>
+&lt;0.34.0&gt;
+3&gt; <span class="input">complex2:foo(3).</span>
+4
+4&gt; <span class="input">complex2:bar(5).</span>
+10
+5&gt; <span class="input">complex2:bar(352).</span>
+704
+6&gt; <span class="input">complex2:stop().</span>
+stop</pre><p>This section outlines an example of how to solve the example problem
+in <a href="example">Problem Example</a>
+by using a linked-in port driver.</p><p>A port driver is a linked-in driver that is accessible as a port
+from an Erlang program. It is a shared library (SO in UNIX, DLL in
+Windows), with special entry points. The Erlang runtime system
+calls these entry points when the driver is started and when data
+is sent to the port. The port driver can also send data to
+Erlang.</p><p>As a port driver is dynamically linked into the emulator process,
+this is the fastest way of calling C-code from Erlang. Calling
+functions in the port driver requires no context switches. But it
+is also the least safe way, because a crash in the port driver
+brings the emulator down too.</p><p>The scenario is illustrated in the following figure:</p><img src="../tutorial/port_driver.gif" title="Port Driver Communication"></img><h3>Erlang Program</h3><p>Like a port program, the port communicates with an Erlang
+process. All communication goes through one Erlang process that
+is the <em>connected process</em> of the port
+driver. Terminating this process closes the port driver.</p><p>Before the port is created, the driver must be loaded. This is
+done with the function <strong>erl_dll:load_driver/1</strong>, with the
+name of the shared library as argument.</p><p>The port is then created using the BIF <strong>open_port/2</strong>, with
+the tuple <strong>{spawn, DriverName}</strong> as the first argument. The
+string <strong>SharedLib</strong> is the name of the port driver. The second
+argument is a list of options, none in this case:</p><pre>
+-module(complex5).
+-export([start/1, init/1]).
+
+start(SharedLib) -&gt;
+    case erl_ddll:load_driver(".", SharedLib) of
+        ok -&gt; ok;
+        {error, already_loaded} -&gt; ok;
+        _ -&gt; exit({error, could_not_load_driver})
+    end,
+    spawn(?MODULE, init, [SharedLib]).
+
+init(SharedLib) -&gt;
+  register(complex, self()),
+  Port = open_port({spawn, SharedLib}, []),
+  loop(Port).</pre><p>Now <strong>complex5:foo/1</strong> and <strong>complex5:bar/1</strong>
+can be implemented. Both send a message to the
+<strong>complex</strong> process and receive the following reply:</p><pre>
+foo(X) -&gt;
+    call_port({foo, X}).
+bar(Y) -&gt;
+    call_port({bar, Y}).
+
+call_port(Msg) -&gt;
+    complex ! {call, self(), Msg},
+    receive
+        {complex, Result} -&gt;
+            Result
+    end.</pre><p>The <strong>complex</strong> process performs the following:</p><ul><li>Encodes the message into a sequence of bytes.</li><li>Sends it to the port.</li><li>Waits for a reply.</li><li>Decodes the reply.</li><li>Sends it back to the caller:</li></ul><pre>
+loop(Port) -&gt;
+    receive
+        {call, Caller, Msg} -&gt;
+            Port ! {self(), {command, encode(Msg)}},
+            receive
+                {Port, {data, Data}} -&gt;
+                    Caller ! {complex, decode(Data)}
+            end,
+            loop(Port)
+    end.</pre><p>Assuming that both the arguments and the results from the C
+functions are less than 256, a simple encoding/decoding scheme
+is employed. In this scheme, <strong>foo</strong> is represented by byte
+1, <strong>bar</strong> is represented by 2, and the argument/result is
+represented by a single byte as well:</p><pre>
+encode({foo, X}) -&gt; [1, X];
+encode({bar, Y}) -&gt; [2, Y].
+
+decode([Int]) -&gt; Int.</pre><p>The resulting Erlang program, including functions for stopping
+the port and detecting port failures, is as follows:</p><pre><code class="">
+
+-module(complex5).
+-export([start/1, stop/0, init/1]).
+-export([foo/1, bar/1]).
+
+start(SharedLib) -&gt;
+    case erl_ddll:load_driver(".", SharedLib) of
+	ok -&gt; ok;
+	{error, already_loaded} -&gt; ok;
+	_ -&gt; exit({error, could_not_load_driver})
+    end,
+    spawn(?MODULE, init, [SharedLib]).
+
+init(SharedLib) -&gt;
+    register(complex, self()),
+    Port = open_port({spawn, SharedLib}, []),
+    loop(Port).
+
+stop() -&gt;
+    complex ! stop.
+
+foo(X) -&gt;
+    call_port({foo, X}).
+bar(Y) -&gt;
+    call_port({bar, Y}).
+
+call_port(Msg) -&gt;
+    complex ! {call, self(), Msg},
+    receive
+	{complex, Result} -&gt;
+	    Result
+    end.
+
+loop(Port) -&gt;
+    receive
+	{call, Caller, Msg} -&gt;
+	    Port ! {self(), {command, encode(Msg)}},
+	    receive
+		{Port, {data, Data}} -&gt;
+		    Caller ! {complex, decode(Data)}
+	    end,
+	    loop(Port);
+	stop -&gt;
+	    Port ! {self(), close},
+	    receive
+		{Port, closed} -&gt;
+		    exit(normal)
+	    end;
+	{'EXIT', Port, Reason} -&gt;
+	    io:format("~p ~n", [Reason]),
+	    exit(port_terminated)
+    end.
+
+encode({foo, X}) -&gt; [1, X];
+encode({bar, Y}) -&gt; [2, Y].
+
+decode([Int]) -&gt; Int.
+</code></pre><h3>C Driver</h3><p>The C driver is a module that is compiled and linked into a
+shared library. It uses a driver structure and includes the
+header file <strong>erl_driver.h</strong>.</p><p>The driver structure is filled with the driver name and function
+pointers. It is returned from the special entry point, declared
+with the macro <strong>DRIVER_INIT(&lt;driver_name&gt;)</strong>.</p><p>The functions for receiving and sending data are combined into
+a function, pointed out by the driver structure. The data sent
+into the port is given as arguments, and the replied data is sent
+with the C-function <strong>driver_output</strong>.</p><p>As the driver is a shared module, not a program, no main
+function is present. All function pointers are not used
+in this example, and the corresponding fields in the
+<strong>driver_entry</strong> structure are set to NULL.</p><p>All functions in the driver takes a handle (returned from
+<strong>start</strong>) that is just passed along by the Erlang
+process. This must in some way refer to the port driver
+instance.</p><p>The <strong>example_drv_start</strong>, is the only function that is called with
+a handle to the port instance, so this must be saved. It is
+customary to use an allocated driver-defined structure for this
+one, and to pass a pointer back as a reference.</p><p>It is not a good idea to use a global variable as the port
+driver can be spawned by multiple Erlang processes. This
+driver-structure is to be instantiated multiple times:
+</p><pre><code class="">
+
+/* port_driver.c */
+
+#include &lt;stdio.h&gt;
+#include "erl_driver.h"
+
+typedef struct {
+    ErlDrvPort port;
+} example_data;
+
+static ErlDrvData example_drv_start(ErlDrvPort port, char *buff)
+{
+    example_data* d = (example_data*)driver_alloc(sizeof(example_data));
+    d-&gt;port = port;
+    return (ErlDrvData)d;
+}
+
+static void example_drv_stop(ErlDrvData handle)
+{
+    driver_free((char*)handle);
+}
+
+static void example_drv_output(ErlDrvData handle, char *buff, 
+			       ErlDrvSizeT bufflen)
+{
+    example_data* d = (example_data*)handle;
+    char fn = buff[0], arg = buff[1], res;
+    if (fn == 1) {
+      res = foo(arg);
+    } else if (fn == 2) {
+      res = bar(arg);
+    }
+    driver_output(d-&gt;port, &amp;res, 1);
+}
+
+ErlDrvEntry example_driver_entry = {
+    NULL,			/* F_PTR init, called when driver is loaded */
+    example_drv_start,		/* L_PTR start, called when port is opened */
+    example_drv_stop,		/* F_PTR stop, called when port is closed */
+    example_drv_output,		/* F_PTR output, called when erlang has sent */
+    NULL,			/* F_PTR ready_input, called when input descriptor ready */
+    NULL,			/* F_PTR ready_output, called when output descriptor ready */
+    "example_drv",		/* char *driver_name, the argument to open_port */
+    NULL,			/* F_PTR finish, called when unloaded */
+    NULL,                       /* void *handle, Reserved by VM */
+    NULL,			/* F_PTR control, port_command callback */
+    NULL,			/* F_PTR timeout, reserved */
+    NULL,			/* F_PTR outputv, reserved */
+    NULL,                       /* F_PTR ready_async, only for async drivers */
+    NULL,                       /* F_PTR flush, called when port is about 
+				   to be closed, but there is data in driver 
+				   queue */
+    NULL,                       /* F_PTR call, much like control, sync call
+				   to driver */
+    NULL,                       /* unused */
+    ERL_DRV_EXTENDED_MARKER,    /* int extended marker, Should always be 
+				   set to indicate driver versioning */
+    ERL_DRV_EXTENDED_MAJOR_VERSION, /* int major_version, should always be 
+				       set to this value */
+    ERL_DRV_EXTENDED_MINOR_VERSION, /* int minor_version, should always be 
+				       set to this value */
+    0,                          /* int driver_flags, see documentation */
+    NULL,                       /* void *handle2, reserved for VM use */
+    NULL,                       /* F_PTR process_exit, called when a 
+				   monitored process dies */
+    NULL                        /* F_PTR stop_select, called to close an 
+				   event object */
+};
+
+DRIVER_INIT(example_drv) /* must match name in driver_entry */
+{
+    return &amp;example_driver_entry;
+}
+
+</code></pre><h3>Running the Example</h3><p><em>Step 1.</em> Compile the C code:</p><pre>
+unix&gt; <span class="input">gcc -o example_drv.so -fpic -shared complex.c port_driver.c</span>
+windows&gt; <span class="input">cl -LD -MD -Fe example_drv.dll complex.c port_driver.c</span></pre><p><em>Step 2.</em> Start Erlang and compile the Erlang code:</p><pre>
+&gt; <span class="input">erl</span>
+Erlang (BEAM) emulator version 5.1
+
+Eshell V5.1 (abort with ^G)
+1&gt; <span class="input">c(complex5).</span>
+{ok,complex5}</pre><p><em>Step 3.</em> Run the example:</p><pre>
+2&gt; <span class="input">complex5:start("example_drv").</span>
+&lt;0.34.0&gt;
+3&gt; <span class="input">complex5:foo(3).</span>
+4
+4&gt; <span class="input">complex5:bar(5).</span>
+10
+5&gt; <span class="input">complex5:stop().</span>
+stop</pre><p>This section outlines an example of how to solve the example
+problem in <a href="example">Problem Example</a>
+by using a C node. Notice that a C node is not typically
+used for solving simple problems like this, a port is
+sufficient.</p><h3>Erlang Program</h3><p>From Erlang's point of view, the C node is treated like a
+normal Erlang node. Thus, calling the functions <strong>foo</strong> and
+<strong>bar</strong> only involves sending a message to the C node asking
+for the function to be called, and receiving the result. Sending
+a message requires a recipient, that is, a process that can be
+defined using either a pid or a tuple, consisting of a
+registered name and a node name. In this case, a tuple is the
+only alternative as no pid is known:</p><pre>
+{RegName, Node} ! Msg</pre><p>The node name <strong>Node</strong> is to be the name of the C node. If
+short node names are used, the plain name of the node is
+<strong>cN</strong>, where <strong>N</strong> is an integer. If long node names are
+used, there is no such restriction. An example of a C node name
+using short node names is thus <strong>c1@idril</strong>, an example using
+long node names is <strong>cnode@idril.ericsson.se</strong>.</p><p>The registered name, <strong>RegName</strong>, can be any atom. The name
+can be ignored by the C code, or, for example, be used to
+distinguish between different types of messages. An example of
+Erlang code using short node names follows:
+</p><pre><code class="">
+
+-module(complex3).
+-export([foo/1, bar/1]).
+
+foo(X) -&gt;
+    call_cnode({foo, X}).
+bar(Y) -&gt;
+    call_cnode({bar, Y}).
+
+call_cnode(Msg) -&gt;
+    {any, c1@idril} ! {call, self(), Msg},
+    receive
+	{cnode, Result} -&gt;
+	    Result
+    end.
+</code></pre><p>
+When using long node names, the code is slightly different as
+shown in the following example:
+</p><pre><code class="">
+
+-module(complex4).
+-export([foo/1, bar/1]).
+
+foo(X) -&gt;
+    call_cnode({foo, X}).
+bar(Y) -&gt;
+    call_cnode({bar, Y}).
+
+call_cnode(Msg) -&gt;
+    {any, 'cnode@idril.du.uab.ericsson.se'} ! {call, self(), Msg},
+    receive
+	{cnode, Result} -&gt;
+	    Result
+    end.
+</code></pre><h3>C Program</h3><h3>Setting Up Communication</h3><p>Before calling any other function in Erl_Interface, the
+memory handling must be initiated:</p><pre>
+erl_init(NULL, 0);</pre><p>Now the C node can be initiated. If short node names are
+used, this is done by calling <strong>erl_connect_init()</strong>:</p><pre>
+erl_connect_init(1, "secretcookie", 0);</pre><p>Here:</p><ul><li>The first argument is the integer used to construct the node name. <p>In the example, the plain node name is <strong>c1</strong>.</p></li><li>The second argument is a string defining the magic cookie.</li><li>The third argument is an integer that is used to identify a particular instance of a C node.</li></ul><p>If long node node names are used, initiation is done by
+calling <strong>erl_connect_xinit()</strong>:</p><pre>
+erl_connect_xinit("idril", "cnode", "cnode@idril.ericsson.se",
+                  &amp;addr, "secretcookie", 0);</pre><p>Here:</p><ul><li>The first argument is the host name.</li><li>The second argument is the plain node name.</li><li>The third argument is the full node name.</li><li>The fourth argument is a pointer to an <strong>in_addr</strong> struct with the IP address of the host.</li><li>The fifth argument is the magic cookie.</li><li>The sixth argument is the instance number.</li></ul><p>The C node can act as a server or a client when setting up
+the Erlang-C communication. If it acts as a client, it
+connects to an Erlang node by calling <strong>erl_connect()</strong>,
+which returns an open file descriptor at success:</p><pre>
+fd = erl_connect("e1@idril");</pre><p>If the C node acts as a server, it must first create a socket
+(call <strong>bind()</strong> and <strong>listen()</strong>) listening to a
+certain port number <strong>port</strong>. It then publishes its name
+and port number with <strong>epmd</strong>, the Erlang port mapper
+daemon. For details, see the <a href="./epmd">epmd</a> manual page in ERTS:</p><pre>
+erl_publish(port);</pre><p>Now the C node server can accept connections from Erlang nodes:</p><pre>
+fd = erl_accept(listen, &amp;conn);</pre><p>The second argument to <strong>erl_accept</strong> is a struct
+<strong>ErlConnect</strong> which contains useful information when a
+connection has been established, for example, the name of the
+Erlang node.</p><h3>Sending and Receiving Messages</h3><p>The C node can receive a message from Erlang by calling
+<strong>erl_receive msg()</strong>. This function reads data from the
+open file descriptor <strong>fd</strong> into a buffer and puts the
+result in an <strong>ErlMessage</strong> struct <strong>emsg</strong>.
+<strong>ErlMessage</strong> has a field <strong>type</strong> defining what kind
+of data is received. In this case, the type of interest is
+<strong>ERL_REG_SEND</strong> which indicates that Erlang sent a message
+to a registered process at the C node. The actual message, an
+<strong>ETERM</strong>, is in the <strong>msg</strong> field.</p><p>It is also necessary to take care of the types
+<strong>ERL_ERROR</strong> (an error occurred) and <strong>ERL_TICK</strong>
+(alive check from other node, is to be ignored). Other
+possible types indicate process events such as link, unlink,
+and exit:</p><pre>
+  while (loop) {
+
+    got = erl_receive_msg(fd, buf, BUFSIZE, &amp;emsg);
+    if (got == ERL_TICK) {
+      /* ignore */
+    } else if (got == ERL_ERROR) {
+      loop = 0; /* exit while loop */
+    } else {
+      if (emsg.type == ERL_REG_SEND) {</pre><p>As the message is an <strong>ETERM</strong> struct, Erl_Interface
+functions can be used to manipulate it. In this case, the
+message becomes a 3-tuple, because that is how the Erlang code
+is written. The second element will be the pid of the caller
+and the third element will be the tuple <strong>{Function,Arg}</strong>
+determining which function to call, and with which argument.
+The result of calling the function is made into an
+<strong>ETERM</strong> struct as well and sent back to Erlang using
+<strong>erl_send()</strong>, which takes the open file descriptor, a
+pid, and a term as arguments:</p><pre>
+        fromp = erl_element(2, emsg.msg);
+        tuplep = erl_element(3, emsg.msg);
+        fnp = erl_element(1, tuplep);
+        argp = erl_element(2, tuplep);
+
+        if (strncmp(ERL_ATOM_PTR(fnp), "foo", 3) == 0) {
+          res = foo(ERL_INT_VALUE(argp));
+        } else if (strncmp(ERL_ATOM_PTR(fnp), "bar", 3) == 0) {
+          res = bar(ERL_INT_VALUE(argp));
+        }
+
+        resp = erl_format("{cnode, ~i}", res);
+        erl_send(fd, fromp, resp);</pre><p>Finally, the memory allocated by the <strong>ETERM</strong> creating
+functions (including <strong>erl_receive_msg()</strong> must be
+freed:</p><pre>
+        erl_free_term(emsg.from); erl_free_term(emsg.msg);
+        erl_free_term(fromp); erl_free_term(tuplep);
+        erl_free_term(fnp); erl_free_term(argp);
+        erl_free_term(resp);</pre><p>The following examples show the resulting C programs.
+First a C node server using short node names:</p><pre><code class="">
+
+/* cnode_s.c */
+
+#include &lt;stdio.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/socket.h&gt;
+#include &lt;netinet/in.h&gt;
+
+#include "erl_interface.h"
+#include "ei.h"
+
+#define BUFSIZE 1000
+
+int main(int argc, char **argv) {
+  int port;                                /* Listen port number */
+  int listen;                              /* Listen socket */
+  int fd;                                  /* fd to Erlang node */
+  ErlConnect conn;                         /* Connection data */
+
+  int loop = 1;                            /* Loop flag */
+  int got;                                 /* Result of receive */
+  unsigned char buf[BUFSIZE];              /* Buffer for incoming message */
+  ErlMessage emsg;                         /* Incoming message */
+
+  ETERM *fromp, *tuplep, *fnp, *argp, *resp;
+  int res;
+
+  port = atoi(argv[1]);
+
+  erl_init(NULL, 0);
+
+  if (erl_connect_init(1, "secretcookie", 0) == -1)
+    erl_err_quit("erl_connect_init");
+
+  /* Make a listen socket */
+  if ((listen = my_listen(port)) &lt;= 0)
+    erl_err_quit("my_listen");
+
+  if (erl_publish(port) == -1)
+    erl_err_quit("erl_publish");
+
+  if ((fd = erl_accept(listen, &amp;conn)) == ERL_ERROR)
+    erl_err_quit("erl_accept");
+  fprintf(stderr, "Connected to %s\n\r", conn.nodename);
+
+  while (loop) {
+
+    got = erl_receive_msg(fd, buf, BUFSIZE, &amp;emsg);
+    if (got == ERL_TICK) {
+      /* ignore */
+    } else if (got == ERL_ERROR) {
+      loop = 0;
+    } else {
+
+      if (emsg.type == ERL_REG_SEND) {
+	fromp = erl_element(2, emsg.msg);
+	tuplep = erl_element(3, emsg.msg);
+	fnp = erl_element(1, tuplep);
+	argp = erl_element(2, tuplep);
+
+	if (strncmp(ERL_ATOM_PTR(fnp), "foo", 3) == 0) {
+	  res = foo(ERL_INT_VALUE(argp));
+	} else if (strncmp(ERL_ATOM_PTR(fnp), "bar", 3) == 0) {
+	  res = bar(ERL_INT_VALUE(argp));
+	}
+
+	resp = erl_format("{cnode, ~i}", res);
+	erl_send(fd, fromp, resp);
+
+	erl_free_term(emsg.from); erl_free_term(emsg.msg);
+	erl_free_term(fromp); erl_free_term(tuplep);
+	erl_free_term(fnp); erl_free_term(argp);
+	erl_free_term(resp);
+      }
+    }
+  } /* while */
+}
+
+  
+int my_listen(int port) {
+  int listen_fd;
+  struct sockaddr_in addr;
+  int on = 1;
+
+  if ((listen_fd = socket(AF_INET, SOCK_STREAM, 0)) &lt; 0)
+    return (-1);
+
+  setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &amp;on, sizeof(on));
+
+  memset((void*) &amp;addr, 0, (size_t) sizeof(addr));
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(port);
+  addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+  if (bind(listen_fd, (struct sockaddr*) &amp;addr, sizeof(addr)) &lt; 0)
+    return (-1);
+
+  listen(listen_fd, 5);
+  return listen_fd;
+}
+</code></pre><p>A C node server using long node names:</p><pre><code class="">
+
+/* cnode_s2.c */
+
+#include &lt;stdio.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/socket.h&gt;
+#include &lt;netinet/in.h&gt;
+
+#include "erl_interface.h"
+#include "ei.h"
+
+#define BUFSIZE 1000
+
+int main(int argc, char **argv) {
+  struct in_addr addr;                     /* 32-bit IP number of host */
+  int port;                                /* Listen port number */
+  int listen;                              /* Listen socket */
+  int fd;                                  /* fd to Erlang node */
+  ErlConnect conn;                         /* Connection data */
+
+  int loop = 1;                            /* Loop flag */
+  int got;                                 /* Result of receive */
+  unsigned char buf[BUFSIZE];              /* Buffer for incoming message */
+  ErlMessage emsg;                         /* Incoming message */
+
+  ETERM *fromp, *tuplep, *fnp, *argp, *resp;
+  int res;
+  
+  port = atoi(argv[1]);
+
+  erl_init(NULL, 0);
+
+  addr.s_addr = inet_addr("134.138.177.89");
+  if (erl_connect_xinit("idril", "cnode", "cnode@idril.du.uab.ericsson.se",
+			&amp;addr, "secretcookie", 0) == -1)
+    erl_err_quit("erl_connect_xinit");
+
+  /* Make a listen socket */
+  if ((listen = my_listen(port)) &lt;= 0)
+    erl_err_quit("my_listen");
+
+  if (erl_publish(port) == -1)
+    erl_err_quit("erl_publish");
+
+  if ((fd = erl_accept(listen, &amp;conn)) == ERL_ERROR)
+    erl_err_quit("erl_accept");
+  fprintf(stderr, "Connected to %s\n\r", conn.nodename);
+
+  while (loop) {
+
+    got = erl_receive_msg(fd, buf, BUFSIZE, &amp;emsg);
+    if (got == ERL_TICK) {
+      /* ignore */
+    } else if (got == ERL_ERROR) {
+      loop = 0;
+    } else {
+
+      if (emsg.type == ERL_REG_SEND) {
+	fromp = erl_element(2, emsg.msg);
+	tuplep = erl_element(3, emsg.msg);
+	fnp = erl_element(1, tuplep);
+	argp = erl_element(2, tuplep);
+
+	if (strncmp(ERL_ATOM_PTR(fnp), "foo", 3) == 0) {
+	  res = foo(ERL_INT_VALUE(argp));
+	} else if (strncmp(ERL_ATOM_PTR(fnp), "bar", 3) == 0) {
+	  res = bar(ERL_INT_VALUE(argp));
+	}
+
+	resp = erl_format("{cnode, ~i}", res);
+	erl_send(fd, fromp, resp);
+
+	erl_free_term(emsg.from); erl_free_term(emsg.msg);
+	erl_free_term(fromp); erl_free_term(tuplep);
+	erl_free_term(fnp); erl_free_term(argp);
+	erl_free_term(resp);
+      }
+    }
+  }
+}
+
+  
+int my_listen(int port) {
+  int listen_fd;
+  struct sockaddr_in addr;
+  int on = 1;
+
+  if ((listen_fd = socket(AF_INET, SOCK_STREAM, 0)) &lt; 0)
+    return (-1);
+
+  setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &amp;on, sizeof(on));
+
+  memset((void*) &amp;addr, 0, (size_t) sizeof(addr));
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(port);
+  addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+  if (bind(listen_fd, (struct sockaddr*) &amp;addr, sizeof(addr)) &lt; 0)
+    return (-1);
+
+  listen(listen_fd, 5);
+  return listen_fd;
+}
+</code></pre><p>Finally, the code for the C node client:</p><pre><code class="">
+
+/* cnode_c.c */
+
+#include &lt;stdio.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/socket.h&gt;
+#include &lt;netinet/in.h&gt;
+
+#include "erl_interface.h"
+#include "ei.h"
+
+#define BUFSIZE 1000
+
+int main(int argc, char **argv) {
+  int fd;                                  /* fd to Erlang node */
+
+  int loop = 1;                            /* Loop flag */
+  int got;                                 /* Result of receive */
+  unsigned char buf[BUFSIZE];              /* Buffer for incoming message */
+  ErlMessage emsg;                         /* Incoming message */
+
+  ETERM *fromp, *tuplep, *fnp, *argp, *resp;
+  int res;
+  
+  erl_init(NULL, 0);
+
+  if (erl_connect_init(1, "secretcookie", 0) == -1)
+    erl_err_quit("erl_connect_init");
+
+  if ((fd = erl_connect("e1@idril")) &lt; 0)
+    erl_err_quit("erl_connect");
+  fprintf(stderr, "Connected to ei@idril\n\r");
+
+  while (loop) {
+
+    got = erl_receive_msg(fd, buf, BUFSIZE, &amp;emsg);
+    if (got == ERL_TICK) {
+      /* ignore */
+    } else if (got == ERL_ERROR) {
+      loop = 0;
+    } else {
+
+      if (emsg.type == ERL_REG_SEND) {
+	fromp = erl_element(2, emsg.msg);
+	tuplep = erl_element(3, emsg.msg);
+	fnp = erl_element(1, tuplep);
+	argp = erl_element(2, tuplep);
+
+	if (strncmp(ERL_ATOM_PTR(fnp), "foo", 3) == 0) {
+	  res = foo(ERL_INT_VALUE(argp));
+	} else if (strncmp(ERL_ATOM_PTR(fnp), "bar", 3) == 0) {
+	  res = bar(ERL_INT_VALUE(argp));
+	}
+
+	resp = erl_format("{cnode, ~i}", res);
+	erl_send(fd, fromp, resp);
+
+	erl_free_term(emsg.from); erl_free_term(emsg.msg);
+	erl_free_term(fromp); erl_free_term(tuplep);
+	erl_free_term(fnp); erl_free_term(argp);
+	erl_free_term(resp);
+      }
+    }
+  }
+}
+</code></pre><h3>Running the Example</h3><p><em>Step 1.</em> Compile the C code. This provides the paths to
+the Erl_Interface include files and libraries, and to the
+<strong>socket</strong> and <strong>nsl</strong> libraries:</p><pre>
+&gt;  <span class="input">gcc -o cserver \\ </span>
+<span class="input">-I/usr/local/otp/lib/erl_interface-3.2.1/include \\ </span>
+<span class="input">-L/usr/local/otp/lib/erl_interface-3.2.1/lib \\ </span>
+<span class="input">complex.c cnode_s.c \\ </span>
+<span class="input">-lerl_interface -lei -lsocket -lnsl</span>
+
+unix&gt; <span class="input">gcc -o cserver2 \\ </span>
+<span class="input">-I/usr/local/otp/lib/erl_interface-3.2.1/include \\ </span>
+<span class="input">-L/usr/local/otp/lib/erl_interface-3.2.1/lib \\ </span>
+<span class="input">complex.c cnode_s2.c \\ </span>
+<span class="input">-lerl_interface -lei -lsocket -lnsl</span>
+
+unix&gt; <span class="input">gcc -o cclient \\ </span>
+<span class="input">-I/usr/local/otp/lib/erl_interface-3.2.1/include \\ </span>
+<span class="input">-L/usr/local/otp/lib/erl_interface-3.2.1/lib \\ </span>
+<span class="input">complex.c cnode_c.c \\ </span>
+<span class="input">-lerl_interface -lei -lsocket -lnsl</span></pre><p>In Erlang/OTP R5B and later versions of OTP, the
+<strong>include</strong> and <strong>lib</strong> directories are situated under
+<strong>OTPROOT/lib/erl_interface-VSN</strong>, where <strong>OTPROOT</strong> is
+the root directory of the OTP installation
+(<strong>/usr/local/otp</strong> in the recent example) and <strong>VSN</strong> is
+the version of the Erl_Interface application (3.2.1 in the
+recent example).</p><p>In R4B and earlier versions of OTP, <strong>include</strong> and
+<strong>lib</strong> are situated under <strong>OTPROOT/usr</strong>.</p><p><em>Step 2.</em> Compile the Erlang code:</p><pre>
+unix&gt; <span class="input">erl -compile complex3 complex4</span></pre><p><em>Step 3.</em> Run the C node server example with short node names.</p><p>Do as follows:</p><ul><li>Start the C program <strong>cserver</strong> and Erlang in different windows.</li><li><strong>cserver</strong> takes a port number as argument and must be started before trying to call the Erlang functions.</li><li>The Erlang node is to be given the short name <strong>e1</strong> and must be set to use the same magic cookie as the C node, <strong>secretcookie</strong>:</li></ul><pre>
+unix&gt; <span class="input">cserver 3456</span>
+
+unix&gt; <span class="input">erl -sname e1 -setcookie secretcookie</span>
+Erlang (BEAM) emulator version 4.9.1.2
+ 
+Eshell V4.9.1.2  (abort with ^G)
+(e1@idril)1&gt; <span class="input">complex3:foo(3).</span>
+4
+(e1@idril)2&gt; <span class="input">complex3:bar(5).</span>
+10</pre><p><em>Step 4.</em> Run the C node client example. Terminate
+<strong>cserver</strong>, but not Erlang, and start <strong>cclient</strong>. The
+Erlang node must be started before the C node client:</p><pre>
+unix&gt; <span class="input">cclient</span>
+
+(e1@idril)3&gt; <span class="input">complex3:foo(3).</span>
+4
+(e1@idril)4&gt; <span class="input">complex3:bar(5).</span>
+10</pre><p><em>Step 5.</em> Run the C node server example with long node names:</p><pre>
+unix&gt; <span class="input">cserver2 3456</span>
+
+unix&gt; <span class="input">erl -name e1 -setcookie secretcookie</span>
+Erlang (BEAM) emulator version 4.9.1.2
+ 
+Eshell V4.9.1.2  (abort with ^G)
+(e1@idril.du.uab.ericsson.se)1&gt; <span class="input">complex4:foo(3).</span>
+4
+(e1@idril.du.uab.ericsson.se)2&gt; <span class="input">complex4:bar(5).</span>
+10</pre><p>This section outlines an example of how to solve the example
+problem in <a href="example">Problem Example</a>
+by using Native Implemented Functions (NIFs).</p><p>NIFs were introduced in Erlang/OTP R13B03 as an experimental
+feature. It is a simpler and more efficient way of calling C-code
+than using port drivers. NIFs are most suitable for synchronous
+functions, such as <strong>foo</strong> and <strong>bar</strong> in the example, that
+do some relatively short calculations without side effects and
+return the result.</p><p>A NIF is a function that is implemented in C instead of Erlang.
+NIFs appear as any other functions to the callers. They belong to
+a module and are called like any other Erlang functions. The NIFs
+of a module are compiled and linked into a dynamic loadable,
+shared library (SO in UNIX, DLL in Windows). The NIF library must
+be loaded in runtime by the Erlang code of the module.</p><p>As a NIF library is dynamically linked into the emulator process,
+this is the fastest way of calling C-code from Erlang (alongside
+port drivers). Calling NIFs requires no context switches. But it
+is also the least safe, because a crash in a NIF brings the
+emulator down too.</p><h3>Erlang Program</h3><p>Even if all functions of a module are NIFs, an Erlang
+module is still needed for two reasons:</p><ul><li>The NIF library must be explicitly loaded by Erlang code in the same module.</li><li>All NIFs of a module must have an Erlang implementation as well.</li></ul><p>Normally these are minimal stub implementations that throw an
+exception. But they can also be used as fallback implementations
+for functions that do not have native implemenations on some
+architectures.</p><p>NIF libraries are loaded by calling <strong>erlang:load_nif/2</strong>,
+with the name of the shared library as argument. The second
+argument can be any term that will be passed on to the library
+and used for initialization:</p><pre><code class="">
+
+-module(complex6).
+-export([foo/1, bar/1]).
+-on_load(init/0).
+
+init() -&gt;
+    ok = erlang:load_nif("./complex6_nif", 0).
+
+foo(_X) -&gt;
+    exit(nif_library_not_loaded).
+bar(_Y) -&gt;
+    exit(nif_library_not_loaded).
+</code></pre><p>Here, the directive <strong>on_load</strong> is used to get function
+<strong>init</strong> to be automatically called when the module is
+loaded. If <strong>init</strong> returns anything other than <strong>ok</strong>,
+such when the loading of the NIF library fails in this example,
+the module is unloaded and calls to functions within it,
+fail.</p><p>Loading the NIF library overrides the stub implementations
+and cause calls to <strong>foo</strong> and <strong>bar</strong> to be dispatched to
+the NIF implementations instead.</p><h3>NIF Library Code</h3><p>The NIFs of the module are compiled and linked into a
+shared library. Each NIF is implemented as a normal C function. The macro
+<strong>ERL_NIF_INIT</strong> together with an array of structures defines the names,
+arity, and function pointers of all the NIFs in the module. The header
+file <strong>erl_nif.h</strong> must be included. As the library is a shared
+module, not a program, no main function is to be present.</p><p>The function arguments passed to a NIF appears in an array <strong>argv</strong>,
+with <strong>argc</strong> as the length of the array, and thus the arity of the
+function. The Nth argument of the function can be accessed as
+<strong>argv[N-1]</strong>. NIFs also take an environment argument that
+serves as an opaque handle that is needed to be passed on to
+most API functions. The environment contains information about
+the calling Erlang process:</p><pre><code class="">
+
+#include &lt;erl_nif.h&gt;
+
+extern int foo(int x);
+extern int bar(int y);
+
+static ERL_NIF_TERM foo_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    int x, ret;
+    if (!enif_get_int(env, argv[0], &amp;x)) {
+	return enif_make_badarg(env);
+    }
+    ret = foo(x);
+    return enif_make_int(env, ret);
+}
+
+static ERL_NIF_TERM bar_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    int y, ret;
+    if (!enif_get_int(env, argv[0], &amp;y)) {
+	return enif_make_badarg(env);
+    }
+    ret = bar(y);
+    return enif_make_int(env, ret);
+}
+
+static ErlNifFunc nif_funcs[] = {
+    {"foo", 1, foo_nif},
+    {"bar", 1, bar_nif}
+};
+
+ERL_NIF_INIT(complex6, nif_funcs, NULL, NULL, NULL, NULL)
+
+</code></pre><p>Here,<strong>ERL_NIF_INIT</strong> has the following arguments:</p><ul><li><p>The first argument must be the name of the
+Erlang module as a C-identifier. It will be stringified by the
+macro.</p> </li><li>The second argument is the array of <strong>ErlNifFunc</strong> structures containing name, arity, and function pointer of each NIF.</li><li>The remaining arguments are pointers to callback functions that can be used to initialize the library. They are not used in this simple example, hence they are all set to <strong>NULL</strong>.</li></ul><p>Function arguments and return values are represented as values
+of type <strong>ERL_NIF_TERM</strong>. Here, functions like <strong>enif_get_int</strong>
+and <strong>enif_make_int</strong> are used to convert between Erlang term
+and C-type.
+If the function argument <strong>argv[0]</strong> is not an integer,
+<strong>enif_get_int</strong> returns false, in which case it returns
+by throwing a <strong>badarg</strong>-exception with <strong>enif_make_badarg</strong>.</p><h3>Running the Example</h3><p><em>Step 1.</em> Compile the C code:</p><pre>
+unix&gt; <span class="input">gcc -o complex6_nif.so -fpic -shared complex.c complex6_nif.c</span>
+windows&gt; <span class="input">cl -LD -MD -Fe complex6_nif.dll complex.c complex6_nif.c</span></pre><p><em>Step 2:</em> Start Erlang and compile the Erlang code:</p><pre>
+&gt; <span class="input">erl</span>
+Erlang R13B04 (erts-5.7.5) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
+
+Eshell V5.7.5  (abort with ^G)
+1&gt; <span class="input">c(complex6).</span>
+{ok,complex6}</pre><p><em>Step 3:</em> Run the example:</p><pre>
+3&gt; <span class="input">complex6:foo(3).</span>
+4
+4&gt; <span class="input">complex6:bar(5).</span>
+10
+5&gt; <span class="input">complex6:foo("not an integer").</span>
+** exception error: bad argument
+     in function  complex6:foo/1
+        called as comlpex6:foo("not an integer")
+</pre></body></html>

@@ -1,0 +1,206 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>kernel</h1><h1>kernel</h1><p>The Kernel application.</p><p>The Kernel application has all the code necessary to run
+the Erlang runtime system: file servers, code servers,
+and so on.The Kernel application is the first application started. It is
+mandatory in the sense that the minimal system based on
+Erlang/OTP consists of Kernel and STDLIB. Kernel
+contains the following functional areas:<ul><li>Start, stop, supervision, configuration, and distribution of applications</li><li>Code loading</li><li>Logging</li><li>Global name service</li><li>Supervision of Erlang/OTP</li><li>Communication with sockets</li><li>Operating system interface</li></ul></p><h2>Logger Handlers</h2><p>Two standard logger handlers are defined in
+the Kernel application. These are described in the
+<a href="logger_chapter">Kernel User's Guide</a>,
+and in the <a href="logger_std_h">logger_std_h</a>
+and <a href="logger_disk_log_h">logger_disk_log_h</a> manual pages.</p><a name="erl_signal_server"></a><h2>OS Signal Event Handler</h2><p>Asynchronous OS signals may be subscribed to via the Kernel applications event manager
+(see <a href="./des_princ">OTP Design Principles</a> and
+<a href="./gen_event">stdlib/gen_event</a>) registered as <strong>erl_signal_server</strong>.
+A default signal handler is installed which handles the following signals:</p><dl><dt><strong>sigusr1</strong></dt><dd><p>The default handler will halt Erlang and produce a crashdump
+with slogan "Received SIGUSR1".
+This is equivalent to calling <strong>erlang:halt("Received SIGUSR1")</strong>.
+</p></dd><dt><strong>sigquit</strong></dt><dd><p>The default handler will halt Erlang immediately.
+This is equivalent to calling <strong>erlang:halt()</strong>.
+</p></dd><dt><strong>sigterm</strong></dt><dd><p>The default handler will terminate Erlang normally.
+This is equivalent to calling <strong>init:stop()</strong>.
+</p></dd></dl><h2>Events</h2><p>Any event handler added to <strong>erl_signal_server</strong> must handle the following events.</p><dl><dt><strong>sighup</strong></dt><dd><p>Hangup detected on controlling terminal or death of controlling process</p></dd><dt><strong>sigquit</strong></dt><dd><p>Quit from keyboard</p></dd><dt><strong>sigabrt</strong></dt><dd><p>Abort signal from abort</p></dd><dt><strong>sigalrm</strong></dt><dd><p>Timer signal from alarm</p></dd><dt><strong>sigterm</strong></dt><dd><p>Termination signal</p></dd><dt><strong>sigusr1</strong></dt><dd><p>User-defined signal 1</p></dd><dt><strong>sigusr2</strong></dt><dd><p>User-defined signal 2</p></dd><dt><strong>sigchld</strong></dt><dd><p>Child process stopped or terminated</p></dd><dt><strong>sigstop</strong></dt><dd><p>Stop process</p></dd><dt><strong>sigtstp</strong></dt><dd><p>Stop typed at terminal</p></dd></dl><p>Setting OS signals are described in <a href="./os#set_signal/2">os#set_signal/2</a>.</p><a name="configuration"></a><h2>Configuration</h2><p>The following configuration parameters are defined for the Kernel
+application. For more information about configuration parameters,
+see file <a href="app">app</a>.</p><dl><dt><strong>distributed = [Distrib]</strong></dt><dd> <p>Specifies which applications that are distributed and on which
+nodes they are allowed to execute. In this parameter:</p> <ul><li><strong>Distrib = {App,Nodes} | {App,Time,Nodes}</strong></li><li><strong>App = atom()</strong></li><li><strong>Time = integer()&gt;0</strong></li><li><strong>Nodes = [node() | {node(),...,node()}]</strong></li></ul> <p>The parameter is described in
+<a href="./application#load/2">application#load/2</a>.</p> </dd><dt><strong>dist_auto_connect = Value</strong></dt><dd> <p>Specifies when nodes are automatically connected. If
+this parameter is not specified, a node is always
+automatically connected, for example, when a message is to be sent to
+that node. <strong>Value</strong> is one of:</p> <dl><dt><strong>never</strong></dt><dd><p>Connections are never automatically established, they
+must be explicitly connected. See
+<a href="net_kernel">net_kernel</a>.</p></dd><dt><strong>once</strong></dt><dd><p>Connections are established automatically, but only
+once per node. If a node goes down, it must thereafter be
+explicitly connected. See
+<a href="net_kernel">net_kernel</a>.</p></dd></dl> </dd><dt><strong>permissions = [Perm]</strong></dt><dd> <p>Specifies the default permission for applications when they
+are started. In this parameter:</p> <ul><li><strong>Perm = {ApplName,Bool}</strong></li><li><strong>ApplName = atom()</strong></li><li><strong>Bool = boolean()</strong></li></ul> <p>Permissions are described in
+<a href="./application#permit/2">application#permit/2</a>.</p> </dd><dt><a name="logger"></a><strong>logger = [Config]</strong></dt><dd> <p>Specifies the configuration
+for <a href="logger">Logger</a>, except the
+primary log level, which is specified
+with <a href="#logger_level">logger_level</a>,
+and the compatibility
+with <a href="./error_logging">SASL Error Logging</a>, which is specified
+with <a href="#logger_sasl_compatible">logger_sasl_compatible</a>.</p> <p>The <strong>logger </strong> parameter is described in
+section <a href="./logger_chapter#logger_parameter"> Logging</a> in the Kernel User's Guide.</p> </dd><dt><a name="logger_level"></a><strong>logger_level = Level</strong></dt><dd> <p>Specifies the primary log level for Logger. Log events with
+the same, or a more severe level, pass through the primary
+log level check. See
+section <a href="logger_chapter">Logging</a>
+in the Kernel User's Guide for more information about Logger
+and log levels.</p> <p><strong>Level = emergency | alert | critical | error | warning | notice | info | debug | all | none</strong></p> <p>To change the primary log level at runtime, use
+<a href="./logger#set_primary_config/2">logger#set_primary_config/2</a>.</p> <p>Defaults to <strong>notice</strong>.</p> </dd><dt><a name="logger_sasl_compatible"></a> <strong>logger_sasl_compatible = true | false</strong></dt><dd> <p>Specifies if Logger behaves backwards compatible with the
+SASL error logging functionality from releases prior to
+Erlang/OTP 21.0.</p> <p>If this parameter is set to <strong>true</strong>, the default Logger
+handler does not log any progress-, crash-, or supervisor
+reports. If the SASL application is then started, it adds a
+Logger handler named <strong>sasl</strong>, which logs these events
+according to values of the SASL configuration
+parameter <strong>sasl_error_logger</strong>
+and <strong>sasl_errlog_type</strong>.</p> <p>See section
+<a href="../sasl/sasl_app#deprecated_error_logger_config"> Deprecated Error Logger Event Handlers and Configuration</a> in the sasl(6) manual page for
+information about the SASL configuration parameters.</p> <p>See section <a href="./error_logging">SASL Error Logging</a> in the SASL User's Guide, and
+section <a href="./logger_chapter#compatibility">Backwards Compatibility with error_logger</a> in the Kernel
+User's Guide for information about the SASL error logging
+functionality, and how Logger can be backwards compatible
+with this.</p> <p>Defaults to <strong>false</strong>.</p> <div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>If this parameter is set to <strong>true</strong>,
+<strong>sasl_errlog_type</strong> indicates that progress reports
+shall be logged, and the configured primary log level
+is <strong>notice</strong> or more severe, then SASL automatically
+sets the primary log level to <strong>info</strong>. That is, this
+setting can potentially overwrite the value of the Kernel
+configuration parameter <strong>logger_level</strong>. This is to
+allow progress reports, which have log level <strong>info</strong>,
+to be forwarded to the handlers.</p></div> </dd><dt><strong>global_groups = [GroupTuple]</strong></dt><dd> <a name="global_groups"></a> <p>Defines global groups, see
+<a href="global_group">global_group</a>.
+In this parameter:</p> <ul><li><p><strong>GroupTuple = {GroupName, [Node]} | {GroupName, PublishType, [Node]}</strong></p></li><li><p><strong>GroupName = atom()</strong></p></li><li><p><strong>PublishType = normal | hidden</strong></p></li><li><p><strong>Node = node()</strong></p></li></ul> </dd><dt><strong>inet_default_connect_options = [{Opt, Val}]</strong></dt><dd> <p>Specifies default options for <strong>connect</strong> sockets,
+see <a href="inet">inet</a>.</p> </dd><dt><strong>inet_default_listen_options = [{Opt, Val}]</strong></dt><dd> <p>Specifies default options for <strong>listen</strong> (and
+<strong>accept</strong>) sockets, see <a href="inet">inet</a>.</p> </dd><dt><strong>{inet_dist_use_interface, ip_address()}</strong></dt><dd> <p>If the host of an Erlang node has many network interfaces,
+this parameter specifies which one to listen on. For the type definition
+of <strong>ip_address()</strong>,
+see <a href="inet">inet</a>.</p> </dd><dt><strong>{inet_dist_listen_min, First}</strong> and <strong>{inet_dist_listen_max, Last}</strong></dt><dd> <p>Defines the <strong>First..Last</strong> port range for the listener
+socket of a distributed Erlang node.</p> </dd><dt><strong>{inet_dist_listen_options, Opts}</strong></dt><dd> <a name="inet_dist_listen_options"></a> <p>Defines a list of extra socket options to be used when opening the
+listening socket for a distributed Erlang node.
+See <a href="./gen_tcp#listen/2">gen_tcp#listen/2</a>.</p> </dd><dt><strong>{inet_dist_connect_options, Opts}</strong></dt><dd> <a name="inet_dist_connect_options"></a> <p>Defines a list of extra socket options to be used when connecting to
+other distributed Erlang nodes.
+See <a href="./gen_tcp#connect/4">gen_tcp#connect/4</a>.</p> </dd><dt><strong>inet_parse_error_log = silent</strong></dt><dd> <p>If set, no log events are issued when erroneous lines are
+found and skipped in the various Inet configuration
+files.</p> </dd><dt><strong>inetrc = Filename</strong></dt><dd> <p>The name (string) of an Inet user configuration file. For details,
+see section
+<a href="./inet_cfg">erts/inet_cfg</a>
+in the ERTS User's Guide.</p> </dd><dt><strong>net_setuptime = SetupTime</strong></dt><dd> <a name="net_setuptime"></a> <p><strong>SetupTime</strong> must be a positive integer or floating point
+number, and is interpreted as the maximum allowed time
+for each network operation during connection setup to another
+Erlang node. The maximum allowed value is <strong>120</strong>. If higher values
+are specified, <strong>120</strong> is used. Default is 7 seconds if the variable
+is not specified, or if the value is incorrect (for example, not a number).</p> <p>Notice that this value does not limit the total connection
+setup time, but rather each individual network operation during
+the connection setup and handshake.</p> </dd><dt><strong>net_ticktime = TickTime</strong></dt><dd> <a name="net_ticktime"></a> <p>Specifies the <strong>net_kernel</strong> tick time in seconds. This is the
+approximate time a connected node may be unresponsive until it is
+considered down and thereby disconnected.</p> <p>Once every <strong>TickTime/4</strong> seconds, each connected node is ticked
+if nothing has been sent to it during that last <strong>TickTime/4</strong>
+interval. A tick is a small package sent on the connection. A connected
+node is considered to be down if no ticks or payload packages have been
+received during the last four <strong>TickTime/4</strong> intervals. This ensures
+that nodes that are not responding, for reasons such as hardware errors,
+are considered to be down.</p> <p>As the availability is only checked every <strong>TickTime/4</strong> seconds,
+the actual time <strong>T</strong> a node have been unresponsive when
+detected may vary between <strong>MinT</strong> and <strong>MaxT</strong>,
+where:</p> <pre><code class="">
+MinT = TickTime - TickTime / 4
+MaxT = TickTime + TickTime / 4</code></pre> <p><strong>TickTime</strong> defaults to <strong>60</strong> seconds. Thus,
+<strong>45 &lt; T &lt; 75</strong> seconds.</p> <p>Notice that <em>all</em> communicating nodes are to have the
+<em>same</em> <strong>TickTime</strong> value specified, as it determines both the
+frequency of outgoing ticks and the expected frequency of incominging
+ticks.</p> <p>Normally, a terminating node is detected immediately by the transport
+protocol (like TCP/IP).</p> </dd><dt><strong>shutdown_timeout = integer() | infinity</strong></dt><dd> <p>Specifies the time <strong>application_controller</strong> waits
+for an application to terminate during node shutdown. If the
+timer expires, <strong>application_controller</strong> brutally
+kills <strong>application_master</strong> of the hanging
+application. If this parameter is undefined, it defaults
+to <strong>infinity</strong>.</p> </dd><dt><strong>sync_nodes_mandatory = [NodeName]</strong></dt><dd> <p>Specifies which other nodes that <em>must</em> be alive
+for this node to start properly. If some node in the list
+does not start within the specified time, this node does not
+start either. If this parameter is undefined, it defaults to
+<strong>[]</strong>.</p> </dd><dt><strong>sync_nodes_optional = [NodeName]</strong></dt><dd> <p>Specifies which other nodes that <em>can</em> be alive
+for this node to start properly. If some node in this list
+does not start within the specified time, this node starts
+anyway. If this parameter is undefined, it defaults to
+the empty list.</p> </dd><dt><strong>sync_nodes_timeout = integer() | infinity</strong></dt><dd> <p>Specifies the time (in milliseconds) that this node
+waits for the mandatory and optional nodes to start. If
+this parameter is undefined, no node synchronization is
+performed. This option ensures that <strong>global</strong> is
+synchronized.</p> </dd><dt><strong>start_distribution = true | false</strong></dt><dd> <p>Starts all distribution services, such as <strong>rpc</strong>,
+<strong>global</strong>, and <strong>net_kernel</strong> if the parameter is
+<strong>true</strong>. This parameter is to be set to <strong>false</strong>
+for systems who want to disable all distribution functionality.</p> <p>Defaults to <strong>true</strong>.</p> </dd><dt><strong>start_dist_ac = true | false</strong></dt><dd> <p>Starts the <strong>dist_ac</strong> server if the parameter is
+<strong>true</strong>. This parameter is to be set to <strong>true</strong> for
+systems using distributed applications.</p> <p>Defaults to <strong>false</strong>.  If this parameter is
+undefined, the server is started if parameter
+<strong>distributed</strong> is set.</p> </dd><dt><strong>start_boot_server = true | false</strong></dt><dd> <p>Starts the <strong>boot_server</strong> if the parameter is <strong>true</strong>
+(see <a href="erl_boot_server">erl_boot_server</a>).
+This parameter is to be set to <strong>true</strong> in an embedded system
+using this service.</p> <p>Defaults to <strong>false</strong>.</p> </dd><dt><strong>boot_server_slaves = [SlaveIP]</strong></dt><dd> <p>If configuration parameter <strong>start_boot_server</strong> is
+<strong>true</strong>, this parameter can be used to initialize
+<strong>boot_server</strong> with a list of slave IP addresses:</p> <p>
+<strong>SlaveIP = string() | atom | {integer(),integer(),integer(),integer()}</strong>,</p> <p>where <strong>0 &lt;= integer() &lt;=255</strong>.</p> <p>Examples of <strong>SlaveIP</strong> in atom, string, and tuple form:</p> <p><strong>'150.236.16.70', "150,236,16,70", {150,236,16,70}</strong>.</p> <p>Defaults to <strong>[]</strong>.</p> </dd><dt><strong>start_disk_log = true | false</strong></dt><dd> <p>Starts the <strong>disk_log_server</strong> if the parameter is
+<strong>true</strong> (see <a href="disk_log">disk_log</a>).
+This parameter is to be set to <strong>true</strong> in an embedded system
+using this service.</p> <p>Defaults to <strong>false</strong>.</p> </dd><dt><strong>start_pg2 = true | false</strong></dt><dd> <a name="start_pg2"></a> <p>Starts the <strong>pg2</strong> server (see
+<a href="pg2">pg2</a>) if
+the parameter is <strong>true</strong>. This parameter is to be set to
+<strong>true</strong> in an embedded system that uses this service.</p> <p>Defaults to <strong>false</strong>.</p> </dd><dt><strong>start_timer = true | false</strong></dt><dd> <p>Starts the <strong>timer_server</strong> if the parameter is
+<strong>true</strong> (see <a href="./timer">stdlib/timer</a>).
+This parameter is to be set to <strong>true</strong> in an embedded system
+using this service.</p> <p>Defaults to <strong>false</strong>.</p> </dd><dt><strong>shell_history = enabled | disabled </strong></dt><dd> <p>Specifies whether shell history should be logged to disk
+between usages of <strong>erl</strong>.</p> </dd><dt><strong>shell_history_drop = [string()]</strong></dt><dd> <p>Specific log lines that should not be persisted. For
+example <strong>["q().", "init:stop()."]</strong> will allow to
+ignore commands that shut the node down. Defaults to
+<strong>[]</strong>.</p> </dd><dt><strong>shell_history_file_bytes = integer()</strong></dt><dd> <p>how many bytes the shell should remember. By default, the
+value is set to 512kb, and the minimal value is 50kb.</p> </dd><dt><strong>shell_history_path = string()</strong></dt><dd> <p>Specifies where the shell history files will be stored.
+defaults to the user's cache directory as returned by
+<strong>filename:basedir(user_cache, "erlang-history")</strong>.</p> </dd><dt><strong>shutdown_func = {Mod, Func}</strong></dt><dd> <p>Where:</p> <ul><li><strong>Mod = atom()</strong></li><li><strong>Func = atom()</strong></li></ul> <p>Sets a function that <strong>application_controller</strong> calls
+when it starts to terminate. The function is called as
+<strong>Mod:Func(Reason)</strong>, where <strong>Reason</strong> is the terminate
+reason for <strong>application_controller</strong>, and it must
+return as soon as possible for <strong>application_controller</strong>
+to terminate properly.</p> </dd><dt><strong>source_search_rules = [DirRule] | [SuffixRule] </strong></dt><dd> <a name="source_search_rules"></a> <p>Where:</p> <ul><li><strong>DirRule = {ObjDirSuffix,SrcDirSuffix}</strong></li><li><strong>SuffixRule = {ObjSuffix,SrcSuffix,[DirRule]}</strong></li><li><strong>ObjDirSuffix = string()</strong></li><li><strong>SrcDirSuffix = string()</strong></li><li><strong>ObjSuffix = string()</strong></li><li><strong>SrcSuffix = string()</strong></li></ul> <p>Specifies a list of rules for use by
+<a href="../stdlib/filelib#find_file/2">stdlib/filelib#find_file/2</a>
+<a href="../stdlib/filelib#find_source/2">stdlib/filelib#find_source/2</a>
+If this is set to some other value
+than the empty list, it replaces the default rules. Rules can be
+simple pairs of directory suffixes, such as <strong>{"ebin", "src"}</strong>, which are used by <strong>filelib:find_file/2</strong>, or
+triples specifying separate directory suffix rules depending on
+file name extensions, for example <strong>[{".beam", ".erl", [{"ebin", "src"}]}</strong>, which are used by <strong>filelib:find_source/2</strong>. Both
+kinds of rules can be mixed in the list.</p> <p>The interpretation of <strong>ObjDirSuffix</strong> and <strong>SrcDirSuffix</strong>
+is as follows: if the end of the directory name where an
+object is located matches <strong>ObjDirSuffix</strong>, then the
+name created by replacing <strong>ObjDirSuffix</strong> with
+<strong>SrcDirSuffix</strong> is expanded by calling
+<a href="../stdlib/filelib#wildcard/1">stdlib/filelib#wildcard/1</a>, and the first regular
+file found among the matches is the source file.
+</p> </dd></dl><h2>Deprecated Configuration Parameters</h2><p>In Erlang/OTP 21.0, a new API for logging was added. The
+old <strong>error_logger</strong> event manager, and event handlers
+running on this manager, still work, but they are no longer used
+by default.</p><p>The following application configuration parameters can still be
+set, but they are only used if the corresponding configuration
+parameters for Logger are not set.</p><dl><dt><strong>error_logger</strong></dt><dd>Replaced by setting the <a href="./logger_std_h#type">logger_std_h#type</a>, and possibly <a href="./logger_std_h#file">logger_std_h#file</a> and <a href="./logger_std_h#modes">logger_std_h#modes</a> parameters of the default <strong>logger_std_h</strong> handler. Example: <pre><code class="">
+erl -kernel logger '[{handler,default,logger_std_h,#{config=&gt;#{file=&gt;"/tmp/erlang.log"}}}]'
+      </code></pre> </dd><dt><strong>error_logger_format_depth</strong></dt><dd>Replaced by setting the <a href="./logger_formatter#depth">logger_formatter#depth</a> parameter of the default handlers formatter. Example: <pre><code class="">
+erl -kernel logger '[{handler,default,logger_std_h,#{formatter=&gt;{logger_formatter,#{legacy_header=&gt;true,template=&gt;[{logger_formatter,header},"\n",msg,"\n"],depth=&gt;10}}}]'
+      </code></pre> </dd></dl><p>See <a href="./logger_chapter#compatibility">Backwards compatibility with error_logger</a> for more
+information.</p><h2>See Also</h2><p><a href="app">app</a>,
+<a href="application">application</a>,
+<a href="code">code</a>,
+<a href="disk_log">disk_log</a>,
+<a href="erl_boot_server">erl_boot_server</a>,
+<a href="erl_ddll">erl_ddll</a>,
+<a href="file">file</a>,
+<a href="global">global</a>,
+<a href="global_group">global_group</a>,
+<a href="heart">heart</a>,
+<a href="inet">inet</a>,
+<a href="logger">logger</a>,
+<a href="net_kernel">net_kernel</a>,
+<a href="os">os</a>,
+<a href="pg2">pg2</a>,
+<a href="rpc">rpc</a>,
+<a href="seq_trace">seq_trace</a>,
+<a href="user">user</a>,
+<a href="./timer">stdlib/timer</a></p></body></html>

@@ -1,0 +1,36 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>snmpm_network_interface</h1><h1>snmpm_network_interface</h1><p>Behaviour module for the SNMP manager network interface.</p><p>This module defines the behaviour of the manager network
+interface. A <strong>snmpm_network_interface</strong> compliant module 
+must export the following functions: <ul><li> <p><a href="#start_link">start_link/2</a></p> </li><li> <p><a href="#stop">stop/1</a></p> </li><li> <p><a href="#send_pdu">send_pdu/7</a></p> </li><li> <p><a href="#inform_response">inform_response/4</a></p> </li><li> <p><a href="#note_store">note_store/2</a></p> </li><li> <p><a href="#info">info/1</a></p> </li><li> <p><a href="#get_log_type">get_log_type/1</a></p> </li><li> <p><a href="#set_log_type">set_log_type/2</a></p> </li><li> <p><a href="#verbosity">verbosity/2</a></p> </li></ul>The semantics of them and their exact signatures are explained
+below. Legacy API function <strong>send_pdu/7</strong> that has got separate
+<strong>IpAddr</strong> and <strong>PortNumber</strong> arguments still works as before
+for backwards compatibility reasons.<a name="start_link"></a></p><h1>Functions</h1><h2>start_link(Server, NoteStore) -&gt; {ok, Pid} | {error, Reason}</h2><p>Start-link the network interface process</p><ul><li><span class="v">Server    = pid()</span></li><li><span class="v">NoteStore = pid()</span></li></ul><p>Start-link the network interface process.</p><p><strong>Server</strong> is the pid of the managing process.</p><p><strong>NoteStore</strong> is the pid of the note-store process.</p><a name="stop"></a><h2>stop(Pid) -&gt; void()</h2><p>Stop the network interface process</p><ul><li><span class="v">Pid = pid()</span></li></ul><p>Stop the network interface process.</p><a name="send_pdu"></a><h2>send_pdu(Pid, Pdu, Vsn, MsgData, Domain, Addr, ExtraInfo) -&gt; void()</h2><p>Request the network interface process to send this pdu</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Pdu = pdu()</span></li><li><span class="v">Vsn = 'version-1' | 'version-2' | 'version-3'</span></li><li><span class="v">MsgData = term()</span></li><li><span class="v">Domain = transportDomainUdpIpv4 | transportDomainUdpIpv6</span></li><li><span class="v">Addr = {} </span></li><li><span class="v">ExtraInfo = term()</span></li></ul><p>Request the network interface process (<strong>Pid</strong>) to send
+this pdu (<strong>Pdu</strong>).</p><p><strong>ExtraInfo</strong> is some opaque data that is passed to the
+net-if process. It originates from the <strong>ExtraInfo</strong>
+parameter in the calls to the 
+<a href="./snmpm#sync_get">synchronous get-request</a>, 
+<a href="./snmpm#async_get">asynchronous get-request</a>,
+<a href="./snmpm#sync_get_next">synchronous get-next-request</a>, 
+<a href="./snmpm#async_get_next">asynchronous get-next-request</a>,
+<a href="./snmpm#sync_set">synchronous set-request</a>
+and 
+<a href="./snmpm#async_set">asynchronous set-request</a>
+functions. 
+Whether the net-if process chooses
+to use this is implementation dependent. The net-if process
+included in this application ignores it. </p><a name="inform_response"></a><h2>inform_response(Pid, Ref, Addr, Port) -&gt; void()</h2><p>Send the inform-request ack</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Ref = term()</span></li><li><span class="v">Addr = address()</span></li><li><span class="v">Port = integer()</span></li></ul><p>Instruct the network interface process to send the response
+(acknowledgment) to an inform-request.</p><p><strong>Ref</strong> is something that can be used to identify the 
+inform-request, e.g. request-id of the inform-request.</p><p><strong>Addr</strong> and <strong>Port</strong> identifies the agent, from 
+which the inform-request originated.</p><a name="note_store"></a><h2>note_store(Pid, NoteStore) -&gt; void()</h2><p>Change the verbosity of the network interface process</p><ul><li><span class="v">Pid       = pid()</span></li><li><span class="v">NoteStore = pid()</span></li></ul><p>Change the pid of the note-store process.
+This is used when the server re-starts the note_store 
+(e.g. after a crach).</p><a name="info"></a><h2>info(Pid) -&gt; [{Key, Value}]</h2><p>Return information about the running network interface process</p><ul><li><span class="v">Pid = pid()</span></li></ul><p>The info returned is basically up to the implementer to decide. 
+The implementation provided by this application provides info about 
+memory allocation and various socket information.</p><p>The info returned by this function is returned together with other
+info collected by the manager when the
+<a href="./snmpm#info">info</a> function is called 
+(tagged with the key <strong>net_if</strong>).</p><a name="verbosity"></a><h2>verbosity(Pid, Verbosity) -&gt; void()</h2><p>Change the verbosity of the network interface process</p><ul><li><span class="v">Pid       = pid()</span></li><li><span class="v">Verbosity = verbosity()</span></li></ul><p>Change the verbosity of the network interface process.</p><a name="get_log_type"></a><h2>get_log_type(Pid) -&gt; {ok, LogType} | {error, Reason}</h2><p>Get the Audit Trail Log type</p><ul><li><span class="v">Pid     = pid()</span></li><li><span class="v">LogType = atl_type()</span></li><li><span class="v">Reason  = term()</span></li></ul><p>The Audit Trail Log is managed by the network interface process.
+So, it is this process that has to return the actual log-type. </p><a name="set_log_type"></a><h2>set_log_type(Pid, NewType) -&gt; {ok, OldType} | {error, Reason}</h2><p>Change the Audit Trail Log type</p><ul><li><span class="v">Pid     = pid()</span></li><li><span class="v">NewType = OldType = atl_type()</span></li><li><span class="v">Reason  = term()</span></li></ul><p>The Audit Trail Log is managed by the network interface process.
+So, it is this process that has to do the actual changing of the
+type. </p><p>See
+<a href="./snmpm#set_log_type">set_log_type</a>
+for more info. </p></body></html>

@@ -1,0 +1,77 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>instrument</h1><h1>instrument</h1><p>Analysis and Utility Functions for Instrumentation</p><p>The module <strong>instrument</strong> contains support for studying the resource
+usage in an Erlang runtime system. Currently, only the allocation of memory can
+be studied.</p><h1>Data Types</h1><span class="name">block_histogram</span><p>A histogram of block sizes where each interval's upper bound is 
+twice as high as the one before it.</p><p>The upper bound of the first interval is provided by the function
+that returned the histogram, and the last interval has no upper
+bound.</p><span class="name">allocation_summary</span><p>A summary of allocated block sizes (including their headers) grouped
+by their <strong><span class="anno">Origin</span></strong> and <strong><span class="anno">Type</span></strong>.</p><p><strong><span class="anno">Origin</span></strong> is generally which NIF or driver that
+allocated the blocks, or 'system' if it could not be determined.</p><p><strong><span class="anno">Type</span></strong> is the allocation category that the blocks
+belong to, e.g. <strong>db_term</strong>, <strong>message</strong> or <strong>binary</strong>.</p><p>If one or more carriers could not be scanned in full without harming
+the responsiveness of the system, <strong><span class="anno">UnscannedSize</span></strong>
+is the number of bytes that had to be skipped.</p><span class="name">carrier_info_list</span><p><strong><span class="anno">AllocatorType</span></strong> is the type of the allocator that
+employs this carrier.</p><p><strong><span class="anno">TotalSize</span></strong> is the total size of the carrier,
+including its header.</p><p><strong><span class="anno">AllocatedSize</span></strong> is the combined size of the
+carrier's allocated blocks, including their headers.</p><p><strong><span class="anno">AllocatedCount</span></strong> is the number of allocated
+blocks in the carrier.</p><p><strong><span class="anno">InPool</span></strong> is whether the carrier is in the
+migration pool.</p><p><strong><span class="anno">FreeBlocks</span></strong> is a histogram of the free block
+sizes in the carrier.</p><p>If the carrier could not be scanned in full without harming the
+responsiveness of the system, <strong><span class="anno">UnscannedSize</span></strong> is
+the number of bytes that had to be skipped.</p><h1>Functions</h1><h2>allocations/0</h2><p>Return a summary of all allocations in the system.</p><p>Shorthand for
+<a href="#allocations/1">.</a></p><h2>allocations/1</h2><p>Return a summary of all allocations filtered by allocator type and scheduler id.</p><p>Returns a summary of all tagged allocations in the system,
+optionally filtered by allocator type and scheduler id.</p><p>Only binaries and allocations made by NIFs and drivers are tagged by
+default, but this can be configured an a per-allocator basis with the
+<a href="../erts/erts_alloc#M_atags">erts/erts_alloc#M_atags</a> emulator option.</p><p>If the specified allocator types are not enabled, the call will fail
+with <strong>{error, not_enabled}</strong>.</p><p>The following options can be used:</p><dl><dt><strong>allocator_types</strong></dt><dd> <p>The allocator types that will be searched. Note that blocks can
+move freely between allocator types, so restricting the search to
+certain allocators may return unexpected types (e.g. process
+heaps when searching binary_alloc), or hide blocks that were
+migrated out.</p> <p>Defaults to all <strong>alloc_util</strong> allocators.</p> </dd><dt><strong>scheduler_ids</strong></dt><dd> <p>The scheduler ids whose allocator instances will be searched. A
+scheduler id of 0 will refer to the global instance that is not
+tied to any particular scheduler. Defaults to all schedulers and
+the global instance.</p> </dd><dt><strong>histogram_start</strong></dt><dd> <p>The upper bound of the first interval in the allocated block
+size histograms. Defaults to 128.</p> </dd><dt><strong>histogram_width</strong></dt><dd> <p>The number of intervals in the allocated block size histograms.
+Defaults to 18.</p> </dd></dl><p><em>Example:</em></p><pre><code class="">
+&gt; instrument:allocations(#{ histogram_start =&gt; 128, histogram_width =&gt; 15 }).
+{ok,{128,0,
+     #{udp_inet =&gt;
+           #{driver_event_state =&gt; {0,0,0,0,0,0,0,0,0,1,0,0,0,0,0}},
+       system =&gt;
+           #{heap =&gt; {0,0,0,0,20,4,2,2,2,3,0,1,0,0,1},
+             db_term =&gt; {271,3,1,52,80,1,0,0,0,0,0,0,0,0,0},
+             code =&gt; {0,0,0,5,3,6,11,22,19,20,10,2,1,0,0},
+             binary =&gt; {18,0,0,0,7,0,0,1,0,0,0,0,0,0,0},
+             message =&gt; {0,40,78,2,2,0,0,0,0,0,0,0,0,0,0},
+             ... }
+       spawn_forker =&gt;
+           #{driver_select_data_state =&gt;
+                 {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0}},
+       ram_file_drv =&gt; #{drv_binary =&gt; {0,0,0,0,0,0,1,0,0,0,0,0,0,0,0}},
+       prim_file =&gt;
+           #{process_specific_data =&gt; {2,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             nif_trap_export_entry =&gt; {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             monitor_extended =&gt; {0,1,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             drv_binary =&gt; {0,0,0,0,0,0,1,0,3,5,0,0,0,1,0},
+             binary =&gt; {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0}},
+       prim_buffer =&gt;
+           #{nif_internal =&gt; {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             binary =&gt; {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0}}}}}
+     </code></pre><h2>carriers/0</h2><p>Return a list of all carriers in the system.</p><p>Shorthand for
+<a href="#carriers/1">.</a></p><h2>carriers/1</h2><p>Return a list of all carriers filtered by allocator type and scheduler id.</p><p>Returns a summary of all carriers in the system, optionally filtered
+by allocator type and scheduler id.</p><p>If the specified allocator types are not enabled, the call will fail
+with <strong>{error, not_enabled}</strong>.</p><p>The following options can be used:</p><dl><dt><strong>allocator_types</strong></dt><dd> <p>The allocator types that will be searched. Defaults to all
+<strong>alloc_util</strong> allocators.</p> </dd><dt><strong>scheduler_ids</strong></dt><dd> <p>The scheduler ids whose allocator instances will be searched. A
+scheduler id of 0 will refer to the global instance that is not
+tied to any particular scheduler. Defaults to all schedulers and
+the global instance.</p> </dd><dt><strong>histogram_start</strong></dt><dd> <p>The upper bound of the first interval in the free block size
+histograms. Defaults to 512.</p> </dd><dt><strong>histogram_width</strong></dt><dd> <p>The number of intervals in the free block size histograms.
+Defaults to 14.</p> </dd></dl><p><em>Example:</em></p><pre><code class="">
+&gt; instrument:carriers(#{ histogram_start =&gt; 512, histogram_width =&gt; 8 }).
+{ok,{512,
+     [{ll_alloc,1048576,0,1048344,71,false,{0,0,0,0,0,0,0,0}},
+      {binary_alloc,1048576,0,324640,13,false,{3,0,0,1,0,0,0,2}},
+      {eheap_alloc,2097152,0,1037200,45,false,{2,1,1,3,4,3,2,2}},
+      {fix_alloc,32768,0,29544,82,false,{22,0,0,0,0,0,0,0}},
+      {...}|...]}}
+     </code></pre><h2>See Also</h2><p><a href="./erts_alloc">erts_alloc(3)</a>,
+<a href="./erl">erl(1)</a></p></body></html>

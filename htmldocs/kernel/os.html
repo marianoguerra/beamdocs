@@ -1,0 +1,153 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>os</h1><h1>os</h1><p>Operating system-specific functions.</p><p>The functions in this module are operating system-specific.
+Careless use of these functions results in programs that will
+only run on a specific platform. On the other hand, with careful
+use, these functions can be of help in enabling a program to run on
+most platforms.</p><h1>Data Types</h1><span class="name">env_var_name</span><p>A string containing valid characters on the specific
+OS for environment variable names using
+<a href="./file#native_name_encoding/0">file#native_name_encoding/0</a>
+encoding. Note that specifically null characters (integer
+value zero) and <strong>$=</strong> characters are not allowed.
+However, note that not all invalid characters necessarily
+will cause the primitiv operations to fail, but may instead
+produce invalid results.
+</p><span class="name">env_var_value</span><p>A string containing valid characters on the specific
+OS for environment variable values using
+<a href="./file#native_name_encoding/0">file#native_name_encoding/0</a>
+encoding. Note that specifically null characters (integer
+value zero) are not allowed. However, note that not all
+invalid characters necessarily will cause the primitiv
+operations to fail, but may instead produce invalid results.
+</p><span class="name">env_var_name_value</span><p>
+Assuming that environment variables has been correctly
+set, a strings containing valid characters on the specific
+OS for environment variable names and values using
+<a href="./file#native_name_encoding/0">file#native_name_encoding/0</a>
+encoding. The first <strong>$=</strong> characters appearing in
+the string separates environment variable name (on the
+left) from environment variable value (on the right).
+</p><span class="name">os_command</span><p>All characters needs to be valid characters on the
+specific OS using
+<a href="./file#native_name_encoding/0">file#native_name_encoding/0</a>
+encoding. Note that specifically null characters (integer
+value zero) are not allowed. However, note that not all
+invalid characters not necessarily will cause
+<a href="#cmd/1">cmd/1</a>
+to fail, but may instead produce invalid results.
+</p><span class="name">os_command_opts</span><p>Options for <a href="#cmd/2">cmd/2</a></p><dl><dt><strong>max_size</strong></dt><dd> <p>The maximum size of the data returned by the <strong>os:cmd</strong> call.
+See the <a href="#cmd/2">cmd/2</a>
+documentation for more details.</p> </dd></dl><h1>Functions</h1><h2>cmd/1</h2><h2>cmd/2</h2><p>Execute a command in a shell of the target OS.</p><p>Executes <strong><span class="anno">Command</span></strong> in a command shell of the
+target OS, captures the standard output of the command,
+and returns this result as a string.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>Previous implementation used to allow all characters
+as long as they were integer values greater than or equal to zero.
+This sometimes lead to unwanted results since null characters
+(integer value zero) often are interpreted as string termination. The
+current implementation rejects these.</p></div><p><em>Examples:</em></p><pre><code class="">
+LsOut = os:cmd("ls"), % on unix platform
+DirOut = os:cmd("dir"), % on Win32 platform</code></pre><p>Notice that in some cases, standard output of a command when
+called from another program (for example, <strong>os:cmd/1</strong>)
+can differ, compared with the standard output of the command
+when called directly from an OS command shell.</p><p><strong>os:cmd/2</strong> was added in kernel-5.5 (OTP-20.2.1). It makes it
+possible to pass an options map as the second argument in order to
+control the behaviour of <strong>os:cmd</strong>. The possible options are:
+</p><dl><dt><strong>max_size</strong></dt><dd> <p>The maximum size of the data returned by the <strong>os:cmd</strong> call.
+This option is a safety feature that should be used when the command
+executed can return a very large, possibly infinite, result.</p> <pre><code class="">
+&gt; os:cmd("cat /dev/zero", #{ max_size =&gt; 20 }).
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]</code></pre> </dd></dl><h2>find_executable/1</h2><h2>find_executable/2</h2><p>Absolute filename of a program.</p><p>These two functions look up an executable program, with the
+specified name and a search path, in the same way as the underlying
+OS. <strong>find_executable/1</strong> uses the current
+execution path (that is, the environment variable <strong>PATH</strong> on
+Unix and Windows).</p><p><strong><span class="anno">Path</span></strong>, if specified, is to conform to the syntax
+of execution paths on the OS. Returns the absolute filename of the
+executable program <strong><span class="anno">Name</span></strong>,
+or <strong>false</strong> if the program is not found.</p><h2>getenv/0</h2><p>List all environment variables.</p><p>Returns a list of all environment variables.
+Each environment variable is expressed as a single string on
+the format <strong>"VarName=Value"</strong>, where <strong>VarName</strong> is
+the name of the variable and <strong>Value</strong> its value.</p><p>If Unicode filename encoding is in effect (see the
+<a href="../erts/erl#file_name_encoding"> manual page</a>), the strings can contain characters with
+codepoints &gt; 255.</p><h2>getenv/1</h2><p>Get the value of an environment variable.</p><p>Returns the <strong><span class="anno">Value</span></strong> of the environment variable
+<strong><span class="anno">VarName</span></strong>, or <strong>false</strong> if the environment
+variable is undefined.</p><p>If Unicode filename encoding is in effect (see the
+<a href="../erts/erl#file_name_encoding"> manual page</a>), the strings <strong><span class="anno">VarName</span></strong> and
+<strong><span class="anno">Value</span></strong> can contain characters with
+codepoints &gt; 255.</p><h2>getenv/2</h2><p>Get the value of an environment variable.</p><p>Returns the <strong><span class="anno">Value</span></strong> of the environment variable
+<strong><span class="anno">VarName</span></strong>, or <strong>DefaultValue</strong> if the
+environment variable is undefined.</p><p>If Unicode filename encoding is in effect (see the
+<a href="../erts/erl#file_name_encoding"> manual page</a>), the strings <strong><span class="anno">VarName</span></strong> and
+<strong><span class="anno">Value</span></strong> can contain characters with
+codepoints &gt; 255.</p><h2>getpid/0</h2><p>Return the process identifier of the emulator process.</p><p>Returns the process identifier of the current Erlang emulator
+in the format most commonly used by the OS environment.
+Returns <strong><span class="anno">Value</span></strong> as a string containing
+the (usually) numerical identifier for a process. On Unix,
+this is typically the return value of the <strong>getpid()</strong>
+system call. On Windows,
+the process id as returned by the <strong>GetCurrentProcessId()</strong>
+system call is used.</p><h2>putenv/2</h2><p>Set a new value for an environment variable.</p><p>Sets a new <strong><span class="anno">Value</span></strong> for environment variable
+<strong><span class="anno">VarName</span></strong>.</p><p>If Unicode filename encoding is in effect (see the
+<a href="../erts/erl#file_name_encoding"> manual page</a>), the strings <strong><span class="anno">VarName</span></strong> and
+<strong><span class="anno">Value</span></strong> can contain characters with
+codepoints &gt; 255.</p><p>On Unix platforms, the environment is set using UTF-8 encoding
+if Unicode filename translation is in effect. On Windows, the
+environment is set using wide character interfaces.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+<strong><span class="anno">VarName</span></strong> is not allowed to contain
+an <strong>$=</strong> character. Previous implementations used
+to just let the <strong>$=</strong> character through which
+silently caused erroneous results. Current implementation
+will instead throw a <strong>badarg</strong> exception.
+</p></div><h2>set_signal/2</h2><p>Enables or disables handling of OS signals.</p><p>Enables or disables OS signals.</p><p>Each signal my be set to one of the following options:</p><dl><dt><strong>ignore</strong></dt><dd> This signal will be ignored. </dd><dt><strong>default</strong></dt><dd> This signal will use the default signal handler for the operating system. </dd><dt><strong>handle</strong></dt><dd> This signal will notify <a href="./kernel_app#erl_signal_server">kernel_app#erl_signal_server</a> when it is received by the Erlang runtime system. </dd></dl><h2>system_time/0</h2><p>Current OS system time.</p><p>Returns the current
+<a href="../erts/time_correction#OS_System_Time">OS system time</a>
+in <strong>native</strong>
+<a href="../erts/erlang#type_time_unit">time unit</a>.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This time is <em>not</em> a monotonically increasing time.</p></div><h2>system_time/1</h2><p>Current OS system time.</p><p>Returns the current
+<a href="../erts/time_correction#OS_System_Time">OS system time</a>
+converted into the <strong><span class="anno">Unit</span></strong> passed as argument.</p><p>Calling <strong>os:system_time(<span class="anno">Unit</span>)</strong> is equivalent to
+<a href="../erts/erlang#convert_time_unit/3">erts/erlang#convert_time_unit/3</a>(<a href="#system_time/0">system_time/0</a><strong>, native, <span class="anno">Unit</span>)</strong>.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This time is <em>not</em> a monotonically increasing time.</p></div><h2>timestamp/0</h2><p>Current OS system time on the <strong>erlang:timestamp/0</strong> format.</p><dl><dt>Timestamp</dt><dd>Timestamp = {MegaSecs, Secs, MicroSecs}</dd></dl><p>Returns the current
+<a href="../erts/time_correction#OS_System_Time">OS system time</a>
+in the same format as
+<a href="../erts/erlang#timestamp/0">erts/erlang#timestamp/0</a>.
+The tuple can be used together with function
+<a href="../stdlib/calendar#now_to_universal_time/1">stdlib/calendar#now_to_universal_time/1</a>
+or <a href="../stdlib/calendar#now_to_local_time/1">stdlib/calendar#now_to_local_time/1</a>
+to get calendar time. Using the calendar time, together with the
+<strong>MicroSecs</strong> part of the return tuple from this function, allows
+you to log time stamps in high resolution and consistent with the
+time in the rest of the OS.</p><p>Example of code formatting a string in format
+"DD Mon YYYY HH:MM:SS.mmmmmm", where DD is the day of month,
+Mon is the textual month name, YYYY is the year, HH:MM:SS is the time,
+and mmmmmm is the microseconds in six positions:</p><pre><code class="">
+-module(print_time).
+-export([format_utc_timestamp/0]).
+format_utc_timestamp() -&gt;
+    TS = {_,_,Micro} = os:timestamp(),
+    {{Year,Month,Day},{Hour,Minute,Second}} =
+calendar:now_to_universal_time(TS),
+    Mstr = element(Month,{"Jan","Feb","Mar","Apr","May","Jun","Jul",
+    "Aug","Sep","Oct","Nov","Dec"}),
+    io_lib:format("~2w ~s ~4w ~2w:~2..0w:~2..0w.~6..0w",
+    [Day,Mstr,Year,Hour,Minute,Second,Micro]).</code></pre><p>This module can be used as follows:</p><pre>
+1&gt; <span class="input">io:format("~s~n",[print_time:format_utc_timestamp()]).</span>
+29 Apr 2009  9:55:30.051711</pre><p>OS system time can also be retreived by
+<a href="#system_time/0">system_time/0</a> and
+<a href="#system_time/1">system_time/1</a>.</p><h2>perf_counter/0</h2><p>Returns a performance counter</p><p>Returns the current performance counter value in <strong>perf_counter</strong>
+<a href="../erts/erlang#type_time_unit">time unit</a>.
+This is a highly optimized call that might not be traceable.
+</p><h2>perf_counter/1</h2><p>Returns a performance counter</p><p>Returns a performance counter that can be used as a very fast and
+high resolution timestamp. This counter is read directly from the hardware or operating
+system with the same guarantees. This means that two consecutive calls
+to the function are not guaranteed to be monotonic, though it most likely will be.
+The performance counter will be converted to the resolution passed as an argument.</p><pre>1&gt; <span class="input">T1 = os:perf_counter(1000),receive after 10000 -&gt; ok end,T2 = os:perf_counter(1000).</span>
+176525861
+2&gt; <span class="input">T2 - T1.</span>
+10004</pre><h2>type/0</h2><p>Return the OS family and, in some cases, the OS name of the current OS.</p><p>Returns the <strong><span class="anno">Osfamily</span></strong> and, in some cases, the
+<strong><span class="anno">Osname</span></strong> of the current OS.</p><p>On Unix, <strong><span class="anno">Osname</span></strong> has the same value as
+<strong>uname -s</strong> returns, but in lower case. For example, on
+Solaris 1 and 2, it is <strong>sunos</strong>.</p><p>On Windows, <strong><span class="anno">Osname</span></strong> is <strong>nt</strong>.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Think twice before using this function. Use module
+<a href="./filename">stdlib/filename</a>
+if you want to inspect or build filenames in a portable way.
+Avoid matching on atom <strong><span class="anno">Osname</span></strong>.</p></div><h2>unsetenv/1</h2><p>Delete an environment variable.</p><p>Deletes the environment variable <strong><span class="anno">VarName</span></strong>.</p><p>If Unicode filename encoding is in effect (see the
+<a href="../erts/erl#file_name_encoding"> manual page</a>), the string <strong><span class="anno">VarName</span></strong> can
+contain characters with codepoints &gt; 255.</p><h2>version/0</h2><p>Return the OS versions.</p><p>Returns the OS version.
+On most systems, this function returns a tuple, but a string
+is returned instead if the system has versions that
+cannot be expressed as three numbers.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Think twice before using this function. If you still need
+to use it, always <strong>call os:type()</strong> first.</p></div></body></html>

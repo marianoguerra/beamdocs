@@ -1,0 +1,699 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Miscellaneous Mnesia Features</h1><p>The previous sections describe how to get started
+with <strong>Mnesia</strong> and how to build a <strong>Mnesia</strong> database. This
+section describes the more advanced features available
+when building a distributed, fault-tolerant <strong>Mnesia</strong> database.
+The following topics are included:</p><ul><li>Indexing</li><li>Distribution and fault tolerance</li><li>Table fragmentation</li><li>Local content tables</li><li>Disc-less nodes</li><li>More about schema management</li><li><strong>Mnesia</strong> event handling</li><li>Debugging <strong>Mnesia</strong> applications</li><li>Concurrent processes in <strong>Mnesia</strong></li><li>Prototyping</li><li>Object-based programming with <strong>Mnesia</strong></li></ul><a name="indexing"></a><h2>Indexing</h2><p>Data retrieval and matching can be performed efficiently
+if the key for the record is known. Conversely, if the key is
+unknown, all records in a table must be searched. The larger the
+table, the more time consuming it becomes. To remedy this
+problem, <strong>Mnesia</strong> indexing capabilities are used to improve
+data retrieval and matching of records.</p><p>The following two functions manipulate indexes on existing
+tables:</p><ul><li><a href="./mnesia#add_table_index/2">mnesia:add_table_index(Tab, AttributeName) -&gt; {aborted, R} |{atomic, ok}</a></li><li><a href="./mnesia#del_table_index/2">mnesia:del_table_index(Tab, AttributeName) -&gt; {aborted, R} |{atomic, ok}</a></li></ul><p>These functions create or delete a table index on a field
+defined by <strong>AttributeName</strong>. To illustrate this, add an
+index to the table definition <strong>(employee, {emp_no, name, salary, sex, phone, room_no})</strong>, which is the example table
+from the <strong>Company</strong> database. The function that
+adds an index on element <strong>salary</strong> can be expressed
+as <strong>mnesia:add_table_index(employee, salary)</strong>.</p><p>The indexing capabilities of <strong>Mnesia</strong> are used with the
+following three functions, which retrieve and match records
+based on index entries in the database:</p><ul><li> <a href="./mnesia#index_read/3">mnesia:index_read(Tab, SecondaryKey, AttributeName) -&gt; transaction abort | RecordList</a> avoids an exhaustive search of the entire table, by looking up <strong>SecondaryKey</strong> in the index to find the primary keys. </li><li> <a href="./mnesia#index_match_object/2">mnesia:index_match_object(Pattern, AttributeName) -&gt; transaction abort | RecordList</a> avoids an exhaustive search of the entire table, by looking up the secondary key in the index to find the primary keys. The secondary key is found in field <strong>AttributeName</strong> of <strong>Pattern</strong>. The secondary key must be bound. </li><li> <a href="./mnesia#match_object/1">mnesia:match_object(Pattern) -&gt; transaction abort | RecordList</a> uses indexes to avoid exhaustive search of the entire table. Unlike the previous functions, this function can use any index as long as the secondary key is bound.</li></ul><p>These functions are further described and exemplified in
+<a href="./Mnesia_chap4#matching">Pattern Matching</a>.
+</p><h2>Distribution and Fault Tolerance</h2><p><strong>Mnesia</strong> is a distributed, fault-tolerant DBMS. Tables
+can be replicated on different Erlang nodes in various
+ways. The <strong>Mnesia</strong> programmer does not need to state
+where the different tables reside, only the names of the
+different tables need to be specified in the program code. This
+is known as "location transparency" and is an important
+concept. In particular:</p><ul><li><p>A program works regardless of the data
+location. It makes no difference whether the data
+resides on the local node or on a remote node.</p> <p>Notice that the program runs slower if the data
+is located on a remote node.</p> </li><li>The database can be reconfigured, and tables can be moved between nodes. These operations do not affect the user programs.  </li></ul><p>It has previously been shown that each table has a number of
+system attributes, such as <strong>index</strong> and <strong>type</strong>.</p><p>Table attributes are specified when the table is created. For
+example, the following function creates a table with two
+RAM replicas:</p><pre>
+      mnesia:create_table(foo,
+                          [{ram_copies, [N1, N2]},
+                           {attributes, record_info(fields, foo)}]).</pre><p>Tables can also have the following properties,
+where each attribute has a list of Erlang nodes as its value:</p><ul><li> <p><strong>ram_copies</strong>. The value of the node list is a list
+of Erlang nodes, and a RAM replica of the table resides on
+each node in the list.</p> <p>Notice that no disc operations are performed when
+a program executes write operations to these replicas.
+However, if permanent RAM replicas are required, the
+following alternatives are available:</p> <ul><li>The function <a href="./mnesia#dump_tables/1">mnesia:dump_tables/1</a> can be used to dump RAM table replicas to disc. </li><li>The table replicas can be backed up, either from RAM, or from disc if dumped there with this function. </li></ul> </li><li><strong>disc_copies</strong>. The value of the attribute is a list of Erlang nodes, and a replica of the table resides both in RAM and on disc on each node in the list. Write operations addressed to the table address both the RAM and the disc copy of the table.  </li><li><strong>disc_only_copies</strong>. The value of the attribute is a list of Erlang nodes, and a replica of the table resides only as a disc copy on each node in the list. The major disadvantage of this type of table replica is the access speed. The major advantage is that the table does not occupy space in memory. </li></ul><p>In addition, table properties can be set and changed.
+For details, see
+<a href="./Mnesia_chap3#def_schema">Define a Schema</a>.
+</p><p>There are basically two reasons for using more than one table
+replica: fault tolerance and speed. Notice
+that table replication provides a solution to both of these
+system requirements.</p><p>If there are two active table replicas, all information is
+still available if one replica fails. This can be an
+important property in many applications. Furthermore, if a table
+replica exists at two specific nodes, applications that execute
+at either of these nodes can read data from the table without
+accessing the network. Network operations are considerably
+slower and consume more resources than local operations.</p><p>It can be advantageous to create table replicas for a
+distributed application that reads data often, but writes data
+seldom, to achieve fast read operations on the local
+node. The major disadvantage with replication is the increased
+time to write data. If a table has two replicas, every write
+operation must access both table replicas. Since one of these
+write operations must be a network operation, it is considerably
+more expensive to perform a write operation to a replicated
+table than to a non-replicated table.</p><h2>Table Fragmentation</h2><h2>Concept</h2><p>A concept of table fragmentation has been introduced
+to cope with large tables. The idea is to split a
+table into several manageable fragments. Each fragment is
+implemented as a first class <strong>Mnesia</strong> table and can be
+replicated, have indexes, and so on, as any other table. But
+the tables cannot have <strong>local_content</strong> or have the
+<strong>snmp</strong> connection activated.</p><p>To be able to access a record in a fragmented
+table, <strong>Mnesia</strong> must determine to which fragment the
+actual record belongs. This is done by module
+<strong>mnesia_frag</strong>, which implements the <strong>mnesia_access</strong>
+callback behavior. It is recommended to read the
+documentation about the function
+<a href="./mnesia#activity/4">mnesia:activity/4</a>
+to see how <strong>mnesia_frag</strong>
+can be used as a <strong>mnesia_access</strong> callback module.</p><p>At each record access, <strong>mnesia_frag</strong> first computes
+a hash value from the record key. Second, the name of the
+table fragment is determined from the hash value.
+Finally the actual table access is performed by the same
+functions as for non-fragmented tables. When the key is
+not known beforehand, all fragments are searched for
+matching records.</p><p>Notice that in <strong>ordered_set</strong> tables, the records
+are ordered per fragment, and the order is undefined in
+results returned by <strong>select</strong> and <strong>match_object</strong>,
+as well as <strong>first</strong>, <strong>next</strong>, <strong>prev</strong> and
+<strong>last</strong>.</p><p>The following code illustrates how a <strong>Mnesia</strong> table is
+converted to be a fragmented table and how more fragments
+are added later:</p><pre><code class="">
+Eshell V4.7.3.3  (abort with ^G)
+(a@sam)1&gt; mnesia:start().
+ok
+(a@sam)2&gt; mnesia:system_info(running_db_nodes).
+[b@sam,c@sam,a@sam]
+(a@sam)3&gt; Tab = dictionary.
+dictionary
+(a@sam)4&gt; mnesia:create_table(Tab, [{ram_copies, [a@sam, b@sam]}]).
+{atomic,ok}
+(a@sam)5&gt; Write = fun(Keys) -&gt; [mnesia:write({Tab,K,-K}) || K &lt;- Keys], ok end.
+#Fun&lt;erl_eval&gt;
+(a@sam)6&gt; mnesia:activity(sync_dirty, Write, [lists:seq(1, 256)], mnesia_frag).
+ok
+(a@sam)7&gt; mnesia:change_table_frag(Tab, {activate, []}).
+{atomic,ok}
+(a@sam)8&gt; mnesia:table_info(Tab, frag_properties).
+[{base_table,dictionary},
+ {foreign_key,undefined},
+ {n_doubles,0},
+ {n_fragments,1},
+ {next_n_to_split,1},
+ {node_pool,[a@sam,b@sam,c@sam]}]
+(a@sam)9&gt; Info = fun(Item) -&gt; mnesia:table_info(Tab, Item) end.
+#Fun&lt;erl_eval&gt;
+(a@sam)10&gt; Dist = mnesia:activity(sync_dirty, Info, [frag_dist], mnesia_frag).
+[{c@sam,0},{a@sam,1},{b@sam,1}]
+(a@sam)11&gt; mnesia:change_table_frag(Tab, {add_frag, Dist}).
+{atomic,ok}
+(a@sam)12&gt; Dist2 = mnesia:activity(sync_dirty, Info, [frag_dist], mnesia_frag).
+[{b@sam,1},{c@sam,1},{a@sam,2}]
+(a@sam)13&gt; mnesia:change_table_frag(Tab, {add_frag, Dist2}).
+{atomic,ok}
+(a@sam)14&gt; Dist3 = mnesia:activity(sync_dirty, Info, [frag_dist], mnesia_frag).
+[{a@sam,2},{b@sam,2},{c@sam,2}]
+(a@sam)15&gt; mnesia:change_table_frag(Tab, {add_frag, Dist3}).
+{atomic,ok}
+(a@sam)16&gt; Read = fun(Key) -&gt; mnesia:read({Tab, Key}) end.
+#Fun&lt;erl_eval&gt;
+(a@sam)17&gt; mnesia:activity(transaction, Read, [12], mnesia_frag).
+[{dictionary,12,-12}]
+(a@sam)18&gt; mnesia:activity(sync_dirty, Info, [frag_size], mnesia_frag).
+[{dictionary,64},
+ {dictionary_frag2,64},
+ {dictionary_frag3,64},
+ {dictionary_frag4,64}]
+(a@sam)19&gt; 
+      </code></pre><h2>Fragmentation Properties</h2><p>The table property <strong>frag_properties</strong> can be read with
+the function
+<a href="./mnesia#table_info/2">mnesia:table_info(Tab, frag_properties)</a>.
+The fragmentation properties are a list of tagged tuples with
+arity 2. By default the list is empty, but when it is
+non-empty it triggers <strong>Mnesia</strong> to regard the table as
+fragmented. The fragmentation properties are as follows:</p><dl><dt><strong>{n_fragments, Int}</strong></dt><dd> <p><strong>n_fragments</strong> regulates how many fragments
+that the table currently has. This property can explicitly
+be set at table creation and later be changed with
+<strong>{add_frag, NodesOrDist}</strong> or
+<strong>del_frag</strong>. <strong>n_fragments</strong> defaults to <strong>1</strong>.</p> </dd><dt><strong>{node_pool, List}</strong></dt><dd> <p>The node pool contains a list of nodes and can
+explicitly be set at table creation and later be changed
+with <strong>{add_node, Node}</strong> or <strong>{del_node, Node}</strong>.
+At table creation <strong>Mnesia</strong> tries to distribute
+the replicas of each fragment evenly over all the nodes in
+the node pool. Hopefully all nodes end up with the
+same number of replicas. <strong>node_pool</strong> defaults to the
+return value from the function
+<a href="./mnesia#system_info/1">mnesia:system_info(db_nodes)</a>.</p> </dd><dt><strong>{n_ram_copies, Int}</strong></dt><dd> <p>Regulates how many <strong>ram_copies</strong> replicas
+that each fragment is to have. This property can
+explicitly be set at table creation. Defaults is
+<strong>0</strong>, but if <strong>n_disc_copies</strong> and
+<strong>n_disc_only_copies</strong> also are <strong>0</strong>,
+<strong>n_ram_copies</strong> defaults to <strong>1</strong>.</p> </dd><dt><strong>{n_disc_copies, Int}</strong></dt><dd> <p>Regulates how many <strong>disc_copies</strong> replicas that
+each fragment is to have. This property can explicitly
+be set at table creation. Default is <strong>0</strong>.</p> </dd><dt><strong>{n_disc_only_copies, Int}</strong></dt><dd> <p>Regulates how many <strong>disc_only_copies</strong> replicas
+that each fragment is to have. This property can
+explicitly be set at table creation. Defaults is
+<strong>0</strong>.</p> </dd><dt><strong>{foreign_key, ForeignKey}</strong></dt><dd> <p><strong>ForeignKey</strong> can either be the atom
+<strong>undefined</strong> or the tuple <strong>{ForeignTab, Attr}</strong>,
+where <strong>Attr</strong> denotes an attribute that is to be
+interpreted as a key in another fragmented table named
+<strong>ForeignTab</strong>. <strong>Mnesia</strong> ensures that the number of
+fragments in this table and in the foreign table are
+always the same.</p> <p>When fragments are added or deleted, <strong>Mnesia</strong>
+automatically propagates the operation to all
+fragmented tables that have a foreign key referring to this
+table. Instead of using the record key to determine which
+fragment to access, the value of field  <strong>Attr</strong> is
+used. This feature makes it possible to colocate records
+automatically in different tables to the same node.
+<strong>foreign_key</strong> defaults to
+<strong>undefined</strong>. However, if the foreign key is set to
+something else, it causes the default values of the
+other fragmentation properties to be the same values as
+the actual fragmentation properties of the foreign table.</p> </dd><dt><strong>{hash_module, Atom}</strong></dt><dd> <p>Enables definition of an alternative hashing scheme.
+The module must implement the
+<a href="mnesia_frag_hash">mnesia_frag_hash</a>
+callback behavior. This property can explicitly be set at
+table creation. Default is <strong>mnesia_frag_hash</strong>.</p> </dd><dt><strong>{hash_state, Term}</strong></dt><dd> <p>Enables a table-specific parameterization of a
+generic hash module. This property can explicitly be set
+at table creation. Default is <strong>undefined</strong>.</p> <pre><code class="">
+Eshell V4.7.3.3  (abort with ^G)
+(a@sam)1&gt; mnesia:start().
+ok
+(a@sam)2&gt; PrimProps = [{n_fragments, 7}, {node_pool, [node()]}].
+[{n_fragments,7},{node_pool,[a@sam]}]
+(a@sam)3&gt; mnesia:create_table(prim_dict, 
+                              [{frag_properties, PrimProps},
+                               {attributes,[prim_key,prim_val]}]).
+{atomic,ok}
+(a@sam)4&gt; SecProps = [{foreign_key, {prim_dict, sec_val}}].
+[{foreign_key,{prim_dict,sec_val}}]
+(a@sam)5&gt; mnesia:create_table(sec_dict, 
+                              [{frag_properties, SecProps},
+(a@sam)5&gt;                      {attributes, [sec_key, sec_val]}]).
+{atomic,ok}
+(a@sam)6&gt; Write = fun(Rec) -&gt; mnesia:write(Rec) end.
+#Fun&lt;erl_eval&gt;
+(a@sam)7&gt; PrimKey = 11.
+11
+(a@sam)8&gt; SecKey = 42.
+42
+(a@sam)9&gt; mnesia:activity(sync_dirty, Write,
+                          [{prim_dict, PrimKey, -11}], mnesia_frag).
+ok
+(a@sam)10&gt; mnesia:activity(sync_dirty, Write,
+                           [{sec_dict, SecKey, PrimKey}], mnesia_frag).
+ok
+(a@sam)11&gt; mnesia:change_table_frag(prim_dict, {add_frag, [node()]}).
+{atomic,ok}
+(a@sam)12&gt; SecRead = fun(PrimKey, SecKey) -&gt;
+               mnesia:read({sec_dict, PrimKey}, SecKey, read) end.
+#Fun&lt;erl_eval&gt;
+(a@sam)13&gt; mnesia:activity(transaction, SecRead,
+                           [PrimKey, SecKey], mnesia_frag).
+[{sec_dict,42,11}]
+(a@sam)14&gt; Info = fun(Tab, Item) -&gt; mnesia:table_info(Tab, Item) end.
+#Fun&lt;erl_eval&gt;
+(a@sam)15&gt; mnesia:activity(sync_dirty, Info,
+                           [prim_dict, frag_size], mnesia_frag).
+[{prim_dict,0},
+ {prim_dict_frag2,0},
+ {prim_dict_frag3,0},
+ {prim_dict_frag4,1},
+ {prim_dict_frag5,0},
+ {prim_dict_frag6,0},
+ {prim_dict_frag7,0},
+ {prim_dict_frag8,0}]
+(a@sam)16&gt; mnesia:activity(sync_dirty, Info,
+                           [sec_dict, frag_size], mnesia_frag).
+[{sec_dict,0},
+ {sec_dict_frag2,0},
+ {sec_dict_frag3,0},
+ {sec_dict_frag4,1},
+ {sec_dict_frag5,0},
+ {sec_dict_frag6,0},
+ {sec_dict_frag7,0},
+ {sec_dict_frag8,0}]
+(a@sam)17&gt;
+          </code></pre> </dd></dl><h2>Management of Fragmented Tables</h2><p>The function <strong>mnesia:change_table_frag(Tab, Change)</strong>
+is intended to be used for reconfiguration of fragmented
+tables. Argument <strong>Change</strong> is to have one of the
+following values:</p><dl><dt><strong>{activate, FragProps}</strong></dt><dd> <p>Activates the fragmentation properties of an
+existing table. <strong>FragProps</strong> is either to contain
+<strong>{node_pool, Nodes}</strong> or be empty.</p> </dd><dt><strong>deactivate</strong></dt><dd> <p>Deactivates the fragmentation properties of a
+table. The number of fragments must be <strong>1</strong>. No other
+table can refer to this table in its foreign key.</p> </dd><dt><strong>{add_frag, NodesOrDist}</strong></dt><dd> <p>Adds a fragment to a fragmented table. All
+records in one of the old fragments are rehashed and
+about half of them are moved to the new (last)
+fragment. All other fragmented tables, which refer to this
+table in their foreign key, automatically get a new
+fragment. Also, their records are dynamically
+rehashed in the same manner as for the main table.</p> <p>Argument <strong>NodesOrDist</strong> can either be a list of
+nodes or the result from the function
+<a href="./mnesia#table_info/2">mnesia:table_info(Tab, frag_dist)</a>.
+Argument <strong>NodesOrDist</strong> is
+assumed to be a sorted list with the best nodes to
+host new replicas first in the list. The new fragment
+gets the same number of replicas as the first
+fragment (see <strong>n_ram_copies</strong>, <strong>n_disc_copies</strong>,
+and <strong>n_disc_only_copies</strong>). The <strong>NodesOrDist</strong>
+list must at least contain one element for each
+replica that needs to be allocated.</p> </dd><dt><strong>del_frag</strong></dt><dd> <p>Deletes a fragment from a fragmented table. All
+records in the last fragment are  moved to one of the other
+fragments. All other fragmented tables, which refer to
+this table in their foreign key, automatically lose
+their last fragment. Also, their records are
+dynamically rehashed in the same manner as for the main
+table.</p> </dd><dt><strong>{add_node, Node}</strong></dt><dd> <p>Adds a node to <strong>node_pool</strong>. The new
+node pool affects the list returned from the function
+<a href="./mnesia#table_info/2">mnesia:table_info(Tab, frag_dist)</a>.
+</p> </dd><dt><strong>{del_node, Node}</strong></dt><dd> <p>Deletes a node from <strong>node_pool</strong>. The new
+node pool affects the list returned from the function
+<a href="./mnesia#table_info/2">mnesia:table_info(Tab, frag_dist)</a>.
+</p> </dd></dl><h2>Extensions of Existing Functions</h2><p>The function
+<a href="./mnesia#create_table/2">mnesia:create_table/2</a>
+creates a brand new fragmented table, by setting table
+property <strong>frag_properties</strong> to some proper values.</p><p>The function
+<a href="./mnesia#delete_table/1">mnesia:delete_table/1</a>
+deletes a fragmented table including all its
+fragments. There must however not exist any other fragmented
+tables that refer to this table in their foreign key.</p><p>The function
+<a href="./mnesia#table_info/2">mnesia:table_info/2</a>
+now understands item <strong>frag_properties</strong>.</p><p>If the function <strong>mnesia:table_info/2</strong> is started in
+the activity context of module <strong>mnesia_frag</strong>,
+information of several new items can be obtained:</p><dl><dt><strong>base_table</strong></dt><dd>The name of the fragmented table</dd><dt><strong>n_fragments</strong></dt><dd>The actual number of fragments</dd><dt><strong>node_pool</strong></dt><dd>The pool of nodes</dd><dt><strong>n_ram_copies</strong></dt><dd></dd><dt><strong>n_disc_copies</strong></dt><dd></dd><dt><strong>n_disc_only_copies</strong></dt><dd> <p>The number of replicas with storage type <strong>ram_copies</strong>,
+<strong>disc_copies</strong>, and <strong>disc_only_copies</strong>,
+respectively. The actual values are dynamically derived
+from the first fragment. The first fragment serves as a
+protype. When the actual values need to be computed
+(for example, when adding new fragments) they are
+determined by counting the number of each replica for
+each storage type. This means that when the functions
+<a href="./mnesia#add_table_copy/3">mnesia:add_table_copy/3</a>,
+<a href="./mnesia#del_table_copy/2">mnesia:del_table_copy/2</a>,
+and
+<a href="./mnesia#change_table_copy_type/3">mnesia:change_table_copy_type/2</a> are applied on the
+first fragment, it affects the settings on
+<strong>n_ram_copies</strong>, <strong>n_disc_copies</strong>, and
+<strong>n_disc_only_copies</strong>.</p> </dd><dt><strong>foreign_key</strong></dt><dd> <p>The foreign key</p> </dd><dt><strong>foreigners</strong></dt><dd> <p>All other tables that refer to this table in
+their foreign key</p> </dd><dt><strong>frag_names</strong></dt><dd> <p>The names of all fragments</p> </dd><dt><strong>frag_dist</strong></dt><dd> <p>A sorted list of <strong>{Node, Count}</strong> tuples
+that are sorted in increasing <strong>Count</strong> order.
+<strong>Count</strong> is the total number of replicas that this
+fragmented table hosts on each <strong>Node</strong>. The list
+always contains at least all nodes in
+<strong>node_pool</strong>. Nodes that do not belong to
+<strong>node_pool</strong> are put last in the list even if
+their <strong>Count</strong> is lower.</p> </dd><dt><strong>frag_size</strong></dt><dd> <p>A list of <strong>{Name, Size}</strong> tuples, where
+<strong>Name</strong> is a fragment <strong>Name</strong>, and <strong>Size</strong> is
+how many records it contains</p> </dd><dt><strong>frag_memory</strong></dt><dd> <p>A list of <strong>{Name, Memory}</strong> tuples, where
+<strong>Name</strong> is a fragment <strong>Name</strong>, and <strong>Memory</strong> is
+how much memory it occupies</p> </dd><dt><strong>size</strong></dt><dd> <p>Total size of all fragments</p> </dd><dt><strong>memory</strong></dt><dd> <p>Total memory of all fragments</p> </dd></dl><h2>Load Balancing</h2><p>There are several algorithms for distributing records
+in a fragmented table evenly over a
+pool of nodes. No one is best, it depends on the
+application needs. The following examples of
+situations need some attention:</p><ul><li><strong>permanent change of nodes</strong>. When a new permanent <strong>db_node</strong> is introduced or dropped, it can be time to change the pool of nodes and redistribute the replicas evenly over the new pool of nodes. It can also be time to add or delete a fragment before the replicas are redistributed. </li><li><strong>size/memory threshold</strong>. When the total size or total memory of a fragmented table (or a single fragment) exceeds some application-specific threshold, it can be time to add a new fragment dynamically to obtain a better distribution of records. </li><li><strong>temporary node down</strong>. When a node temporarily goes down, it can be time to compensate some fragments with new replicas to keep the desired level of redundancy. When the node comes up again, it can be time to remove the superfluous replica. </li><li><strong>overload threshold</strong>. When the load on some node exceeds some application-specific threshold, it can be time to either add or move some fragment replicas to nodes with lower load. Take extra care if the table has a foreign key relation to some other table. To avoid severe performance penalties, the same redistribution must be performed for all the related tables. </li></ul><p>Use the function
+<strong>mnesia:change_table_frag/2</strong> to add new fragments
+and apply the usual schema manipulation functions (such as
+<a href="./mnesia#add_table_copy/3">mnesia:add_table_copy/3</a>,
+<a href="./mnesia#del_table_copy/2">mnesia:del_table_copy/2</a>,
+and
+<a href="./mnesia#change_table_copy_type/3">mnesia:change_table_copy_type/2</a>)
+on each fragment to perform the actual redistribution.</p><h2>Local Content Tables</h2><p>Replicated tables have the same content on all nodes where
+they are replicated. However, it is sometimes advantageous to
+have tables, but different content on different nodes.</p><p>If attribute <strong>{local_content, true}</strong> is specified when
+you create the table, the table resides on the nodes where you
+specify the table to exist, but the write operations on the
+table are only performed on the local copy.</p><p>Furthermore, when the table is initialized at startup, the
+table is only initialized locally, and the table
+content is not copied from another node.</p><h2>Disc-Less Nodes</h2><p><strong>Mnesia</strong> can be run on nodes that do not have a disc.
+Replicas of <strong>disc_copies</strong> or <strong>disc_only_copies</strong> are
+not possible on such nodes. This is especially troublesome for
+the <strong>schema</strong> table, as <strong>Mnesia</strong> needs the schema
+to initialize itself.</p><p>The schema table can, as other tables, reside on one or
+more nodes. The storage type of the schema table can either
+be <strong>disc_copies</strong> or <strong>ram_copies</strong>
+(but not <strong>disc_only_copies</strong>). At
+startup, <strong>Mnesia</strong> uses its schema to determine with which
+nodes it is to try to establish contact. If any
+other node is started already, the starting node
+merges its table definitions with the table definitions
+brought from the other nodes. This also applies to the
+definition of the schema table itself. Application
+parameter <strong>extra_db_nodes</strong> contains a list of nodes that
+<strong>Mnesia</strong> also is to establish contact with besides those
+found in the schema. Default is <strong>[]</strong> (empty list).</p><p>Hence, when a disc-less node needs to find the schema
+definitions from a remote node on the network, this
+information must be supplied through application parameter
+<strong>-mnesia extra_db_nodes NodeList</strong>. Without this
+configuration parameter set, <strong>Mnesia</strong> starts as a single
+node system. Also, the function
+<a href="./mnesia#change_config/2">mnesia:change_config/2</a>
+can be used to assign a value to <strong>extra_db_nodes</strong> and force
+a connection after <strong>Mnesia</strong> has been started, that is,
+<strong>mnesia:change_config(extra_db_nodes, NodeList)</strong>.</p><p>Application parameter <strong>schema_location</strong> controls where
+<strong>Mnesia</strong> searches for its schema. The parameter can be one
+of the following atoms:</p><dl><dt><strong>disc</strong></dt><dd> <p>Mandatory disc. The schema is assumed to be located
+in the <strong>Mnesia</strong> directory. If the schema cannot be found,
+<strong>Mnesia</strong> refuses to start.</p> </dd><dt><strong>ram</strong></dt><dd> <p>Mandatory RAM. The schema resides in RAM
+only. At startup, a tiny new schema is generated. This
+default schema contains only the definition of the schema
+table and resides on the local node only. Since no other
+nodes are found in the default schema, configuration
+parameter <strong>extra_db_nodes</strong> must be used to let the
+node share its table definitions with other nodes. (Parameter
+<strong>extra_db_nodes</strong> can also be used on disc-full nodes.)</p> </dd><dt><strong>opt_disc</strong></dt><dd> <p>Optional disc. The schema can reside on either disc or
+RAM. If the schema is found on disc, <strong>Mnesia</strong> starts as
+a disc-full node (the storage type of the schema table is
+disc_copies). If no schema is found on disc, <strong>Mnesia</strong>
+starts as a disc-less node (the storage type of the schema
+table is <strong>ram_copies</strong>). The default for the
+application parameter is <strong>opt_disc</strong>.</p> </dd></dl><p>When <strong>schema_location</strong> is set to <strong>opt_disc</strong>, the
+function
+<a href="./mnesia#change_table_copy_type/3">mnesia:change_table_copy_type/3</a>
+can be used to change the storage type of the schema.
+This is illustrated as follows:</p><pre>
+        1&gt; mnesia:start().
+        ok
+        2&gt; mnesia:change_table_copy_type(schema, node(), disc_copies).
+        {atomic, ok}</pre><p>Assuming that the call to
+<a href="./mnesia#start/0">mnesia:start/0</a> does not
+find any schema to read on the disc, <strong>Mnesia</strong> starts
+as a disc-less node, and then change it to a node that
+use the disc to store the schema locally.</p><h2>More about Schema Management</h2><p>Nodes can be added to and removed from a <strong>Mnesia</strong> system.
+This can be done by adding a copy of the schema to those nodes.</p><p>The functions
+<a href="./mnesia#add_table_copy/3">mnesia:add_table_copy/3</a>
+and
+<a href="./mnesia#del_table_copy/2">mnesia:del_table_copy/2</a>
+can be used to add and delete
+replicas of the schema table. Adding a node to the list of
+nodes where the schema is replicated affects the following:</p><ul><li>It allows other tables to be replicated to this node. </li><li>It causes <strong>Mnesia</strong> to try to contact the node at startup of disc-full nodes. </li></ul><p>The function call <strong>mnesia:del_table_copy(schema, mynode@host)</strong> deletes node <strong>mynode@host</strong> from the
+<strong>Mnesia</strong> system. The call fails if <strong>Mnesia</strong> is running
+on <strong>mynode@host</strong>. The other <strong>Mnesia</strong> nodes never try to
+connect to that node again. Notice that if there is a disc resident
+schema on node <strong>mynode@host</strong>, the entire <strong>Mnesia</strong>
+directory is to be deleted. This is done with the function
+<a href="./mnesia#delete_schema/1">mnesia:delete_schema/1</a>.
+If <strong>Mnesia</strong> is started again
+on node <strong>mynode@host</strong> and the directory has not been
+cleared, the behavior of <strong>Mnesia</strong> is undefined.</p><p>If the storage type of the schema is <strong>ram_copies</strong>,
+that is, a disc-less node, <strong>Mnesia</strong>
+does not use the disc on that particular node. The disc
+use is enabled by changing the storage type of table
+<strong>schema</strong> to <strong>disc_copies</strong>.</p><p>New schemas are created explicitly with the function
+<a href="./mnesia#create_schema/1">mnesia:create_schema/1</a>
+or implicitly by starting
+<strong>Mnesia</strong> without a disc resident schema. Whenever
+a table (including the schema table) is created, it is
+assigned its own unique cookie. The schema table is not created
+with the function
+<a href="./mnesia#create_table/2">mnesia:create_table/2</a>
+as normal tables.</p><p>At startup, <strong>Mnesia</strong> connects different nodes to each other,
+then they exchange table definitions with each other, and the table
+definitions are merged. During the merge procedure, <strong>Mnesia</strong>
+performs a sanity test to ensure that the table definitions are
+compatible with each other. If a table exists on several nodes,
+the cookie must be the same, otherwise <strong>Mnesia</strong> shut down one
+of the nodes. This unfortunate situation occurs if a table
+has been created on two nodes independently of each other while
+they were disconnected. To solve this, one of the tables
+must be deleted (as the cookies differ, it is regarded to be two
+different tables even if they have the same name).</p><p>Merging different versions of the schema table does not
+always require the cookies to be the same. If the storage
+type of the schema table is <strong>disc_copies</strong>, the cookie is
+immutable, and all other <strong>db_nodes</strong> must have the same
+cookie. When the schema is stored as type <strong>ram_copies</strong>,
+its cookie can be replaced with a cookie from another node
+(<strong>ram_copies</strong> or <strong>disc_copies</strong>). The cookie replacement
+(during merge of the schema table definition) is performed each
+time a RAM node connects to another node.</p><p>Further, the following applies:</p><ul><li><a href="./mnesia#system_info/1">mnesia:system_info(schema_location)</a> and <a href="./mnesia#system_info/1">mnesia:system_info(extra_db_nodes)</a> can be used to determine the actual values of <strong>schema_location</strong> and <strong>extra_db_nodes</strong>, respectively. </li><li><a href="./mnesia#system_info/1">mnesia:system_info(use_dir)</a> can be used to determine whether <strong>Mnesia</strong> is actually using the <strong>Mnesia</strong> directory. </li><li><strong>use_dir</strong> can be determined even before <strong>Mnesia</strong> is started. </li></ul><p>The function <a href="./mnesia#info/0">mnesia:info/0</a>
+can now be used to print
+some system information even before <strong>Mnesia</strong> is started.
+When <strong>Mnesia</strong> is started, the function prints more
+information.</p><p>Transactions that update the definition of a table
+requires that <strong>Mnesia</strong> is started on all nodes where the
+storage type of the schema is <strong>disc_copies</strong>. All replicas of
+the table on these nodes must also be loaded. There are a
+few exceptions to these availability rules:</p><ul><li>Tables can be created and new replicas can be added without starting all the disc-full nodes. </li><li>New replicas can be added before all other replicas of the table have been loaded, provided that at least one other replica is active. </li></ul><a name="event_handling"></a><h2>Mnesia Event Handling</h2><p>System events and table events are the two event categories
+that <strong>Mnesia</strong> generates in various situations.</p><p>A user process can subscribe on the events generated by
+<strong>Mnesia</strong>. The following two functions are provided:</p><dl><dt><a href="./mnesia#subscribe/1">mnesia:subscribe(Event-Category)</a> </dt><dd>Ensures that a copy of all events of type <strong>Event-Category</strong> are sent to the calling process</dd><dt><a href="./mnesia#unsubscribe/1">mnesia:unsubscribe(Event-Category)</a> </dt><dd>Removes the subscription on events of type <strong>Event-Category</strong> </dd></dl><p><strong>Event-Category</strong> can be either of the following:</p><ul><li>The atom <strong>system</strong> </li><li>The atom <strong>activity</strong> </li><li>The tuple <strong>{table, Tab, simple}</strong> </li><li>The tuple <strong>{table, Tab, detailed}</strong> </li></ul><p>The old event category <strong>{table, Tab}</strong> is the same
+event category as <strong>{table, Tab, simple}</strong>.</p><p>The subscribe functions activate a subscription
+of events. The events are delivered as messages to the process
+evaluating the function
+<a href="./mnesia#subscribe/1">mnesia:subscribe/1</a>
+The syntax is as follows:</p><ul><li><strong>{mnesia_system_event, Event}</strong> for system events </li><li><strong>{mnesia_activity_event, Event}</strong> for activity events </li><li><strong>{mnesia_table_event, Event}</strong> for table events </li></ul><p>The event types are described in the next sections.</p><p>All system events are subscribed by the <strong>Mnesia</strong>
+<strong>gen_event</strong> handler. The default <strong>gen_event</strong> handler
+is <strong>mnesia_event</strong>, but it can be changed by using
+application parameter <strong>event_module</strong>. The value of this
+parameter must be the name of a module implementing a complete
+handler, as specified by the
+<a href="./gen_event">gen_event</a> module
+in <strong>STDLIB</strong>.</p><p><a href="./mnesia#system_info/1">mnesia:system_info(subscribers)</a>
+and
+<a href="./mnesia#table_info/2">mnesia:table_info(Tab, subscribers)</a>
+can be used to determine which processes are subscribed to
+various events.</p><h2>System Events</h2><p>The system events are as follows:</p><dl><dt><strong>{mnesia_up, Node}</strong></dt><dd>Mnesia is started on a node. <strong>Node</strong> is the node name. By default this event is ignored. </dd><dt><strong>{mnesia_down, Node}</strong></dt><dd>Mnesia is stopped on a node. <strong>Node</strong> is the node name. By default this event is ignored. </dd><dt><strong>{mnesia_checkpoint_activated, Checkpoint}</strong></dt><dd>A checkpoint with the name <strong>Checkpoint</strong> is activated and the current node is involved in the checkpoint. Checkpoints can be activated explicitly with the function <a href="./mnesia#activate_checkpoint/1">mnesia:activate_checkpoint/1</a> or implicitly at backup, when adding table replicas, at internal transfer of data between nodes, and so on. By default this event is ignored. </dd><dt><strong>{mnesia_checkpoint_deactivated, Checkpoint}</strong></dt><dd>A checkpoint with the name <strong>Checkpoint</strong> is deactivated and the current node is involved in the checkpoint. Checkpoints can be deactivated explicitly with the function <a href="./mnesia#deactivate_checkpoint/1">mnesia:deactivate/1</a> or implicitly when the last replica of a table (involved in the checkpoint) becomes unavailable, for example, at node-down. By default this event is ignored. </dd><dt><strong>{mnesia_overload, Details}</strong></dt><dd><p><strong>Mnesia</strong> on the current node is
+overloaded and the subscriber is to take action.</p> <p>A typical overload situation occurs when the
+applications perform more updates on disc resident
+tables than <strong>Mnesia</strong> can handle. Ignoring
+this kind of overload can lead to a situation where
+the disc space is exhausted (regardless of the size of
+the tables stored on disc).</p> <p>Each update is appended to the transaction log and
+occasionally (depending on how it
+is configured) dumped to the tables files. The
+table file storage is more compact than the transaction
+log storage, especially if the same record is updated
+repeatedly. If the thresholds for dumping the
+transaction log are reached before the previous
+dump is finished, an overload event is triggered.</p> <p>Another typical overload situation is when the
+transaction manager cannot commit transactions at the
+same pace as the applications perform updates of
+disc resident tables. When this occurs, the message
+queue of the transaction manager continues to grow
+until the memory is exhausted or the load
+decreases.</p> <p>The same problem can occur for dirty updates. The overload
+is detected locally on the current node, but its cause can
+be on another node. Application processes can cause high
+load if any table resides on another node (replicated
+or not). By default this event
+is reported to <strong>error_logger.</strong></p> </dd><dt><strong>{inconsistent_database, Context, Node}</strong></dt><dd><strong>Mnesia</strong> regards the database as potential inconsistent and gives its applications a chance to recover from the inconsistency. For example, by installing a consistent backup as fallback and then restart the system. An alternative is to pick a <strong>MasterNode</strong> from <a href="./mnesia#system_info/1">mnesia:system_info(db_nodes)</a> and invoke <a href="./mnesia#set_master_nodes/1">mnesia:set_master_node([MasterNode])</a>. By default an error is reported to <strong>error_logger</strong>. </dd><dt><strong>{mnesia_fatal, Format, Args, BinaryCore}</strong></dt><dd> <p><strong>Mnesia</strong> detected a fatal error and
+terminates soon. The fault reason is explained in
+<strong>Format</strong> and <strong>Args</strong>, which can be given as input
+to <strong>io:format/2</strong> or sent to <strong>error_logger</strong>. By
+default it is sent to <strong>error_logger</strong>.</p> <p><strong>BinaryCore</strong> is a binary containing a summary of the
+<strong>Mnesia</strong> internal state at the time when the fatal
+error was detected. By default the binary is written to a
+unique filename on the current directory. On RAM nodes, the
+core is ignored.</p> </dd><dt><strong>{mnesia_info, Format, Args}</strong></dt><dd><strong>Mnesia</strong> detected something that can be of interest when debugging the system. This is explained in <strong>Format</strong> and <strong>Args</strong>, which can appear as input to <strong>io:format/2</strong> or sent to <strong>error_logger</strong>. By default this event is printed with <strong>io:format/2</strong>. </dd><dt><strong>{mnesia_error, Format, Args}</strong></dt><dd><strong>Mnesia</strong> has detected an error. The fault reason is explained in <strong>Format</strong> and <strong>Args</strong>, which can be given as input to <strong>io:format/2</strong> or sent to <strong>error_logger</strong>. By default this event is reported to <strong>error_logger</strong>. </dd><dt><strong>{mnesia_user, Event}</strong></dt><dd>An application started the function <a href="./mnesia#report_event/1">mnesia:report_event(Event)</a>. <strong>Event</strong> can be any Erlang data structure. When tracing a system of <strong>Mnesia</strong> applications, it is useful to be able to interleave own events of <strong>Mnesia</strong> with application-related events that give information about the application context. Whenever the application starts with a new and demanding <strong>Mnesia</strong> activity, or enters a new and interesting phase in its execution, it can be a good idea to use <strong>mnesia:report_event/1</strong>. </dd></dl><h2>Activity Events</h2><p>Currently, there is only one type of activity event:</p><dl><dt><strong>{complete, ActivityID}</strong></dt><dd> <p>This event occurs when a transaction that caused a modification
+to the database is completed. It is useful for determining when
+a set of table events (see the next section), caused by a given
+activity, have been sent. Once this event is received, it is
+guaranteed that no further table events with the same
+<strong>ActivityID</strong> will be received. Notice that this event can
+still be received even if no table events with a corresponding
+<strong>ActivityID</strong> were received, depending on
+the tables to which the receiving process is subscribed.</p> <p>Dirty operations always contain only one update and thus no
+activity event is sent.</p> </dd></dl><h2>Table Events</h2><p>Table events are events related to table updates. There are
+two types of table events, simple and detailed.</p><p>The <em>simple table events</em> are tuples like
+<strong>{Oper, Record, ActivityId}</strong>, where:</p><ul><li><strong>Oper</strong> is the operation performed. </li><li><strong>Record</strong> is the record involved in the operation. </li><li><strong>ActivityId</strong> is the identity of the transaction performing the operation. </li></ul><p>Notice that the record name is the table name even when
+<strong>record_name</strong> has another setting.</p><p>The table-related events that can occur are as follows:</p><dl><dt><strong>{write, NewRecord, ActivityId}</strong></dt><dd>A new record has been written. <strong>NewRecord</strong> contains the new record value. </dd><dt><strong>{delete_object, OldRecord, ActivityId}</strong></dt><dd>A record has possibly been deleted with <a href="./mnesia#delete_object/1">mnesia:delete_object/1</a>. <strong>OldRecord</strong> contains the value of the old record, as stated as argument by the application. Notice that other records with the same key can remain in the table if it is of type <strong>bag</strong>. </dd><dt><strong>{delete, {Tab, Key}, ActivityId}</strong></dt><dd>One or more records have possibly been deleted. All records with the key <strong>Key</strong> in the table <strong>Tab</strong> have been deleted. </dd></dl><p>The <em>detailed table events</em> are tuples like
+<strong>{Oper, Table, Data, [OldRecs], ActivityId}</strong>, where:</p><ul><li><strong>Oper</strong> is the operation performed. </li><li><strong>Table</strong> is the table involved in the operation. </li><li><strong>Data</strong> is the record/OID written/deleted. </li><li><strong>OldRecs</strong> is the contents before the operation. </li><li><strong>ActivityId</strong> is the identity of the transaction performing the operation. </li></ul><p>The table-related events that can occur are as follows:</p><dl><dt><strong>{write, Table, NewRecord, [OldRecords], ActivityId}</strong></dt><dd>A new record has been written. <strong>NewRecord</strong> contains the new record value and <strong>OldRecords</strong> contains the records before the operation is performed. Notice that the new content depends on the table type. </dd><dt><strong>{delete, Table, What, [OldRecords], ActivityId}</strong></dt><dd>Records have possibly been deleted. <strong>What</strong> is either <strong>{Table, Key}</strong> or a record <strong>{RecordName, Key, ...}</strong> that was deleted. Notice that the new content depends on the table type. </dd></dl><h2>Debugging Mnesia Applications</h2><p>Debugging a <strong>Mnesia</strong> application can be difficult
+for various reasons, primarily related
+to difficulties in understanding how the transaction
+and table load mechanisms work. Another source of
+confusion can be the semantics of nested transactions.</p><p>The debug level of <strong>Mnesia</strong> is set by calling the function
+<a href="./mnesia#set_debug_level/1">mnesia:set_debug_level(Level)</a>,
+where <strong>Level</strong>is one of the following:</p><dl><dt><strong>none</strong></dt><dd>No trace outputs. This is the default. </dd><dt><strong>verbose</strong></dt><dd>Activates tracing of important debug events. These events generate <strong>{mnesia_info, Format, Args}</strong> system events. Processes can subscribe to these events with the function <a href="./mnesia#subscribe/1">mnesia:subscribe/1</a>. The events are always sent to the <strong>Mnesia</strong> event handler. </dd><dt><strong>debug</strong></dt><dd>Activates all events at the verbose level plus traces of all debug events. These debug events generate <strong>{mnesia_info, Format, Args}</strong> system events. Processes can subscribe to these events with <strong>mnesia:subscribe/1</strong>. The events are always sent to the <strong>Mnesia</strong> event handler. On this debug level, the <strong> Mnesia</strong> event handler starts subscribing to updates in the schema table. </dd><dt><strong>trace</strong></dt><dd>Activates all events at the debug level. On this level, the <strong>Mnesia</strong> event handler starts subscribing to updates on all <strong>Mnesia</strong> tables. This level is intended only for debugging small toy systems, as many large events can be generated. </dd><dt><strong>false</strong></dt><dd>An alias for none. </dd><dt><strong>true</strong></dt><dd>An alias for debug. </dd></dl><p>The debug level of <strong>Mnesia</strong> itself is also an application
+parameter, making it possible to start an Erlang system
+to turn on <strong>Mnesia</strong> debug in the initial
+startup phase by using the following code:</p><pre>
+      % erl -mnesia debug verbose</pre><h2>Concurrent Processes in Mnesia</h2><p>Programming concurrent Erlang systems is the subject of
+a separate book. However, it is worthwhile to draw attention to
+the following features, which permit concurrent processes to
+exist in a <strong>Mnesia</strong> system:</p><ul><li><p>A group of functions or processes can be called within a
+transaction. A transaction can include statements that read,
+write, or delete data from the DBMS. Many such
+transactions can run concurrently, and the programmer does not
+need to explicitly synchronize the processes that manipulate
+the data.</p> <p>All programs accessing the database through the
+transaction system can be written as if they had sole access to
+the data. This is a desirable property, as all
+synchronization is taken care of by the transaction handler. If
+a program reads or writes data, the system ensures that no other
+program tries to manipulate the same data at the same time.</p> </li><li>Tables can be moved or deleted, and the layout of a table can be reconfigured in various ways. An important aspect of the implementation of these functions is that user programs can continue to use a table while it is being reconfigured. For example, it is possible to move a table and perform write operations to the table at the same time. This is important for many applications that require continuously available services. For more information, see <a href="./Mnesia_chap4#trans_prop">Transactions and Other Access Contexts</a>. </li></ul><h2>Prototyping</h2><p>If and when you would like to start and manipulate
+<strong>Mnesia</strong>, it is often easier to write the definitions and
+data into an ordinary text file.
+Initially, no tables and no data exist, or which
+tables are required. At the initial stages of prototyping, it
+is prudent to write all data into one file, process that
+file, and have the data in the file inserted into the database.
+<strong>Mnesia</strong> can be initialized with data read from a text file.
+The following two functions can be used to work with text
+files.</p><ul><li> <a href="./mnesia#load_textfile/1">mnesia:load_textfile(Filename)</a> loads a series of local table definitions and data found in the file into <strong>Mnesia</strong>. This function also starts <strong>Mnesia</strong> and possibly creates a new schema. The function operates on the local node only. </li><li> <a href="./mnesia#dump_to_textfile/1">mnesia:dump_to_textfile(Filename)</a> dumps all local tables of a <strong>Mnesia</strong> system into a text file, which can be edited (with a normal text editor) and later reloaded. </li></ul><p>These functions are much slower than the ordinary store and
+load functions of <strong>Mnesia</strong>. However, this is mainly intended
+for minor experiments and initial prototyping. The major
+advantage of these functions is that they are easy to use.</p><p>The format of the text file is as follows:</p><pre>
+      {tables, [{Typename, [Options]},
+      {Typename2 ......}]}.
+      
+      {Typename, Attribute1, Attribute2 ....}.
+      {Typename, Attribute1, Attribute2 ....}.</pre><p><strong>Options</strong> is a list of <strong>{Key,Value}</strong> tuples conforming
+to the options that you can give to
+<a href="./mnesia#create_table/2">mnesia:create_table/2</a>.
+</p><p>For example, to start playing with a small database for healthy
+foods, enter the following data into file <strong>FRUITS</strong>:</p><pre><code class="">
+
+{tables,
+ [{fruit, [{attributes, [name, color, taste]}]},
+  {vegetable, [{attributes, [name, color, taste, price]}]}]}.
+
+
+{fruit, orange, orange, sweet}.
+{fruit, apple, green, sweet}.
+{vegetable, carrot, orange, carrotish, 2.55}.
+{vegetable, potato, yellow, none, 0.45}.</code></pre><p>The following session with the Erlang shell shows how
+to load the <strong>FRUITS</strong> database:</p><pre>
+      % erl
+      Erlang (BEAM) emulator version 4.9
+ 
+      Eshell V4.9  (abort with ^G)
+      1&gt; mnesia:load_textfile("FRUITS").
+      New table fruit
+      New table vegetable
+      {atomic,ok}
+      2&gt; mnesia:info().
+      ---&gt; Processes holding locks &lt;--- 
+      ---&gt; Processes waiting for locks &lt;--- 
+      ---&gt; Pending (remote) transactions &lt;--- 
+      ---&gt; Active (local) transactions &lt;---
+      ---&gt; Uncertain transactions &lt;--- 
+      ---&gt; Active tables &lt;--- 
+      vegetable      : with 2 records occuping 299 words of mem 
+      fruit          : with 2 records occuping 291 words of mem 
+      schema         : with 3 records occuping 401 words of mem 
+      ===&gt; System info in version "1.1", debug level = none &lt;===
+      opt_disc. Directory "/var/tmp/Mnesia.nonode@nohost" is used.
+      use fallback at restart = false
+      running db nodes = [nonode@nohost]
+      stopped db nodes = [] 
+      remote           = []
+      ram_copies       = [fruit,vegetable]
+      disc_copies      = [schema]
+      disc_only_copies = []
+      [{nonode@nohost,disc_copies}] = [schema]
+      [{nonode@nohost,ram_copies}] = [fruit,vegetable]
+      3 transactions committed, 0 aborted, 0 restarted, 2 logged to disc
+      0 held locks, 0 in queue; 0 local transactions, 0 remote
+      0 transactions waits for other nodes: []
+      ok
+      3&gt; 
+    </pre><p>It can be seen that the DBMS was initiated from a
+regular text file.</p><h2>Object-Based Programming with Mnesia</h2><p>The <strong>Company</strong> database, introduced in
+<a href="./Mnesia_chap2#getting_started">Getting Started</a>,
+has three tables that store records (<strong>employee</strong>,
+<strong>dept</strong>, <strong>project</strong>), and three tables that store
+relationships (<strong>manager</strong>, <strong>at_dep</strong>, <strong>in_proj</strong>).
+This is a normalized data model, which has some advantages over
+a non-normalized data model.</p><p>It is more efficient to do a
+generalized search in a normalized database. Some operations are
+also easier to perform on a normalized data model. For example,
+one project can easily be removed, as the following example
+illustrates:</p><pre><code class="">
+
+remove_proj(ProjName) -&gt;
+    F = fun() -&gt;
+                Ip = qlc:e(qlc:q([X || X &lt;- mnesia:table(in_proj),
+				       X#in_proj.proj_name == ProjName]
+				)),
+                mnesia:delete({project, ProjName}),
+                del_in_projs(Ip)
+        end,
+    mnesia:transaction(F).
+
+del_in_projs([Ip|Tail]) -&gt;
+    mnesia:delete_object(Ip),
+    del_in_projs(Tail);
+del_in_projs([]) -&gt;
+    done.</code></pre><p>In reality, data models are seldom fully normalized. A
+realistic alternative to a normalized database model would be
+a data model that is not even in first normal form. <strong>Mnesia</strong>
+is suitable for applications such as telecommunications,
+because it is easy to organize data in a flexible manner. A
+<strong>Mnesia</strong> database is always organized as a set of tables.
+Each table is filled with rows, objects, and records.
+What sets <strong>Mnesia</strong> apart is that individual fields in
+a record can contain any type of
+compound data structures. An individual field in a record can
+contain lists, tuples, functions, and even record code.</p><p>Many telecommunications applications have unique requirements
+on lookup times for certain types of records. If the <strong>Company</strong>
+database had been a part of a telecommunications system, it
+could be to minimize the lookup time of an employee
+<em>together</em> with a list of the projects the employee is
+working on. If this is the case, a drastically different data model
+without direct relationships can be chosen. You would then have
+only the records themselves, and different records could contain
+either direct references to other records, or contain other
+records that are not part of the <strong>Mnesia</strong> schema.</p><p>The following record definitions can be created:</p><pre><code class="">
+
+-record(employee, {emp_no,
+		   name,
+		   salary,
+		   sex,
+		   phone,
+		   room_no,
+		   dept,
+		   projects,
+		   manager}).
+		   
+
+-record(dept, {id, 
+               name}).
+
+-record(project, {name,
+                  number,
+                  location}).
+</code></pre><p>A record that describes an employee can look as follows:</p><pre>
+        Me = #employee{emp_no= 104732,
+        name = klacke,
+        salary = 7,
+        sex = male,
+        phone = 99586,
+        room_no = {221, 015},
+        dept = 'B/SFR',
+        projects = [erlang, mnesia, otp],
+        manager = 114872},</pre><p>This model has only three different tables, and the employee
+records contain references to other records. The record has the
+following references:</p><ul><li><strong>'B/SFR'</strong> refers to a <strong>dept</strong> record. </li><li><strong>[erlang, mnesia, otp]</strong> is a list of three direct references to three different <strong>projects</strong> records. </li><li><strong>114872</strong> refers to another employee record. </li></ul><p>The <strong>Mnesia</strong> record identifiers (<strong>{Tab, Key}</strong>) can
+also be used as references. In this case, attribute <strong>dept</strong>
+would be set to value <strong>{dept, 'B/SFR'}</strong> instead of
+<strong>'B/SFR'</strong>.</p><p>With this data model, some operations execute considerably
+faster than they do with the normalized data model in the
+<strong>Company</strong> database. However, some other operations
+become much more complicated. In particular, it becomes more
+difficult to ensure that records do not contain dangling
+pointers to other non-existent, or deleted, records.</p><p>The following code exemplifies a search with a non-normalized
+data model. To find all employees at department <strong>Dep</strong> with
+a salary higher than <strong>Salary</strong>, use the following code:</p><pre><code class="">
+
+get_emps(Salary, Dep) -&gt;
+    Q = qlc:q( 
+          [E || E &lt;- mnesia:table(employee),
+                E#employee.salary &gt; Salary,
+                E#employee.dept == Dep]
+	 ),
+    F = fun() -&gt; qlc:e(Q) end,
+    transaction(F).</code></pre><p>This code is easier to write and to understand, and it
+also executes much faster.</p><p>It is easy to show examples of code that executes faster if
+a non-normalized data model is used, instead of a normalized
+model. The main reason is that fewer tables are required.
+Therefore, data from different tables can more easily be
+combined in join operations. In the previous example, the
+function <strong>get_emps/2</strong> is transformed from a join operation
+into a simple query, which consists of a selection and a
+projection on one single table.</p></body></html>

@@ -1,0 +1,2227 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Erlang Reference Manual</h1><h1>Erlang Reference Manual</h1><a name="erlang ref manual"></a><p>This section is the Erlang reference manual. It describes the
+Erlang programming language. </p><h4>Purpose</h4><p>The focus of the Erlang reference manual is on the language itself,
+not the implementation of it. The language constructs are described in
+text and with examples rather than formally specified. This is
+to make the manual more readable.
+The Erlang reference manual is not intended as a tutorial.</p><p>Information about implementation of Erlang can, for example, be found,
+in the following:</p><ul><li><p><a href="./system_principles"> System Principles</a></p> <p>Starting and stopping, boot scripts, code loading,
+<a href="./error_logging"> logging</a>,
+<a href="./create_target"> creating target systems</a></p> </li><li><p><a href="./advanced"> Efficiency Guide</a></p> <p>Memory consumption, system limits</p> </li><li><p>ERTS User's Guide</p> <p><a href="./crash_dump">Crash dumps</a>,
+<a href="./driver">drivers</a></p> </li></ul><h4>Prerequisites</h4><p>It is assumed that the reader has done some programming and
+is familiar with concepts such as data types and programming
+language syntax.</p><h4>Document Conventions</h4><p>In this section, the following terminology is used:</p><ul><li>A <em>sequence</em> is one or more items. For example, a clause body consists of a sequence of expressions. This means that there must be at least one expression.</li><li>A <em>list</em> is any number of items. For example, an argument list can consist of zero, one, or more arguments.</li></ul><p>If a feature has been added in R13A or later,
+this is mentioned in the text.</p><h4>Complete List of BIFs</h4><p>For a complete list of BIFs, their arguments and return values,
+see <a href="./erlang">erlang(3)</a>
+manual page in ERTS.</p><h4>Reserved Words</h4><p>The following are reserved words in Erlang:</p><p><strong>after and andalso band begin bnot bor bsl bsr bxor case catch cond div end fun if let not of or orelse receive rem try when xor</strong></p><h4>Character Set</h4><p>The syntax of Erlang tokens allow the use of the full
+ISO-8859-1 (Latin-1) character set. This is noticeable in the
+following ways:</p><ul><li> <p>All the Latin-1 printable characters can be used and are
+shown without the escape backslash convention.</p> </li><li> <p>Atoms and variables can use all Latin-1 letters.</p> </li></ul><table class="table table-bordered table-hover table-striped"><caption>Character Classes</caption><tbody><tr><td><em>Octal</em></td><td><em>Decimal</em></td><td>Â </td><td><em>Class</em></td></tr><tr><td>200 - 237</td><td>128 - 159</td><td>Â </td><td>Control characters</td></tr><tr><td>240 - 277</td><td>160 - 191</td><td>- Â¿</td><td>Punctuation characters</td></tr><tr><td>300 - 326</td><td>192 - 214</td><td>Ã - Ã</td><td>Uppercase letters</td></tr><tr><td>327</td><td>215</td><td>Ã</td><td>Punctuation character</td></tr><tr><td>330 - 336</td><td>216 - 222</td><td>Ã - Ã</td><td>Uppercase letters</td></tr><tr><td>337 - 366</td><td>223 - 246</td><td>Ã - Ã¶</td><td>Lowercase letters</td></tr><tr><td>367</td><td>247</td><td>Ã·</td><td>Punctuation character</td></tr><tr><td>370 - 377</td><td>248 - 255</td><td>Ã¸ - Ã¿</td><td>Lowercase letters</td></tr></tbody></table><p>In Erlang/OTP R16B the syntax of Erlang tokens was extended to
+handle Unicode. The support was limited to
+string literals and comments.
+More about the usage of Unicode in Erlang source files
+can be found in <a href="../stdlib/unicode_usage#unicode_in_erlang">STDLIB's User's Guide</a>.</p><p>From Erlang/OTP 20, atoms and function names are also allowed
+to contain Unicode characters outside the ISO-Latin-1 range.
+Module names, application names, and node names are still
+restricted to the ISO-Latin-1 range.</p><h4>Source File Encoding</h4><a name="encoding"></a><p>The Erlang source file <strong>encoding</strong> is selected by a
+comment in one of the first two lines of the source file. The
+first string that matches the regular expression
+<strong>coding\s*[:=]\s*([-a-zA-Z0-9])+</strong> selects the encoding. If
+the matching string is an invalid encoding, it is ignored. The
+valid encodings are <strong>Latin-1</strong> and <strong>UTF-8</strong>, where the
+case of the characters can be chosen freely.</p><p>The following example selects UTF-8 as default encoding:</p><pre>
+%% coding: utf-8</pre><p>Two more examples, both selecting Latin-1 as default encoding:</p><pre>
+%% For this file we have chosen encoding = Latin-1</pre><pre>
+%% -*- coding: latin-1 -*-</pre><p>The default encoding for Erlang source files is changed from
+Latin-1 to UTF-8 since Erlang/OTP 17.0.</p><p>Erlang provides a number of data types, which are listed in
+this section.</p><h4>Terms</h4><p>A piece of data of any data type is called a <em>term</em>.</p><h4>Number</h4><p>There are two types of numeric literals, <em>integers</em> and
+<em>floats</em>. Besides the conventional notation, there are two
+Erlang-specific notations:</p><ul><li><strong>$</strong><em>char</em>      <br/> ASCII value or unicode code-point of the character <em>char</em>.</li><li><em>base</em><strong>#</strong><em>value</em>      <br/> Integer with the base <em>base</em>, that must be an integer in the range 2..36.</li></ul><p><em>Examples:</em></p><pre>
+1&gt; <span class="input">42.</span>
+42
+2&gt; <span class="input">$A.</span>
+65
+3&gt; <span class="input">$\n.</span>
+10
+4&gt; <span class="input">2#101.</span>
+5
+5&gt; <span class="input">16#1f.</span>
+31
+6&gt; <span class="input">2.3.</span>
+2.3
+7&gt; <span class="input">2.3e3.</span>
+2.3e3
+8&gt; <span class="input">2.3e-3.</span>
+0.0023</pre><h4>Atom</h4><p>An atom is a literal, a constant with name. An atom is to be
+enclosed in single quotes (') if it does not begin with a
+lower-case letter or if it contains other characters than
+alphanumeric characters, underscore (_), or @.</p><p><em>Examples:</em></p><pre>
+hello
+phone_number
+'Monday'
+'phone number'</pre><h4>Bit Strings and Binaries</h4><p>A bit string is used to store an area of untyped memory.</p><p>Bit strings are expressed using the
+<a href="./expressions#bit_syntax">bit syntax</a>.</p><p>Bit strings that consist of a number of bits that are evenly
+divisible by eight, are called <em>binaries</em></p><p><em>Examples:</em></p><pre>
+1&gt; <span class="input">&lt;&lt;10,20&gt;&gt;.</span>
+&lt;&lt;10,20&gt;&gt;
+2&gt; <span class="input">&lt;&lt;"ABC"&gt;&gt;.</span>
+&lt;&lt;"ABC"&gt;&gt;
+1&gt; <span class="input">&lt;&lt;1:1,0:1&gt;&gt;.</span>
+&lt;&lt;2:2&gt;&gt;</pre><p>For more examples,
+see <a href="./bit_syntax"> Programming Examples</a>.</p><h4>Reference</h4><p>A reference is a term that is unique in an Erlang runtime
+system, created by calling <strong>make_ref/0</strong>.</p><h4>Fun</h4><p>A fun is a functional object. Funs make it possible to create
+an anonymous function and pass the function itself -- not its
+name -- as argument to other functions.</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">Fun1 = fun (X) -&gt; X+1 end.</span>
+#Fun&lt;erl_eval.6.39074546&gt;
+2&gt; <span class="input">Fun1(2).</span>
+3</pre><p>Read more about funs in <a href="./expressions#funs"> Fun Expressions</a>. For more examples, see
+<a href="./funs"> Programming Examples</a>.</p><h4>Port Identifier</h4><p>A port identifier identifies an Erlang port.</p><p><strong>open_port/2</strong>, which is used to create ports, returns
+a value of this data type.</p><p>Read more about ports in <a href="ports">Ports and Port Drivers</a>.</p><h4>Pid</h4><p>A process identifier, pid, identifies a process.</p><p>The following BIFs, which are used to create processes, return
+values of this data type:</p><ul><li><strong>spawn/1,2,3,4</strong></li><li><strong>spawn_link/1,2,3,4</strong></li><li><strong>spawn_opt/4</strong></li></ul><p><em>Example:</em></p><pre>
+1&gt; <span class="input">spawn(m, f, []).</span>
+&lt;0.51.0&gt;</pre><p>In the following example, the BIF <strong>self()</strong> returns
+the pid of the calling process:</p><pre>
+-module(m).
+-export([loop/0]).
+
+loop() -&gt;
+    receive
+        who_are_you -&gt;
+            io:format("I am ~p~n", [self()]),
+            loop()
+    end.
+
+1&gt; <span class="input">P = spawn(m, loop, []).</span>
+&lt;0.58.0&gt;
+2&gt; <span class="input">P ! who_are_you.</span>
+I am &lt;0.58.0&gt;
+who_are_you</pre><p>Read more about processes in
+<a href="processes">Processes</a>.</p><h4>Tuple</h4><p>A tuple is a compound data type with a fixed number of terms:</p><pre>
+{Term1,...,TermN}</pre><p>Each term <strong>Term</strong> in the tuple is called an
+<em>element</em>. The number of elements is said to be
+the <em>size</em> of the tuple.</p><p>There exists a number of BIFs to manipulate tuples.</p><p><em>Examples:</em></p><pre>
+1&gt; <span class="input">P = {adam,24,{july,29}}.</span>
+{adam,24,{july,29}}
+2&gt; <span class="input">element(1,P).</span>
+adam
+3&gt; <span class="input">element(3,P).</span>
+{july,29}
+4&gt; <span class="input">P2 = setelement(2,P,25).</span>
+{adam,25,{july,29}}
+5&gt; <span class="input">tuple_size(P).</span>
+3
+6&gt; <span class="input">tuple_size({}).</span>
+0</pre><h4>Map</h4><p>A map is a compound data type with a variable number of
+key-value associations:</p><pre>
+#{Key1=&gt;Value1,...,KeyN=&gt;ValueN}</pre><p>Each key-value association in the map is called an
+<em>association pair</em>. The key and value parts of the pair are
+called <em>elements</em>. The number of association pairs is said to be
+the <em>size</em> of the map.</p><p>There exists a number of BIFs to manipulate maps.</p><p><em>Examples:</em></p><pre>
+1&gt; <span class="input">M1 = #{name=&gt;adam,age=&gt;24,date=&gt;{july,29}}.</span>
+#{age =&gt; 24,date =&gt; {july,29},name =&gt; adam}
+2&gt; <span class="input">maps:get(name,M1).</span>
+adam
+3&gt; <span class="input">maps:get(date,M1).</span>
+{july,29}
+4&gt; <span class="input">M2 = maps:update(age,25,M1).</span>
+#{age =&gt; 25,date =&gt; {july,29},name =&gt; adam}
+5&gt; <span class="input">map_size(M).</span>
+3
+6&gt; <span class="input">map_size(#{}).</span>
+0</pre><p>A collection of maps processing functions can be found in
+<a href="./maps">stdlib/maps</a> manual page
+in STDLIB.</p><p>Read more about maps in <a href="./expressions#map_expressions"> Map Expressions</a>.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Maps are considered to be experimental during Erlang/OTP R17.</p></div><h4>List</h4><p>A list is a compound data type with a variable number of terms.</p><pre>
+[Term1,...,TermN]</pre><p>Each term <strong>Term</strong> in the list is called an
+<em>element</em>. The number of elements is said to be
+the <em>length</em> of the list.</p><p>Formally, a list is either the empty list <strong>[]</strong> or
+consists of a <em>head</em> (first element) and a <em>tail</em>
+(remainder of the list).
+The <em>tail</em> is also a list. The latter can
+be expressed as <strong>[H|T]</strong>. The notation
+<strong>[Term1,...,TermN]</strong> above is equivalent with
+the list <strong>[Term1|[...|[TermN|[]]]]</strong>.</p><p><em>Example:</em></p><p><strong>[]</strong> is a list, thus      <br/>
+<strong>[c|[]]</strong> is a list, thus      <br/>
+<strong>[b|[c|[]]]</strong> is a list, thus      <br/>
+<strong>[a|[b|[c|[]]]]</strong> is a list, or in short <strong>[a,b,c]</strong></p><p>A list where the tail is a list is sometimes called a <em>proper list</em>. It is allowed to have a list where the tail is not a
+list, for example, <strong>[a|b]</strong>. However, this type of list is of
+little practical use.</p><p><em>Examples:</em></p><pre>
+1&gt; <span class="input">L1 = [a,2,{c,4}].</span>
+[a,2,{c,4}]
+2&gt; <span class="input">[H|T] = L1.</span>
+[a,2,{c,4}]
+3&gt; <span class="input">H.</span>
+a
+4&gt; <span class="input">T.</span>
+[2,{c,4}]
+5&gt; <span class="input">L2 = [d|T].</span>
+[d,2,{c,4}]
+6&gt; <span class="input">length(L1).</span>
+3
+7&gt; <span class="input">length([]).</span>
+0</pre><p>A collection of list processing functions can be found in
+the <a href="./lists">lists</a> manual
+page in STDLIB.</p><h4>String</h4><p>Strings are enclosed in double quotes ("), but is not a
+data type in Erlang. Instead, a string <strong>"hello"</strong> is
+shorthand for the list <strong>[$h,$e,$l,$l,$o]</strong>, that is,
+<strong>[104,101,108,108,111]</strong>.</p><p>Two adjacent string literals are concatenated into one. This is
+done in the compilation, thus, does not incur any runtime overhead.</p><p><em>Example:</em></p><pre>
+"string" "42"</pre><p>is equivalent to</p><pre>
+"string42"</pre><h4>Record</h4><p>A record is a data structure for storing a fixed number of
+elements. It has named fields and is similar to a struct in C.
+However, a record is not a true data type. Instead, record
+expressions are translated to tuple expressions during
+compilation. Therefore, record expressions are not understood by
+the shell unless special actions are taken. For details, see the
+<a href="./shell">shell(3)</a> manual
+page in STDLIB).</p><p><em>Examples:</em></p><pre>
+-module(person).
+-export([new/2]).
+
+-record(person, {name, age}).
+
+new(Name, Age) -&gt;
+    #person{name=Name, age=Age}.
+
+1&gt; <span class="input">person:new(ernie, 44).</span>
+{person,ernie,44}</pre><p>Read more about records in
+<a href="records">Records</a>. More examples can be
+found in <a href="./records"> Programming Examples</a>.</p><h4>Boolean</h4><p>There is no Boolean data type in Erlang. Instead the atoms
+<strong>true</strong> and <strong>false</strong> are used to denote Boolean values.</p><p><em>Examples:</em></p><pre>
+1&gt; <span class="input">2 =&lt; 3</span>.
+true
+2&gt; <span class="input">true or false</span>.
+true</pre><h4>Escape Sequences</h4><p>Within strings and quoted atoms, the following escape sequences
+are recognized:</p><table class="table table-bordered table-hover table-striped"><caption>Recognized Escape Sequences</caption><tbody><tr><td><em>Sequence</em></td><td><em>Description</em></td></tr><tr><td>\b</td><td>Backspace</td></tr><tr><td>\d</td><td>Delete</td></tr><tr><td>\e</td><td>Escape</td></tr><tr><td>\f</td><td>Form feed</td></tr><tr><td>\n</td><td>Newline</td></tr><tr><td>\r</td><td>Carriage return</td></tr><tr><td>\s</td><td>Space</td></tr><tr><td>\t</td><td>Tab</td></tr><tr><td>\v</td><td>Vertical tab</td></tr><tr><td>\XYZ, \YZ, \Z</td><td>Character with octal representation XYZ, YZ or Z</td></tr><tr><td>\xXY</td><td>Character with hexadecimal representation XY</td></tr><tr><td>\x{X...}</td><td>Character with hexadecimal representation; X... is one or more hexadecimal characters</td></tr><tr><td>\^a...\^z        <br/> \^A...\^Z</td><td>Control A to control Z</td></tr><tr><td>\'</td><td>Single quote</td></tr><tr><td>\"</td><td>Double quote</td></tr><tr><td>\\</td><td>Backslash</td></tr></tbody></table><h4>Type Conversions</h4><p>There are a number of BIFs for type conversions.</p><p><em>Examples:</em></p><pre>
+1&gt; <span class="input">atom_to_list(hello).</span>
+"hello"
+2&gt; <span class="input">list_to_atom("hello").</span>
+hello
+3&gt; <span class="input">binary_to_list(&lt;&lt;"hello"&gt;&gt;).</span>
+"hello"
+4&gt; <span class="input">binary_to_list(&lt;&lt;104,101,108,108,111&gt;&gt;).</span>
+"hello"
+5&gt; <span class="input">list_to_binary("hello").</span>
+&lt;&lt;104,101,108,108,111&gt;&gt;
+6&gt; <span class="input">float_to_list(7.0).</span>
+"7.00000000000000000000e+00"
+7&gt; <span class="input">list_to_float("7.000e+00").</span>
+7.0
+8&gt; <span class="input">integer_to_list(77).</span>
+"77"
+9&gt; <span class="input">list_to_integer("77").</span>
+77
+10&gt; <span class="input">tuple_to_list({a,b,c}).</span>
+[a,b,c]
+11&gt; <span class="input">list_to_tuple([a,b,c]).</span>
+{a,b,c}
+12&gt; <span class="input">term_to_binary({a,b,c}).</span>
+&lt;&lt;131,104,3,100,0,1,97,100,0,1,98,100,0,1,99&gt;&gt;
+13&gt; <span class="input">binary_to_term(&lt;&lt;131,104,3,100,0,1,97,100,0,1,98,100,0,1,99&gt;&gt;).</span>
+{a,b,c}
+14&gt; <span class="input">binary_to_integer(&lt;&lt;"77"&gt;&gt;).</span>
+77
+15&gt; <span class="input">integer_to_binary(77).</span>
+&lt;&lt;"77"&gt;&gt;
+16&gt; <span class="input">float_to_binary(7.0).</span>
+&lt;&lt;"7.00000000000000000000e+00"&gt;&gt;
+17&gt; <span class="input">binary_to_float(&lt;&lt;"7.000e+00"&gt;&gt;).</span>
+7.0</pre><h4>Pattern Matching</h4><p>Variables are bound to values through the <em>pattern matching</em> mechanism. Pattern matching occurs when
+evaluating a function call, <strong>case</strong>- <strong>receive</strong>-
+<strong>try</strong>- expressions and match operator (=) expressions.</p><p>In a pattern matching, a left-hand side
+<a href="./expressions#pattern">pattern</a> is matched
+against a right-hand side
+<a href="./expressions#term">term</a>. If
+the matching succeeds, any unbound variables in the pattern
+become bound. If the matching fails, a run-time error occurs.</p><p><em>Examples:</em></p><pre>
+1&gt; <span class="input">X.</span>
+** 1: variable 'X' is unbound **
+2&gt; <span class="input">X = 2.</span>
+2
+3&gt; <span class="input">X + 1.</span>
+3
+4&gt; <span class="input">{X, Y} = {1, 2}.</span>
+** exception error: no match of right hand side value {1,2}
+5&gt; <span class="input">{X, Y} = {2, 3}.</span>
+{2,3}
+6&gt; <span class="input">Y.</span>
+3</pre><h4>Module Syntax</h4><p>Erlang code is divided into <em>modules</em>. A module consists
+of a sequence of attributes and function declarations, each
+terminated by period (.).</p><p><em>Example:</em></p><pre>
+-module(m).          % module attribute
+-export([fact/1]).   % module attribute
+
+fact(N) when N&gt;0 -&gt;  % beginning of function declaration
+    N * fact(N-1);   %  |
+fact(0) -&gt;           %  |
+    1.               % end of function declaration</pre><p>For a description of function declarations, see
+<a href="functions">Function Declaration Syntax</a>.</p><h4>Module Attributes</h4><p>A <em>module attribute</em> defines a certain property of a
+module.</p><p>A module attribute consists of a tag and a value:</p><pre>
+-Tag(Value).</pre><p><strong>Tag</strong> must be an atom, while <strong>Value</strong> must be a literal
+term. As a convenience in user-defined attributes, if the literal term
+<strong>Value</strong> has the syntax <strong>Name/Arity</strong>
+(where <strong>Name</strong> is an atom and <strong>Arity</strong> a positive integer),
+the term <strong>Name/Arity</strong> is translated to <strong>{Name,Arity}</strong>.</p><p>Any module attribute can be specified. The attributes are stored
+in the compiled code and can be retrieved by calling
+<strong>Module:module_info(attributes)</strong>, or by using the module
+<a href="../stdlib/beam_lib#chunks/2">beam_lib(3)</a>
+in STDLIB.</p><p>Several module attributes have predefined meanings.
+Some of them have arity two, but user-defined module
+attributes must have arity one.</p><h4>Pre-Defined Module Attributes</h4><p>Pre-defined module attributes is to be placed before any
+function declaration.</p><dl><dt><strong>-module(Module).</strong></dt><dd> <p>Module declaration, defining the name of the module.
+The name <strong>Module</strong>, an atom, is to be same as
+the file name minus the extension <strong>.erl</strong>. Otherwise
+<a href="./code_loading#loading">code loading</a> does
+not work as intended.</p> <p>This attribute is to be specified first and is the only
+mandatory attribute.</p> </dd><dt><strong>-export(Functions).</strong></dt><dd> <p>Exported functions. Specifies which of the functions,
+defined within the module, that are visible from outside
+the module.</p> <p><strong>Functions</strong> is a list
+<strong>[Name1/Arity1, ..., NameN/ArityN]</strong>, where each
+<strong>NameI</strong> is an atom and <strong>ArityI</strong> an integer.</p> </dd><dt><strong>-import(Module,Functions).</strong></dt><dd> <p>Imported functions. Can be called
+the same way as local functions, that is, without any module
+prefix.</p> <p><strong>Module</strong>, an atom, specifies which module to import
+functions from. <strong>Functions</strong> is a list similar as for
+<strong>export</strong>.</p> </dd><dt><strong>-compile(Options).</strong></dt><dd> <p>Compiler options. <strong>Options</strong> is a single option
+or a list of options.
+This attribute is added to the option list when
+compiling the module. See the <a href="./compile"> compile(3)</a> manual page in Compiler.</p> </dd><dt><strong>-vsn(Vsn).</strong></dt><dd> <p>Module version. <strong>Vsn</strong> is any literal term and can be
+retrieved using <strong>beam_lib:version/1</strong>, see the
+<a href="../stdlib/beam_lib#version/1">beam_lib(3)</a>
+manual page in STDLIB.</p> <p>If this attribute is not specified, the version defaults
+to the MD5 checksum of the module.</p> </dd><dt><strong>-on_load(Function).</strong></dt><dd> <p>This attribute names a function that is to be run
+automatically when a
+module is loaded. For more information, see
+<a href="./code_loading#on_load"> Running a Function When a Module is Loaded</a>.</p> </dd></dl><h4>Behaviour Module Attribute</h4><p>It is possible to specify that the module is the callback
+module for a <em>behaviour</em>:</p><pre>
+-behaviour(Behaviour).</pre><p>The atom <strong>Behaviour</strong> gives the name of the behaviour,
+which can be a user-defined behaviour or one of the following OTP
+standard behaviours:</p><ul><li><strong>gen_server</strong></li><li><strong>gen_statem</strong></li><li><strong>gen_event</strong></li><li><strong>supervisor</strong></li></ul><p>The spelling <strong>behavior</strong> is also accepted.</p><p>The callback functions of the module can be specified either
+directly by the exported function <strong>behaviour_info/1</strong>:</p><pre>
+behaviour_info(callbacks) -&gt; Callbacks.</pre><p>or by a <strong>-callback</strong> attribute for each callback
+function:</p><pre>
+-callback Name(Arguments) -&gt; Result.</pre><p>Here, <strong>Arguments</strong> is a list of zero or more arguments.
+The <strong>-callback</strong> attribute is to be preferred since the
+extra type information can be used by tools to produce
+documentation or find discrepancies.</p><p>Read more about behaviours and callback modules in
+<a href="../doc/design_principles/spec_proc#behaviours"> OTP Design Principles</a>.</p><h4>Record Definitions</h4><p>The same syntax as for module attributes is used
+for record definitions:</p><pre>
+-record(Record,Fields).</pre><p>Record definitions are allowed anywhere in a module,
+also among the function declarations.
+Read more in <a href="records">Records</a>.</p><h4>Preprocessor</h4><p>The same syntax as for module attributes is used by
+the preprocessor, which supports file inclusion, macros,
+and conditional compilation:</p><pre>
+-include("SomeFile.hrl").
+-define(Macro,Replacement).</pre><p>Read more in <a href="macros">Preprocessor</a>.</p><h4>Setting File and Line</h4><p>The same syntax as for module attributes is used for
+changing the pre-defined macros <strong>?FILE</strong> and <strong>?LINE</strong>:</p><pre>
+-file(File, Line).</pre><p>This attribute is used by tools, such as Yecc, to inform the
+compiler that the source program is generated by another tool.
+It also indicates the correspondence of source files to lines of
+the original user-written file, from which the source program
+is produced.</p><h4>Types and function specifications</h4><p>A similar syntax as for module attributes is used for 
+specifying types and function specifications:
+</p><pre>
+-type my_type() :: atom() | integer().
+-spec my_function(integer()) -&gt; integer().</pre><p>Read more in <a href="typespec">Types and Function specifications</a>.
+</p><p>
+The description is based on
+<a href="http://www.erlang.org/eeps/eep-0008.html">EEP8 - Types and function specifications</a>,
+which is not to be further updated.
+</p><h4>Comments</h4><p>Comments can be placed anywhere in a module except within strings
+and quoted atoms. A comment begins with the character "%",
+continues up to, but does not include the next end-of-line, and
+has no effect. Notice that the terminating end-of-line has
+the effect of white space.</p><h4>module_info/0 and module_info/1 functions</h4><p>The compiler automatically inserts the two special, exported
+functions into each module:</p><ul><li><strong>Module:module_info/0</strong></li><li><strong>Module:module_info/1</strong></li></ul><p>These functions can be called to retrieve information
+about the module.</p><h4>module_info/0</h4><p>The <strong>module_info/0</strong> function in each module, returns
+a list of <strong>{Key,Value}</strong> tuples with information about
+the module. Currently, the list contain tuples with the following
+<strong>Key</strong>s: <strong>module</strong>, <strong>attributes</strong>, <strong>compile</strong>,
+<strong>exports</strong>, <strong>md5</strong> and <strong>native</strong>.
+The order and number of tuples
+may change without prior notice.</p><h4>module_info/1</h4><p>The call <strong>module_info(Key)</strong>, where <strong>Key</strong> is an atom,
+returns a single piece of information about the module.</p><p>The following values are allowed for <strong>Key</strong>:</p><dl><dt><strong>module</strong></dt><dd> <p>Returns an atom representing the module name.</p> </dd><dt><strong>attributes</strong></dt><dd> <p>Returns a list of <strong>{AttributeName,ValueList}</strong> tuples,
+where <strong>AttributeName</strong> is the name of an attribute,
+and <strong>ValueList</strong> is a list of values. Notice that a given
+attribute can occur more than once in the list with different
+values if the attribute occurs more than once in the module.</p> <p>The list of attributes becomes empty if
+the module is stripped with the
+<a href="../stdlib/beam_lib#strip/1">beam_lib(3)</a>
+module (in STDLIB).</p> </dd><dt><strong>compile</strong></dt><dd> <p>Returns a list of tuples with information about
+how the module was compiled. This list is empty if
+the module has been stripped with the
+<a href="../stdlib/beam_lib#strip/1">beam_lib(3)</a>
+module (in STDLIB).</p> </dd><dt><strong>md5</strong></dt><dd> <p>Returns a binary representing the MD5 checksum of the module.
+If the module has native code loaded, this will be the MD5 of the
+native code, not the BEAM bytecode.</p> </dd><dt><strong>exports</strong></dt><dd> <p>Returns a list of <strong>{Name,Arity}</strong> tuples with
+all exported functions in the module.</p> </dd><dt><strong>functions</strong></dt><dd> <p>Returns a list of <strong>{Name,Arity}</strong> tuples with
+all functions in the module.</p> </dd><dt><strong>nifs</strong></dt><dd> <p>Returns a list of <strong>{Name,Arity}</strong> tuples with
+all NIF functions in the module.</p> </dd><dt><strong>native</strong></dt><dd> <p>Return <strong>true</strong> if the module has native compiled code.
+Return <strong>false</strong> otherwise. In a system compiled without HiPE
+support, the result is always <strong>false</strong></p> </dd></dl><a name="syntax"></a><h4>Function Declaration Syntax</h4><p>A <em>function declaration</em> is a sequence of function
+clauses separated by semicolons, and terminated by period (.).</p><p>A <em>function clause</em> consists of a clause head and a
+clause body, separated by <strong>-&gt;</strong>.</p><p>A clause <em>head</em> consists of the function name, an
+argument list, and an optional guard sequence
+beginning with the keyword <strong>when</strong>:</p><pre>
+Name(Pattern11,...,Pattern1N) [when GuardSeq1] -&gt;
+    Body1;
+...;
+Name(PatternK1,...,PatternKN) [when GuardSeqK] -&gt;
+    BodyK.</pre><p>The function name is an atom. Each argument is a pattern.</p><p>The number of arguments <strong>N</strong> is the <em>arity</em> of
+the function. A function is uniquely defined by the module name,
+function name, and arity. That is, two functions with the same
+name and in the same module, but with different arities are two
+different functions.</p><p>A function named <strong>f</strong> in the module <strong>m</strong> and with arity
+<strong>N</strong> is often denoted as <strong>m:f/N</strong>.</p><p>A clause <em>body</em> consists of a sequence of expressions
+separated by comma (,):</p><pre>
+Expr1,
+...,
+ExprN</pre><p>Valid Erlang expressions and guard sequences are described in
+<a href="expressions">Expressions</a>.</p><p><em>Example:</em></p><pre>
+fact(N) when N&gt;0 -&gt;  % first clause head
+    N * fact(N-1);   % first clause body
+
+fact(0) -&gt;           % second clause head
+    1.               % second clause body</pre><a name="eval"></a><h4>Function Evaluation</h4><p>When a function <strong>m:f/N</strong> is called, first the code for
+the function is located. If the function cannot be found, an
+<strong>undef</strong> runtime error occurs. Notice that the function
+must be exported to be visible outside the module it is defined
+in.</p><p>If the function is found, the function clauses are scanned
+sequentially until a clause is found that fulfills both of
+the following two conditions:</p><ul><li>The patterns in the clause head can be successfully matched against the given arguments.</li><li>The guard sequence, if any, is true.</li></ul><p>If such a clause cannot be found, a <strong>function_clause</strong>
+runtime error occurs.</p><p>If such a clause is found, the corresponding clause body is
+evaluated. That is, the expressions in the body are evaluated
+sequentially and the value of the last expression is returned.</p><p>Consider the function <strong>fact</strong>:</p><pre>
+-module(m).
+-export([fact/1]).
+
+fact(N) when N&gt;0 -&gt;
+    N * fact(N-1);
+fact(0) -&gt;
+    1.</pre><p>Assume that you want to calculate the factorial for 1:</p><pre>
+1&gt; <span class="input">m:fact(1).</span></pre><p>Evaluation starts at the first clause. The pattern <strong>N</strong> is
+matched against argument 1. The matching succeeds and
+the guard (<strong>N&gt;0</strong>) is true, thus <strong>N</strong> is bound to 1, and
+the corresponding body is evaluated:</p><pre>
+<span class="input">N * fact(N-1)</span> =&gt; (N is bound to 1)
+<span class="input">1 * fact(0)</span></pre><p>Now, <strong>fact(0)</strong> is called, and the function clauses are
+scanned sequentially again. First, the pattern <strong>N</strong> is
+matched against 0. The matching succeeds, but the guard
+(<strong>N&gt;0</strong>) is false. Second, the pattern 0 is matched against
+0. The matching succeeds and the body is evaluated:</p><pre>
+<span class="input">1 * fact(0)</span> =&gt;
+<span class="input">1 * 1</span> =&gt;
+<span class="input">1</span></pre><p>Evaluation has succeed and <strong>m:fact(1)</strong> returns 1.</p><p>If <strong>m:fact/1</strong> is called with a negative number as
+argument, no clause head matches. A <strong>function_clause</strong>
+runtime error occurs.</p><h4>Tail recursion</h4><p>If the last expression of a function body is a function call,
+a <em>tail recursive</em> call is done.
+This is to ensure that no system
+resources, for example, call stack, are consumed. This means
+that an infinite loop can be done if it uses tail-recursive
+calls.</p><p><em>Example:</em></p><pre>
+loop(N) -&gt;
+    io:format("~w~n", [N]),
+    loop(N+1).</pre><p>The earlier factorial example can act as a counter-example.
+It is not tail-recursive, since a multiplication is done
+on the result of the recursive call to <strong>fact(N-1)</strong>.</p><h4>Built-In Functions (BIFs)</h4><p>BIFs are implemented in C code in
+the runtime system. BIFs do things that are difficult or impossible
+to implement in Erlang. Most of the BIFs belong
+to the module <strong>erlang</strong> but there are also BIFs
+belonging to a few other modules, for example <strong>lists</strong> and
+<strong>ets</strong>.</p><p>The most commonly used BIFs belonging to <strong>erlang(3)</strong> are
+<em>auto-imported</em>. They do not need to be prefixed with
+the module name. Which BIFs that are auto-imported is specified in the
+<a href="./erlang">erlang(3)</a> module in ERTS.
+For example, standard-type conversion BIFs like
+<strong>atom_to_list</strong> and BIFs allowed in guards can be called
+without specifying the module name.</p><p><em>Examples:</em></p><pre>
+1&gt; <span class="input">tuple_size({a,b,c}).</span>
+3
+2&gt; <span class="input">atom_to_list('Erlang').</span>
+"Erlang"</pre><p>Notice that it is normally the set of auto-imported BIFs
+that are referred to when talking about 'BIFs'.</p><h4>The Erlang Type Language</h4><p>
+Erlang is a dynamically typed language. Still, it comes with a
+notation for declaring sets of Erlang terms to form a particular
+type. This effectively forms specific subtypes of the set of all
+Erlang terms.
+</p><p>
+Subsequently, these types can be used to specify types of record fields
+and also the argument and return types of functions.
+</p><p>
+Type information can be used for the following:</p><ul><li>To document function interfaces</li><li>To provide more information for bug detection tools, such as Dialyzer</li><li>To be exploited by documentation tools, such as EDoc, for generating program documentation of various forms</li></ul><p>It is expected that the type language described in this section
+supersedes and replaces the purely comment-based <strong>@type</strong> and
+<strong>@spec</strong> declarations used by EDoc.</p><a name="syntax"></a><h4>Types and their Syntax</h4><p>
+Types describe sets of Erlang terms.
+Types consist of, and are built from, a set of predefined types,
+for example, <strong>integer()</strong>, <strong>atom()</strong>, and <strong>pid()</strong>.
+Predefined types represent a typically infinite set of Erlang terms that
+belong to this type.  For example, the type <strong>atom()</strong> denotes the
+set of all Erlang atoms.
+</p><p>
+For integers and atoms, it is allowed for singleton types; for example,
+the integers
+<strong>-1</strong> and <strong>42</strong>, or the atoms <strong>'foo'</strong> and <strong>'bar'</strong>.
+All other types are built using unions of either predefined
+types or singleton types. In a type union between a type and one
+of its subtypes, the subtype is absorbed by the supertype. Thus,
+the union is then treated as if the subtype was not a
+constituent of the union. For example, the type union:
+</p><pre>  atom() | 'bar' | integer() | 42</pre><p>
+describes the same set of terms as the type union:
+</p><pre>  atom() | integer()</pre><p>
+Because of subtype relations that exist between types, types
+form a lattice where the top-most element, <strong>any()</strong>, denotes
+the set of all Erlang terms and the bottom-most element, <strong>none()</strong>,
+denotes the empty set of terms.
+</p><p>
+The set of predefined types and the syntax for types follows:
+</p><pre>
+  Type :: any()                 %% The top type, the set of all Erlang terms
+        | none()                %% The bottom type, contains no terms
+        | pid()
+        | port()
+        | reference()
+        | []                    %% nil
+        | Atom
+        | Bitstring
+        | float()
+        | Fun
+        | Integer
+        | List
+        | Map
+        | Tuple
+        | Union
+        | UserDefined           %% described in Type Declarations of User-Defined Types
+
+  Atom :: atom()
+        | Erlang_Atom           %% 'foo', 'bar', ...
+
+  Bitstring :: &lt;&lt;&gt;&gt;
+             | &lt;&lt;_:M&gt;&gt;          %% M is an Integer_Value that evaluates to a positive integer
+             | &lt;&lt;_:_*N&gt;&gt;        %% N is an Integer_Value that evaluates to a positive integer
+             | &lt;&lt;_:M, _:_*N&gt;&gt;
+
+  Fun :: fun()                  %% any function
+       | fun((...) -&gt; Type)     %% any arity, returning Type
+       | fun(() -&gt; Type)
+       | fun((TList) -&gt; Type)
+
+  Integer :: integer()
+           | Integer_Value
+           | Integer_Value..Integer_Value      %% specifies an integer range
+
+  Integer_Value :: Erlang_Integer              %% ..., -1, 0, 1, ... 42 ...
+                 | Erlang_Character            %% $a, $b ...
+                 | Integer_Value BinaryOp Integer_Value
+                 | UnaryOp Integer_Value
+
+  BinaryOp :: '*' | 'div' | 'rem' | 'band' | '+' | '-' | 'bor' | 'bxor' | 'bsl' | 'bsr'
+
+  UnaryOp :: '+' | '-' | 'bnot'
+
+  List :: list(Type)                           %% Proper list ([]-terminated)
+        | maybe_improper_list(Type1, Type2)    %% Type1=contents, Type2=termination
+        | nonempty_improper_list(Type1, Type2) %% Type1 and Type2 as above
+        | nonempty_list(Type)                  %% Proper non-empty list
+
+  Map :: map()                                 %% denotes a map of any size
+       | #{}                                   %% denotes the empty map
+       | #{AssociationList}
+
+  Tuple :: tuple()                             %% denotes a tuple of any size
+         | {}
+         | {TList}
+
+  AssociationList :: Association
+                   | Association, AssociationList
+
+  Association :: Type := Type                  %% denotes a mandatory association
+               | Type =&gt; Type                  %% denotes an optional association
+
+  TList :: Type
+         | Type, TList
+
+  Union :: Type1 | Type2
+</pre><p>
+Integer values are either integer or character literals or expressions
+consisting of possibily nested unary or binary operations that evaluate to
+an integer. Such expressions can also be used in bit strings and ranges.
+</p><p>
+The general form of bit strings is <strong>&lt;&lt;_:M, _:_*N&gt;&gt;</strong>,
+where <strong>M</strong> and <strong>N</strong> must evaluate to positive integers. It denotes a
+bit string that is <strong>M + (k*N)</strong> bits long (that is, a bit string that
+starts with <strong>M</strong> bits and continues with <strong>k</strong> segments of
+<strong>N</strong> bits each, where <strong>k</strong> is also a positive integer).
+The notations <strong>&lt;&lt;_:_*N&gt;&gt;</strong>, <strong>&lt;&lt;_:M&gt;&gt;</strong>,
+and <strong>&lt;&lt;&gt;&gt;</strong> are convenient shorthands for the cases
+that <strong>M</strong> or <strong>N</strong>, or both, are zero.
+</p><p>
+Because lists are commonly used, they have shorthand type notations.
+The types <strong>list(T)</strong> and <strong>nonempty_list(T)</strong> have the shorthands
+<strong>[T]</strong> and <strong>[T,...]</strong>, respectively.
+The only difference between the two shorthands is that <strong>[T]</strong> can be an
+empty list but <strong>[T,...]</strong> cannot.
+</p><p>
+Notice that the shorthand for <strong>list()</strong>, that is, the list of
+elements of unknown type, is <strong>[_]</strong> (or <strong>[any()]</strong>), not <strong>[]</strong>.
+The notation <strong>[]</strong> specifies the singleton type for the empty list.
+</p><p>
+The general form of map types is <strong>#{AssociationList}</strong>.
+The key types in
+<strong>AssociationList</strong> are allowed to overlap, and if they do, the
+leftmost association takes precedence. A map association has a key in
+<strong>AssociationList</strong> if it belongs to this type.
+<strong>AssociationList</strong> can contain both mandatory and optional
+association types.
+If an association type is mandatory, an association with that type
+is to be present.
+In the case of an optional association type it is not required for
+the key type to be present.
+</p><p>
+Notice that the syntactic representation of <strong>map()</strong> is
+<strong>#{any() =&gt; any()}</strong> (or <strong>#{_ =&gt; _}</strong>), not <strong>#{}</strong>.
+The notation <strong>#{}</strong> specifies the singleton type for the empty map.
+</p><p>
+For convenience, the following types are also built-in.
+They can be thought as predefined aliases for the type unions also shown in
+the table.
+</p><table class="table table-bordered table-hover table-striped"><caption>Built-in types, predefined aliases</caption><tbody><tr><td><em>Built-in type</em></td><td><em>Defined as</em></td></tr><tr><td><strong>term()</strong></td><td><strong>any()</strong></td></tr><tr><td><strong>binary()</strong></td><td><strong>&lt;&lt;_:_*8&gt;&gt;</strong></td></tr><tr><td><strong>bitstring()</strong></td><td><strong>&lt;&lt;_:_*1&gt;&gt;</strong></td></tr><tr><td><strong>boolean()</strong></td><td><strong>'false' | 'true'</strong></td></tr><tr><td><strong>byte()</strong></td><td><strong>0..255</strong></td></tr><tr><td><strong>char()</strong></td><td><strong>0..16#10ffff</strong></td></tr><tr><td><strong>nil()</strong></td><td><strong>[]</strong></td></tr><tr><td><strong>number()</strong></td><td><strong>integer() | float()</strong></td></tr><tr><td><strong>list()</strong></td><td><strong>[any()]</strong></td></tr><tr><td><strong>maybe_improper_list()</strong></td><td><strong>maybe_improper_list(any(), any())</strong></td></tr><tr><td><strong>nonempty_list()</strong></td><td><strong>nonempty_list(any())</strong></td></tr><tr><td><strong>string()</strong></td><td><strong>[char()]</strong></td></tr><tr><td><strong>nonempty_string()</strong></td><td><strong>[char(),...]</strong></td></tr><tr><td><strong>iodata()</strong></td><td><strong>iolist() | binary()</strong></td></tr><tr><td><strong>iolist()</strong></td><td><strong>maybe_improper_list(byte() | binary() | iolist(), binary() | [])</strong></td></tr><tr><td><strong>function()</strong></td><td><strong>fun()</strong></td></tr><tr><td><strong>module()</strong></td><td><strong>atom()</strong></td></tr><tr><td><strong>mfa()</strong></td><td><strong>{module(),atom(),arity()}</strong></td></tr><tr><td><strong>arity()</strong></td><td><strong>0..255</strong></td></tr><tr><td><strong>identifier()</strong></td><td><strong>pid() | port() | reference()</strong></td></tr><tr><td><strong>node()</strong></td><td><strong>atom()</strong></td></tr><tr><td><strong>timeout()</strong></td><td><strong>'infinity' | non_neg_integer()</strong></td></tr><tr><td><strong>no_return()</strong></td><td><strong>none()</strong></td></tr></tbody></table><p>
+In addition, the following three built-in types exist and can be
+thought as defined below, though strictly their "type definition" is
+not valid syntax according to the type language defined above.
+</p><table class="table table-bordered table-hover table-striped"><caption>Additional built-in types</caption><tbody><tr><td><em>Built-in type</em></td><td><em> Can be thought defined by the syntax</em></td></tr><tr><td><strong>non_neg_integer()</strong></td><td><strong>0..</strong></td></tr><tr><td><strong>pos_integer()</strong></td><td><strong>1..</strong></td></tr><tr><td><strong>neg_integer()</strong></td><td><strong>..-1</strong></td></tr></tbody></table><p>
+Users are not allowed to define types with the same names as the
+predefined or built-in ones. This is checked by the compiler and
+its violation results in a compilation error.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+The following built-in list types also exist,
+but they are expected to be rarely used. Hence, they have long names:
+</p></div><pre>
+  nonempty_maybe_improper_list() :: nonempty_maybe_improper_list(any(), any())
+  nonempty_improper_list(Type1, Type2)
+  nonempty_maybe_improper_list(Type1, Type2)</pre><p>
+where the last two types
+define the set of Erlang terms one would expect.
+</p><p>
+Also for convenience, record notation is allowed to be used.
+Records are shorthands for the corresponding tuples:
+</p><pre>
+  Record :: #Erlang_Atom{}
+          | #Erlang_Atom{Fields}</pre><p>
+Records are extended to possibly contain type information.
+This is described in <a href="#typeinrecords"> Type Information in Record Declarations</a>.
+</p><h4>Type Declarations of User-Defined Types</h4><p>
+As seen, the basic syntax of a type is an atom followed by closed
+parentheses. New types are declared using <strong>-type</strong> and <strong>-opaque</strong>
+attributes as in the following:
+</p><pre>
+  -type my_struct_type() :: Type.
+  -opaque my_opaq_type() :: Type.</pre><p>
+The type name is the atom <strong>my_struct_type</strong>,
+followed by parentheses. <strong>Type</strong> is a type as defined in the
+previous section.
+A current restriction is that <strong>Type</strong> can contain
+only predefined types,
+or user-defined types which are either of the following:
+</p><ul><li>Module-local type, that is, with a definition that is present in the code of the module</li><li>Remote type, that is, type defined in, and exported by, other modules; more about this soon.</li></ul><p>For module-local types, the restriction that their definition
+exists in the module is enforced by the compiler and results in a
+compilation error. (A similar restriction currently exists for records.)    </p><p>
+Type declarations can also be parameterized by including type variables
+between the parentheses. The syntax of type variables is the same as
+Erlang variables, that is, starts with an upper-case letter.
+Naturally, these variables can - and is to - appear on the RHS of the
+definition. A concrete example follows:
+</p><pre>
+  -type orddict(Key, Val) :: [{Key, Val}].</pre><p>
+A module can export some types to declare that other modules
+are allowed to refer to them as <em>remote types</em>.
+This declaration has the following form:</p><pre>
+  -export_type([T1/A1, ..., Tk/Ak]).</pre><p>Here the Ti's are atoms (the name of the type) and the Ai's are their
+arguments</p><p><em>Example:</em></p><pre>
+  -export_type([my_struct_type/0, orddict/2]).</pre><p>Assuming that these types are exported from module <strong>'mod'</strong>,
+you can refer to them from other modules using remote type expressions
+like the following:</p><pre>
+  mod:my_struct_type()
+  mod:orddict(atom(), term())</pre><p>It is not allowed to refer to types that are not declared as exported.
+</p><p>
+Types declared as <strong>opaque</strong> represent sets of terms whose
+structure is not supposed to be visible from outside of
+their defining module. That is, only the module defining them
+is allowed to depend on their term structure. Consequently, such
+types do not make much sense as module local - module local
+types are not accessible by other modules anyway - and is
+always to be exported.
+</p><a name="typeinrecords"></a><h4>Type Information in Record Declarations</h4><p>
+The types of record fields can be specified in the declaration of the
+record. The syntax for this is as follows:
+</p><pre>
+  -record(rec, {field1 :: Type1, field2, field3 :: Type3}).</pre><p>
+For fields without type annotations, their type defaults to any().
+That is, the previous example is a shorthand for the following:
+</p><pre>
+  -record(rec, {field1 :: Type1, field2 :: any(), field3 :: Type3}).</pre><p>
+In the presence of initial values for fields,
+the type must be declared after the initialization, as follows:
+</p><pre>
+  -record(rec, {field1 = [] :: Type1, field2, field3 = 42 :: Type3}).</pre><p>
+The initial values for fields are to be compatible
+with (that is, a member of) the corresponding types.
+This is checked by the compiler and results in a compilation error
+if a violation is detected.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Before Erlang/OTP 19, for fields without initial values,
+the singleton type <strong>'undefined'</strong> was added to all declared types.
+In other words, the following two record declarations had identical
+effects:</p><pre>
+  -record(rec, {f1 = 42 :: integer(),
+                f2      :: float(),
+                f3      :: 'a' | 'b'}).
+
+  -record(rec, {f1 = 42 :: integer(),
+                f2      :: 'undefined' | float(),
+                f3      :: 'undefined' | 'a' | 'b'}).</pre><p>
+This is no longer the case. If you require <strong>'undefined'</strong> in your record field
+type, you must explicitly add it to the typespec, as in the 2nd example.
+</p></div><p>
+Any record, containing type information or not, once defined,
+can be used as a type using the following syntax:
+</p><pre>  #rec{}</pre><p>
+In addition, the record fields can be further specified when using
+a record type by adding type information about the field
+as follows:
+</p><pre>  #rec{some_field :: Type}</pre><p>
+Any unspecified fields are assumed to have the type in the original
+record declaration.
+</p><h4>Specifications for Functions</h4><p>
+A specification (or contract) for a function is given using the
+<strong>-spec</strong> attribute. The general format is as follows:
+</p><pre>
+  -spec Module:Function(ArgType1, ..., ArgTypeN) -&gt; ReturnType.</pre><p>
+The arity of the function must match the number of arguments,
+else a compilation error occurs.
+</p><p>
+This form can also be used in header files (.hrl) to declare type
+information for exported functions.
+Then these header files can be included in files that (implicitly or
+explicitly) import these functions.
+</p><p>
+Within a given module, the following shorthand suffices in most cases:
+</p><pre>
+  -spec Function(ArgType1, ..., ArgTypeN) -&gt; ReturnType.</pre><p>
+Also, for documentation purposes, argument names can be given:
+</p><pre>
+  -spec Function(ArgName1 :: Type1, ..., ArgNameN :: TypeN) -&gt; RT.</pre><p>
+A function specification can be overloaded.
+That is, it can have several types, separated by a semicolon (<strong>;</strong>):
+</p><pre>
+  -spec foo(T1, T2) -&gt; T3
+         ; (T4, T5) -&gt; T6.</pre><p>
+A current restriction, which currently results in a warning
+(not an error) by the compiler, is that the domains of
+the argument types cannot overlap.
+For example, the following specification results in a warning:
+</p><pre>
+  -spec foo(pos_integer()) -&gt; pos_integer()
+         ; (integer()) -&gt; integer().</pre><p>
+Type variables can be used in specifications to specify relations for
+the input and output arguments of a function.
+For example, the following specification defines the type of a
+polymorphic identity function:
+</p><pre>
+  -spec id(X) -&gt; X.</pre><p>
+Notice that the above specification does not restrict the input
+and output type in any way.
+These types can be constrained by guard-like subtype constraints
+and provide bounded quantification:
+</p><pre>  -spec id(X) -&gt; X when X :: tuple().</pre><p>
+Currently, the <strong>::</strong> constraint
+(read as Â«is a subtype ofÂ») is
+the only guard constraint that can be used in the <strong>when</strong>
+part of a <strong>-spec</strong> attribute.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+The above function specification uses multiple occurrences of
+the same type variable. That provides more type information than the
+following function specification, where the type variables are missing:
+</p><pre>  -spec id(tuple()) -&gt; tuple().</pre><p>
+The latter specification says that the function takes some tuple
+and returns some tuple. The specification with the <strong>X</strong> type
+variable specifies that the function takes a tuple and returns
+<em>the same</em> tuple.
+</p><p>
+However, it is up to the tools that process the specifications
+to choose whether to take this extra information into account
+or not.
+</p></div><p>
+The scope of a <strong>::</strong> constraint is the
+<strong>(...) -&gt; RetType</strong>
+specification after which it appears. To avoid confusion,
+it is suggested that different variables are used in different
+constituents of an overloaded contract, as shown in the
+following example:
+</p><pre>
+  -spec foo({X, integer()}) -&gt; X when X :: atom()
+         ; ([Y]) -&gt; Y when Y :: number().</pre><p>
+Some functions in Erlang are not meant to return;
+either because they define servers or because they are used to
+throw exceptions, as in the following function:
+</p><pre>  my_error(Err) -&gt; erlang:throw({error, Err}).</pre><p>
+For such functions, it is recommended to use the special
+<strong>no_return()</strong> type for their "return", through a contract
+of the following form:
+</p><pre>  -spec my_error(term()) -&gt; no_return().</pre><p>In this section, all valid Erlang expressions are listed.
+When writing Erlang programs, it is also allowed to use macro-
+and record expressions. However, these expressions are expanded
+during compilation and are in that sense not true Erlang
+expressions. Macro- and record expressions are covered in
+separate sections:
+</p><ul><li><p><a href="macros">Preprocessor</a></p></li><li><p><a href="records">Records</a></p></li></ul><h4>Expression Evaluation</h4><p>All subexpressions are evaluated before an expression itself is
+evaluated, unless explicitly stated otherwise. For example,
+consider the expression:</p><pre><code class="">
+Expr1 + Expr2</code></pre><p><strong>Expr1</strong> and <strong>Expr2</strong>, which are also expressions, are
+evaluated first - in any order - before the addition is
+performed.</p><p>Many of the operators can only be applied to arguments of a
+certain type. For example, arithmetic operators can only be
+applied to numbers. An argument of the wrong type causes
+a <strong>badarg</strong> runtime error.</p><a name="term"></a><h4>Terms</h4><p>The simplest form of expression is a term, that is an integer,
+float, atom, string, list, map, or tuple.
+The return value is the term itself.</p><h4>Variables</h4><p>A variable is an expression. If a variable is bound to a value,
+the return value is this value. Unbound variables are only
+allowed in patterns.</p><p>Variables start with an uppercase letter or underscore (_).
+Variables can contain alphanumeric characters, underscore and <strong>@</strong>.
+</p><p><em>Examples:</em></p><pre>
+X
+Name1
+PhoneNumber
+Phone_number
+_
+_Height</pre><p>Variables are bound to values using
+<a href="patterns">pattern matching</a>. Erlang
+uses <em>single assignment</em>, that is, a variable can only be bound
+once.</p><p>The <em>anonymous variable</em> is denoted by underscore (_) and
+can be used when a variable is required but its value can be
+ignored.</p><p><em>Example:</em></p><pre>
+[H|_] = [1,2,3]</pre><p>Variables starting with underscore (_), for example,
+<strong>_Height</strong>, are normal variables, not anonymous. They are
+however ignored by the compiler in the sense that they do not
+generate any warnings for unused variables.</p><p><em>Example:</em></p><p>The following code:</p><pre>
+member(_, []) -&gt;
+    [].</pre><p>can be rewritten to be more readable:</p><pre>
+member(Elem, []) -&gt;
+    [].</pre><p>This causes a warning for an unused variable,
+<strong>Elem</strong>, if the code is compiled with the flag
+<strong>warn_unused_vars</strong> set. Instead, the code can be rewritten
+to:</p><pre>
+member(_Elem, []) -&gt;
+    [].</pre><p>Notice that since variables starting with an underscore are
+not anonymous, this matches:</p><pre>
+{_,_} = {1,2}</pre><p>But this fails:</p><pre>
+{_N,_N} = {1,2}</pre><p>The scope for a variable is its function clause.
+Variables bound in a branch of an <strong>if</strong>, <strong>case</strong>, 
+or <strong>receive</strong> expression must be bound in all branches 
+to have a value outside the expression. Otherwise they
+are regarded as 'unsafe' outside the expression.</p><p>For the <strong>try</strong> expression variable scoping is limited so that
+variables bound in the expression are always 'unsafe' outside 
+the expression.</p><a name="pattern"></a><h4>Patterns</h4><p>A pattern has the same structure as a term but can contain
+unbound variables.</p><p><em>Example:</em></p><pre>
+Name1
+[H|T]
+{error,Reason}</pre><p>Patterns are allowed in clause heads, <strong>case</strong> and
+<strong>receive</strong> expressions, and match expressions.</p><h4>Match Operator = in Patterns</h4><p>If <strong>Pattern1</strong> and <strong>Pattern2</strong> are valid patterns,
+the following is also a valid pattern:</p><pre>
+Pattern1 = Pattern2</pre><p>When matched against a term, both <strong>Pattern1</strong> and
+<strong>Pattern2</strong> are  matched against the term. The idea
+behind this feature is to avoid reconstruction of terms.</p><p><em>Example:</em></p><pre>
+f({connect,From,To,Number,Options}, To) -&gt;
+    Signal = {connect,From,To,Number,Options},
+    ...;
+f(Signal, To) -&gt;
+    ignore.</pre><p>can instead be written as</p><pre>
+f({connect,_,To,_,_} = Signal, To) -&gt;
+    ...;
+f(Signal, To) -&gt;
+    ignore.</pre><h4>String Prefix in Patterns</h4><p>When matching strings, the following is a valid pattern:</p><pre>
+f("prefix" ++ Str) -&gt; ...</pre><p>This is syntactic sugar for the equivalent, but harder to
+read:</p><pre>
+f([$p,$r,$e,$f,$i,$x | Str]) -&gt; ...</pre><h4>Expressions in Patterns</h4><p>An arithmetic expression can be used within a pattern if
+it meets both of the following two conditions:</p><ul><li>It uses only numeric or bitwise operators.</li><li>Its value can be evaluated to a constant when complied.</li></ul><p><em>Example:</em></p><pre>
+case {Value, Result} of
+    {?THRESHOLD+1, ok} -&gt; ...</pre><h4>Match</h4><p>The following matches <strong>Expr1</strong>, a pattern, against
+<strong>Expr2</strong>:</p><pre>
+Expr1 = Expr2</pre><p>If the matching succeeds, any unbound variable in the pattern
+becomes bound and the value of <strong>Expr2</strong> is returned.</p><p>If the matching fails, a <strong>badmatch</strong> run-time error occurs.</p><p><em>Examples:</em></p><pre>
+1&gt; <span class="input">{A, B} = {answer, 42}.</span>
+{answer,42}
+2&gt; <span class="input">A.</span>
+answer
+3&gt; <span class="input">{C, D} = [1, 2].</span>
+** exception error: no match of right-hand side value [1,2]</pre><a name="calls"></a><h4>Function Calls</h4><pre>
+ExprF(Expr1,...,ExprN)
+ExprM:ExprF(Expr1,...,ExprN)</pre><p>In the first form of function calls,
+<strong>ExprM:ExprF(Expr1,...,ExprN)</strong>, each of <strong>ExprM</strong> and
+<strong>ExprF</strong> must be an atom or an expression that evaluates to
+an atom. The function is said to be called by using the
+<em>fully qualified function name</em>. This is often referred
+to as a <em>remote</em> or <em>external function call</em>.</p><p><em>Example:</em></p><pre><code class="">
+lists:keysearch(Name, 1, List)</code></pre><p>In the second form of function calls,
+<strong>ExprF(Expr1,...,ExprN)</strong>, <strong>ExprF</strong> must be an atom or
+evaluate to a fun.</p><p>If <strong>ExprF</strong> is an atom, the function is said to be called by
+using the <em>implicitly qualified function name</em>.  If the
+function <strong>ExprF</strong> is locally defined, it is called.
+Alternatively, if <strong>ExprF</strong> is explicitly imported from the
+<strong>M</strong> module, <strong>M:ExprF(Expr1,...,ExprN)</strong> is called. If
+<strong>ExprF</strong> is neither declared locally nor explicitly
+imported, <strong>ExprF</strong> must be the name of an automatically
+imported BIF. </p><p><em>Examples:</em></p><pre><code class="">
+handle(Msg, State)
+spawn(m, init, [])</code></pre><p><em>Examples</em> where <strong>ExprF</strong> is a fun:</p><pre>
+1&gt; <span class="input">Fun1 = fun(X) -&gt; X+1 end,</span>
+<span class="input">Fun1(3).</span>
+4
+2&gt; <span class="input">fun lists:append/2([1,2], [3,4]).</span>
+[1,2,3,4]
+3&gt; </pre><p>Notice that when calling a local function, there is a difference
+between using the implicitly or fully qualified function name.
+The latter always refers to the latest version of the module.
+See <a href="code_loading">Compilation and Code Loading </a> and <a href="./functions#eval"> Function Evaluation</a>.</p><h4>Local Function Names Clashing With  Auto-Imported BIFs</h4><p>If a local function has the same name as an auto-imported BIF,
+the semantics is that implicitly qualified function calls are
+directed to the locally defined function, not to the BIF. To avoid
+confusion, there is a compiler directive available,
+<strong>-compile({no_auto_import,[F/A]})</strong>, that makes a BIF not
+being auto-imported. In certain situations, such a compile-directive
+is mandatory.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>Before OTP R14A (ERTS version 5.8), an implicitly
+qualified function call to a function having the same name as an
+auto-imported BIF always resulted in the BIF being called. In
+newer versions of the compiler, the local function is called instead.
+This is to avoid that future additions to the
+set of auto-imported BIFs do not silently change the behavior
+of old code.</p><p>However, to avoid that old (pre R14) code changed its
+behavior when compiled with OTP version R14A or later, the
+following restriction applies: If you override the name of a BIF
+that was auto-imported in OTP versions prior to R14A (ERTS version
+5.8) and have an implicitly qualified call to that function in
+your code, you either need to explicitly remove the auto-import
+using a compiler directive, or replace the call with a fully
+qualified function call. Otherwise you get a compilation
+error. See the following example:</p></div><pre><code class="">
+-export([length/1,f/1]).
+
+-compile({no_auto_import,[length/1]}). % erlang:length/1 no longer autoimported
+
+length([]) -&gt;
+    0;
+length([H|T]) -&gt;
+    1 + length(T). %% Calls the local function length/1
+
+f(X) when erlang:length(X) &gt; 3 -&gt; %% Calls erlang:length/1,
+                                  %% which is allowed in guards
+    long.</code></pre><p>The same logic applies to explicitly imported functions from
+other modules, as to locally defined functions.
+It is not allowed to both import a
+function from another module and have the function declared in the
+module at the same time:</p><pre><code class="">
+-export([f/1]).
+
+-compile({no_auto_import,[length/1]}). % erlang:length/1 no longer autoimported
+
+-import(mod,[length/1]).
+
+f(X) when erlang:length(X) &gt; 33 -&gt; %% Calls erlang:length/1,
+                                   %% which is allowed in guards
+
+    erlang:length(X);              %% Explicit call to erlang:length in body
+
+f(X) -&gt;
+    length(X).                     %% mod:length/1 is called</code></pre><p>For auto-imported BIFs added in Erlang/OTP R14A and thereafter,
+overriding the name with a local function or explicit import is always
+allowed. However, if the <strong>-compile({no_auto_import,[F/A])</strong>
+directive is not used, the compiler issues a warning whenever
+the function is called in the module using the implicitly qualified
+function name.</p><h4>If</h4><pre>
+if
+    GuardSeq1 -&gt;
+        Body1;
+    ...;
+    GuardSeqN -&gt;
+        BodyN
+end</pre><p>The branches of an <strong>if</strong>-expression are scanned sequentially
+until a guard sequence <strong>GuardSeq</strong> that evaluates to true is
+found. Then the corresponding <strong>Body</strong> (sequence of expressions
+separated by ',') is evaluated.</p><p>The return value of <strong>Body</strong> is the return value of
+the <strong>if</strong> expression.</p><p>If no guard sequence is evaluated as true,
+an <strong>if_clause</strong> run-time error
+occurs. If necessary, the guard expression <strong>true</strong> can be
+used in the last branch, as that guard sequence is always true.</p><p><em>Example:</em></p><pre>
+is_greater_than(X, Y) -&gt;
+    if
+        X&gt;Y -&gt;
+            true;
+        true -&gt; % works as an 'else' branch
+            false
+    end</pre><a name="case"></a><h4>Case</h4><pre>
+case Expr of
+    Pattern1 [when GuardSeq1] -&gt;
+        Body1;
+    ...;
+    PatternN [when GuardSeqN] -&gt;
+        BodyN
+end</pre><p>The expression <strong>Expr</strong> is evaluated and the patterns
+<strong>Pattern</strong> are sequentially matched against the result. If a
+match succeeds and the optional guard sequence <strong>GuardSeq</strong> is
+true, the corresponding <strong>Body</strong> is evaluated.</p><p>The return value of <strong>Body</strong> is the return value of
+the <strong>case</strong> expression.</p><p>If there is no matching pattern with a true guard sequence,
+a <strong>case_clause</strong> run-time error occurs.</p><p><em>Example:</em></p><pre>
+is_valid_signal(Signal) -&gt;
+    case Signal of
+        {signal, _What, _From, _To} -&gt;
+            true;
+        {signal, _What, _To} -&gt;
+            true;
+        _Else -&gt;
+            false
+    end.</pre><a name="send"></a><h4>Send</h4><pre>
+Expr1 ! Expr2</pre><p>Sends the value of <strong>Expr2</strong> as a message to the process
+specified by <strong>Expr1</strong>. The value of <strong>Expr2</strong> is also
+the return value of the expression.</p><p><strong>Expr1</strong> must evaluate to a pid, a registered name (atom), or
+a tuple <strong>{Name,Node}</strong>. <strong>Name</strong> is an atom and
+<strong>Node</strong> is a node name, also an atom.</p><ul><li>If <strong>Expr1</strong> evaluates to a name, but this name is not registered, a <strong>badarg</strong> run-time error occurs.</li><li>Sending a message to a pid never fails, even if the pid identifies a non-existing process.</li><li>Distributed message sending, that is, if <strong>Expr1</strong> evaluates to a tuple <strong>{Name,Node}</strong> (or a pid located at another node), also never fails.</li></ul><a name="receive"></a><h4>Receive</h4><pre>
+receive
+    Pattern1 [when GuardSeq1] -&gt;
+        Body1;
+    ...;
+    PatternN [when GuardSeqN] -&gt;
+        BodyN
+end</pre><p>Receives messages sent to the process using the send operator
+(!). The patterns <strong>Pattern</strong> are sequentially matched
+against the first message in time order in the mailbox, then
+the second, and so on. If a match succeeds and the optional
+guard sequence <strong>GuardSeq</strong> is true, the corresponding
+<strong>Body</strong> is evaluated. The matching message is consumed, that
+is, removed from the mailbox, while any other messages in
+the mailbox remain unchanged.</p><p>The return value of <strong>Body</strong> is the return value of
+the <strong>receive</strong> expression.</p><p><strong>receive</strong> never fails. The execution is suspended, possibly
+indefinitely, until a message arrives that matches one of
+the patterns and with a true guard sequence. </p><p><em>Example:</em></p><pre>
+wait_for_onhook() -&gt;
+    receive
+        onhook -&gt;
+            disconnect(),
+            idle();
+        {connect, B} -&gt;
+            B ! {busy, self()},
+            wait_for_onhook()
+    end.</pre><p>The <strong>receive</strong> expression can be augmented with a
+timeout:</p><pre>
+receive
+    Pattern1 [when GuardSeq1] -&gt;
+        Body1;
+    ...;
+    PatternN [when GuardSeqN] -&gt;
+        BodyN
+after
+    ExprT -&gt;
+        BodyT
+end</pre><p><strong>ExprT</strong> is to evaluate to an integer. The highest allowed
+value is 16#FFFFFFFF, that is, the value must fit in 32 bits.
+<strong>receive..after</strong> works exactly as <strong>receive</strong>, except
+that if no matching message has arrived within <strong>ExprT</strong>
+milliseconds, then <strong>BodyT</strong> is evaluated instead. The
+return value of <strong>BodyT</strong> then becomes the return value
+of the <strong>receive..after</strong> expression.</p><p><em>Example:</em></p><pre>
+wait_for_onhook() -&gt;
+    receive
+        onhook -&gt;
+            disconnect(),
+            idle();
+        {connect, B} -&gt;
+            B ! {busy, self()},
+            wait_for_onhook()
+    after
+        60000 -&gt;
+            disconnect(),
+            error()
+    end.</pre><p>It is legal to use a <strong>receive..after</strong> expression with no
+branches:</p><pre>
+receive
+after
+    ExprT -&gt;
+        BodyT
+end</pre><p>This construction does not consume any messages, only suspends
+execution in the process for <strong>ExprT</strong> milliseconds. This can be
+used to implement simple timers.</p><p><em>Example:</em></p><pre>
+timer() -&gt;
+    spawn(m, timer, [self()]).
+
+timer(Pid) -&gt;
+    receive
+    after
+        5000 -&gt;
+            Pid ! timeout
+    end.</pre><p>There are two special cases for the timeout value <strong>ExprT</strong>:</p><dl><dt><strong>infinity</strong></dt><dd>The process is to wait indefinitely for a matching message; this is the same as not using a timeout. This can be useful for timeout values that are calculated at runtime.</dd><dt>0</dt><dd>If there is no matching message in the mailbox, the timeout occurs immediately.</dd></dl><h4>Term Comparisons</h4><pre>
+Expr1 <span class="input">op</span> Expr2</pre><table class="table table-bordered table-hover table-striped"><caption>Term Comparison Operators.</caption><tbody><tr><td><em>op</em></td><td><em>Description</em></td></tr><tr><td>==</td><td>Equal to</td></tr><tr><td>/=</td><td>Not equal to</td></tr><tr><td>=&lt;</td><td>Less than or equal to</td></tr><tr><td>&lt;</td><td>Less than</td></tr><tr><td>&gt;=</td><td>Greater than or equal to</td></tr><tr><td>&gt;</td><td>Greater than</td></tr><tr><td>=:=</td><td>Exactly equal to</td></tr><tr><td>=/=</td><td>Exactly not equal to</td></tr></tbody></table><p>The arguments can be of different data types. The following
+order is defined:</p><pre>
+number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map &lt; nil &lt; list &lt; bit string</pre><p><strong>nil</strong> in the previous expression represents the empty list
+(<strong>[]</strong>), which is regarded as a separate type from
+<strong>list/0</strong>. That is why <strong>nil &lt; list</strong>.
+</p><p>Lists are compared element by element. Tuples are ordered by
+size, two tuples with the same size are compared element by
+element.</p><p>Maps are ordered by size, two maps with the same size are compared by keys in
+ascending term order and then by values in key order.
+In maps key order integers types are considered less than floats types.
+</p><p>Atoms are compared using their string value, codepoint by codepoint.</p><p>When comparing an integer to a float, the term with the lesser
+precision is converted into the type of the other term, unless the
+operator is one of <strong>=:=</strong> or <strong>=/=</strong>. A float is more precise than
+an integer until all significant figures of the float are to the left of
+the decimal point. This happens when the float is larger/smaller than
++/-9007199254740992.0. The conversion strategy is changed
+depending on the size of the float because otherwise comparison of large
+floats and integers would lose their transitivity.</p><p>Term comparison operators return the Boolean value of the
+expression, <strong>true</strong> or <strong>false</strong>.</p><p><em>Examples:</em></p><pre>
+1&gt; <span class="input">1==1.0.</span>
+true
+2&gt; <span class="input">1=:=1.0.</span>
+false
+3&gt; <span class="input">1 &gt; a.</span>
+false
+4&gt; <span class="input">#{c =&gt; 3} &gt; #{a =&gt; 1, b =&gt; 2}.</span>
+false
+4&gt; <span class="input">#{a =&gt; 1, b =&gt; 2} == #{a =&gt; 1.0, b =&gt; 2.0}.</span>
+true</pre><h4>Arithmetic Expressions</h4><pre>
+<span class="input">op</span> Expr
+Expr1 <span class="input">op</span> Expr2</pre><table class="table table-bordered table-hover table-striped"><caption>Arithmetic Operators.</caption><tbody><tr><td><em>Operator</em></td><td><em>Description</em></td><td><em>Argument Type</em></td></tr><tr><td>+</td><td>Unary +</td><td>Number</td></tr><tr><td>-</td><td>Unary -</td><td>Number</td></tr><tr><td>+</td><td>Â </td><td>number</td></tr><tr><td>-</td><td>Â </td><td>Number</td></tr><tr><td>*</td><td>Â </td><td>Number</td></tr><tr><td>/</td><td>Floating point division</td><td>Number</td></tr><tr><td>bnot</td><td>Unary bitwise NOT</td><td>Integer</td></tr><tr><td>div</td><td>Integer division</td><td>Integer</td></tr><tr><td>rem</td><td>Integer remainder of X/Y</td><td>Integer</td></tr><tr><td>band</td><td>Bitwise AND</td><td>Integer</td></tr><tr><td>bor</td><td>Bitwise OR</td><td>Integer</td></tr><tr><td>bxor</td><td>Arithmetic bitwise XOR</td><td>Integer</td></tr><tr><td>bsl</td><td>Arithmetic bitshift left</td><td>Integer</td></tr><tr><td>bsr</td><td>Bitshift right</td><td>Integer</td></tr></tbody></table><p><em>Examples:</em></p><pre>
+1&gt; <span class="input">+1.</span>
+1
+2&gt; <span class="input">-1.</span>
+-1
+3&gt; <span class="input">1+1.</span>
+2
+4&gt; <span class="input">4/2.</span>
+2.0
+5&gt; <span class="input">5 div 2.</span>
+2
+6&gt; <span class="input">5 rem 2.</span>
+1
+7&gt; <span class="input">2#10 band 2#01.</span>
+0
+8&gt; <span class="input">2#10 bor 2#01.</span>
+3
+9&gt; <span class="input">a + 10.</span>
+** exception error: an error occurred when evaluating an arithmetic expression
+     in operator  +/2
+        called as a + 10
+10&gt; <span class="input">1 bsl (1 bsl 64).</span>
+** exception error: a system limit has been reached
+     in operator  bsl/2
+        called as 1 bsl 18446744073709551616</pre><h4>Boolean Expressions</h4><pre>
+<span class="input">op</span> Expr
+Expr1 <span class="input">op</span> Expr2</pre><table class="table table-bordered table-hover table-striped"><caption>Logical Operators.</caption><tbody><tr><td><em>Operator</em></td><td><em>Description</em></td></tr><tr><td>not</td><td>Unary logical NOT</td></tr><tr><td>and</td><td>Logical AND</td></tr><tr><td>or</td><td>Logical OR</td></tr><tr><td>xor</td><td>Logical XOR</td></tr></tbody></table><p><em>Examples:</em></p><pre>
+1&gt; <span class="input">not true.</span>
+false
+2&gt; <span class="input">true and false.</span>
+false
+3&gt; <span class="input">true xor false.</span>
+true
+4&gt; <span class="input">true or garbage.</span>
+** exception error: bad argument
+     in operator  or/2
+        called as true or garbage</pre><h4>Short-Circuit Expressions</h4><pre>
+Expr1 orelse Expr2
+Expr1 andalso Expr2</pre><p><strong>Expr2</strong> is evaluated only if
+necessary. That is, <strong>Expr2</strong> is evaluated only if:</p><ul><li><p><strong>Expr1</strong> evaluates to <strong>false</strong> in an
+<strong>orelse</strong> expression.</p> </li></ul><p>or</p><ul><li><p><strong>Expr1</strong> evaluates to <strong>true</strong> in an
+<strong>andalso</strong> expression.</p> </li></ul><p>Returns either the value of <strong>Expr1</strong> (that is,
+<strong>true</strong> or <strong>false</strong>) or the value of <strong>Expr2</strong>
+(if <strong>Expr2</strong> is evaluated).</p><p><em>Example 1:</em></p><pre>
+case A &gt;= -1.0 andalso math:sqrt(A+1) &gt; B of</pre><p>This works even if <strong>A</strong> is less than <strong>-1.0</strong>,
+since in that case, <strong>math:sqrt/1</strong> is never evaluated.</p><p><em>Example 2:</em></p><pre>
+OnlyOne = is_atom(L) orelse
+         (is_list(L) andalso length(L) == 1),</pre><p>From Erlang/OTP R13A, <strong>Expr2</strong> is no longer required to evaluate to a
+Boolean value. As a consequence, <strong>andalso</strong> and <strong>orelse</strong>
+are now tail-recursive.  For instance, the following function is
+tail-recursive in Erlang/OTP R13A and later:</p><pre>
+all(Pred, [Hd|Tail]) -&gt;
+    Pred(Hd) andalso all(Pred, Tail);
+all(_, []) -&gt;
+    true.</pre><h4>List Operations</h4><pre>
+Expr1 ++ Expr2
+Expr1 -- Expr2</pre><p>The list concatenation operator <strong>++</strong> appends its second
+argument to its first and returns the resulting list.</p><p>The list subtraction operator <strong>--</strong> produces a list that
+is a copy of the first argument. The procedure is a follows:
+for each element in the second argument, the first
+occurrence of this element (if any) is removed.</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">[1,2,3]++[4,5].</span>
+[1,2,3,4,5]
+2&gt; <span class="input">[1,2,3,2,1,2]--[2,1,2].</span>
+[3,1,2]</pre><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>The complexity of <strong>A -- B</strong> is
+proportional to <strong>length(A)*length(B)</strong>. That is, it
+becomes very slow if both <strong>A</strong> and <strong>B</strong> are
+long lists.</p></div><a name="map_expressions"></a><h4>Map Expressions</h4><h4>Creating Maps</h4><p>
+Constructing a new map is done by letting an expression <strong>K</strong> be associated with
+another expression <strong>V</strong>:
+</p><pre><code class="">#{ K =&gt; V }</code></pre><p>
+New maps can include multiple associations at construction by listing every
+association:
+</p><pre><code class="">#{ K1 =&gt; V1, .., Kn =&gt; Vn }</code></pre><p>
+An empty map is constructed by not associating any terms with each other:
+</p><pre><code class="">#{}</code></pre><p>
+All keys and values in the map are terms. Any expression is first evaluated and
+then the resulting terms are used as <em>key</em> and <em>value</em> respectively.
+</p><p>
+Keys and values are separated by the <strong>=&gt;</strong> arrow and associations are
+separated by a comma <strong>,</strong>.
+</p><p>
+<em>Examples:</em>
+</p><pre><code class="">
+M0 = #{},                 % empty map
+M1 = #{a =&gt; &lt;&lt;"hello"&gt;&gt;}, % single association with literals
+M2 = #{1 =&gt; 2, b =&gt; b},   % multiple associations with literals
+M3 = #{k =&gt; {A,B}},       % single association with variables
+M4 = #{{"w", 1} =&gt; f()}.  % compound key associated with an evaluated expression</code></pre><p>
+Here, <strong>A</strong> and <strong>B</strong> are any expressions and <strong>M0</strong> through <strong>M4</strong>
+are the resulting map terms.
+</p><p>
+If two matching keys are declared, the latter key takes precedence.
+</p><p>
+<em>Example:</em>
+</p><pre>
+1&gt; <span class="input">#{1 =&gt; a, 1 =&gt; b}.</span>
+#{1 =&gt; b }
+2&gt; <span class="input">#{1.0 =&gt; a, 1 =&gt; b}.</span>
+#{1 =&gt; b, 1.0 =&gt; a}
+</pre><p>
+The order in which the expressions constructing the keys (and their
+associated values) are evaluated is not defined. The syntactic order of
+the key-value pairs in the construction is of no relevance, except in
+the recently mentioned case of two matching keys.
+</p><h4>Updating Maps</h4><p>
+Updating a map has a similar syntax as constructing it.
+</p><p>
+An expression defining the map to be updated, is put in front of the expression
+defining the keys to be updated and their respective values:
+</p><pre><code class="">M#{ K =&gt; V }</code></pre><p>
+Here <strong>M</strong> is a term of type map and <strong>K</strong> and <strong>V</strong> are any expression.
+</p><p>
+If key <strong>K</strong> does not match any existing key in the map, a new association
+is created from key <strong>K</strong> to value <strong>V</strong>.
+</p><p>     If key <strong>K</strong> matches an existing key in map <strong>M</strong>,
+its associated value
+is replaced by the new value <strong>V</strong>. In both cases, the evaluated map expression
+returns a new map.
+</p><p>
+If <strong>M</strong> is not of type map, an exception of type <strong>badmap</strong> is thrown.
+</p><p>
+To only update an existing value, the following syntax is used:
+</p><pre><code class="">M#{ K := V } </code></pre><p>
+Here <strong>M</strong> is a term of type map, <strong>V</strong> is an expression and <strong>K</strong>
+is an expression that evaluates to an existing key in <strong>M</strong>.
+</p><p>
+If key <strong>K</strong> does not match any existing keys in map <strong>M</strong>, an exception
+of type <strong>badarg</strong> is triggered at runtime. If a matching key <strong>K</strong>
+is present in map <strong>M</strong>, its associated value is replaced by the new
+value <strong>V</strong>, and the evaluated map expression returns a new map.
+</p><p>
+If <strong>M</strong> is not of type map, an exception of type <strong>badmap</strong> is thrown.
+</p><p>
+<em>Examples:</em>
+</p><pre><code class="">
+M0 = #{},
+M1 = M0#{a =&gt; 0},
+M2 = M1#{a =&gt; 1, b =&gt; 2},
+M3 = M2#{"function" =&gt; fun() -&gt; f() end},
+M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code></pre><p>
+Here <strong>M0</strong> is any map. It follows that <strong>M1 .. M4</strong> are maps as well.
+</p><p>
+More <em>Examples:</em>
+</p><pre>
+1&gt; <span class="input">M = #{1 =&gt; a}.</span>
+#{1 =&gt; a }
+2&gt; <span class="input">M#{1.0 =&gt; b}.</span>
+#{1 =&gt; a, 1.0 =&gt; b}.
+3&gt; <span class="input">M#{1 := b}.</span>
+#{1 =&gt; b}
+4&gt; <span class="input">M#{1.0 := b}.</span>
+** exception error: bad argument
+</pre><p>
+As in construction, the order in which the key and value expressions
+are evaluated is not defined. The
+syntactic order of the key-value pairs in the update is of no
+relevance, except in the case where two keys match.
+In that case, the latter value is used.
+</p><h4>Maps in Patterns</h4><p>
+Matching of key-value associations from maps is done as follows:
+</p><pre><code class="">#{ K := V } = M</code></pre><p>
+Here <strong>M</strong> is any map. The key <strong>K</strong> must be an expression with bound
+variables or literals. <strong>V</strong> can be any pattern with either bound or
+unbound variables.
+</p><p>
+If the variable <strong>V</strong> is unbound, it becomes bound to the value associated
+with the key <strong>K</strong>, which must exist in the map <strong>M</strong>. If the variable
+<strong>V</strong> is bound, it must match the value associated with <strong>K</strong> in <strong>M</strong>.
+</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">M = #{"tuple" =&gt; {1,2}}.</span>
+#{"tuple" =&gt; {1,2}}
+2&gt; <span class="input">#{"tuple" := {1,B}} = M.</span>
+#{"tuple" =&gt; {1,2}}
+3&gt; <span class="input">B.</span>
+2.</pre><p>
+This binds variable <strong>B</strong> to integer <strong>2</strong>.
+</p><p>
+Similarly, multiple values from the map can be matched:
+</p><pre><code class="">#{ K1 := V1, .., Kn := Vn } = M</code></pre><p>
+Here keys <strong>K1 .. Kn</strong> are any expressions with literals or bound variables. If all
+keys exist in map <strong>M</strong>, all variables in <strong>V1 .. Vn</strong> is  matched to the
+associated values of their respective keys.
+</p><p>
+If the matching conditions are not met, the match fails, either with:
+</p><ul><li><p>A <strong>badmatch</strong> exception.</p> <p>This is if it is used in the context of the match operator
+as in the example.</p> </li><li><p>Or resulting in the next clause being tested in function heads and
+case expressions.</p> </li></ul><p>
+Matching in maps only allows for <strong>:=</strong> as delimiters of associations.
+</p><p>
+The order in which keys are declared in matching has no relevance.
+</p><p>
+Duplicate keys are allowed in matching and match each pattern associated
+to the keys:
+</p><pre><code class="">#{ K := V1, K := V2 } = M</code></pre><p>
+Matching an expression against an empty map literal, matches its type but
+no variables are bound:
+</p><pre><code class="">#{} = Expr</code></pre><p>
+This expression matches if the expression <strong>Expr</strong> is of type map, otherwise
+it fails with an exception <strong>badmatch</strong>.
+</p><h4>Matching Syntax</h4><p>
+Matching of literals as keys are allowed in function heads:
+</p><pre><code class="">
+%% only start if not_started
+handle_call(start, From, #{ state := not_started } = S) -&gt;
+...
+    {reply, ok, S#{ state := start }};
+
+%% only change if started
+handle_call(change, From, #{ state := start } = S) -&gt;
+...
+    {reply, ok, S#{ state := changed }};</code></pre><h4>Maps in Guards</h4><p>
+Maps are allowed in guards as long as all subexpressions are valid guard expressions.
+</p><p>
+Two guard BIFs handle maps:
+</p><ul><li> <a href="../erts/erlang#is_map/1">is_map/1</a> in the <strong>erlang</strong> module </li><li> <a href="../erts/erlang#map_size/1">map_size/1</a> in the <strong>erlang</strong> module </li></ul><a name="bit_syntax"></a><h4>Bit Syntax Expressions</h4><pre><code class="">&lt;&lt;&gt;&gt;
+&lt;&lt;E1,...,En&gt;&gt;</code></pre><p>Each element <strong>Ei</strong> specifies a <em>segment</em> of
+the bit string. Each element <strong>Ei</strong> is a value, followed by an
+optional <em>size expression</em> and an optional <em>type specifier list</em>.</p><pre>
+Ei = Value |
+     Value:Size |
+     Value/TypeSpecifierList |
+     Value:Size/TypeSpecifierList</pre><p>Used in a bit string construction, <strong>Value</strong> is an expression
+that is to evaluate to an integer, float, or bit string.  If the
+expression is not a single literal or variable, it
+is to be enclosed in parentheses.</p><p>Used in a bit string matching, <strong>Value</strong> must be a variable,
+or an integer, float, or string.</p><p>Notice that, for example, using a string literal as in
+<strong>&lt;&lt;"abc"&gt;&gt;</strong> is syntactic sugar for
+<strong>&lt;&lt;$a,$b,$c&gt;&gt;</strong>.</p><p>Used in a bit string construction, <strong>Size</strong> is an expression
+that is to evaluate to an integer.</p><p>Used in a bit string matching, <strong>Size</strong> must be an integer, or a
+variable bound to an integer.</p><p>The value of <strong>Size</strong> specifies the size of the segment in
+units (see below). The default value depends on the type (see
+below):</p><ul><li>For <strong>integer</strong> it is 8.</li><li>For <strong>float</strong> it is 64.</li><li>For <strong>binary</strong> and <strong>bitstring</strong> it is the whole binary or bit string.</li></ul><p>In matching, this default value is only
+valid for the last element. All other bit string or binary
+elements in the matching must have a size specification.</p><p>For the <strong>utf8</strong>, <strong>utf16</strong>, and <strong>utf32</strong> types,
+<strong>Size</strong> must not be given. The size of the segment is implicitly
+determined by the type and value itself.</p><p><strong>TypeSpecifierList</strong> is a list of type specifiers, in any
+order, separated by hyphens (-). Default values are used for any
+omitted type specifiers.</p><dl><dt><strong>Type</strong>= <strong>integer</strong> | <strong>float</strong> | <strong>binary</strong> | <strong>bytes</strong> | <strong>bitstring</strong> | <strong>bits</strong> | <strong>utf8</strong> | <strong>utf16</strong> | <strong>utf32</strong> </dt><dd>The default is <strong>integer</strong>. <strong>bytes</strong> is a shorthand for  <strong>binary</strong> and <strong>bits</strong> is a shorthand for <strong>bitstring</strong>. See below for more information about the <strong>utf</strong> types. </dd><dt><strong>Signedness</strong>= <strong>signed</strong> | <strong>unsigned</strong></dt><dd>Only matters for matching and when the type is <strong>integer</strong>.  The default is <strong>unsigned</strong>.</dd><dt><strong>Endianness</strong>= <strong>big</strong> | <strong>little</strong> | <strong>native</strong></dt><dd>Native-endian means that the endianness is resolved at load time to be either big-endian or little-endian, depending on what is native for the CPU that the Erlang machine is run on. Endianness only matters when the Type is either <strong>integer</strong>, <strong>utf16</strong>, <strong>utf32</strong>, or <strong>float</strong>. The default is <strong>big</strong>. </dd><dt><strong>Unit</strong>= <strong>unit:IntegerLiteral</strong></dt><dd>The allowed range is 1..256. Defaults to 1 for <strong>integer</strong>, <strong>float</strong>, and <strong>bitstring</strong>, and to 8 for <strong>binary</strong>. No unit specifier must be given for the types  <strong>utf8</strong>, <strong>utf16</strong>, and <strong>utf32</strong>. </dd></dl><p>The value of <strong>Size</strong> multiplied with the unit gives
+the number of bits. A segment of type <strong>binary</strong> must have 
+a size that is evenly divisible by 8.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>When constructing binaries, if the size <strong>N</strong> of an integer
+segment is too small to contain the given integer, the most significant
+bits of the integer are silently discarded and only the <strong>N</strong> least
+significant bits are put into the binary.</p></div><p>The types <strong>utf8</strong>, <strong>utf16</strong>, and <strong>utf32</strong> specifies
+encoding/decoding of the <em>Unicode Transformation Format</em>s UTF-8, UTF-16,
+and UTF-32, respectively.</p><p>When constructing a segment of a <strong>utf</strong> type, <strong>Value</strong>
+must be an integer in the range 0..16#D7FF or
+16#E000....16#10FFFF. Construction
+fails with a <strong>badarg</strong> exception if <strong>Value</strong> is
+outside the allowed ranges. The size of the resulting binary
+segment depends on the type or <strong>Value</strong>, or both:</p><ul><li>For <strong>utf8</strong>, <strong>Value</strong> is encoded in 1-4 bytes.</li><li>For <strong>utf16</strong>, <strong>Value</strong> is encoded in 2 or 4 bytes.</li><li>For <strong>utf32</strong>, <strong>Value</strong> is always be encoded in 4 bytes.</li></ul><p>When constructing, a literal string can be given followed
+by one of the UTF types, for example: <strong>&lt;&lt;"abc"/utf8&gt;&gt;</strong>
+which is syntactic sugar for
+<strong>&lt;&lt;$a/utf8,$b/utf8,$c/utf8&gt;&gt;</strong>.</p><p>A successful match of a segment of a <strong>utf</strong> type, results
+in an integer in the range 0..16#D7FF or  16#E000..16#10FFFF.
+The match fails if the returned value falls outside those ranges.</p><p>A segment of type <strong>utf8</strong> matches 1-4 bytes in the binary,
+if the binary at the match position contains a valid UTF-8 sequence.
+(See RFC-3629 or the Unicode standard.)</p><p>A segment of type <strong>utf16</strong> can match 2 or 4 bytes in the binary.
+The match fails if the binary at the match position does not contain
+a legal UTF-16 encoding of a Unicode code point. (See RFC-2781 or
+the Unicode standard.)</p><p>A segment of type <strong>utf32</strong> can match 4 bytes in the binary in the
+same way as an <strong>integer</strong> segment matches 32 bits.
+The match fails if the resulting integer is outside the legal ranges
+mentioned above.</p><p><em>Examples:</em></p><pre>
+1&gt; <span class="input">Bin1 = &lt;&lt;1,17,42&gt;&gt;.</span>
+&lt;&lt;1,17,42&gt;&gt;
+2&gt; <span class="input">Bin2 = &lt;&lt;"abc"&gt;&gt;.</span>
+&lt;&lt;97,98,99&gt;&gt;
+3&gt; <span class="input">Bin3 = &lt;&lt;1,17,42:16&gt;&gt;.</span>
+&lt;&lt;1,17,0,42&gt;&gt;
+4&gt; <span class="input">&lt;&lt;A,B,C:16&gt;&gt; = &lt;&lt;1,17,42:16&gt;&gt;.</span>
+&lt;&lt;1,17,0,42&gt;&gt;
+5&gt; <span class="input">C.</span>
+42
+6&gt; <span class="input">&lt;&lt;D:16,E,F&gt;&gt; = &lt;&lt;1,17,42:16&gt;&gt;.</span>
+&lt;&lt;1,17,0,42&gt;&gt;
+7&gt; <span class="input">D.</span>
+273
+8&gt; <span class="input">F.</span>
+42
+9&gt; <span class="input">&lt;&lt;G,H/binary&gt;&gt; = &lt;&lt;1,17,42:16&gt;&gt;.</span>
+&lt;&lt;1,17,0,42&gt;&gt;
+10&gt; <span class="input">H.</span>
+&lt;&lt;17,0,42&gt;&gt;
+11&gt; <span class="input">&lt;&lt;G,J/bitstring&gt;&gt; = &lt;&lt;1,17,42:12&gt;&gt;.</span>
+&lt;&lt;1,17,2,10:4&gt;&gt;
+12&gt; <span class="input">J.</span>
+&lt;&lt;17,2,10:4&gt;&gt;
+13&gt; <span class="input">&lt;&lt;1024/utf8&gt;&gt;.</span>
+&lt;&lt;208,128&gt;&gt;
+</pre><p>Notice that bit string patterns cannot be nested.</p><p>Notice also that "<strong>B=&lt;&lt;1&gt;&gt;</strong>" is interpreted as
+"<strong>B =&lt;&lt;1&gt;&gt;</strong>" which is a syntax error. The correct way is
+to write a space after '=': "<strong>B= &lt;&lt;1&gt;&gt;</strong>.</p><p>More examples are provided in
+<a href="./bit_syntax"> Programming Examples</a>.</p><a name="funs"></a><h4>Fun Expressions</h4><pre>
+fun
+    [Name](Pattern11,...,Pattern1N) [when GuardSeq1] -&gt;
+              Body1;
+    ...;
+    [Name](PatternK1,...,PatternKN) [when GuardSeqK] -&gt;
+              BodyK
+end</pre><p>A fun expression begins with the keyword <strong>fun</strong> and ends
+with the keyword <strong>end</strong>. Between them is to be a function
+declaration, similar to a
+<a href="./functions#syntax">regular function declaration</a>,
+except that the function name is optional and is to be a variable, if
+any.</p><p>Variables in a fun head shadow the function name and both shadow
+variables in the function clause surrounding the fun expression.
+Variables bound in a fun body are local to the fun body.</p><p>The return value of the expression is the resulting fun.</p><p><em>Examples:</em></p><pre>
+1&gt; <span class="input">Fun1 = fun (X) -&gt; X+1 end.</span>
+#Fun&lt;erl_eval.6.39074546&gt;
+2&gt; <span class="input">Fun1(2).</span>
+3
+3&gt; <span class="input">Fun2 = fun (X) when X&gt;=5 -&gt; gt; (X) -&gt; lt end.</span>
+#Fun&lt;erl_eval.6.39074546&gt;
+4&gt; <span class="input">Fun2(7).</span>
+gt
+5&gt; <span class="input">Fun3 = fun Fact(1) -&gt; 1; Fact(X) when X &gt; 1 -&gt; X * Fact(X - 1) end.</span>
+#Fun&lt;erl_eval.6.39074546&gt;
+6&gt; <span class="input">Fun3(4).</span>
+24</pre><p>The following fun expressions are also allowed:</p><pre>
+fun Name/Arity
+fun Module:Name/Arity</pre><p>In <strong>Name/Arity</strong>, <strong>Name</strong> is an atom and <strong>Arity</strong> is an integer.
+<strong>Name/Arity</strong> must specify an existing local function. The expression is
+syntactic sugar for:</p><pre>
+fun (Arg1,...,ArgN) -&gt; Name(Arg1,...,ArgN) end</pre><p>In <strong>Module:Name/Arity</strong>, <strong>Module</strong>, and <strong>Name</strong> are atoms
+and <strong>Arity</strong> is an integer. Starting from Erlang/OTP R15,
+<strong>Module</strong>, <strong>Name</strong>, and <strong>Arity</strong> can also be variables.
+A fun defined in this way refers to the function <strong>Name</strong>
+with arity <strong>Arity</strong> in the <em>latest</em> version of module
+<strong>Module</strong>. A fun defined in this way is not dependent on
+the code for the module in which it is defined.
+</p><p>More examples are provided in
+<a href="./funs"> Programming Examples</a>.</p><a name="catch"></a><h4>Catch and Throw</h4><pre><code class="">
+catch Expr</code></pre><p>Returns the value of <strong>Expr</strong> unless an exception
+occurs during the evaluation. In that case, the exception is
+caught.</p><p>For exceptions of class <strong>error</strong>, that is,
+run-time errors,
+<strong>{'EXIT',{Reason,Stack}}</strong> is returned.</p><p>For exceptions of class <strong>exit</strong>, that is,
+the code called <strong>exit(Term)</strong>,
+<strong>{'EXIT',Term}</strong> is returned.</p><p>For exceptions of class <strong>throw</strong>, that is
+the code called <strong>throw(Term)</strong>,
+<strong>Term</strong> is returned.</p><p><strong>Reason</strong> depends on the type of error that occurred, and
+<strong>Stack</strong> is the stack of recent function calls, see
+<a href="./errors#exit_reasons">Exit Reasons</a>.</p><p><em>Examples:</em></p><pre>
+1&gt; <span class="input">catch 1+2.</span>
+3
+2&gt; <span class="input">catch 1+a.</span>
+{'EXIT',{badarith,[...]}}</pre><p>Notice that <strong>catch</strong> has low precedence and catch
+subexpressions often needs to be enclosed in a block
+expression or in parentheses:</p><pre>
+3&gt; <span class="input">A = catch 1+2.</span>
+** 1: syntax error before: 'catch' **
+4&gt; <span class="input">A = (catch 1+2).</span>
+3</pre><p>The BIF <strong>throw(Any)</strong> can be used for non-local return from
+a function. It must be evaluated within a <strong>catch</strong>, which
+returns the value <strong>Any</strong>.</p><p><em>Example:</em></p><pre>
+5&gt; <span class="input">catch throw(hello).</span>
+hello</pre><p>If <strong>throw/1</strong> is not evaluated within a catch, a
+<strong>nocatch</strong> run-time error occurs.</p><a name="try"></a><h4>Try</h4><pre><code class="">
+try Exprs
+catch
+    Class1:ExceptionPattern1[:Stacktrace] [when ExceptionGuardSeq1] -&gt;
+        ExceptionBody1;
+    ClassN:ExceptionPatternN[:Stacktrace] [when ExceptionGuardSeqN] -&gt;
+        ExceptionBodyN
+end</code></pre><p>This is an enhancement of
+<a href="#catch">catch</a>.
+It gives the possibility to:</p><ul><li>Distinguish between different exception classes.</li><li>Choose to handle only the desired ones.</li><li>Passing the others on to an enclosing <strong>try</strong> or <strong>catch</strong>, or to default error handling.</li></ul><p>Notice that although the keyword <strong>catch</strong> is used in
+the <strong>try</strong> expression, there is not a <strong>catch</strong> expression
+within the <strong>try</strong> expression.</p><p>It returns the value of <strong>Exprs</strong> (a sequence of expressions
+<strong>Expr1, ..., ExprN</strong>) unless an exception occurs during
+the evaluation. In that case the exception is caught and
+the patterns <strong>ExceptionPattern</strong> with the right exception
+class <strong>Class</strong> are sequentially matched against the caught
+exception. If a match succeeds and the optional guard sequence
+<strong>ExceptionGuardSeq</strong> is true, the corresponding
+<strong>ExceptionBody</strong> is evaluated to become the return value.</p><p><strong>Stacktrace</strong>, if specified, must be the name of a variable
+(not a pattern). The stack trace is bound to the variable when
+the corresponding <strong>ExceptionPattern</strong> matches.</p><p>If an exception occurs during evaluation of <strong>Exprs</strong> but
+there is no matching <strong>ExceptionPattern</strong> of the right
+<strong>Class</strong> with a true guard sequence, the exception is passed
+on as if <strong>Exprs</strong> had not been enclosed in a <strong>try</strong>
+expression.</p><p>If an exception occurs during evaluation of <strong>ExceptionBody</strong>,
+it is not caught.</p><p>It is allowed to omit <strong>Class</strong> and <strong>Stacktrace</strong>.
+An omitted <strong>Class</strong> is shorthand for <strong>throw</strong>:</p><pre><code class="">
+try Exprs
+catch
+    ExceptionPattern1 [when ExceptionGuardSeq1] -&gt;
+        ExceptionBody1;
+    ExceptionPatternN [when ExceptionGuardSeqN] -&gt;
+        ExceptionBodyN
+end</code></pre><p>The <strong>try</strong> expression can have an <strong>of</strong>
+section:
+</p><pre><code class="">
+try Exprs of
+    Pattern1 [when GuardSeq1] -&gt;
+        Body1;
+    ...;
+    PatternN [when GuardSeqN] -&gt;
+        BodyN
+catch
+    Class1:ExceptionPattern1[:Stacktrace] [when ExceptionGuardSeq1] -&gt;
+        ExceptionBody1;
+    ...;
+    ClassN:ExceptionPatternN[:Stacktrace] [when ExceptionGuardSeqN] -&gt;
+        ExceptionBodyN
+end</code></pre><p>If the evaluation of <strong>Exprs</strong> succeeds without an exception,
+the patterns <strong>Pattern</strong> are sequentially matched against
+the result in the same way as for a
+<a href="#case">case</a> expression, except that if
+the matching fails, a <strong>try_clause</strong> run-time error occurs.</p><p>An exception occurring during the evaluation of <strong>Body</strong> is
+not caught.</p><p>The <strong>try</strong> expression can also be augmented with an
+<strong>after</strong> section, intended to be used for cleanup with side
+effects:</p><pre><code class="">
+try Exprs of
+    Pattern1 [when GuardSeq1] -&gt;
+        Body1;
+    ...;
+    PatternN [when GuardSeqN] -&gt;
+        BodyN
+catch
+    Class1:ExceptionPattern1[:Stacktrace] [when ExceptionGuardSeq1] -&gt;
+        ExceptionBody1;
+    ...;
+    ClassN:ExceptionPatternN[:Stacktrace] [when ExceptionGuardSeqN] -&gt;
+        ExceptionBodyN
+after
+    AfterBody
+end</code></pre><p><strong>AfterBody</strong> is evaluated after either <strong>Body</strong> or
+<strong>ExceptionBody</strong>, no matter which one. The evaluated value of
+<strong>AfterBody</strong> is lost; the return value of the <strong>try</strong>
+expression is the same with an <strong>after</strong> section as without.</p><p>Even if an exception occurs during evaluation of <strong>Body</strong> or
+<strong>ExceptionBody</strong>, <strong>AfterBody</strong> is evaluated. In this case
+the exception is passed on after <strong>AfterBody</strong> has been
+evaluated, so the exception from the <strong>try</strong> expression is
+the same with an <strong>after</strong> section as without.</p><p>If an exception occurs during evaluation of <strong>AfterBody</strong>
+itself, it is not caught. So if <strong>AfterBody</strong> is evaluated after
+an exception in <strong>Exprs</strong>, <strong>Body</strong>, or <strong>ExceptionBody</strong>,
+that exception is lost and masked by the exception in
+<strong>AfterBody</strong>.</p><p>The <strong>of</strong>, <strong>catch</strong>, and <strong>after</strong> sections are all
+optional, as long as there is at least a <strong>catch</strong> or an
+<strong>after</strong> section. So the following are valid <strong>try</strong>
+expressions:</p><pre><code class="">
+try Exprs of 
+    Pattern when GuardSeq -&gt; 
+        Body 
+after 
+    AfterBody 
+end
+
+try Exprs
+catch 
+    ExpressionPattern -&gt; 
+        ExpressionBody
+after
+    AfterBody
+end
+
+try Exprs after AfterBody end</code></pre><p>Next is an example of using <strong>after</strong>. This closes the file,
+even in the event of exceptions in <strong>file:read/2</strong> or in
+<strong>binary_to_term/1</strong>. The exceptions are the same as
+without the <strong>try</strong>...<strong>after</strong>...<strong>end</strong> expression:</p><pre><code class="">
+termize_file(Name) -&gt;
+    {ok,F} = file:open(Name, [read,binary]),
+    try
+        {ok,Bin} = file:read(F, 1024*1024),
+        binary_to_term(Bin)
+    after
+        file:close(F)
+    end.</code></pre><p>Next is an example of using <strong>try</strong> to emulate <strong>catch Expr</strong>:</p><pre><code class="">
+try Expr
+catch
+    throw:Term -&gt; Term;
+    exit:Reason -&gt; {'EXIT',Reason}
+    error:Reason:Stk -&gt; {'EXIT',{Reason,Stk}}
+end</code></pre><h4>Parenthesized Expressions</h4><pre>
+(Expr)</pre><p>Parenthesized expressions are useful to override
+<a href="#prec">operator precedences</a>,
+for example, in arithmetic expressions:</p><pre>
+1&gt; <span class="input">1 + 2 * 3.</span>
+7
+2&gt; <span class="input">(1 + 2) * 3.</span>
+9</pre><h4>Block Expressions</h4><pre>
+begin
+   Expr1,
+   ...,
+   ExprN
+end</pre><p>Block expressions provide a way to group a sequence of
+expressions, similar to a clause body. The return value is
+the value of the last expression <strong>ExprN</strong>.</p><a name="lcs"></a><h4>List Comprehensions</h4><p>List comprehensions is a feature of many modern functional
+programming languages. Subject to certain rules, they provide a
+succinct notation for generating elements in a list.</p><p>List comprehensions are analogous to set comprehensions in
+Zermelo-Frankel set theory and are called ZF expressions in
+Miranda. They are analogous to the <strong>setof</strong> and
+<strong>findall</strong> predicates in Prolog.</p><p>List comprehensions are written with the following syntax:</p><pre>
+[Expr || Qualifier1,...,QualifierN]</pre><p>Here, <strong>Expr</strong> is an arbitrary expression, and each
+<strong>Qualifier</strong> is either a generator or a filter.</p><ul><li>A <em>generator</em> is written as:      <br/> Â Â <strong>Pattern &lt;- ListExpr</strong>.      <br/> <strong>ListExpr</strong> must be an expression, which evaluates to a list of terms.</li><li>A <em>bit string generator</em> is written as:      <br/> Â Â <strong>BitstringPattern &lt;= BitStringExpr</strong>.      <br/> <strong>BitStringExpr</strong> must be an expression, which evaluates to a bitstring.</li><li>A <em>filter</em> is an expression, which evaluates to <strong>true</strong> or <strong>false</strong>.</li></ul><p>The variables in the generator patterns, shadow variables in the function
+clause, surrounding the list comprehensions.</p><p>A list comprehension
+returns a list, where the elements are the result of evaluating <strong>Expr</strong>
+for each combination of generator list elements and bit string generator
+elements, for which all filters are true.</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">[X*2 || X &lt;- [1,2,3]].</span>
+[2,4,6]</pre><p>When there are no generators or bit string generators, a list comprehension
+returns either a list with one element (the result of evaluating <strong>Expr</strong>)
+if all filters are true or an empty list otherwise.</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">[2 || is_integer(2)].</span>
+[2]
+2&gt; <span class="input">[x || is_integer(x)].</span>
+[]</pre><p>More examples are provided in
+<a href="./list_comprehensions"> Programming Examples.</a></p><h4>Bit String Comprehensions</h4><p>Bit string comprehensions are
+analogous to List Comprehensions. They are used to generate bit strings
+efficiently and succinctly.</p><p>Bit string comprehensions are written with
+the following syntax:</p><pre>
+&lt;&lt; BitStringExpr || Qualifier1,...,QualifierN &gt;&gt;</pre><p><strong>BitStringExpr</strong> is an expression that evalutes to a bit
+string. If <strong>BitStringExpr</strong> is a function call, it must be
+enclosed in parentheses.  Each <strong>Qualifier</strong> is either a
+generator, a bit string generator or a filter.</p><ul><li>A <em>generator</em> is written as:      <br/> Â Â <strong>Pattern &lt;- ListExpr</strong>.      <br/> <strong>ListExpr</strong> must be an expression that evaluates to a list of terms.</li><li>A <em>bit string generator</em> is written as:      <br/> Â Â <strong>BitstringPattern &lt;= BitStringExpr</strong>.      <br/> <strong>BitStringExpr</strong> must be an expression that evaluates to a bitstring.</li><li>A <em>filter</em> is an expression that evaluates to <strong>true</strong> or <strong>false</strong>.</li></ul><p>The variables in the generator patterns, shadow variables in
+the function clause, surrounding the bit string comprehensions.</p><p>A bit string comprehension returns a bit string, which is 
+created by concatenating the results of evaluating <strong>BitString</strong> 
+for each combination of bit string generator elements, for which all
+filters are true.</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">&lt;&lt; &lt;&lt; (X*2) &gt;&gt; || &lt;&lt;X&gt;&gt; &lt;= &lt;&lt; 1,2,3 &gt;&gt; &gt;&gt;.</span>
+&lt;&lt;2,4,6&gt;&gt;</pre><p>More examples are provided in
+<a href="./bit_syntax"> Programming Examples.</a></p><a name="guards"></a><h4>Guard Sequences</h4><p>A <em>guard sequence</em> is a sequence of guards, separated
+by semicolon (;). The guard sequence is true if at least one of
+the guards is true. (The remaining guards, if any, are not
+evaluated.)</p><p><strong>Guard1;...;GuardK</strong></p><p>A <em>guard</em> is a sequence of guard expressions, separated
+by comma (,). The guard is true if all guard expressions
+evaluate to <strong>true</strong>.</p><p><strong>GuardExpr1,...,GuardExprN</strong></p><p>The set of valid <em>guard expressions</em> (sometimes called
+guard tests) is a subset of the set of valid Erlang expressions.
+The reason for restricting the set of valid expressions is that
+evaluation of a guard expression must be guaranteed to be free
+of side effects. Valid guard expressions are the following:</p><ul><li>The atom <strong>true</strong></li><li>Other constants (terms and bound variables), all regarded as false</li><li>Calls to the BIFs specified in table <strong>Type Test BIFs</strong></li><li>Term comparisons</li><li>Arithmetic expressions</li><li>Boolean expressions</li><li>Short-circuit expressions (<strong>andalso</strong>/<strong>orelse</strong>)</li></ul><table class="table table-bordered table-hover table-striped"><caption>Type Test BIFs</caption><tbody><tr><td><strong>is_atom/1</strong></td></tr><tr><td><strong>is_binary/1</strong></td></tr><tr><td><strong>is_bitstring/1</strong></td></tr><tr><td><strong>is_boolean/1</strong></td></tr><tr><td><strong>is_float/1</strong></td></tr><tr><td><strong>is_function/1</strong></td></tr><tr><td><strong>is_function/2</strong></td></tr><tr><td><strong>is_integer/1</strong></td></tr><tr><td><strong>is_list/1</strong></td></tr><tr><td><strong>is_map/1</strong></td></tr><tr><td><strong>is_number/1</strong></td></tr><tr><td><strong>is_pid/1</strong></td></tr><tr><td><strong>is_port/1</strong></td></tr><tr><td><strong>is_record/2</strong></td></tr><tr><td><strong>is_record/3</strong></td></tr><tr><td><strong>is_reference/1</strong></td></tr><tr><td><strong>is_tuple/1</strong></td></tr></tbody></table><p>Notice that most type test BIFs have older equivalents, without
+the <strong>is_</strong> prefix. These old BIFs are retained for backwards
+compatibility only and are not to be used in new code. They are
+also only allowed at top level. For example, they are not allowed
+in Boolean expressions in guards.</p><table class="table table-bordered table-hover table-striped"><caption>Other BIFs Allowed in Guard Expressions</caption><tbody><tr><td><strong>abs(Number)</strong></td></tr><tr><td><strong>bit_size(Bitstring)</strong></td></tr><tr><td><strong>byte_size(Bitstring)</strong></td></tr><tr><td><strong>element(N, Tuple)</strong></td></tr><tr><td><strong>float(Term)</strong></td></tr><tr><td><strong>hd(List)</strong></td></tr><tr><td><strong>length(List)</strong></td></tr><tr><td><strong>map_size(Map)</strong></td></tr><tr><td><strong>node()</strong></td></tr><tr><td><strong>node(Pid|Ref|Port)</strong></td></tr><tr><td><strong>round(Number)</strong></td></tr><tr><td><strong>self()</strong></td></tr><tr><td><strong>size(Tuple|Bitstring)</strong></td></tr><tr><td><strong>tl(List)</strong></td></tr><tr><td><strong>trunc(Number)</strong></td></tr><tr><td><strong>tuple_size(Tuple)</strong></td></tr></tbody></table><p>If an arithmetic expression, a Boolean expression, a
+short-circuit expression, or a call to a guard BIF fails (because
+of invalid arguments), the entire guard fails. If the guard was
+part of a guard sequence, the next guard in the sequence (that is,
+the guard following the next semicolon) is evaluated.</p><a name="prec"></a><h4>Operator Precedence</h4><p>Operator precedence in falling priority:</p><table class="table table-bordered table-hover table-striped"><caption>Operator Precedence</caption><tbody><tr><td>:</td><td>Â </td></tr><tr><td>#</td><td>Â </td></tr><tr><td>Unary + - bnot not</td><td>Â </td></tr><tr><td>/ * div rem band and</td><td>Left associative</td></tr><tr><td>+ - bor bxor bsl bsr or xor</td><td>Left associative</td></tr><tr><td>++ --</td><td>Right associative</td></tr><tr><td>== /= =&lt; &lt; &gt;= &gt; =:= =/=</td><td>Â </td></tr><tr><td>andalso</td><td>Â </td></tr><tr><td>orelse</td><td>Â </td></tr><tr><td>= !</td><td>Right associative</td></tr><tr><td>catch</td><td>Â </td></tr></tbody></table><p>When evaluating an expression, the operator with the highest
+priority is evaluated first. Operators with the same priority
+are evaluated according to their associativity.</p><p><em>Example:</em></p><p>The left associative arithmetic operators are evaluated left to
+right:</p><pre>
+<span class="input">6 + 5 * 4 - 3 / 2</span> evaluates to
+<span class="input">6 + 20 - 1.5</span> evaluates to
+<span class="input">26 - 1.5</span> evaluates to
+<span class="input">24.5</span></pre><h4>File Inclusion</h4><p>A file can be included as follows:</p><pre>
+-include(File).
+-include_lib(File).</pre><p><strong>File</strong>, a string, is to point out a file. The contents of
+this file are included as is, at the position of the directive.</p><p>Include files are typically used for record and macro
+definitions that are shared by several modules. It is
+recommended to use the file name extension <strong>.hrl</strong> for
+include files.</p><p><strong>File</strong> can start with a path component <strong>$VAR</strong>, for
+some string <strong>VAR</strong>. If that is the case, the value of
+the environment variable <strong>VAR</strong> as returned by
+<strong>os:getenv(VAR)</strong> is substituted for <strong>$VAR</strong>. If
+<strong>os:getenv(VAR)</strong> returns <strong>false</strong>, <strong>$VAR</strong> is left
+as is.</p><p>If the filename <strong>File</strong> is absolute (possibly after
+variable substitution), the include file with that name is
+included. Otherwise, the specified file is searched for
+in the following directories, and in this order:</p><ul><li>The current working directory</li><li>The directory where the module is being compiled</li><li>The directories given by the <strong>include</strong> option</li></ul><p>For details, see the
+<a href="./erlc">erlc(1)</a> manual page
+in ERTS and
+<a href="./compile">compile(3)</a>
+manual page in Compiler.</p><p><em>Examples:</em></p><pre>
+-include("my_records.hrl").
+-include("incdir/my_records.hrl").
+-include("/home/user/proj/my_records.hrl").
+-include("$PROJ_ROOT/my_records.hrl").</pre><p><strong>include_lib</strong> is similar to <strong>include</strong>, but is not to
+point out an absolute file. Instead, the first path component
+(possibly after variable substitution) is assumed to be
+the name of an application.</p><p><em>Example:</em></p><pre>
+-include_lib("kernel/include/file.hrl").</pre><p>The code server uses <strong>code:lib_dir(kernel)</strong> to find
+the directory of the current (latest) version of Kernel, and
+then the subdirectory <strong>include</strong> is searched for the file
+<strong>file.hrl</strong>.</p><h4>Defining and Using Macros</h4><p>A macro is defined as follows:</p><pre><code class="">
+-define(Const, Replacement).
+-define(Func(Var1,...,VarN), Replacement).</code></pre><p>A macro definition can be placed anywhere among the attributes
+and function declarations of a module, but the definition must
+come before any usage of the macro.</p><p>If a macro is used in several modules, it is recommended that
+the macro definition is placed in an include file.</p><p>A macro is used as follows:</p><pre><code class="">
+?Const
+?Func(Arg1,...,ArgN)</code></pre><p>Macros are expanded during compilation. A simple macro
+<strong>?Const</strong> is replaced with <strong>Replacement</strong>.</p><p><em>Example:</em></p><pre><code class="">
+-define(TIMEOUT, 200).
+...
+call(Request) -&gt;
+    server:call(refserver, Request, ?TIMEOUT).</code></pre><p>This is expanded to:</p><pre><code class="">
+call(Request) -&gt;
+    server:call(refserver, Request, 200).</code></pre><p>A macro <strong>?Func(Arg1,...,ArgN)</strong> is replaced with
+<strong>Replacement</strong>, where all occurrences of a variable <strong>Var</strong>
+from the macro definition are replaced with the corresponding
+argument <strong>Arg</strong>.</p><p><em>Example:</em></p><pre><code class="">
+-define(MACRO1(X, Y), {a, X, b, Y}).
+...
+bar(X) -&gt;
+    ?MACRO1(a, b),
+    ?MACRO1(X, 123)</code></pre><p>This is expanded to:</p><pre><code class="">
+bar(X) -&gt;
+    {a,a,b,b},
+    {a,X,b,123}.</code></pre><p>It is good programming practice, but not mandatory, to ensure
+that a macro definition is a valid Erlang syntactic form.</p><p>To view the result of macro expansion, a module can be compiled
+with the <strong>'P'</strong> option. <strong>compile:file(File, ['P'])</strong>.
+This produces a listing of the parsed code after preprocessing
+and parse transforms, in the file <strong>File.P</strong>.</p><h4>Predefined Macros</h4><p>The following macros are predefined:</p><dl><dt><strong>?MODULE</strong></dt><dd>The name of the current module.</dd><dt><strong>?MODULE_STRING</strong>.</dt><dd>The name of the current module, as a string.</dd><dt><strong>?FILE</strong>.</dt><dd>The file name of the current module.</dd><dt><strong>?LINE</strong>.</dt><dd>The current line number.</dd><dt><strong>?MACHINE</strong>.</dt><dd>The machine name, <strong>'BEAM'</strong>.</dd><dt><strong>?FUNCTION_NAME</strong></dt><dd>The name of the current function.</dd><dt><strong>?FUNCTION_ARITY</strong></dt><dd>The arity (number of arguments) for the current function.</dd><dt><strong>?OTP_RELEASE</strong></dt><dd>The OTP release that the currently executing ERTS application is part of, as an integer. For details, see <a href="../erts/erlang#system_info/1">erts/erlang#system_info/1</a>. This macro was introduced in OTP release 21.</dd></dl><h4>Macros Overloading</h4><p>It is possible to overload macros, except for predefined
+macros. An overloaded macro has more than one definition,
+each with a different number of arguments.</p><p>The feature was added in Erlang 5.7.5/OTP R13B04.</p><p>A macro <strong>?Func(Arg1,...,ArgN)</strong> with a (possibly empty)
+list of arguments results in an error message if there is at
+least one definition of <strong>Func</strong> with arguments, but none
+with N arguments.</p><p>Assuming these definitions:</p><pre><code class="">
+-define(F0(), c).
+-define(F1(A), A).
+-define(C, m:f).</code></pre><p>the following does not work:</p><pre><code class="">
+f0() -&gt;
+    ?F0. % No, an empty list of arguments expected.
+
+f1(A) -&gt;
+    ?F1(A, A). % No, exactly one argument expected.</code></pre><p>On the other hand,</p><pre><code class="">
+f() -&gt;
+    ?C().</code></pre><p>is expanded to</p><pre><code class="">
+f() -&gt;
+    m:f().</code></pre><h4>Flow Control in Macros</h4><p>The following macro directives are supplied:</p><dl><dt><strong>-undef(Macro).</strong></dt><dd>Causes the macro to behave as if it had never been defined.</dd><dt><strong>-ifdef(Macro).</strong></dt><dd>Evaluate the following lines only if <strong>Macro</strong> is defined.</dd><dt><strong>-ifndef(Macro).</strong></dt><dd>Evaluate the following lines only if <strong>Macro</strong> is not defined.</dd><dt><strong>-else.</strong></dt><dd>Only allowed after an <strong>ifdef</strong> or <strong>ifndef</strong> directive. If that condition is false, the lines following <strong>else</strong> are evaluated instead.</dd><dt><strong>-endif.</strong></dt><dd>Specifies the end of an <strong>ifdef</strong>, an <strong>ifndef</strong> directive, or the end of an <strong>if</strong> or <strong>elif</strong> directive.</dd><dt><strong>-if(Condition).</strong></dt><dd>Evaluates the following lines only if <strong>Condition</strong> evaluates to true.</dd><dt><strong>-elif(Condition).</strong></dt><dd>Only allowed after an <strong>if</strong> or another <strong>elif</strong> directive. If the preceding <strong>if</strong> or <strong>elif</strong> directives do not evaluate to true, and the <strong>Condition</strong> evaluates to true, the lines following the <strong>elif</strong> are evaluated instead.</dd></dl><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The macro directives cannot be used inside functions.</p></div><p><em>Example:</em></p><pre><code class="">
+-module(m).
+...
+
+-ifdef(debug).
+-define(LOG(X), io:format("{~p,~p}: ~p~n", [?MODULE,?LINE,X])).
+-else.
+-define(LOG(X), true).
+-endif.
+
+...</code></pre><p>When trace output is desired, <strong>debug</strong> is to be defined
+when the module <strong>m</strong> is compiled:</p><pre>
+% <span class="input">erlc -Ddebug m.erl</span>
+
+or
+
+1&gt; <span class="input">c(m, {d, debug}).</span>
+{ok,m}</pre><p><strong>?LOG(Arg)</strong> is then expanded to a call to <strong>io:format/2</strong>
+and provide the user with some simple trace output.</p><p><em>Example:</em></p><pre><code class="">
+-module(m)
+...
+-ifdef(OTP_RELEASE).
+  %% OTP 21 or higher
+  -if(?OTP_RELEASE &gt;= 22).
+    %% Code that will work in OTP 22 or higher
+  -elif(?OTP_RELEASE &gt;= 21).
+    %% Code that will work in OTP 21 or higher
+  -endif.
+-else.
+  %% OTP 20 or lower.
+-endif.
+...</code></pre><p>The code uses the <strong>OTP_RELEASE</strong> macro to conditionally
+select code depending on release.</p><h4>-error() and -warning() directives</h4><p>The directive <strong>-error(Term)</strong> causes a compilation error.</p><p><em>Example:</em></p><pre><code class="">
+-module(t).
+-export([version/0]).
+
+-ifdef(VERSION).
+version() -&gt; ?VERSION.
+-else.
+-error("Macro VERSION must be defined.").
+version() -&gt; "".
+-endif.</code></pre><p>The error message will look like this:</p><pre>
+% <span class="input">erlc t.erl</span>
+t.erl:7: -error("Macro VERSION must be defined.").</pre><p>The directive <strong>-warning(Term)</strong> causes a compilation warning.</p><p><em>Example:</em></p><pre><code class="">
+-module(t).
+-export([version/0]).
+
+-ifndef(VERSION).
+-warning("Macro VERSION not defined -- using default version.").
+-define(VERSION, "0").
+-endif.
+version() -&gt; ?VERSION.</code></pre><p>The warning message will look like this:</p><pre>
+% <span class="input">erlc t.erl</span>
+t.erl:5: Warning: -warning("Macro VERSION not defined -- using default version.").</pre><p>The <strong>-error()</strong> and <strong>-warning()</strong> directives were added
+in OTP 19.</p><h4>Stringifying Macro Arguments</h4><p>The construction <strong>??Arg</strong>, where <strong>Arg</strong> is a macro
+argument, is expanded to a string containing the tokens of
+the argument. This is similar to the <strong>#arg</strong> stringifying
+construction in C.</p><p><em>Example:</em></p><pre><code class="">
+-define(TESTCALL(Call), io:format("Call ~s: ~w~n", [??Call, Call])).
+
+?TESTCALL(myfunction(1,2)),
+?TESTCALL(you:function(2,1)).</code></pre><p>results in</p><pre><code class="">
+io:format("Call ~s: ~w~n",["myfunction ( 1 , 2 )",myfunction(1,2)]),
+io:format("Call ~s: ~w~n",["you : function ( 2 , 1 )",you:function(2,1)]).</code></pre><p>That is, a trace output, with both the function called and
+the resulting value.</p><p>A record is a data structure for storing a fixed number of
+elements. It has named fields and is similar to a struct in C.
+Record expressions are translated to tuple expressions during
+compilation. Therefore, record expressions are not understood by
+the shell unless special actions are taken. For details, see the
+<a href="./shell">shell(3)</a>
+manual page in STDLIB.</p><p>More examples are provided in
+<a href="./records"> Programming Examples</a>.</p><h4>Defining Records</h4><p>A record definition consists of the name of the record,
+followed by the field names of the record. Record and field names
+must be atoms. Each field can be given an optional default value.
+If no default value is supplied, <strong>undefined</strong> is used.</p><pre>
+-record(Name, {Field1 [= Value1],
+               ...
+               FieldN [= ValueN]}).</pre><p>A record definition can be placed anywhere among the attributes
+and function declarations of a module, but the definition must
+come before any usage of the record.</p><p>If a record is used in several modules, it is recommended that
+the record definition is placed in an include file.</p><h4>Creating Records</h4><p>The following expression creates a new <strong>Name</strong> record where
+the value of each field <strong>FieldI</strong> is the value of evaluating
+the corresponding expression <strong>ExprI</strong>:</p><pre>
+#Name{Field1=Expr1,...,FieldK=ExprK}</pre><p>The fields can be in any order, not necessarily the same order as
+in the record definition, and fields can be omitted. Omitted
+fields get their respective default value instead.</p><p>If several fields are to be assigned the same value,
+the following construction can be used:</p><pre>
+#Name{Field1=Expr1,...,FieldK=ExprK, _=ExprL}</pre><p>Omitted fields then get the value of evaluating <strong>ExprL</strong>
+instead of their default values. This feature is primarily
+intended to be used to create patterns for ETS and Mnesia match
+functions.</p><p><em>Example:</em></p><pre>
+-record(person, {name, phone, address}).
+
+...
+
+lookup(Name, Tab) -&gt;
+    ets:match_object(Tab, #person{name=Name, _='_'}).</pre><h4>Accessing Record Fields</h4><pre>
+Expr#Name.Field</pre><p>Returns the value of the specified field. <strong>Expr</strong> is to
+evaluate to a <strong>Name</strong> record.</p><p>The following expression returns the position of the specified
+field in the tuple representation of the record:</p><pre>
+#Name.Field</pre><p><em>Example:</em></p><pre>
+-record(person, {name, phone, address}).
+
+...
+
+lookup(Name, List) -&gt;
+    lists:keysearch(Name, #person.name, List).</pre><h4>Updating Records</h4><pre>
+Expr#Name{Field1=Expr1,...,FieldK=ExprK}</pre><p><strong>Expr</strong> is to evaluate to a <strong>Name</strong> record. A
+copy of this record is returned, with the value of each specified field
+<strong>FieldI</strong> changed to the value of evaluating the corresponding
+expression <strong>ExprI</strong>. All other fields retain their old
+values.</p><h4>Records in Guards</h4><p>Since record expressions are expanded to tuple expressions,
+creating records and accessing record fields are allowed in
+guards. However all subexpressions, for example, for field
+initiations, must be valid guard expressions as well.</p><p><em>Examples:</em></p><pre><code class="">
+handle(Msg, State) when Msg==#msg{to=void, no=3} -&gt;
+    ...
+
+handle(Msg, State) when State#state.running==true -&gt;
+    ...</code></pre><p>There is also a type test BIF <strong>is_record(Term, RecordTag)</strong>.</p><p><em>Example:</em></p><pre>
+is_person(P) when is_record(P, person) -&gt;
+    true;
+is_person(_P) -&gt;
+    false.</pre><h4>Records in Patterns</h4><p>A pattern that matches a certain record is created in the same
+way as a record is created:</p><pre>
+#Name{Field1=Expr1,...,FieldK=ExprK}</pre><p>In this case, one or more of <strong>Expr1</strong>...<strong>ExprK</strong> can be
+unbound variables.</p><h4>Nested Records</h4><p>Beginning with Erlang/OTP R14, parentheses when accessing or updating nested
+records can be omitted. Assume the following record
+definitions:</p><pre>
+-record(nrec0, {name = "nested0"}).
+-record(nrec1, {name = "nested1", nrec0=#nrec0{}}).
+-record(nrec2, {name = "nested2", nrec1=#nrec1{}}).
+
+N2 = #nrec2{},
+    </pre><p>Before R14, parentheses were needed as follows:</p><pre>
+"nested0" = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0.name,
+N0n = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0{name = "nested0a"},
+    </pre><p>Since R14, the following can also be written:</p><pre>
+"nested0" = N2#nrec2.nrec1#nrec1.nrec0#nrec0.name,
+N0n = N2#nrec2.nrec1#nrec1.nrec0#nrec0{name = "nested0a"},</pre><h4>Internal Representation of Records</h4><p>Record expressions are translated to tuple expressions during
+compilation. A record defined as:</p><pre>
+-record(Name, {Field1,...,FieldN}).</pre><p>is internally represented by the tuple:</p><pre>
+{Name,Value1,...,ValueN}</pre><p>Here each <strong>ValueI</strong> is the default value for <strong>FieldI</strong>.</p><p>To each module using records, a pseudo function is added
+during compilation to obtain information about records:</p><pre>
+record_info(fields, Record) -&gt; [Field]
+record_info(size, Record) -&gt; Size</pre><p><strong>Size</strong> is the size of the tuple representation, that is,
+one more than the number of fields.</p><p>In addition, <strong>#Record.Name</strong> returns the index in the tuple
+representation of <strong>Name</strong> of the record <strong>Record</strong>.</p><p><strong>Name</strong> must be an atom.</p><h4>Terminology</h4><p>Errors can roughly be divided into four different types:</p><ul><li>Compile-time errors</li><li>Logical errors</li><li>Run-time errors</li><li>Generated errors</li></ul><p>A compile-time error, for example a syntax error, does not
+cause much trouble as it is caught by the compiler.</p><p>A logical error is when a program does not behave as intended,
+but does not crash. An example is that nothing happens when
+a button in a graphical user interface is clicked.</p><p>A run-time error is when a crash occurs. An example is
+when an operator is applied to arguments of the wrong type.
+The Erlang programming language has built-in features for
+handling of run-time errors.</p><p>A run-time error can also be emulated by calling
+<strong>erlang:error(Reason)</strong> or <strong>erlang:error(Reason, Args)</strong>.</p><p>A run-time error is another name for an exception
+of class <strong>error</strong>.
+</p><p>A generated error is when the code itself calls
+<strong>exit/1</strong> or <strong>throw/1</strong>. Notice that emulated run-time
+errors are not denoted as generated errors here.
+</p><p>Generated errors are exceptions of classes <strong>exit</strong> and
+<strong>throw</strong>.
+</p><p>When a run-time error or generated error occurs in Erlang, 
+execution for the process that evaluated
+the erroneous expression is stopped.
+This is referred to as a <em>failure</em>, that execution or
+evaluation <em>fails</em>, or that the process <em>fails</em>,
+<em>terminates</em>, or <em>exits</em>. Notice that a process can
+terminate/exit for other reasons than a failure.</p><p>A process that terminates emits an <em>exit signal</em> with
+an <em>exit reason</em> that says something about which error
+has occurred. Normally, some information about the error is
+printed to the terminal.</p><h4>Exceptions</h4><p>Exceptions are run-time errors or generated errors and 
+are of three different classes, with different origins. The
+<a href="./expressions#try">try</a> expression 
+can distinguish between the different classes, whereas the
+<a href="./expressions#catch">catch</a>
+expression cannot. They are described in
+<a href="expressions">Expressions </a>.</p><table class="table table-bordered table-hover table-striped"><caption>Exception Classes.</caption><tbody><tr><td><em>Class</em></td><td><em>Origin</em></td></tr><tr><td><strong>error</strong></td><td>Run-time error, for example, <strong>1+a</strong>, or the process called <strong>erlang:error/1,2</strong></td></tr><tr><td><strong>exit</strong></td><td>The process called <strong>exit/1</strong></td></tr><tr><td><strong>throw</strong></td><td>The process called <strong>throw/1</strong></td></tr></tbody></table><p>An exception consists of its class, an exit reason
+(see <a href="#exit_reasons">Exit Reason</a>),
+and a stack trace (which aids in finding the code location of
+the exception).</p><p>The stack trace can be be bound to a variable from within
+a <strong>try</strong> expression, and is returned for
+exceptions of class <strong>error</strong> from a <strong>catch</strong> expression.</p><p>An exception of class <strong>error</strong> is also known as a run-time 
+error.</p><h4>The call-stack back trace (stacktrace)</h4><p>The stack back-trace (<em>stacktrace</em>) is a list of
+<strong>{Module,Function,Arity,Location}</strong>
+tuples. The field <strong>Arity</strong> in the first tuple can be the
+argument list of that function call instead of an arity integer,
+depending on the exception.</p><p><strong>Location</strong> is a (possibly empty) list of two-tuples
+that can indicate the location in the source code of the
+function.  The first element is an atom describing the type of
+information in the second element. The following items can
+occur:</p><dl><dt><strong>file</strong></dt><dd>The second element of the tuple is a string (list of characters) representing the filename of the source file of the function. </dd><dt><strong>line</strong></dt><dd>The second element of the tuple is the line number (an integer &gt; 0) in the source file where the exception occurred or the function was called. </dd></dl><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>Developers should rely on stacktrace entries only for
+debugging purposes.</p><p>The VM performs tail call optimization, which
+does not add new entries to the stacktrace, and also limits stacktraces
+to a certain depth. Furthermore, compiler options, optimizations and
+future changes may add or remove stacktrace entries, causing any code
+that expects the stacktrace to be in a certain order or contain specific
+items to fail.</p><p>The only exception to this rule is the class <strong>error</strong> with the
+reason <strong>undef</strong> which is guaranteed to include the <strong>Module</strong>,
+<strong>Function</strong> and <strong>Arity</strong> of the attempted
+function as the first stacktrace entry.</p></div><h4>Handling of Run-time Errors in Erlang</h4><h4>Error Handling Within Processes</h4><p>It is possible to prevent run-time errors and other
+exceptions from causing
+the process to terminate by using <strong>catch</strong> or
+<strong>try</strong>, see <a href="expressions"> Expressions</a> about
+<a href="./expressions#catch">catch</a>
+and <a href="./expressions#try">try</a>.</p><h4>Error Handling Between Processes</h4><p>Processes can monitor other processes and detect process
+terminations, see
+<a href="./processes#errors">Processes</a>.</p><a name="exit_reasons"></a><h4>Exit Reasons</h4><p>When a run-time error occurs,
+that is an exception of class <strong>error</strong>.
+The exit reason is a tuple <strong>{Reason,Stack}</strong>, where
+<strong>Reason</strong> is a term indicating the type of error:</p><table class="table table-bordered table-hover table-striped"><caption>Exit Reasons</caption><tbody><tr><td><em>Reason</em></td><td><em>Type of Error</em></td></tr><tr><td><strong>badarg</strong></td><td>Bad argument. The argument is of wrong data type, or is otherwise badly formed.</td></tr><tr><td><strong>badarith</strong></td><td>Bad argument in an arithmetic expression.</td></tr><tr><td><strong>{badmatch,V}</strong></td><td>Evaluation of a match expression failed. The value <strong>V</strong> did not match.</td></tr><tr><td><strong>function_clause</strong></td><td>No matching function clause is found when evaluating a function call.</td></tr><tr><td><strong>{case_clause,V}</strong></td><td>No matching branch is found when evaluating a <strong>case</strong> expression. The value <strong>V</strong> did not match.</td></tr><tr><td><strong>if_clause</strong></td><td>No true branch is found when evaluating an <strong>if</strong> expression.</td></tr><tr><td><strong>{try_clause,V}</strong></td><td>No matching branch is found when evaluating the of-section of a <strong>try</strong> expression. The value <strong>V</strong> did not match.</td></tr><tr><td><strong>undef</strong></td><td>The function cannot be found when evaluating a function call.</td></tr><tr><td><strong>{badfun,F}</strong></td><td>Something is wrong with a fun <strong>F</strong>.</td></tr><tr><td><strong>{badarity,F}</strong></td><td>A fun is applied to the wrong number of arguments. <strong>F</strong> describes the fun and the arguments.</td></tr><tr><td><strong>timeout_value</strong></td><td>The timeout value in a <strong>receive..after</strong> expression is evaluated to something else than an integer or <strong>infinity</strong>.</td></tr><tr><td><strong>noproc</strong></td><td>Trying to link to a non-existing process.</td></tr><tr><td><strong>{nocatch,V}</strong></td><td>Trying to evaluate a <strong>throw </strong>outside a <strong>catch</strong>. <strong>V</strong> is the thrown term.</td></tr><tr><td><strong>system_limit</strong></td><td>A system limit has been reached. See <a href="./advanced"> Efficiency Guide</a> for information about system limits. </td></tr></tbody></table><p><strong>Stack</strong> is the stack of function calls being evaluated
+when the error occurred, given as a list of tuples
+<strong>{Module,Name,Arity}</strong> with the most recent function call
+first. The most recent function call tuple can in some
+cases be <strong>{Module,Name,[Arg]}</strong>.</p><h4>Processes</h4><p>Erlang is designed for massive concurrency. Erlang processes are
+lightweight (grow and shrink dynamically) with small memory
+footprint, fast to create and terminate, and the scheduling
+overhead is low.</p><h4>Process Creation</h4><p>A process is created by calling <strong>spawn</strong>:</p><pre>
+spawn(Module, Name, Args) -&gt; pid()
+  Module = Name = atom()
+  Args = [Arg1,...,ArgN]
+    ArgI = term()</pre><p><strong>spawn</strong> creates a new process and returns the pid.</p><p>The new process starts executing in
+<strong>Module:Name(Arg1,...,ArgN)</strong> where the arguments are
+the elements of the (possible empty) <strong>Args</strong> argument list.</p><p>There exist a number of other <strong>spawn</strong> BIFs, for example,
+<strong>spawn/4</strong> for spawning a process at another node.</p><h4>Registered Processes</h4><p>Besides addressing a process by using its pid, there are also
+BIFs for registering a process under a name. The name must be an
+atom and is automatically unregistered if the process terminates:</p><table class="table table-bordered table-hover table-striped"><caption>Name Registration BIFs</caption><tbody><tr><td><em>BIF</em></td><td><em>Description</em></td></tr><tr><td><strong>register(Name, Pid)</strong></td><td>Associates the name <strong>Name</strong>, an atom, with the process <strong>Pid</strong>.</td></tr><tr><td><strong>registered()</strong></td><td>Returns a list of names that have been registered using <strong>register/2</strong>.</td></tr><tr><td><strong>whereis(Name)</strong></td><td>Returns the pid registered under <strong>Name</strong>, or <strong>undefined </strong>if the name is not registered.</td></tr></tbody></table><a name="term"></a><h4>Process Termination</h4><p>When a process terminates, it always terminates with an
+<em>exit reason</em>. The reason can be any term.</p><p>A process is said to terminate <em>normally</em>, if the exit
+reason is the atom <strong>normal</strong>. A process with no more code to
+execute terminates normally.</p><p>A process terminates with an exit reason <strong>{Reason,Stack}</strong>
+when a run-time error occurs. See
+<a href="./errors#exit_reasons">Exit Reasons</a>.</p><p>A process can terminate itself by calling one of the
+following BIFs:</p><ul><li><strong>exit(Reason)</strong></li><li><strong>erlang:error(Reason)</strong></li><li><strong>erlang:error(Reason, Args)</strong></li></ul><p>The process then terminates with reason <strong>Reason</strong> for
+<strong>exit/1</strong> or <strong>{Reason,Stack}</strong> for the others.</p><p>A process can also be terminated if it receives an exit signal
+with another exit reason than <strong>normal</strong>, see
+<a href="#errors">Error Handling</a>.</p><h4>Message Sending</h4><p>Processes communicate by sending and receiving messages.
+Messages are sent by using
+the <a href="./expressions#send">send operator !</a>
+and received by calling
+<a href="./expressions#receive">receive</a>.</p><p>Message sending is asynchronous and safe, the message is
+guaranteed to eventually reach the recipient, provided that
+the recipient exists.</p><h4>Links</h4><p>Two processes can be <em>linked</em> to each other. A link
+between two processes <strong>Pid1</strong> and <strong>Pid2</strong> is created
+by <strong>Pid1</strong> calling the BIF <strong>link(Pid2)</strong> (or conversely).
+There also exist a number of <strong>spawn_link</strong> BIFs, which spawn
+and link to a process in one operation.</p><p>Links are bidirectional and there can only be one link between
+two processes. Repeated calls to <strong>link(Pid)</strong> have no effect.</p><p>A link can be removed by calling the BIF <strong>unlink(Pid)</strong>.</p><p>Links are used to monitor the behaviour of other processes, see
+<a href="#errors">Error Handling</a>.</p><a name="errors"></a><h4>Error Handling</h4><p>Erlang has a built-in feature for error handling between
+processes. Terminating processes emit exit signals to all
+linked processes, which can terminate as well or handle the exit
+in some way. This feature can be used to build hierarchical
+program structures where some processes are supervising other
+processes, for example, restarting them if they terminate
+abnormally.</p><p>See <a href="../doc/design_principles/des_princ#otp design principles"> OTP Design Principles</a> for more information about
+OTP supervision trees, which use this feature.</p><h4>Emitting Exit Signals</h4><p>When a process terminates, it terminates with an
+<em>exit reason</em> as explained in <a href="#term"> Process Termination</a>. This exit reason is emitted in
+an <em>exit signal</em> to all linked processes.</p><p>A process can also call the function <strong>exit(Pid,Reason)</strong>.
+This results in an exit signal with exit reason
+<strong>Reason</strong> being emitted to <strong>Pid</strong>, but does not affect
+the calling process.</p><h4>Receiving Exit Signals</h4><p>The default behaviour when a process receives an exit signal
+with an exit reason other than <strong>normal</strong>, is to terminate
+and in turn emit exit signals with the same exit reason to its
+linked processes. An exit signal with reason <strong>normal</strong> is
+ignored.</p><p>A process can be set to trap exit signals by calling:</p><pre>
+process_flag(trap_exit, true)</pre><p>When a process is trapping exits, it does not terminate when
+an exit signal is received. Instead, the signal is transformed
+into a message <strong>{'EXIT',FromPid,Reason}</strong>, which is put into
+the mailbox of the process, just like a regular message.</p><p>An exception to the above is if the exit reason is <strong>kill</strong>,
+that is if <strong>exit(Pid,kill)</strong> has been called. This
+unconditionally terminates the process, regardless of if it is
+trapping exit signals.</p><h4>Monitors</h4><p>An alternative to links are <em>monitors</em>. A process
+<strong>Pid1</strong> can create a monitor for <strong>Pid2</strong> by calling
+the BIF <strong>erlang:monitor(process, Pid2)</strong>. The function returns
+a reference <strong>Ref</strong>.</p><p>If <strong>Pid2</strong> terminates with exit reason <strong>Reason</strong>, a
+'DOWN' message is sent to <strong>Pid1</strong>:</p><pre><code class="">
+{'DOWN', Ref, process, Pid2, Reason}</code></pre><p>If <strong>Pid2</strong> does not exist, the 'DOWN' message is sent
+immediately with <strong>Reason</strong> set to <strong>noproc</strong>.</p><p>Monitors are unidirectional. Repeated calls to
+<strong>erlang:monitor(process, Pid)</strong> creates several
+independent monitors, and each one sends a 'DOWN' message when
+<strong>Pid</strong> terminates.</p><p>A monitor can be removed by calling
+<strong>erlang:demonitor(Ref)</strong>.</p><p>Monitors can be created for processes with registered
+names, also at other nodes.</p><h4>Process Dictionary</h4><p>Each process has its own process dictionary, accessed by calling
+the following BIFs:</p><pre>
+put(Key, Value)
+get(Key)
+get()
+get_keys(Value)
+erase(Key)
+erase()</pre><h4>Distributed Erlang System</h4><p>A <em>distributed Erlang system</em> consists of a number of
+Erlang runtime systems communicating with each other. Each such
+runtime system is called a <em>node</em>. Message passing between
+processes at different nodes, as well as links and monitors, are
+transparent when pids are used. Registered names, however, are
+local to each node. This means that the node must be specified as well
+when sending messages, and so on, using registered names.</p><p>The distribution mechanism is implemented using TCP/IP sockets.
+How to implement an alternative carrier is described in the
+<a href="./alt_dist">ERTS User's Guide</a>.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>
+Starting a distributed node without also specifying
+<a href="../erts/erl#proto_dist">erts/erl#proto_dist</a>
+will expose the node to attacks that may give the attacker
+complete access to the node and in extension the cluster.
+When using un-secure distributed nodes, make sure that the
+network is configured to keep potential attackers out.
+See the <a href="./ssl_distribution"> Using SSL for Erlang Distribution</a> User's Guide
+for details on how to setup a secure distributed node.
+</p></div><h4>Nodes</h4><p>A <em>node</em> is an executing Erlang runtime system that has
+been given a name, using the command-line flag <strong>-name</strong>
+(long names) or <strong>-sname</strong> (short names).</p><p>The format of the node name is an atom <strong>name@host</strong>.
+<strong>name</strong> is the name given by the user. <strong>host</strong> is
+the full host name if long names are used, or the first part of
+the host name if short names are used. <strong>node()</strong> returns
+the name of the node.</p><p><em>Example:</em></p><pre>
+% <span class="input">erl -name dilbert</span>
+(dilbert@uab.ericsson.se)1&gt; <span class="input">node().</span>
+'dilbert@uab.ericsson.se'
+
+% <span class="input">erl -sname dilbert</span>
+(dilbert@uab)1&gt; <span class="input">node().</span>
+dilbert@uab</pre><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>A node with a long node name cannot communicate with a node
+with a short node name.</p></div><h4>Node Connections</h4><p>The nodes in a distributed Erlang system are loosely connected.
+The first time the name of another node is used, for example, if
+<strong>spawn(Node,M,F,A)</strong> or <strong>net_adm:ping(Node)</strong> is called,
+a connection attempt to that node is made.</p><p>Connections are by default transitive. If a node A connects to
+node B, and node B has a connection to node C, then node A
+also tries to connect to node C. This feature can be turned off by
+using the command-line flag <strong>-connect_all false</strong>, see the
+<a href="./erl">erl(1)</a> manual page in ERTS.</p><p>If a node goes down, all connections to that node are removed.
+Calling <strong>erlang:disconnect_node(Node)</strong> forces disconnection
+of a node.</p><p>The list of (visible) nodes currently connected to is returned by
+<strong>nodes()</strong>.</p><h4>epmd</h4><p>The Erlang Port Mapper Daemon <em>epmd</em> is automatically
+started at every host where an Erlang node is started. It is
+responsible for mapping the symbolic node names to machine
+addresses. See the
+<a href="./epmd">epmd(1)</a> manual page in ERTS.</p><h4>Hidden Nodes</h4><p>In a distributed Erlang system, it is sometimes useful to
+connect to a node without also connecting to all other nodes.
+An example is some kind of O&amp;M functionality used to
+inspect the status of a system, without disturbing it. For this
+purpose, a <em>hidden node</em> can be used.</p><p>A hidden node is a node started with the command-line flag
+<strong>-hidden</strong>. Connections between hidden nodes and other nodes
+are not transitive, they must be set up explicitly. Also, hidden
+nodes does not show up in the list of nodes returned by
+<strong>nodes()</strong>. Instead, <strong>nodes(hidden)</strong> or
+<strong>nodes(connected)</strong> must be used. This means, for example,
+that the hidden node is not added to the set of nodes that
+<strong>global</strong> is keeping track of.</p><p>This feature was added in Erlang 5.0/OTP R7.</p><h4>C Nodes</h4><p>A <em>C node</em> is a C program written to act as a hidden node
+in a distributed Erlang system. The library <em>Erl_Interface</em>
+contains functions for this purpose. For more information about
+C nodes, see the <a href="./ei_users_guide"> Erl_Interface</a> application and
+<a href="../doc/tutorial/introduction#interoperability tutorial"> Interoperability Tutorial.</a>.</p><h4>Security</h4><p>Authentication determines which nodes are allowed to communicate
+with each other. In a network of different Erlang nodes, it is
+built into the system at the lowest possible level. Each node has
+its own <em>magic cookie</em>, which is an Erlang atom.</p><p>When a node tries to connect to another node, the magic cookies
+are compared. If they do not match, the connected node rejects
+the connection.</p><p>At start-up, a node has a random atom assigned as its magic
+cookie and the cookie of other nodes is assumed to be
+<strong>nocookie</strong>. The first action of the Erlang network
+authentication server (<strong>auth</strong>) is then to read a file named
+<strong>$HOME/.erlang.cookie</strong>. If the file does not exist, it is
+created. The UNIX permissions mode of the file is set to octal
+400 (read-only by user) and its contents are a random string. An
+atom <strong>Cookie</strong> is created from the contents of the file and
+the cookie of the local node is set to this using
+<strong>erlang:set_cookie(node(), Cookie)</strong>. This also makes
+the local node assume that all other nodes have the same cookie
+<strong>Cookie</strong>.</p><p>Thus, groups of users with identical cookie files get Erlang
+nodes that can communicate freely and without interference from
+the magic cookie system. Users who want to run nodes on separate
+file systems must make certain that their cookie files are
+identical on the different file systems.</p><p>For a node <strong>Node1</strong> with magic cookie <strong>Cookie</strong> to be
+able to connect to, or accept a connection from, another node
+<strong>Node2</strong> with a different cookie <strong>DiffCookie</strong>,
+the function <strong>erlang:set_cookie(Node2, DiffCookie)</strong> must
+first be called at <strong>Node1</strong>. Distributed systems with
+multiple user IDs can be handled in this way.</p><p>The default when a connection is established between two nodes,
+is to immediately connect all other visible nodes as well. This
+way, there is always a fully connected network. If there are
+nodes with different cookies, this method can be inappropriate
+and the command-line flag <strong>-connect_all false</strong> must be set,
+see the <a href="./erl">erl(1)</a>
+manual page in ERTS.</p><p>The magic cookie of the local node is retrieved by calling
+<strong>erlang:get_cookie()</strong>.</p><h4>Distribution BIFs</h4><p>Some useful BIFs for distributed programming
+(for more information, see the <a href="./erlang"> erlang(3)</a> manual page in ERTS:</p><table class="table table-bordered table-hover table-striped"><caption>Distribution BIFs</caption><tbody><tr><td><em>BIF</em></td><td><em>Description</em></td></tr><tr><td><strong>erlang:disconnect_node(Node)</strong></td><td>Forces the disconnection of a node.</td></tr><tr><td><strong>erlang:get_cookie()</strong></td><td>Returns the magic cookie of the current node.</td></tr><tr><td><strong>is_alive()</strong></td><td>Returns <strong>true</strong> if the runtime system is a node and can connect to other nodes, <strong>false</strong> otherwise.</td></tr><tr><td><strong>monitor_node(Node, true|false)</strong></td><td>Monitors the status of <strong>Node</strong>. A message<strong>{nodedown, Node}</strong> is received if the connection to it is lost.</td></tr><tr><td><strong>node()</strong></td><td>Returns the name of the current node. Allowed in guards.</td></tr><tr><td><strong>node(Arg)</strong></td><td>Returns the node where <strong>Arg</strong>, a pid, reference, or port, is located.</td></tr><tr><td><strong>nodes()</strong></td><td>Returns a list of all visible nodes this node is connected to.</td></tr><tr><td><strong>nodes(Arg)</strong></td><td>Depending on <strong>Arg</strong>, this function can return a list not only of visible nodes, but also hidden nodes and previously known nodes, and so on.</td></tr><tr><td><strong>erlang:set_cookie(Node, Cookie)</strong></td><td>Sets the magic cookie used when connecting to <strong>Node</strong>. If <strong>Node</strong> is the current node, <strong>Cookie</strong> is used when connecting to all new nodes.</td></tr><tr><td><strong>spawn[_link|_opt](Node, Fun)</strong></td><td>Creates a process at a remote node.</td></tr><tr><td><strong>spawn[_link|opt](Node, Module, FunctionName, Args)</strong></td><td>Creates a process at a remote node.</td></tr></tbody></table><h4>Distribution Command-Line Flags</h4><p>Examples of command-line flags used for distributed programming
+(for more information, see the <a href="./erl">erl(1) </a> manual page in ERTS:</p><table class="table table-bordered table-hover table-striped"><caption>Distribution Command-Line Flags</caption><tbody><tr><td><em>Command-Line Flag</em></td><td><em>Description</em></td></tr><tr><td><strong>-connect_all false</strong></td><td>Only explicit connection set-ups are used.</td></tr><tr><td><strong>-hidden</strong></td><td>Makes a node into a hidden node.</td></tr><tr><td><strong>-name Name</strong></td><td>Makes a runtime system into a node, using long node names.</td></tr><tr><td><strong>-setcookie Cookie</strong></td><td>Same as calling <strong>erlang:set_cookie(node(), Cookie)</strong>.</td></tr><tr><td><strong>-sname Name</strong></td><td>Makes a runtime system into a node, using short node names.</td></tr></tbody></table><h4>Distribution Modules</h4><p>Examples of modules useful for distributed programming:</p><p>In the Kernel application:</p><table class="table table-bordered table-hover table-striped"><caption>Kernel Modules Useful For Distribution.</caption><tbody><tr><td><em>Module</em></td><td><em>Description</em></td></tr><tr><td><strong>global</strong></td><td>A global name registration facility.</td></tr><tr><td><strong>global_group</strong></td><td>Grouping nodes to global name registration groups.</td></tr><tr><td><strong>net_adm</strong></td><td>Various Erlang net administration routines.</td></tr><tr><td><strong>net_kernel</strong></td><td>Erlang networking kernel.</td></tr></tbody></table><p>In the STDLIB application:</p><table class="table table-bordered table-hover table-striped"><caption>STDLIB Modules Useful For Distribution.</caption><tbody><tr><td><em>Module</em></td><td><em>Description</em></td></tr><tr><td><strong>slave</strong></td><td>Start and control of slave nodes.</td></tr></tbody></table><p>How code is compiled and loaded is not a language issue, but
+is system-dependent. This section describes compilation and
+code loading in Erlang/OTP with references to relevant parts of
+the documentation.</p><h4>Compilation</h4><p>Erlang programs must be <em>compiled</em> to object code.
+The compiler can generate a new file that contains the object
+code. The current abstract machine, which runs the object code, is
+called BEAM, therefore the object files get the suffix
+<strong>.beam</strong>. The compiler can also generate a binary which can
+be loaded directly.</p><p>The compiler is located in the module <strong>compile</strong> (see the
+<a href="./compile">compile(3)</a> manual page in
+Compiler).</p><pre>
+compile:file(Module)
+compile:file(Module, Options)</pre><p>The Erlang shell understands the command <strong>c(Module)</strong> which
+both compiles and loads <strong>Module</strong>.</p><p>There is also a module <strong>make</strong>, which provides a set of
+functions similar to the UNIX type Make functions, see the
+<a href="./make">make(3)</a>
+manual page in Tools.</p><p>The compiler can also be accessed from the OS prompt, see the
+<a href="./erl">erl(1)</a> manual page in ERTS.</p><pre>
+% erl -compile <span class="input">Module1</span>...<span class="input">ModuleN</span>
+% erl -make</pre><p>The <strong>erlc</strong> program provides an even better way to compile
+modules from the shell, see the
+<a href="./erlc">erlc(1)</a> manual page in ERTS.
+It understands a
+number of flags that can be used to define macros, add search
+paths for include files, and more.</p><pre>
+% erlc <span class="input">&lt;flags&gt;</span> <span class="input">File1.erl</span>...<span class="input">FileN.erl</span></pre><a name="loading"></a><h4>Code Loading</h4><p>The object code must be <em>loaded</em> into the Erlang runtime
+system. This is handled by the <em>code server</em>, see the
+<a href="./code">code(3)</a>
+manual page in Kernel.</p><p>The code server loads code according to a code loading strategy,
+which is either <em>interactive</em> (default) or
+<em>embedded</em>. In interactive mode, code is searched for in
+a <em>code path</em> and loaded when first referenced. In
+embedded mode, code is loaded at start-up according to a
+<em>boot script</em>. This is described in
+<a href="../doc/system_principles/system_principles#code_loading"> System Principles </a>.</p><h4>Code Replacement</h4><p>Erlang supports change of code in a running system. Code
+replacement is done on module level.</p><p>The code of a module can exist in two variants in a system:
+<em>current</em> and <em>old</em>. When a module is loaded into
+the system for the first time, the code becomes 'current'. If then
+a new instance of the module is loaded, the code of the previous
+instance becomes 'old' and the new instance becomes 'current'.</p><p>Both old and current code is valid, and can be evaluated
+concurrently. Fully qualified function calls always refer to
+current code. Old code can still be evaluated because of processes
+lingering in the old code.</p><p>If a third instance of the module is loaded, the code server
+removes (purges) the old code and any processes lingering in it is
+terminated. Then the third instance becomes 'current' and
+the previously current code becomes 'old'.</p><p>To change from old code to current code, a process must make a
+fully qualified function call.</p><p><em>Example:</em></p><pre>
+-module(m).
+-export([loop/0]).
+
+loop() -&gt;
+    receive
+        code_switch -&gt;
+            m:loop();
+        Msg -&gt;
+            ...
+            loop()
+    end.</pre><p>To make the process change code, send the message
+<strong>code_switch</strong> to it. The process then makes a fully
+qualified call to <strong>m:loop()</strong> and changes to current code.
+Notice that <strong>m:loop/0</strong> must be exported.</p><p>For code replacement of funs to work, use the syntax
+<strong>fun Module:FunctionName/Arity</strong>.</p><a name="on_load"></a><h4>Running a Function When a Module is Loaded</h4><p>The <strong>-on_load()</strong> directive names a function that is to
+be run automatically when a module is loaded.</p><p>Its syntax is as follows:</p><pre>
+-on_load(Name/0).</pre><p>It is not necessary to export the function. It is called in a
+freshly spawned process (which terminates as soon as the function
+returns).</p><p>The function must return <strong>ok</strong> if the module is to
+become the new current code for the module and become
+callable.</p><p>Returning any other value or generating an exception
+causes the new code to be unloaded. If the return value is not an
+atom, a warning error report is sent to the error logger.</p><p>If there already is current code for the module, that code will
+remain current and can be called until the <strong>on_load</strong> function
+has returned. If the <strong>on_load</strong> function fails, the current
+code (if any) will remain current. If there is no current code for
+a module, any process that makes an external call to the module
+before the <strong>on_load</strong> function has finished will be suspended
+until the <strong>on_load</strong> function have finished.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Before OTP 19, if the <strong>on_load</strong> function failed, any
+previously current code would become old, essentially leaving
+the system without any working and reachable instance of the
+module.  That problem has been eliminated in OTP 19.</p></div><p>In embedded mode, first all modules are loaded.
+Then all <strong>on_load</strong> functions are called. The system is
+terminated unless all of the <strong>on_load</strong> functions return
+<strong>ok</strong>.</p><p><em>Example:</em></p><pre>
+-module(m).
+-on_load(load_my_nifs/0).
+
+load_my_nifs() -&gt;
+    NifPath = ...,    %Set up the path to the NIF library.
+    Info = ...,       %Initialize the Info term
+    erlang:load_nif(NifPath, Info).</pre><p>If the call to <strong>erlang:load_nif/2</strong> fails, the module
+is unloaded and a  warning report is sent to
+the error loader.</p><p>Examples of how to use ports and port drivers are provided in
+<a href="../doc/tutorial/introduction#interoperability tutorial"> Interoperability Tutorial</a>.
+For information about the BIFs mentioned, see the
+<a href="./erlang">erlang(3)</a> manual
+page in ERTS.</p><h4>Ports</h4><p><em>Ports</em> provide the basic mechanism for communication
+with the external world, from Erlang's point of view. They
+provide a byte-oriented interface to an external program. When a
+port has been created, Erlang can communicate with it by sending
+and receiving lists of bytes, including binaries.</p><p>The Erlang process creating a port is said to be
+the <em>port owner</em>, or the <em>connected process</em> of
+the port. All communication to and from the port must go through
+the port owner. If the port owner terminates, so does the port
+(and the external program, if it is written correctly).</p><p>The external program resides in another OS process. By default,
+it reads from standard input (file descriptor 0) and writes
+to standard output (file descriptor 1). The external program
+is to terminate when the port is closed.</p><h4>Port Drivers</h4><p>It is possible to write a driver in C according to certain
+principles and dynamically link it to the Erlang runtime system.
+The linked-in driver looks like a port from the Erlang
+programmer's point of view and is called a <em>port driver</em>.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>An erroneous port driver causes the entire Erlang runtime
+system to leak memory, hang or crash.</p></div><p>For information about port drivers, see the
+<a href="./erl_driver">erl_driver(4)</a>
+manual page in ERTS,
+<a href="./driver_entry">driver_entry(1)</a>
+manual page in ERTS, and
+<a href="./erl_ddll">erl_ddll(3)</a>
+manual page in Kernel.</p><h4>Port BIFs</h4><p>To create a port:</p><table class="table table-bordered table-hover table-striped"><caption>Port Creation BIF</caption><tbody><tr><td><strong>open_port(PortName, PortSettings</strong></td><td>Returns a port identifier <strong>Port</strong> as the result of opening a new Erlang port. Messages can be sent to, and received from, a port identifier, just like a pid. Port identifiers can also be linked to using <strong>link/1</strong>, or registered under a name using <strong>register/2</strong>.</td></tr></tbody></table><p><strong>PortName</strong> is usually a tuple <strong>{spawn,Command}</strong>, where
+the string <strong>Command</strong> is the name of the external program.
+The external program runs outside the Erlang workspace, unless a
+port driver with the name <strong>Command</strong> is found. If <strong>Command</strong>
+is found, that driver is started.</p><p><strong>PortSettings</strong> is a list of settings (options) for the port.
+The list typically contains at least a tuple <strong>{packet,N}</strong>,
+which specifies that data sent between the port and the external
+program are preceded by an N-byte length indicator. Valid values
+for N are 1, 2, or 4. If binaries are to be used instead of lists
+of bytes, the option <strong>binary</strong> must be included.</p><p>The port owner <strong>Pid</strong> can communicate with the port
+<strong>Port</strong> by sending and receiving messages. (In fact, any
+process can send the messages to the port, but the port owner must
+be identified in the message).</p><p>As of Erlang/OTP R16, messages sent to ports are delivered truly
+asynchronously. The underlying implementation previously
+delivered messages to ports synchronously. Message passing has
+however always been documented as an asynchronous operation. Hence,
+this is not to be an issue for an Erlang program communicating
+with ports, unless false assumptions about ports have been made.</p><p>In the following tables of examples, <strong>Data</strong> must be an I/O list.
+An I/O list is a binary or a (possibly deep) list of binaries
+or integers in the range 0..255:</p><table class="table table-bordered table-hover table-striped"><caption>Messages Sent To a Port</caption><tbody><tr><td><em>Message</em></td><td><em>Description</em></td></tr><tr><td><strong>{Pid,{command,Data}}</strong></td><td>Sends <strong>Data</strong> to the port.</td></tr><tr><td><strong>{Pid,close}</strong></td><td>Closes the port. Unless the port is already closed, the port replies with <strong>{Port,closed}</strong> when all buffers have been flushed and the port really closes.</td></tr><tr><td><strong>{Pid,{connect,NewPid}}</strong></td><td>Sets the port owner of <strong>Port</strong>to <strong>NewPid</strong>. Unless the port is already closed, the port replies with<strong>{Port,connected}</strong> to the old port owner. Note that the old port owner is still linked to the port, but the new port owner is not.</td></tr></tbody></table><table class="table table-bordered table-hover table-striped"><caption>Messages Received From a Port</caption><tbody><tr><td><em>Message</em></td><td><em>Description</em></td></tr><tr><td><strong>{Port,{data,Data}}</strong></td><td><strong>Data</strong> is received from the external program.</td></tr><tr><td><strong>{Port,closed}</strong></td><td>Reply to <strong>Port ! {Pid,close}</strong>.</td></tr><tr><td><strong>{Port,connected}</strong></td><td>Reply to <strong>Port ! {Pid,{connect,NewPid}}</strong>.</td></tr><tr><td><strong>{'EXIT',Port,Reason}</strong></td><td>If the port has terminated for some reason.</td></tr></tbody></table><p>Instead of sending and receiving messages, there are also a
+number of BIFs that can be used:</p><table class="table table-bordered table-hover table-striped"><caption>Port BIFs</caption><tbody><tr><td><em>Port BIF</em></td><td><em>Description</em></td></tr><tr><td><strong>port_command(Port,Data)</strong></td><td>Sends <strong>Data</strong> to the port.</td></tr><tr><td><strong>port_close(Port)</strong></td><td>Closes the port.</td></tr><tr><td><strong>port_connect(Port,NewPid)</strong></td><td>Sets the port owner of <strong>Port</strong>to <strong>NewPid</strong>. The old port owner <strong>Pid</strong> stays linked to the port and must call <strong>unlink(Port)</strong> if this is not desired.</td></tr><tr><td><strong>erlang:port_info(Port,Item)</strong></td><td>Returns information as specified by <strong>Item</strong>.</td></tr><tr><td><strong>erlang:ports()</strong></td><td>Returns a list of all ports on the current node.</td></tr></tbody></table><p>Some additional BIFs that apply to port drivers:
+<strong>port_control/3</strong> and <strong>erlang:port_call/3</strong>.</p></body></html>

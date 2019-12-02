@@ -1,0 +1,74 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>eldap</h1><h1>eldap</h1><p>The <em>Eldap</em> application provides an api for accessing an LDAP server.The original code was developed by TorbjÃ¶rn TÃ¶rnkvist.</p><p>The <em>Eldap</em> application provides an api for accessing an LDAP server.The original code was developed by TorbjÃ¶rn TÃ¶rnkvist.</p><h3>eldap</h3><p>LDAP Client</p><p>This module provides a client api to the Lightweight Directory Access Protocol (LDAP).
+References:<ul><li> <p>RFC 4510 - RFC 4519</p> </li><li> <p>RFC 2830</p> </li></ul>The above publications can be found at <a href="http://www.ietf.org">IETF</a>.
+</p><h4>DATA TYPES</h4><p>Type definitions that are used more than once in this module:
+</p><dl><dt><strong>handle()</strong></dt><dd><p>Connection handle</p></dd><dt><strong>attribute() =</strong></dt><dd><p><strong>{Type = string(), Values=[string()]}</strong></p></dd><dt><strong>modify_op()</strong></dt><dd><p>See 
+<a href="#mod_add/2">mod_add/2</a>, 
+<a href="#mod_delete/2">mod_delete/2</a>,
+<a href="#mod_replace/2">mod_replace/2</a>
+</p></dd><dt><strong>scope()</strong></dt><dd><p>See 
+<a href="#baseObject/0">baseObject/0</a>, 
+<a href="#singleLevel/0">singleLevel/0</a>, 
+<a href="#wholeSubtree/0">wholeSubtree/0</a>
+</p></dd><dt><strong>dereference()</strong></dt><dd><p>See 
+<a href="#neverDerefAliases/0">neverDerefAliases/0</a>, 
+<a href="#derefInSearching/0">derefInSearching/0</a>, 
+<a href="#derefFindingBaseObj/0">derefFindingBaseObj/0</a>, 
+<a href="#derefAlways/0">derefAlways/0</a>
+</p></dd><dt><strong>filter()</strong></dt><dd><p>See 
+<a href="#present/1">present/1</a>, 
+<a href="#substrings/2">substrings/2</a>, 
+<a href="#equalityMatch/2">equalityMatch/2</a>, 
+<a href="#greaterOrEqual/2">greaterOrEqual/2</a>, 
+<a href="#lessOrEqual/2">lessOrEqual/2</a>, 
+<a href="#approxMatch/2">approxMatch/2</a>, 
+<a href="#extensibleMatch/2">extensibleMatch/2</a>, 
+<a href="#'and'/1">'and'/1</a>, 
+<a href="#'or'/1">'or'/1</a>, 
+<a href="#'not'/1">'not'/1</a>
+</p></dd><dt><strong>return_value() = </strong></dt><dd><p><strong>ok | {ok, {referral,referrals()}} | {error,Error}</strong>
+</p></dd><dt><strong>referrals() =</strong></dt><dd><p><strong>[Address = string()]</strong> The contents of <strong>Address</strong> is server dependent.
+</p></dd></dl><h3>Functions</h3><h4>open([Host]) -&gt; {ok, Handle} | {error, Reason}</h4><p>Open a connection to an LDAP server.</p><ul><li><span class="v">Handle = handle()</span></li></ul><p>Setup a connection to an LDAP server, the <strong>HOST</strong>'s are tried in order. </p><h4>open([Host], [Option]) -&gt; {ok, Handle} | {error, Reason}</h4><p>Open a connection to an LDAP server.</p><ul><li><span class="v">Handle = handle()</span></li><li><span class="v">Option = {port, integer()} | {log, function()} | {timeout, integer()} | {ssl, boolean()} | {sslopts, list()} | {tcpopts, list()}</span></li></ul><p>Setup a connection to an LDAP server, the <strong>HOST</strong>'s are tried in order.</p><p>The log function takes three arguments, <strong>fun(Level, FormatString, [FormatArg]) end</strong>.</p><p>Timeout set the maximum time in milliseconds that each server request may take.</p><p>All TCP socket options are accepted except 
+<strong>active</strong>, <strong>binary</strong>, <strong>deliver</strong>, <strong>list</strong>, <strong>mode</strong> and <strong>packet</strong>
+</p><h4>close(Handle) -&gt; ok</h4><p>Shutdown the connection.</p><ul><li><span class="v">Handle = handle()</span></li></ul><p>Shutdown the connection after sending an unbindRequest to the server. If the connection is tls the connection
+will be closed with <strong>ssl:close/1</strong>, otherwise with <strong>gen_tcp:close/1</strong>.</p><h4>start_tls(Handle, Options) -&gt; return_value()</h4><p>Upgrade a connection to TLS.</p><p>Same as start_tls(Handle, Options, infinity)</p><h4>start_tls(Handle, Options, Timeout) -&gt; return_value()</h4><p>Upgrade a connection to TLS.</p><ul><li><span class="v">Handle = handle()</span></li><li><span class="v">Options = ssl:ssl_options()</span></li><li><span class="v">Timeout = infinity | positive_integer()</span></li></ul><p>Upgrade the connection associated with <strong>Handle</strong> to a tls connection if possible.</p><p>The upgrade is done in two phases: first the server is asked for permission to upgrade. Second, if the request is acknowledged, the upgrade to tls is performed.</p><p>Error responses from phase one will not affect the current encryption state of the connection. Those responses are:</p><dl><dt><strong>tls_already_started</strong></dt><dd>The connection is already encrypted.  The connection is not affected.</dd><dt><strong>{response,ResponseFromServer}</strong></dt><dd>The upgrade was refused by the LDAP server.  The <strong>ResponseFromServer</strong> is an atom delivered byt the LDAP server explained in section 2.3 of rfc 2830. The connection is not affected, so it is still un-encrypted.</dd></dl><p>Errors in the second phase will however end the connection:</p><dl><dt><strong>Error</strong></dt><dd>Any error responded from ssl:connect/3</dd></dl><p>The <strong>Timeout</strong> parameter is for the actual tls upgrade (phase 2) while the timeout in
+<a href="#open/2">eldap:open/2</a> is used for the initial negotiation about
+upgrade (phase 1).
+</p><h4>simple_bind(Handle, Dn, Password) -&gt; return_value()</h4><p>Authenticate the connection.</p><ul><li><span class="v">Handle = handle()</span></li><li><span class="v">Dn = string()</span></li><li><span class="v">Password = string()</span></li></ul><p>Authenticate the connection using simple authentication.</p><h4>add(Handle, Dn, [Attribute]) -&gt; return_value()</h4><p>Add an entry.</p><ul><li><span class="v">Handle = handle()</span></li><li><span class="v">Dn = string()</span></li><li><span class="v">Attribute = attribute()</span></li></ul><p> Add an entry. The entry must not exist.</p><pre><code class="">
+  add(Handle,
+      "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com",
+       [{"objectclass", ["person"]},
+        {"cn", ["Bill Valentine"]},
+        {"sn", ["Valentine"]},
+        {"telephoneNumber", ["545 555 00"]}]
+     )
+	</code></pre><h4>delete(Handle, Dn) -&gt; return_value()</h4><p>Delete an entry.</p><ul><li><span class="v">Dn = string()</span></li></ul><p> Delete an entry.</p><pre><code class="">
+  delete(Handle, "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com")
+	</code></pre><h4>mod_add(Type, [Value]) -&gt; modify_op()</h4><p>Create a modification operation.</p><ul><li><span class="v">Type = string()</span></li><li><span class="v">Value = string()</span></li></ul><p> Create an add modification operation.</p><h4>mod_delete(Type, [Value]) -&gt; modify_op()</h4><p>Create a modification operation.</p><ul><li><span class="v">Type = string()</span></li><li><span class="v">Value = string()</span></li></ul><p> Create a delete modification operation.</p><h4>mod_replace(Type, [Value]) -&gt; modify_op()</h4><p>Create a modification operation.</p><ul><li><span class="v">Type = string()</span></li><li><span class="v">Value = string()</span></li></ul><p> Create a replace modification operation.</p><h4>modify(Handle, Dn, [ModifyOp]) -&gt; return_value()</h4><p>Modify an entry.</p><ul><li><span class="v">Dn = string()</span></li><li><span class="v">ModifyOp = modify_op()</span></li></ul><p> Modify an entry.</p><pre><code class="">
+  modify(Handle, "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com",
+         [eldap:mod_replace("telephoneNumber", ["555 555 00"]),
+	  eldap:mod_add("description", ["LDAP Hacker"]) ])
+	</code></pre><h4>modify_password(Handle, Dn, NewPasswd) -&gt; return_value() | {ok, GenPasswd}</h4><p>Modify the password of a user.</p><ul><li><span class="v">Dn = string()</span></li><li><span class="v">NewPasswd = string()</span></li></ul><p>Modify the password of a user. See <a href="#modify_password/4">modify_password/4</a>.</p><h4>modify_password(Handle, Dn, NewPasswd, OldPasswd) -&gt; return_value() | {ok, GenPasswd}</h4><p>Modify the password of a user.</p><ul><li><span class="v">Dn = string()</span></li><li><span class="v">NewPasswd = string()</span></li><li><span class="v">OldPasswd = string()</span></li><li><span class="v">GenPasswd = string()</span></li></ul><p>Modify the password of a user.</p><ul><li> <p><strong>Dn</strong>. The user to modify. Should be "" if the
+modify request is for the user of the LDAP session.</p> </li><li> <p><strong>NewPasswd</strong>. The new password to set. Should be ""
+if the server is to generate the password. In this case,
+the result will be <strong>{ok, GenPasswd}</strong>.</p> </li><li> <p><strong>OldPasswd</strong>. Sometimes required by server policy
+for a user to change their password. If not required, use
+<a href="#modify_password/3">modify_password/3</a>.</p> </li></ul><h4>modify_dn(Handle, Dn, NewRDN, DeleteOldRDN, NewSupDN) -&gt; return_value()</h4><p>Modify the DN of an entry.</p><ul><li><span class="v">Dn = string()</span></li><li><span class="v">NewRDN = string()</span></li><li><span class="v">DeleteOldRDN = boolean()</span></li><li><span class="v">NewSupDN = string()</span></li></ul><p> Modify the DN of an entry. <strong>DeleteOldRDN</strong> indicates
+whether the current RDN should be removed from the attribute list after the after operation.
+<strong>NewSupDN</strong> is the new parent that the RDN shall be moved to.  If the old parent should
+remain as parent, <strong>NewSupDN</strong> shall be "".</p><pre><code class="">
+  modify_dn(Handle, "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com ",
+            "cn=Bill Jr Valentine", true, "")
+	</code></pre><h4>search(Handle, SearchOptions) -&gt; {ok, #eldap_search_result{}} | {ok, {referral,referrals()}} | {error, Reason}</h4><p>Search the Directory</p><ul><li><span class="v">SearchOptions = #eldap_search{} | [SearchOption]</span></li><li><span class="v">SearchOption = {base, string()} | {filter, filter()} | {scope, scope()} | {attributes, [string()]} | {deref, dereference()} | | {types_only, boolean()} | {timeout, integer()} </span></li></ul><p>Search the directory with the supplied the SearchOptions.
+The base and filter options must be supplied.
+Default values: scope is <strong>wholeSubtree()</strong>, deref is <strong>derefAlways()</strong>,
+types_only is <strong>false</strong> and timeout is <strong>0</strong> (meaning infinity).
+</p><pre><code class="">
+  Filter = eldap:substrings("cn", [{any,"V"}]),
+  search(Handle, [{base, "dc=example, dc=com"}, {filter, Filter}, {attributes, ["cn"]}]),
+	</code></pre><p>The <strong>timeout</strong> option in the <strong>SearchOptions</strong> is for the ldap server, while
+the timeout in <a href="#open/2">eldap:open/2</a> is used for each
+individual request in the search operation.
+</p><h4>baseObject() -&gt; scope()</h4><p>Create search scope.</p><p> Search baseobject only.</p><h4>singleLevel() -&gt; scope()</h4><p>Create search scope.</p><p> Search the specified level only, i.e. do not recurse.</p><h4>wholeSubtree() -&gt; scope()</h4><p>Create search scope.</p><p> Search the entire subtree.</p><h4>neverDerefAliases() -&gt; dereference()</h4><p>Create search option.</p><p>Never derefrence aliases, treat aliases as entries.</p><h4>derefAlways() -&gt; dereference()</h4><p>Create search option.</p><p>Always derefrence aliases.</p><h4>derefInSearching() -&gt; dereference()</h4><p>Create search option.</p><p>Derefrence aliases only when searching.</p><h4>derefFindingBaseObj() -&gt; dereference()</h4><p>Create search option.</p><p>Derefrence aliases only in finding the base.</p><h4>present(Type) -&gt; filter()</h4><p>Create search filter option.</p><ul><li><span class="v">Type = string()</span></li></ul><p>Create a filter which filters on attribute type presence.</p><h4>substrings(Type, [SubString]) -&gt; filter()</h4><p>Create search filter option.</p><ul><li><span class="v">Type = string()</span></li><li><span class="v">SubString = {StringPart, string()}</span></li><li><span class="v">StringPart = initial | any | final</span></li></ul><p>Create a filter which filters on substrings.</p><h4>equalityMatch(Type, Value) -&gt; filter()</h4><p>Create search filter option.</p><ul><li><span class="v">Type = string()</span></li><li><span class="v">Value = string()</span></li></ul><p>Create a equality filter.</p><h4>greaterOrEqual(Type, Value) -&gt; filter()</h4><p>Create search filter option.</p><ul><li><span class="v">Type = string()</span></li><li><span class="v">Value = string()</span></li></ul><p>Create a greater or equal filter.</p><h4>lessOrEqual(Type, Value) -&gt; filter()</h4><p>Create search filter option.</p><ul><li><span class="v">Type = string()</span></li><li><span class="v">Value = string()</span></li></ul><p>Create a less or equal filter.</p><h4>approxMatch(Type, Value) -&gt; filter()</h4><p>Create search filter option.</p><ul><li><span class="v">Type = string()</span></li><li><span class="v">Value = string()</span></li></ul><p>Create a approximation match filter.</p><h4>extensibleMatch(MatchValue, OptionalAttrs) -&gt; filter()</h4><p>Create search filter option.</p><ul><li><span class="v">MatchValue = string()</span></li><li><span class="v">OptionalAttrs = [Attr]</span></li><li><span class="v">Attr = {matchingRule,string()} | {type,string()} | {dnAttributes,boolean()}</span></li></ul><p>Creates an extensible match filter. For example, </p><pre><code class="">
+  eldap:extensibleMatch("Bar", [{type,"sn"}, {matchingRule,"caseExactMatch"}]))
+      </code></pre><p>creates a filter which performs a <strong>caseExactMatch</strong> on the attribute <strong>sn</strong> and matches with the value <strong>"Bar"</strong>. The default value of <strong>dnAttributes</strong> is <strong>false</strong>.</p><h4>'and'([Filter]) -&gt; filter()</h4><p>Create search filter option.</p><ul><li><span class="v">Filter = filter()</span></li></ul><p>Creates a filter where all <strong>Filter</strong> must be true.</p><h4>'or'([Filter]) -&gt; filter()</h4><p>Create search filter option.</p><ul><li><span class="v">Filter = filter()</span></li></ul><p>Create a filter where at least one of the <strong>Filter</strong> must be true.</p><h4>'not'(Filter) -&gt; filter()</h4><p>Create search filter option.</p><ul><li><span class="v">Filter = filter()</span></li></ul><p>Negate a filter.</p></body></html>

@@ -1,0 +1,65 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>wx_object</h1><h1>wx_object</h1><p>wx_object - Generic wx object behaviour.</p><p>wx_object - Generic wx object behaviourThis is a behaviour module that can be used for "sub classing"  
+wx objects. It works like a regular gen_server module and creates  
+a server per object.NOTE: Currently no form of inheritance is implemented.The user module should export:init(Args) should return <br/>      
+{wxObject, State} | {wxObject, State, Timeout} |          
+ignore | {stop, Reason}Asynchronous window event handling: <br/>
+handle_event(#wx{}, State)  should return <br/>     
+{noreply, State} | {noreply, State, Timeout} | {stop, Reason, State}The user module can export the following callback functions:handle_call(Msg, {From, Tag}, State) should return <br/>     
+{reply, Reply, State} | {reply, Reply, State, Timeout} |         
+{noreply, State} | {noreply, State, Timeout} |         
+{stop, Reason, Reply, State}handle_cast(Msg, State) should return <br/>     
+{noreply, State} | {noreply, State, Timeout} |         
+{stop, Reason, State}If the above are not exported but called, the wx_object process will crash.  
+The user module can also export:Info is message e.g. {'EXIT', P, R}, {nodedown, N}, ...  <br/>
+handle_info(Info, State)  should return , ...  <br/>     
+{noreply, State} | {noreply, State, Timeout} | {stop, Reason, State}If a message is sent to the wx_object process when handle_info is not  
+exported, the message will be dropped and ignored.When stop is returned in one of the functions above with Reason =
+normal | shutdown | Term, terminate(State) is called. It lets the
+user module clean up, it is always called when server terminates or
+when wx_object() in the driver is deleted. If the Parent process
+terminates the Module:terminate/2 function is called. <br/>  
+terminate(Reason, State)Example:<pre>  -module(myDialog).
+  -export([new/2, show/1, destroy/1]).  %% API
+  -export([init/1, handle_call/3, handle_event/2,
+           handle_info/2, code_change/3, terminate/2]).
+           new/2, showModal/1, destroy/1]).  %% Callbacks
+ 
+  %% Client API
+  new(Parent, Msg) -&gt;
+     wx_object:start(?MODULE, [Parent,Id], []).
+ 
+  show(Dialog) -&gt;
+     wx_object:call(Dialog, show_modal).
+ 
+  destroy(Dialog) -&gt;
+     wx_object:call(Dialog, destroy).
+ 
+  %% Server Implementation ala gen_server
+  init([Parent, Str]) -&gt;
+     Dialog = wxDialog:new(Parent, 42, "Testing", []),
+     ...
+     wxDialog:connect(Dialog, command_button_clicked),
+     {Dialog, MyState}.
+ 
+  handle_call(show, _From, State) -&gt;
+     wxDialog:show(State#state.win),
+     {reply, ok, State};
+  ...
+  handle_event(#wx{}, State) -&gt;
+     io:format("Users clicked button~n",[]),
+     {noreply, State};
+  ...</pre></p><h1>Functions</h1><h2>start(Name, Mod, Args, Options) -&gt;| {error, term()}</h2><p>Starts a generic wx_object server and invokes Mod:init(Args) in the new process.</p><ul><li><span class="v">Name = {local, atom()}</span></li><li><span class="v">Mod = atom()</span></li><li><span class="v">Args = term()</span></li><li><span class="v">Flag = trace | log | {logfile, string()} | statistics | debug</span></li><li><span class="v">Options = [{timeout, timeout()} | {debug, [Flag]}]</span></li></ul><a name="start-4"></a><p>Starts a generic wx_object server and invokes Mod:init(Args) in the
+new process.</p><h2>start_link(Mod, Args, Options) -&gt;| {error, term()}</h2><p>Starts a generic wx_object server and invokes Mod:init(Args) in the new process.</p><ul><li><span class="v">Mod = atom()</span></li><li><span class="v">Args = term()</span></li><li><span class="v">Flag = trace | log | {logfile, string()} | statistics | debug</span></li><li><span class="v">Options = [{timeout, timeout()} | {debug, [Flag]}]</span></li></ul><a name="start_link-3"></a><p>Starts a generic wx_object server and invokes Mod:init(Args) in the
+new process.</p><h2>start_link(Name, Mod, Args, Options) -&gt;| {error, term()}</h2><p>Starts a generic wx_object server and invokes Mod:init(Args) in the new process.</p><ul><li><span class="v">Name = {local, atom()}</span></li><li><span class="v">Mod = atom()</span></li><li><span class="v">Args = term()</span></li><li><span class="v">Flag = trace | log | {logfile, string()} | statistics | debug</span></li><li><span class="v">Options = [{timeout, timeout()} | {debug, [Flag]}]</span></li></ul><a name="start_link-4"></a><p>Starts a generic wx_object server and invokes Mod:init(Args) in the
+new process.</p><h2>stop(Obj) -&gt; ok</h2><p>Stops a generic wx_object server with reason 'normal'.</p><ul><li><span class="v">Obj =  | atom() | pid()</span></li></ul><a name="stop-1"></a><p>Stops a generic wx_object server with reason 'normal'.
+Invokes terminate(Reason,State) in the server. The call waits until
+the process is terminated. If the process does not exist, an
+exception is raised.</p><h2>stop(Obj, Reason, Timeout) -&gt; ok</h2><p>Stops a generic wx_object server with the given Reason.</p><ul><li><span class="v">Obj =  | atom() | pid()</span></li><li><span class="v">Reason = term()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><a name="stop-3"></a><p>Stops a generic wx_object server with the given Reason.
+Invokes terminate(Reason,State) in the server. The call waits until
+the process is terminated. If the call times out, or if the process
+does not exist, an exception is raised.</p><h2>call(Obj, Request) -&gt; term()</h2><p>Make a call to a wx_object server.</p><ul><li><span class="v">Obj =  | atom() | pid()</span></li><li><span class="v">Request = term()</span></li></ul><a name="call-2"></a><p>Make a call to a wx_object server.
+The call waits until it gets a result.
+Invokes handle_call(Request, From, State) in the server</p><h2>call(Obj, Request, Timeout) -&gt; term()</h2><p>Make a call to a wx_object server with a timeout.</p><ul><li><span class="v">Obj =  | atom() | pid()</span></li><li><span class="v">Request = term()</span></li><li><span class="v">Timeout = integer()</span></li></ul><a name="call-3"></a><p>Make a call to a wx_object server with a timeout.
+Invokes handle_call(Request, From, State) in server</p><h2>cast(Obj, Request) -&gt; ok</h2><p>Make a cast to a wx_object server.</p><ul><li><span class="v">Obj =  | atom() | pid()</span></li><li><span class="v">Request = term()</span></li></ul><a name="cast-2"></a><p>Make a cast to a wx_object server.
+Invokes handle_cast(Request, State) in the server</p><h2>get_pid(Obj) -&gt; pid()</h2><p>Get the pid of the object handle.</p><ul><li><span class="v">Obj =  | atom() | pid()</span></li></ul><a name="get_pid-1"></a><p>Get the pid of the object handle.</p><h2>set_pid(Obj, Pid::pid()) -&gt;</h2><p>Sets the controlling process of the object handle.</p><ul><li><span class="v">Obj =  | atom() | pid()</span></li></ul><a name="set_pid-2"></a><p>Sets the controlling process of the object handle.</p><h2>reply(X1::{pid(), Tag::term()}, Reply::term()) -&gt; pid()</h2><p>Get the pid of the object handle.</p><a name="reply-2"></a><p>Get the pid of the object handle.</p><h1>Authors</h1></body></html>

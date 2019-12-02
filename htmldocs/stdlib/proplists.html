@@ -1,0 +1,126 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>proplists</h1><h1>proplists</h1><p>Support functions for property lists.</p><p>Property lists are ordinary lists containing entries in the form
+of either tuples, whose first elements are keys used for lookup and
+insertion, or atoms, which work as shorthand for tuples
+<strong>{Atom, true}</strong>. (Other terms are allowed in the lists, but are
+ignored by this module.) If there is more than one entry in a list for a
+certain key, the first occurrence normally overrides any later
+(irrespective of the arity of the tuples).Property lists are useful for representing inherited properties,
+such as options passed to a function where a user can specify options
+overriding the default settings, object properties, annotations,
+and so on.Two keys are considered equal if they match (<strong>=:=</strong>). That is,
+numbers are compared literally rather than by value, so that,
+for example, <strong>1</strong> and <strong>1.0</strong> are different keys.</p><h1>Data Types</h1><span class="name">property</span><span class="name">proplist</span><h1>Functions</h1><h2>append_values/2</h2><p>Similar to
+<a href="#get_all_values/2">get_all_values/2</a>,
+but each value is wrapped in a list unless it is already itself a
+list. The resulting list of lists is concatenated. This is often
+useful for "incremental" options.</p><p><em>Example:</em></p><pre><code class="">
+append_values(a, [{a, [1,2]}, {b, 0}, {a, 3}, {c, -1}, {a, [4]}])</code></pre><p>returns:</p><pre><code class="">
+[1,2,3,4]</code></pre><h2>compact/1</h2><p>Minimizes the representation of all entries in the list. This is
+equivalent to <strong>[property(P) || P &lt;- ListIn]</strong>.</p><p>See also
+<a href="#property/1">property/1</a>,
+<a href="#unfold/1">unfold/1</a>.</p><h2>delete/2</h2><p>Deletes all entries associated with <strong><span class="anno">Key</span></strong> from
+<strong><span class="anno">List</span></strong>.</p><h2>expand/2</h2><p>Expands particular properties to corresponding sets of
+properties (or other terms). For each pair <strong>{<span class="anno">Property</span>, <span class="anno">Expansion</span>}</strong> in <strong><span class="anno">Expansions</span></strong>: if
+<strong>E</strong> is the first entry in <strong><span class="anno">ListIn</span></strong> with the
+same key as <strong><span class="anno">Property</span></strong>, and <strong>E</strong> and
+<strong><span class="anno">Property</span></strong> have equivalent normal forms, then
+<strong>E</strong> is replaced with the terms in <strong><span class="anno">Expansion</span></strong>,
+and any following entries with the same key are deleted from
+<strong><span class="anno">ListIn</span></strong>.</p><p>For example, the following expressions all return
+<strong>[fie, bar, baz, fum]</strong>:</p><pre><code class="">
+expand([{foo, [bar, baz]}], [fie, foo, fum])
+expand([{{foo, true}, [bar, baz]}], [fie, foo, fum])
+expand([{{foo, false}, [bar, baz]}], [fie, {foo, false}, fum])</code></pre><p>However, no expansion is done in the following call
+because <strong>{foo, false}</strong> shadows <strong>foo</strong>:</p><pre><code class="">
+expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code></pre><p>Notice that if the original property term is to be preserved in the
+result when expanded, it must be included in the expansion list. The
+inserted terms are not expanded recursively. If
+<strong><span class="anno">Expansions</span></strong> contains more than one property with
+the same key, only the first occurrence is used.</p><p>See also
+<a href="#normalize/2">normalize/2</a>.</p><h2>get_all_values/2</h2><p>Similar to 
+<a href="#get_value/2">get_value/2</a>,
+but returns the list of values for <em>all</em> entries
+<strong>{Key, Value}</strong> in <strong><span class="anno">List</span></strong>. If no such entry
+exists, the result is the empty list.</p><h2>get_bool/2</h2><p>Returns the value of a boolean key/value option. If
+<strong>lookup(<span class="anno">Key</span>, <span class="anno">List</span>)</strong> would yield
+<strong>{<span class="anno">Key</span>, true}</strong>, this function returns <strong>true</strong>,
+otherwise <strong>false</strong>.</p><p>See also
+<a href="#get_value/2">get_value/2</a>,
+<a href="#lookup/2">lookup/2</a>.</p><h2>get_keys/1</h2><p>Returns an unordered list of the keys used in
+<strong><span class="anno">List</span></strong>, not containing duplicates.</p><h2>get_value/2</h2><p>Equivalent to
+<strong>get_value(<span class="anno">Key</span>, <span class="anno">List</span>, undefined)</strong>.</p><h2>get_value/3</h2><p>Returns the value of a simple key/value property in
+<strong><span class="anno">List</span></strong>. If <strong>lookup(<span class="anno">Key</span>, <span class="anno">List</span>)</strong> would yield <strong>{<span class="anno">Key</span>, Value}</strong>,
+this function returns the corresponding <strong>Value</strong>, otherwise
+<strong><span class="anno">Default</span></strong>.</p><p>See also
+<a href="#get_all_values/2">get_all_values/2</a>,
+<a href="#get_bool/2">get_bool/2</a>,
+<a href="#get_value/2">get_value/2</a>,
+<a href="#lookup/2">lookup/2</a>.</p><h2>is_defined/2</h2><p>Returns <strong>true</strong> if <strong><span class="anno">List</span></strong> contains at least
+one entry associated with <strong><span class="anno">Key</span></strong>, otherwise
+<strong>false</strong>.</p><h2>lookup/2</h2><p>Returns the first entry associated with <strong><span class="anno">Key</span></strong> in
+<strong><span class="anno">List</span></strong>, if one exists, otherwise returns
+<strong>none</strong>. For an atom <strong>A</strong> in the list, the tuple
+<strong>{A, true}</strong> is the entry associated with <strong>A</strong>.</p><p>See also
+<a href="#get_bool/2">get_bool/2</a>,
+<a href="#get_value/2">get_value/2</a>,
+<a href="#lookup_all/2">lookup_all/2</a>.</p><h2>lookup_all/2</h2><p>Returns the list of all entries associated with
+<strong><span class="anno">Key</span></strong> in <strong><span class="anno">List</span></strong>. If no such entry
+exists, the result is the empty list.</p><p>See also
+<a href="#lookup/2">lookup/2</a>.</p><h2>normalize/2</h2><p>Passes <strong><span class="anno">ListIn</span></strong> through a sequence of
+substitution/expansion stages. For an <strong>aliases</strong> operation,
+function <a href="#substitute_aliases/2">substitute_aliases/2</a> is applied using the
+specified list of aliases:</p><ul><li> <p>For a <strong>negations</strong> operation, <strong>substitute_negations/2</strong>
+is applied using the specified negation list.</p> </li><li> <p>For an <strong>expand</strong> operation, function
+<a href="#expand/2">expand/2</a>
+is applied using the specified list of expansions.</p> </li></ul><p>The final result is automatically compacted (compare
+<a href="#compact/1">compact/1</a>).</p><p>Typically you want to substitute negations first, then aliases,
+then perform one or more expansions (sometimes you want to pre-expand
+particular entries before doing the main expansion). You might want
+to substitute negations and/or aliases repeatedly, to allow such
+forms in the right-hand side of aliases and expansion lists.</p><p>See also <a href="#substitute_negations/2">substitute_negations/2</a>.</p><h2>property/1</h2><p>Creates a normal form (minimal) representation of a property. If
+<strong><span class="anno">PropertyIn</span></strong> is <strong>{Key, true}</strong>, where
+<strong>Key</strong> is an atom, <strong>Key</strong> is returned, otherwise
+the whole term <strong><span class="anno">PropertyIn</span></strong> is returned.</p><p>See also
+<a href="#property/2">property/2</a>.</p><h2>property/2</h2><p>Creates a normal form (minimal) representation of a simple key/value
+property. Returns <strong><span class="anno">Key</span></strong> if <strong><span class="anno">Value</span></strong>
+is <strong>true</strong> and <strong><span class="anno">Key</span></strong> is an atom, otherwise a
+tuple <strong>{<span class="anno">Key</span>, <span class="anno">Value</span>}</strong> is returned.</p><p>See also
+<a href="#property/1">property/1</a>.</p><h2>split/2</h2><p>Partitions <strong><span class="anno">List</span></strong> into a list of sublists and a
+remainder. <strong><span class="anno">Lists</span></strong> contains one sublist for each key
+in <strong><span class="anno">Keys</span></strong>, in the corresponding order. The relative
+order of the elements in each sublist is preserved from the original
+<strong><span class="anno">List</span></strong>. <strong><span class="anno">Rest</span></strong> contains the
+elements in <strong><span class="anno">List</span></strong> that are not associated with any
+of the specified keys,
+also with their original relative order preserved.</p><p><em>Example:</em></p><pre><code class="">
+split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</code></pre><p>returns:</p><pre><code class="">
+{[[a], [{b, 5}, b],[{c, 2}, {c, 3, 4}]], [{e, 1}, d]}</code></pre><h2>substitute_aliases/2</h2><p>Substitutes keys of properties. For each entry in
+<strong><span class="anno">ListIn</span></strong>, if it is associated with some key
+<strong>K1</strong> such that <strong>{K1, K2}</strong> occurs in
+<strong><span class="anno">Aliases</span></strong>, the
+key of the entry is changed to <strong>K2</strong>. If the same
+<strong>K1</strong> occurs more than once in <strong><span class="anno">Aliases</span></strong>, only
+the first occurrence is used.</p><p>For example, <strong>substitute_aliases([{color, colour}], L)</strong>
+replaces all tuples <strong>{color, ...}</strong> in <strong>L</strong>
+with <strong>{colour, ...}</strong>, and all atoms <strong>color</strong>
+with <strong>colour</strong>.</p><p>See also
+<a href="#normalize/2">normalize/2</a>,
+<a href="#substitute_negations/2">substitute_negations/2</a>.</p><h2>substitute_negations/2</h2><p>Substitutes keys of boolean-valued properties and
+simultaneously negates their values. For each entry in
+<strong><span class="anno">ListIn</span></strong>, if it is associated with some key
+<strong>K1</strong> such that <strong>{K1, K2}</strong> occurs in
+<strong><span class="anno">Negations</span></strong>: if the entry was
+<strong>{K1, true}</strong>, it is replaced with <strong>{K2, false}</strong>, otherwise
+with <strong>{K2, true}</strong>, thus changing the name of the option and
+simultaneously negating the value specified by
+<a href="#get_bool/2">get_bool/2</a>.
+If the same <strong>K1</strong> occurs more than once in
+<strong><span class="anno">Negations</span></strong>, only the first occurrence is used.</p><p>For example, <strong>substitute_negations([{no_foo, foo}], L)</strong>
+replaces any atom <strong>no_foo</strong> or tuple
+<strong>{no_foo, true}</strong> in <strong>L</strong> with <strong>{foo, false}</strong>,
+and any other tuple <strong>{no_foo, ...}</strong> with <strong>{foo, true}</strong>.</p><p>See also
+<a href="#get_bool/2">get_bool/2</a>,
+<a href="#normalize/2">normalize/2</a>,
+<a href="#substitute_aliases/2">substitute_aliases/2</a>.</p><h2>unfold/1</h2><p>Unfolds all occurrences of atoms in <strong><span class="anno">ListIn</span></strong> to
+tuples <strong>{Atom, true}</strong>.</p></body></html>

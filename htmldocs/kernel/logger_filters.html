@@ -1,0 +1,79 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>logger_filters</h1><h1>logger_filters</h1><p>Filters to use with Logger.</p><p>All functions exported from this module can be used as primary
+or handler
+filters. See <a href="./logger#add_primary_filter-2">logger#add_primary_filter-2</a>
+and <a href="./logger#add_handler_filter-3">logger#add_handler_filter-3</a> for more information
+about how filters are added.Filters are removed with <a href="./logger#remove_primary_filter-1">logger#remove_primary_filter-1</a>
+and <a href="./logger#remove_handler_filter-2">logger#remove_handler_filter-2</a>.</p><h1>Functions</h1><h2>domain/2</h2><p>Filter log events based on the domain field in metadata.</p><p>This filter provides a way of filtering log events based on a
+<strong>domain</strong> field in <strong>Metadata</strong>. This field is
+optional, and the purpose of using it is to group log events
+from, for example, a specific functional area. This allows
+filtering or other specialized treatment in a Logger
+handler.</p><p>A domain field must be a list of atoms, creating smaller
+and more specialized domains as the list grows longer. The
+greatest domain is <strong>[]</strong>, which comprises all possible
+domains.</p><p>For example, consider the following domains:</p><pre>
+D1 = [otp]
+D2 = [otp, sasl]</pre><p><strong>D1</strong> is the greatest of the two, and is said to be a
+super-domain of <strong>D2</strong>. <strong>D2</strong> is a
+sub-domain <strong>D1</strong>. Both <strong>D1</strong> and <strong>D2</strong> are
+sub-domains of <strong>[]</strong>.</p><p>The above domains are used for logs originating from
+Erlang/OTP. D1 specifies that the log event comes from
+Erlang/OTP in general, and D2 indicates that the log event
+is a so
+called <a href="./logger_chapter#sasl_reports">SASL report</a>.</p><p>The <strong><span class="anno">Extra</span></strong> parameter to
+the <strong>domain/2</strong> function is specified when adding the
+filter via <a href="./logger#add_primary_filter-2">logger#add_primary_filter-2</a>
+or <a href="./logger#add_handler_filter-3">logger#add_handler_filter-3</a>.</p><p>The filter compares the value of the <strong>domain</strong> field in
+the log event's metadata (<strong>Domain</strong>) against
+<strong><span class="anno">MatchDomain</span></strong>. The filter matches if the
+value of <strong>Compare</strong> is:</p><dl><dt><strong>sub</strong></dt><dd> <p>and <strong>Domain</strong> is equal to or a sub-domain
+of <strong>MatchDomain</strong>, that is, if <strong>MatchDomain</strong> is
+a prefix of <strong>Domain</strong>.</p> </dd><dt><strong>super</strong></dt><dd> <p>and <strong>Domain</strong> is equal to or a super-domain
+of <strong>MatchDomain</strong>, that is, if <strong>Domain</strong> is a
+prefix of <strong>MatchDomain</strong>.</p> </dd><dt><strong>equal</strong></dt><dd> <p>and <strong>Domain</strong> is equal to <strong>MatchDomain</strong>.</p> </dd><dt><strong>not_equal</strong></dt><dd> <p>and <strong>Domain</strong> differs from <strong>MatchDomain</strong>, or
+if there is no domain field in metadata.</p> </dd><dt><strong>undefined</strong></dt><dd> <p>and there is no domain field in metadata. In this
+case <strong><span class="anno">MatchDomain</span></strong> must be set
+to <strong>[]</strong>.</p> </dd></dl><p>If the filter matches and <strong><span class="anno">Action</span></strong> is
+<strong>log</strong>, the log event is allowed. If the filter matches
+and <strong><span class="anno">Action</span></strong> is <strong>stop</strong>, the log event
+is stopped.</p><p>If the filter does not match, it returns <strong>ignore</strong>,
+meaning that other filters, or the value of the
+configuration parameter <strong>filter_default</strong>, decide if the
+event is allowed or not.</p><p>Log events that do not contain any domain field, match only
+when <strong><span class="anno">Compare</span></strong> is equal
+to <strong>undefined</strong> or <strong>not_equal</strong>.</p><p>Example: stop all events with domain <strong>[otp, sasl | _]</strong></p><pre><code class="">
+logger:set_handler_config(h1, filter_default, log). % this is the default
+Filter = {fun logger_filters:domain/2, {stop, sub, [otp, sasl]}}.
+logger:add_handler_filter(h1, no_sasl, Filter).
+ok</code></pre><h2>level/2</h2><p>Filter log events based on the log level.</p><p>This filter provides a way of filtering log events based
+on the log level. It matches log events by comparing the
+log level with a specified <strong>MatchLevel</strong></p><p>The <strong><span class="anno">Extra</span></strong> parameter is specified when
+adding the filter
+via <a href="./logger#add_primary_filter-2">logger#add_primary_filter-2</a>
+or <a href="./logger#add_handler_filter-3">logger#add_handler_filter-3</a>.</p><p>The filter compares the value of the event's log level
+(<strong>Level</strong>) to <strong><span class="anno">MatchLevel</span></strong> by
+calling <a href="./logger#compare_levels-2">logger#compare_levels-2</a>.
+The filter matches if the value
+of <strong><span class="anno">Operator</span></strong> is:</p><dl><dt><strong>neq</strong></dt><dd><p>and the compare function returns <strong>lt</strong>
+or <strong>gt</strong>.</p></dd><dt><strong>eq</strong></dt><dd><p>and the compare function returns <strong>eq</strong>.</p></dd><dt><strong>lt</strong></dt><dd><p>and the compare function returns <strong>lt</strong>.</p></dd><dt><strong>gt</strong></dt><dd><p>and the compare function returns <strong>gt</strong>.</p></dd><dt><strong>lteq</strong></dt><dd><p>and the compare function returns <strong>lt</strong>
+or <strong>eq</strong>.</p></dd><dt><strong>gteq</strong></dt><dd><p>and the compare function returns <strong>gt</strong>
+or <strong>eq</strong>.</p></dd></dl><p>If the filter matches and <strong><span class="anno">Action</span></strong> is
+<strong>log</strong>, the log event is allowed. If the filter
+matches and <strong><span class="anno">Action</span></strong> is <strong>stop</strong>, the
+log event is stopped.</p><p>If the filter does not match, it returns <strong>ignore</strong>,
+meaning that other filters, or the value of the
+configuration parameter <strong>filter_default</strong>, will decide
+if the event is allowed or not.</p><p>Example: only allow debug level log events</p><pre><code class="">
+logger:set_handler_config(h1, filter_default, stop).
+Filter = {fun logger_filters:level/2, {log, eq, debug}}.
+logger:add_handler_filter(h1, debug_only, Filter).
+ok</code></pre><h2>progress/2</h2><p>Filter progress reports from supervisor and application_controller.</p><p>This filter matches all progress reports
+from <strong>supervisor</strong> and <strong>application_controller</strong>.</p><p>If <strong><span class="anno">Extra</span></strong> is <strong>log</strong>, the progress
+reports are allowed. If <strong><span class="anno">Extra</span></strong>
+is <strong>stop</strong>, the progress reports are stopped.</p><p>The filter returns <strong>ignore</strong> for all other log events.</p><h2>remote_gl/2</h2><p>Filter events with group leader on remote node.</p><p>This filter matches all events originating from a process
+that has its group leader on a remote node.</p><p>If <strong><span class="anno">Extra</span></strong> is <strong>log</strong>, the matching
+events are allowed. If <strong><span class="anno">Extra</span></strong>
+is <strong>stop</strong>, the matching events are stopped.</p><p>The filter returns <strong>ignore</strong> for all other log events.</p><h2>See Also</h2><p>
+<a href="logger">logger</a>
+</p></body></html>

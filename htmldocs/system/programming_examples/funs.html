@@ -1,0 +1,391 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Funs</h1><h2>map</h2><p>The following function, <strong>double</strong>, doubles every element in a list:</p><pre><code class="">
+double([H|T]) -&gt; [2*H|double(T)];
+double([])    -&gt; [].</code></pre><p>Hence, the argument entered as input is doubled as follows:</p><pre>
+&gt; <span class="input">double([1,2,3,4]).</span>
+[2,4,6,8]</pre><p>The following function, <strong>add_one</strong>, adds one to every
+element in a list:</p><pre><code class="">
+add_one([H|T]) -&gt; [H+1|add_one(T)];
+add_one([])    -&gt; [].</code></pre><p>The functions <strong>double</strong> and <strong>add_one</strong> have a
+similar structure. This can be used by writing a function
+<strong>map</strong> that expresses this similarity:</p><pre><code class="">
+
+map(F, [H|T]) -&gt; [F(H)|map(F, T)];
+map(F, [])    -&gt; [].</code></pre><p>The functions <strong>double</strong> and <strong>add_one</strong> can now be expressed
+in terms of <strong>map</strong> as follows:</p><pre><code class="">
+double(L)  -&gt; map(fun(X) -&gt; 2*X end, L).
+add_one(L) -&gt; map(fun(X) -&gt; 1 + X end, L).</code></pre><p><strong>map(F, List)</strong> is a function that takes a function
+<strong>F</strong> and a list <strong>L</strong> as arguments and returns a new
+list, obtained by applying <strong>F</strong> to each of
+the elements in <strong>L</strong>.</p><p>The process of abstracting out the common features of a number
+of different programs is called <em>procedural abstraction</em>.
+Procedural abstraction can be used to write several
+different functions that have a similar structure, but differ
+in some minor detail. This is done as follows:</p><ul><li><em>Step 1.</em> Write one function that represents the common features of these functions.</li><li><em>Step 2.</em> Parameterize the difference in terms of functions that are passed as arguments to the common function.</li></ul><h2>foreach</h2><p>This section illustrates procedural abstraction. Initially,
+the following two examples are written as conventional
+functions.</p><p>This function prints all elements of a list onto a stream:</p><pre><code class="">
+print_list(Stream, [H|T]) -&gt;
+    io:format(Stream, "~p~n", [H]),
+    print_list(Stream, T);
+print_list(Stream, []) -&gt;
+    true.</code></pre><p>This function broadcasts a message to a list of processes:</p><pre><code class="">
+broadcast(Msg, [Pid|Pids]) -&gt;
+    Pid ! Msg,
+    broadcast(Msg, Pids);
+broadcast(_, []) -&gt;
+    true.</code></pre><p>These two functions have a similar structure. They both
+iterate over a list and do something to each element in the list.
+The "something" is passed on as an extra argument to
+the function that does this.</p><p>The function <strong>foreach</strong> expresses this similarity:</p><pre><code class="">
+
+foreach(F, [H|T]) -&gt;
+    F(H),
+    foreach(F, T);
+foreach(F, []) -&gt;
+    ok.</code></pre><p>Using the function <strong>foreach</strong>, the function <strong>print_list</strong> becomes:</p><pre><code class="">
+foreach(fun(H) -&gt; io:format(S, "~p~n",[H]) end, L)</code></pre><p>Using the function <strong>foreach</strong>, the function <strong>broadcast</strong> becomes:</p><pre><code class="">
+foreach(fun(Pid) -&gt; Pid ! M end, L)</code></pre><p><strong>foreach</strong> is evaluated for its side-effect and not its
+value. <strong>foreach(Fun ,L)</strong> calls <strong>Fun(X)</strong> for each
+element <strong>X</strong> in <strong>L</strong> and the processing occurs in
+the order that the elements were defined in <strong>L</strong>.
+<strong>map</strong> does not define the order in which its elements are
+processed.</p><h2>Syntax of Funs</h2><p>Funs are written with the following syntax (see <a href="../doc/reference_manual/expressions#funs">Fun Expressions </a> for full description):</p><pre><code class="">
+F = fun (Arg1, Arg2, ... ArgN) -&gt;
+        ...
+    end</code></pre><p>This creates an anonymous function of <strong>N</strong> arguments and
+binds it to the variable <strong>F</strong>.</p><p>Another function, <strong>FunctionName</strong>, written in the same module,
+can be passed as an argument, using the following syntax:</p><pre><code class="">
+F = fun FunctionName/Arity</code></pre><p>With this form of function reference, the function that is
+referred to does not need to be exported from the module.</p><p>It is also possible to refer to a function defined in a different module,
+with the following syntax:</p><pre><code class="">
+F = fun Module:FunctionName/Arity</code></pre><p>In this case, the function must be exported from the module in
+question.</p><p>The following program illustrates the different ways of creating
+funs:</p><pre><code class="">
+
+-module(fun_test).
+-export([t1/0, t2/0]).
+-import(lists, [map/2]).
+
+t1() -&gt; map(fun(X) -&gt; 2 * X end, [1,2,3,4,5]).
+
+t2() -&gt; map(fun double/1, [1,2,3,4,5]).
+
+double(X) -&gt; X * 2.</code></pre><p>The fun <strong>F</strong> can be evaluated with the following syntax:</p><pre><code class="">
+F(Arg1, Arg2, ..., Argn)</code></pre><p>To check whether a term is a fun, use the test
+<strong>is_function/1</strong> in a guard.</p><p><em>Example:</em></p><pre><code class="">
+f(F, Args) when is_function(F) -&gt;
+   apply(F, Args);
+f(N, _) when is_integer(N) -&gt;
+   N.</code></pre><p>Funs are a distinct type. The BIFs <strong>erlang:fun_info/1,2</strong> can
+be used to retrieve information about a fun, and the BIF
+<strong>erlang:fun_to_list/1</strong> returns a textual representation of a fun.
+The <strong>check_process_code/2</strong> BIF returns <strong>true</strong> if the process
+contains funs that depend on the old version of a module.</p><h2>Variable Bindings Within a Fun</h2><p>The scope rules for variables that occur in funs are as
+follows:</p><ul><li>All variables that occur in the head of a fun are assumed to be "fresh" variables.</li><li>Variables that are defined before the fun, and that occur in function calls or guard tests within the fun, have the values they had outside the fun.</li><li>Variables cannot be exported from a fun.</li></ul><p>The following examples illustrate these rules:</p><pre><code class="">
+print_list(File, List) -&gt;
+    {ok, Stream} = file:open(File, write),
+    foreach(fun(X) -&gt; io:format(Stream,"~p~n",[X]) end, List),
+    file:close(Stream).</code></pre><p>Here, the variable <strong>X</strong>, defined in
+the head of the fun, is a new variable. The variable
+<strong>Stream</strong>, which is used within the fun, gets its value
+from the <strong>file:open</strong> line.</p><p>As any variable that occurs in the head of a fun is
+considered a new variable, it is equally valid to write
+as follows:</p><pre><code class="">
+print_list(File, List) -&gt;
+    {ok, Stream} = file:open(File, write),
+    foreach(fun(File) -&gt; 
+                io:format(Stream,"~p~n",[File]) 
+            end, List),
+    file:close(Stream).</code></pre><p>Here, <strong>File</strong> is used as the new variable
+instead of <strong>X</strong>. This is not so wise because code in the fun
+body cannot refer to the variable <strong>File</strong>, which is
+defined outside of the fun. Compiling this example gives
+the following diagnostic:</p><pre><code class="">
+./FileName.erl:Line: Warning: variable 'File' 
+      shadowed in 'fun'</code></pre><p>This indicates that the variable <strong>File</strong>, which is defined
+inside the fun, collides with the variable <strong>File</strong>, which is
+defined outside the fun.</p><p>The rules for importing variables into a fun has the consequence
+that certain pattern matching operations must be moved into
+guard expressions and cannot be written in the head of the fun.
+For example, you might write the following code if you intend
+the first clause of <strong>F</strong> to be evaluated when the value of
+its argument is <strong>Y</strong>:</p><pre><code class="">
+f(...) -&gt;
+    Y = ...
+    map(fun(X) when X == Y -&gt;
+             ;
+           (_) -&gt;
+             ...
+        end, ...)
+    ...</code></pre><p>instead of writing the following code:</p><pre><code class="">
+f(...) -&gt;
+    Y = ...
+    map(fun(Y) -&gt;
+             ;
+           (_) -&gt;
+             ...
+        end, ...)
+    ...</code></pre><h2>Funs and Module Lists</h2><p>The following examples show a dialogue with the Erlang shell.
+All the higher order functions discussed are exported from
+the module <strong>lists</strong>.</p><h2>map</h2><p><strong>map</strong> takes a function of one argument and a list of terms:</p><pre><code class="">
+
+map(F, [H|T]) -&gt; [F(H)|map(F, T)];
+map(F, [])    -&gt; [].</code></pre><p>It returns the list obtained by applying the function
+to every argument in the list.</p><p>When a new fun is defined in the shell, the value of the fun
+is printed as <strong>Fun#&lt;erl_eval&gt;</strong>:</p><pre>
+&gt; <span class="input">Double = fun(X) -&gt; 2 * X end.</span>
+#Fun&lt;erl_eval.6.72228031&gt;
+&gt; <span class="input">lists:map(Double, [1,2,3,4,5]).</span>
+[2,4,6,8,10]</pre><h2>any</h2><p><strong>any</strong> takes a predicate <strong>P</strong> of one argument and a
+list of terms:</p><pre><code class="">
+
+any(Pred, [H|T]) -&gt;
+    case Pred(H) of
+        true  -&gt;  true;
+        false -&gt;  any(Pred, T)
+    end;
+any(Pred, []) -&gt;
+    false.</code></pre><p>A predicate is a function that returns <strong>true</strong> or <strong>false</strong>.
+<strong>any</strong> is <strong>true</strong> if there is a term <strong>X</strong> in the list such that
+<strong>P(X)</strong> is <strong>true</strong>.</p><p>A predicate <strong>Big(X)</strong> is defined, which is <strong>true</strong> if
+its argument is greater that 10:</p><pre>
+&gt; <span class="input">Big =  fun(X) -&gt; if X &gt; 10 -&gt; true; true -&gt; false end end.</span>
+#Fun&lt;erl_eval.6.72228031&gt;
+&gt; <span class="input">lists:any(Big, [1,2,3,4]).</span>
+false
+&gt; <span class="input">lists:any(Big, [1,2,3,12,5]).</span>
+true</pre><h2>all</h2><p><strong>all</strong> has the same arguments as <strong>any</strong>:</p><pre><code class="">
+
+all(Pred, [H|T]) -&gt;
+    case Pred(H) of
+        true  -&gt;  all(Pred, T);
+        false -&gt;  false
+    end;
+all(Pred, []) -&gt;
+    true.</code></pre><p>It is <strong>true</strong>
+if the predicate applied to all elements in the list is <strong>true</strong>.</p><pre>
+&gt; <span class="input">lists:all(Big, [1,2,3,4,12,6]).</span>   
+false
+&gt; <span class="input">lists:all(Big, [12,13,14,15]).</span>       
+true</pre><h2>foreach</h2><p><strong>foreach</strong> takes a function of one argument and a list of
+terms:</p><pre><code class="">
+
+foreach(F, [H|T]) -&gt;
+    F(H),
+    foreach(F, T);
+foreach(F, []) -&gt;
+    ok.</code></pre><p>The function is applied to each argument in the list.
+<strong>foreach</strong> returns <strong>ok</strong>. It is only used for its
+side-effect:</p><pre>
+&gt; <span class="input">lists:foreach(fun(X) -&gt; io:format("~w~n",[X]) end, [1,2,3,4]).</span> 
+1
+2
+3
+4
+ok</pre><h2>foldl</h2><p><strong>foldl</strong> takes a function of two arguments, an
+accumulator and a list:</p><pre><code class="">
+
+foldl(F, Accu, [Hd|Tail]) -&gt;
+    foldl(F, F(Hd, Accu), Tail);
+foldl(F, Accu, []) -&gt; Accu.</code></pre><p>The function is called with two
+arguments. The first argument is the successive elements in
+the list. The second argument is the accumulator. The function
+must return a new accumulator, which is used the next time
+the function is called.</p><p>If you have a list of lists <strong>L = ["I","like","Erlang"]</strong>,
+then you can sum the lengths of all the strings in <strong>L</strong> as
+follows:</p><pre>
+&gt; <span class="input">L = ["I","like","Erlang"].</span>
+["I","like","Erlang"]
+10&gt; <span class="input">lists:foldl(fun(X, Sum) -&gt; length(X) + Sum end, 0, L).</span>                    
+11</pre><p><strong>foldl</strong> works like a <strong>while</strong> loop in an imperative
+language:</p><pre><code class="">
+L =  ["I","like","Erlang"],
+Sum = 0,
+while( L != []){
+    Sum += length(head(L)),
+    L = tail(L)
+end</code></pre><h2>mapfoldl</h2><p><strong>mapfoldl</strong> simultaneously maps and folds over a list:</p><pre><code class="">
+
+mapfoldl(F, Accu0, [Hd|Tail]) -&gt;
+    {R,Accu1} = F(Hd, Accu0),
+    {Rs,Accu2} = mapfoldl(F, Accu1, Tail),
+    {[R|Rs], Accu2};
+mapfoldl(F, Accu, []) -&gt; {[], Accu}.</code></pre><p>The following example shows how to change all letters in
+<strong>L</strong> to upper case and then count them.</p><p>First the change to upper case:</p><pre>
+&gt; <span class="input">Upcase =  fun(X) when $a =&lt; X,  X =&lt; $z -&gt; X + $A - $a;</span>
+<span class="input">(X) -&gt; X</span> 
+<span class="input">end.</span>
+#Fun&lt;erl_eval.6.72228031&gt;
+&gt; <span class="input">Upcase_word =</span> 
+<span class="input">fun(X) -&gt;</span> 
+<span class="input">lists:map(Upcase, X)</span> 
+<span class="input">end.</span>
+#Fun&lt;erl_eval.6.72228031&gt;
+&gt; <span class="input">Upcase_word("Erlang").</span>
+"ERLANG"
+&gt; <span class="input">lists:map(Upcase_word, L).</span>
+["I","LIKE","ERLANG"]</pre><p>Now, the fold and the map can be done at the same time:</p><pre>
+&gt; <span class="input">lists:mapfoldl(fun(Word, Sum) -&gt;</span>
+<span class="input">{Upcase_word(Word), Sum + length(Word)}</span>
+<span class="input">end, 0, L).</span>
+{["I","LIKE","ERLANG"],11}</pre><h2>filter</h2><p><strong>filter</strong> takes a predicate of one argument and a list
+and returns all elements in the list that satisfy
+the predicate:</p><pre><code class="">
+
+filter(F, [H|T]) -&gt;
+    case F(H) of
+        true  -&gt; [H|filter(F, T)];
+        false -&gt; filter(F, T)
+    end;
+filter(F, []) -&gt; [].</code></pre><pre>
+&gt; <span class="input">lists:filter(Big, [500,12,2,45,6,7]).</span>
+[500,12,45]</pre><p>Combining maps and filters enables writing of very succinct
+code. For example, to define a set difference
+function <strong>diff(L1, L2)</strong> to be
+the difference between the lists <strong>L1</strong> and <strong>L2</strong>,
+the code can be written as follows:</p><pre><code class="">
+diff(L1, L2) -&gt; 
+    filter(fun(X) -&gt; not member(X, L2) end, L1).</code></pre><p>This gives the list of all elements in L1 that are not contained
+in L2.</p><p> The AND intersection of the list <strong>L1</strong> and <strong>L2</strong> is
+also easily defined:</p><pre><code class="">
+intersection(L1,L2) -&gt; filter(fun(X) -&gt; member(X,L1) end, L2).</code></pre><h2>takewhile</h2><p><strong>takewhile(P, L)</strong> takes elements <strong>X</strong> from a list
+<strong>L</strong> as long as the predicate <strong>P(X)</strong> is true:</p><pre><code class="">
+
+takewhile(Pred, [H|T]) -&gt;
+    case Pred(H) of
+        true  -&gt; [H|takewhile(Pred, T)];
+        false -&gt; []
+    end;
+takewhile(Pred, []) -&gt;
+    [].</code></pre><pre>
+&gt; <span class="input">lists:takewhile(Big, [200,500,45,5,3,45,6]).</span>  
+[200,500,45]</pre><h2>dropwhile</h2><p><strong>dropwhile</strong> is the complement of <strong>takewhile</strong>:</p><pre><code class="">
+
+dropwhile(Pred, [H|T]) -&gt;
+    case Pred(H) of
+        true  -&gt; dropwhile(Pred, T);
+        false -&gt; [H|T]
+    end;
+dropwhile(Pred, []) -&gt;
+    [].</code></pre><pre>
+&gt; <span class="input">lists:dropwhile(Big, [200,500,45,5,3,45,6]).</span>
+[5,3,45,6]</pre><h2>splitwith</h2><p><strong>splitwith(P, L)</strong> splits the list <strong>L</strong> into the two
+sublists <strong>{L1, L2}</strong>, where <strong>L = takewhile(P, L)</strong>
+and <strong>L2 = dropwhile(P, L)</strong>:</p><pre><code class="">
+
+splitwith(Pred, L) -&gt;
+    splitwith(Pred, L, []).
+
+splitwith(Pred, [H|T], L) -&gt;
+    case Pred(H) of 
+        true  -&gt; splitwith(Pred, T, [H|L]);
+        false -&gt; {reverse(L), [H|T]}
+    end;
+splitwith(Pred, [], L) -&gt;
+    {reverse(L), []}.</code></pre><pre>
+&gt; <span class="input">lists:splitwith(Big, [200,500,45,5,3,45,6]).</span>
+{[200,500,45],[5,3,45,6]}</pre><h2>Funs Returning Funs</h2><p>So far, only functions that take
+funs as arguments have been described. More powerful
+functions, that themselves return funs, can also be written. The following
+examples illustrate these type of functions.</p><h2>Simple Higher Order Functions</h2><p><strong>Adder(X)</strong> is a function that given <strong>X</strong>, returns
+a new function <strong>G</strong> such that <strong>G(K)</strong> returns
+<strong>K + X</strong>:</p><pre>
+&gt; <span class="input">Adder = fun(X) -&gt; fun(Y) -&gt; X + Y end end.</span>
+#Fun&lt;erl_eval.6.72228031&gt;
+&gt; <span class="input">Add6 = Adder(6).</span>
+#Fun&lt;erl_eval.6.72228031&gt;
+&gt; <span class="input">Add6(10).</span>
+16</pre><h2>Infinite Lists</h2><p>The idea is to write something like:</p><pre><code class="">
+-module(lazy).
+-export([ints_from/1]).
+ints_from(N) -&gt;
+    fun() -&gt;
+            [N|ints_from(N+1)]
+    end.</code></pre><p>Then proceed as follows:</p><pre>
+&gt; <span class="input">XX = lazy:ints_from(1).</span>
+#Fun&lt;lazy.0.29874839&gt;
+&gt; <span class="input">XX().</span>
+[1|#Fun&lt;lazy.0.29874839&gt;]
+&gt; <span class="input">hd(XX()).</span>
+1
+&gt; <span class="input">Y = tl(XX()).</span>
+#Fun&lt;lazy.0.29874839&gt;
+&gt; <span class="input">hd(Y()).</span>
+2</pre><p>And so on. This is an example of "lazy embedding".</p><h2>Parsing</h2><p>The following examples show parsers of the following type:</p><pre>
+Parser(Toks) -&gt; {ok, Tree, Toks1} | fail</pre><p><strong>Toks</strong> is the list of tokens to be parsed. A successful
+parse returns <strong>{ok, Tree, Toks1}</strong>.</p><ul><li><strong>Tree</strong> is a parse tree.</li><li><strong>Toks1</strong> is a tail of <strong>Tree</strong> that contains symbols encountered after the structure that was correctly parsed.</li></ul><p>An unsuccessful parse returns <strong>fail</strong>.</p><p>The following example illustrates a simple, functional
+parser that parses the grammar:</p><pre>
+(a | b) &amp; (c | d)</pre><p>The following code defines a function <strong>pconst(X)</strong> in
+the module <strong>funparse</strong>, which returns a fun that parses a
+list of tokens:</p><pre><code class="">
+
+pconst(X) -&gt;
+    fun (T) -&gt;
+       case T of
+           [X|T1] -&gt; {ok, {const, X}, T1};
+           _      -&gt; fail
+       end
+    end.</code></pre><p>This function can be used as follows:</p><pre>
+&gt; <span class="input">P1 = funparse:pconst(a).</span>
+#Fun&lt;funparse.0.22674075&gt;
+&gt; <span class="input">P1([a,b,c]).</span>
+{ok,{const,a},[b,c]}
+&gt; <span class="input">P1([x,y,z]).</span>     
+fail</pre><p>Next, the two higher order functions <strong>pand</strong>
+and <strong>por</strong> are defined. They combine primitive parsers to produce more
+complex parsers.</p><p>First <strong>pand</strong>:</p><pre><code class="">
+
+pand(P1, P2) -&gt;
+    fun (T) -&gt;
+        case P1(T) of
+            {ok, R1, T1} -&gt;
+                case P2(T1) of
+                    {ok, R2, T2} -&gt;
+                        {ok, {'and', R1, R2}};
+                    fail -&gt;
+                        fail
+                end;
+            fail -&gt;
+                fail
+        end
+    end.</code></pre><p>Given a parser <strong>P1</strong> for grammar <strong>G1</strong>, and a parser
+<strong>P2</strong> for grammar <strong>G2</strong>, <strong>pand(P1, P2)</strong> returns a
+parser for the grammar, which consists of sequences of tokens
+that satisfy <strong>G1</strong>, followed by sequences of tokens that
+satisfy <strong>G2</strong>.</p><p><strong>por(P1, P2)</strong> returns a parser for the language
+described by the grammar <strong>G1</strong> or <strong>G2</strong>:</p><pre><code class="">
+
+por(P1, P2) -&gt;
+    fun (T) -&gt;
+        case P1(T) of
+            {ok, R, T1} -&gt; 
+                {ok, {'or',1,R}, T1};
+            fail -&gt; 
+                case P2(T) of
+                    {ok, R1, T1} -&gt;
+                        {ok, {'or',2,R1}, T1};
+                    fail -&gt;
+                        fail
+                end
+        end
+    end.</code></pre><p>The original problem was to parse the grammar
+<strong>(a | b) &amp; (c | d)</strong>. The following code addresses this
+problem:</p><pre><code class="">
+
+grammar() -&gt;
+    pand(
+         por(pconst(a), pconst(b)),
+         por(pconst(c), pconst(d))).</code></pre><p>The following code adds a parser interface to the grammar:</p><pre><code class="">
+
+parse(List) -&gt;
+    (grammar())(List).</code></pre><p>The parser can be tested as follows:</p><pre>
+&gt; <span class="input">funparse:parse([a,c]).</span>
+{ok,{'and',{'or',1,{const,a}},{'or',1,{const,c}}}}
+&gt; <span class="input">funparse:parse([a,d]).</span> 
+{ok,{'and',{'or',1,{const,a}},{'or',2,{const,d}}}}
+&gt; <span class="input">funparse:parse([b,c]).</span>   
+{ok,{'and',{'or',2,{const,b}},{'or',1,{const,c}}}}
+&gt; <span class="input">funparse:parse([b,d]).</span> 
+{ok,{'and',{'or',2,{const,b}},{'or',2,{const,d}}}}
+&gt; <span class="input">funparse:parse([a,b]).</span>   
+fail</pre></body></html>

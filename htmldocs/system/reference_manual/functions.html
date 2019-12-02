@@ -1,0 +1,83 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Functions</h1><a name="syntax"></a><h2>Function Declaration Syntax</h2><p>A <em>function declaration</em> is a sequence of function
+clauses separated by semicolons, and terminated by period (.).</p><p>A <em>function clause</em> consists of a clause head and a
+clause body, separated by <strong>-&gt;</strong>.</p><p>A clause <em>head</em> consists of the function name, an
+argument list, and an optional guard sequence
+beginning with the keyword <strong>when</strong>:</p><pre>
+Name(Pattern11,...,Pattern1N) [when GuardSeq1] -&gt;
+    Body1;
+...;
+Name(PatternK1,...,PatternKN) [when GuardSeqK] -&gt;
+    BodyK.</pre><p>The function name is an atom. Each argument is a pattern.</p><p>The number of arguments <strong>N</strong> is the <em>arity</em> of
+the function. A function is uniquely defined by the module name,
+function name, and arity. That is, two functions with the same
+name and in the same module, but with different arities are two
+different functions.</p><p>A function named <strong>f</strong> in the module <strong>m</strong> and with arity
+<strong>N</strong> is often denoted as <strong>m:f/N</strong>.</p><p>A clause <em>body</em> consists of a sequence of expressions
+separated by comma (,):</p><pre>
+Expr1,
+...,
+ExprN</pre><p>Valid Erlang expressions and guard sequences are described in
+<a href="expressions">Expressions</a>.</p><p><em>Example:</em></p><pre>
+fact(N) when N&gt;0 -&gt;  % first clause head
+    N * fact(N-1);   % first clause body
+
+fact(0) -&gt;           % second clause head
+    1.               % second clause body</pre><a name="eval"></a><h2>Function Evaluation</h2><p>When a function <strong>m:f/N</strong> is called, first the code for
+the function is located. If the function cannot be found, an
+<strong>undef</strong> runtime error occurs. Notice that the function
+must be exported to be visible outside the module it is defined
+in.</p><p>If the function is found, the function clauses are scanned
+sequentially until a clause is found that fulfills both of
+the following two conditions:</p><ul><li>The patterns in the clause head can be successfully matched against the given arguments.</li><li>The guard sequence, if any, is true.</li></ul><p>If such a clause cannot be found, a <strong>function_clause</strong>
+runtime error occurs.</p><p>If such a clause is found, the corresponding clause body is
+evaluated. That is, the expressions in the body are evaluated
+sequentially and the value of the last expression is returned.</p><p>Consider the function <strong>fact</strong>:</p><pre>
+-module(m).
+-export([fact/1]).
+
+fact(N) when N&gt;0 -&gt;
+    N * fact(N-1);
+fact(0) -&gt;
+    1.</pre><p>Assume that you want to calculate the factorial for 1:</p><pre>
+1&gt; <span class="input">m:fact(1).</span></pre><p>Evaluation starts at the first clause. The pattern <strong>N</strong> is
+matched against argument 1. The matching succeeds and
+the guard (<strong>N&gt;0</strong>) is true, thus <strong>N</strong> is bound to 1, and
+the corresponding body is evaluated:</p><pre>
+<span class="input">N * fact(N-1)</span> =&gt; (N is bound to 1)
+<span class="input">1 * fact(0)</span></pre><p>Now, <strong>fact(0)</strong> is called, and the function clauses are
+scanned sequentially again. First, the pattern <strong>N</strong> is
+matched against 0. The matching succeeds, but the guard
+(<strong>N&gt;0</strong>) is false. Second, the pattern 0 is matched against
+0. The matching succeeds and the body is evaluated:</p><pre>
+<span class="input">1 * fact(0)</span> =&gt;
+<span class="input">1 * 1</span> =&gt;
+<span class="input">1</span></pre><p>Evaluation has succeed and <strong>m:fact(1)</strong> returns 1.</p><p>If <strong>m:fact/1</strong> is called with a negative number as
+argument, no clause head matches. A <strong>function_clause</strong>
+runtime error occurs.</p><h2>Tail recursion</h2><p>If the last expression of a function body is a function call,
+a <em>tail recursive</em> call is done.
+This is to ensure that no system
+resources, for example, call stack, are consumed. This means
+that an infinite loop can be done if it uses tail-recursive
+calls.</p><p><em>Example:</em></p><pre>
+loop(N) -&gt;
+    io:format("~w~n", [N]),
+    loop(N+1).</pre><p>The earlier factorial example can act as a counter-example.
+It is not tail-recursive, since a multiplication is done
+on the result of the recursive call to <strong>fact(N-1)</strong>.</p><h2>Built-In Functions (BIFs)</h2><p>BIFs are implemented in C code in
+the runtime system. BIFs do things that are difficult or impossible
+to implement in Erlang. Most of the BIFs belong
+to the module <strong>erlang</strong> but there are also BIFs
+belonging to a few other modules, for example <strong>lists</strong> and
+<strong>ets</strong>.</p><p>The most commonly used BIFs belonging to <strong>erlang(3)</strong> are
+<em>auto-imported</em>. They do not need to be prefixed with
+the module name. Which BIFs that are auto-imported is specified in the
+<a href="./erlang">erlang(3)</a> module in ERTS.
+For example, standard-type conversion BIFs like
+<strong>atom_to_list</strong> and BIFs allowed in guards can be called
+without specifying the module name.</p><p><em>Examples:</em></p><pre>
+1&gt; <span class="input">tuple_size({a,b,c}).</span>
+3
+2&gt; <span class="input">atom_to_list('Erlang').</span>
+"Erlang"</pre><p>Notice that it is normally the set of auto-imported BIFs
+that are referred to when talking about 'BIFs'.</p></body></html>

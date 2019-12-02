@@ -1,0 +1,1071 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>erl_syntax</h1><h1>erl_syntax</h1><p>Abstract Erlang syntax trees.</p><p>Abstract Erlang syntax trees.This module defines an abstract data type for representing Erlang
+source code as syntax trees, in a way that is backwards compatible
+with the data structures created by the Erlang standard library
+parser module <strong>erl_parse</strong> (often referred to as "parse
+trees", which is a bit of a misnomer). This means that all
+<strong>erl_parse</strong> trees are valid abstract syntax trees, but the
+reverse is not true: abstract syntax trees can in general not be used
+as input to functions expecting an <strong>erl_parse</strong> tree.
+However, as long as an abstract syntax tree represents a correct
+Erlang program, the function <a href="#revert-1">revert/1</a> should be able to
+transform it to the corresponding <strong>erl_parse</strong>  
+representation.A recommended starting point for the first-time user is the documentation
+of the <a href="#type-syntaxTree">syntaxTree()</a> data type, and the function <a href="#type-1">type/1</a>.<a name="NOTES:"></a><em>NOTES:</em>This module deals with the composition and decomposition of
+<em>syntactic</em> entities (as opposed to semantic ones); its  
+purpose is to hide all direct references to the data structures used  
+to represent these entities. With few exceptions, the functions in  
+this module perform no semantic interpretation of their inputs, and  
+in general, the user is assumed to pass type-correct arguments - if  
+this is not done, the effects are not defined.With the exception of the <a href="#type-erl_parse">erl_parse()</a> data structures,
+the internal representations of abstract syntax trees are subject to
+change without notice, and should not be documented outside this
+module. Furthermore, we do not give any guarantees on how an abstract
+syntax tree may or may not be represented, <em>with the following exceptions</em>: no syntax tree is represented by a single atom, such
+as <strong>none</strong>, by a list constructor <strong>[X | Y]</strong>, or
+by the empty list <strong>[]</strong>. This can be relied on when writing
+functions that operate on syntax trees.</p><h2>DATA TYPES</h2><a name="types"></a><dl><dt><a name="type-encoding"></a>encoding() = utf8 | unicode | latin1</dt><dd> </dd><dt><a name="type-erl_parse"></a>erl_parse() = <a href="./erl_parse#type-abstract_clause">erl_parse:abstract_clause()</a> | <a href="./erl_parse#type-abstract_expr">erl_parse:abstract_expr()</a> | <a href="./erl_parse#type-abstract_form">erl_parse:abstract_form()</a> | <a href="./erl_parse#type-abstract_type">erl_parse:abstract_type()</a> | <a href="./erl_parse#type-form_info">erl_parse:form_info()</a> | {bin_element, term(), term(), term(), term()}</dt><dd> </dd><dt><a name="type-forms"></a>forms() = <a href="#type-syntaxTree">syntaxTree()</a> | [<a href="#type-syntaxTree">syntaxTree()</a>]</dt><dd> </dd><dt><a name="type-guard"></a>guard() = none | <a href="#type-syntaxTree">syntaxTree()</a> | [<a href="#type-syntaxTree">syntaxTree()</a>] | [[<a href="#type-syntaxTree">syntaxTree()</a>]]</dt><dd> </dd><dt><a name="type-padding"></a>padding() = none | integer()</dt><dd> </dd><dt><a name="type-syntaxTree"></a>syntaxTree()</dt><dd> <p>An abstract syntax tree. The <a href="#type-erl_parse">erl_parse()</a>
+"parse tree" representation is a proper subset of the <strong>syntaxTree()</strong>  
+representation.</p> <p>Every abstract syntax tree node has a <em>type</em>, given by the
+function <a href="#type-1">type/1</a>. Each node also has associated
+<em>attributes</em>; see <a href="#get_attrs-1">get_attrs/1</a> for details. The functions
+<a href="#make_tree-2">make_tree/2</a> and <a href="#subtrees-1">subtrees/1</a> are generic
+constructor/decomposition functions for abstract syntax trees. The
+functions <a href="#abstract-1">abstract/1</a> and <a href="#concrete-1">concrete/1</a> convert between
+constant Erlang terms and their syntactic representations. The set of
+syntax tree nodes is extensible through the <a href="#tree-2">tree/2</a> function.</p> <p>A syntax tree can be transformed to the <a href="#type-erl_parse">erl_parse()</a>
+representation with the <a href="#revert-1">revert/1</a> function.</p> </dd><dt><a name="type-syntaxTreeAttributes"></a>syntaxTreeAttributes()</dt><dd> <p>This is an abstract representation of
+syntax tree node attributes; see the function <a href="#get_attrs-1">get_attrs/1</a>.
+</p> </dd></dl><h1>Functions</h1><h2>abstract(T::term()) -&gt;</h2><p>Returns the syntax tree corresponding to an Erlang term.</p><a name="abstract-1"></a><p>Returns the syntax tree corresponding to an Erlang term.
+<strong>Term</strong> must be a literal term, i.e., one that can be
+represented as a source code literal. Thus, it may not contain a
+process identifier, port, reference or function value as a
+subterm. The function recognises printable strings, in order to get a
+compact and readable representation. Evaluation fails with reason
+<strong>badarg</strong> if <strong>Term</strong> is not a literal term.
+</p><p><em>See also:</em> <a href="#concrete-1">concrete/1</a>, <a href="#is_literal-1">is_literal/1</a>.</p><h2>add_ann(A::term(), Node::) -&gt;</h2><p>Appends the term Annotation to the list of user annotations of Node.</p><a name="add_ann-2"></a><p>Appends the term <strong>Annotation</strong> to the list of user
+annotations of <strong>Node</strong>.</p><p>Note: this is equivalent to <strong>set_ann(Node, [Annotation | get_ann(Node)])</strong>, but potentially more efficient.
+</p><p><em>See also:</em> <a href="#get_ann-1">get_ann/1</a>, <a href="#set_ann-2">set_ann/2</a>.</p><h2>add_postcomments(Cs::[], Node::) -&gt;</h2><p>Appends Comments to the post-comments of Node.</p><a name="add_postcomments-2"></a><p>Appends <strong>Comments</strong> to the post-comments of <strong>Node</strong>.</p><p>Note: This is equivalent to <strong>set_postcomments(Node, get_postcomments(Node) ++ Comments)</strong>, but potentially more
+efficient.
+</p><p><em>See also:</em> <a href="#add_precomments-2">add_precomments/2</a>, <a href="#comment-2">comment/2</a>, <a href="#get_postcomments-1">get_postcomments/1</a>, <a href="#join_comments-2">join_comments/2</a>, <a href="#set_postcomments-2">set_postcomments/2</a>.</p><h2>add_precomments(Cs::[], Node::) -&gt;</h2><p>Appends Comments to the pre-comments of Node.</p><a name="add_precomments-2"></a><p>Appends <strong>Comments</strong> to the pre-comments of <strong>Node</strong>.</p><p>Note: This is equivalent to <strong>set_precomments(Node, get_precomments(Node) ++ Comments)</strong>, but potentially more
+efficient.
+</p><p><em>See also:</em> <a href="#add_postcomments-2">add_postcomments/2</a>, <a href="#comment-2">comment/2</a>, <a href="#get_precomments-1">get_precomments/1</a>, <a href="#join_comments-2">join_comments/2</a>, <a href="#set_precomments-2">set_precomments/2</a>.</p><h2>annotated_type(Name::, Type::) -&gt;</h2><p>Creates an abstract annotated type expression.</p><a name="annotated_type-2"></a><p>Creates an abstract annotated type expression. The result
+represents "<strong>Name :: Type</strong>".
+</p><p><em>See also:</em> <a href="#annotated_type_body-1">annotated_type_body/1</a>, <a href="#annotated_type_name-1">annotated_type_name/1</a>.</p><h2>annotated_type_body(Node::) -&gt;</h2><p>Returns the type subtrees of an annotated_type node.</p><a name="annotated_type_body-1"></a><p>Returns the type subtrees of an <strong>annotated_type</strong> node.
+</p><p><em>See also:</em> <a href="#annotated_type-2">annotated_type/2</a>.</p><h2>annotated_type_name(Node::) -&gt;</h2><p>Returns the name subtree of an annotated_type node.</p><a name="annotated_type_name-1"></a><p>Returns the name subtree of an <strong>annotated_type</strong> node.
+</p><p><em>See also:</em> <a href="#annotated_type-2">annotated_type/2</a>.</p><h2>application(Operator::, Arguments::[]) -&gt;</h2><p>Creates an abstract function application expression.</p><a name="application-2"></a><p>Creates an abstract function application expression. If
+<strong>Arguments</strong> is <strong>[A1, ..., An]</strong>, the result
+represents "<strong>Operator(A1, ..., An)</strong>".
+</p><p><em>See also:</em> <a href="#application-3">application/3</a>, <a href="#application_arguments-1">application_arguments/1</a>, <a href="#application_operator-1">application_operator/1</a>.</p><h2>application(Module::none |, Name::, Arguments::[]) -&gt;</h2><p>Creates an abstract function application expression.</p><a name="application-3"></a><p>Creates an abstract function application expression. If
+<strong>Module</strong> is <strong>none</strong>, this is call is equivalent
+to <strong>application(Function, Arguments)</strong>, otherwise it is
+equivalent to <strong>application(module_qualifier(Module, Function), Arguments)</strong>.</p><p>(This is a utility function.)
+</p><p><em>See also:</em> <a href="#application-2">application/2</a>, <a href="#module_qualifier-2">module_qualifier/2</a>.</p><h2>application_arguments(Node::) -&gt; []</h2><p>Returns the list of argument subtrees of an application node.</p><a name="application_arguments-1"></a><p>Returns the list of argument subtrees of an
+<strong>application</strong> node.
+</p><p><em>See also:</em> <a href="#application-2">application/2</a>.</p><h2>application_operator(Node::) -&gt;</h2><p>Returns the operator subtree of an application node.</p><a name="application_operator-1"></a><p>Returns the operator subtree of an <strong>application</strong> node.</p><p>Note: if <strong>Node</strong> represents
+"<strong>M:F(...)</strong>", then the result is the
+subtree representing "<strong>M:F</strong>".
+</p><p><em>See also:</em> <a href="#application-2">application/2</a>, <a href="#module_qualifier-2">module_qualifier/2</a>.</p><h2>arity_qualifier(Body::, Arity::) -&gt;</h2><p>Creates an abstract arity qualifier.</p><a name="arity_qualifier-2"></a><p>Creates an abstract arity qualifier. The result represents
+"<strong>Body/Arity</strong>".
+</p><p><em>See also:</em> <a href="#arity_qualifier_argument-1">arity_qualifier_argument/1</a>, <a href="#arity_qualifier_body-1">arity_qualifier_body/1</a>.</p><h2>arity_qualifier_argument(Node::) -&gt;</h2><p>Returns the argument (the arity) subtree of an arity_qualifier node.</p><a name="arity_qualifier_argument-1"></a><p>Returns the argument (the arity) subtree of an
+<strong>arity_qualifier</strong> node.
+</p><p><em>See also:</em> <a href="#arity_qualifier-2">arity_qualifier/2</a>.</p><h2>arity_qualifier_body(Node::) -&gt;</h2><p>Returns the body subtree of an arity_qualifier node.</p><a name="arity_qualifier_body-1"></a><p>Returns the body subtree of an <strong>arity_qualifier</strong> node.
+</p><p><em>See also:</em> <a href="#arity_qualifier-2">arity_qualifier/2</a>.</p><h2>atom(Name::atom() | string()) -&gt;</h2><p>Creates an abstract atom literal.</p><a name="atom-1"></a><p>Creates an abstract atom literal. The print name of the atom is
+the character sequence represented by <strong>Name</strong>.
+</p><p><em>See also:</em> <a href="#atom_literal-1">atom_literal/1</a>, <a href="#atom_literal-2">atom_literal/2</a>, <a href="#atom_name-1">atom_name/1</a>, <a href="#atom_value-1">atom_value/1</a>, <a href="#is_atom-2">is_atom/2</a>.</p><h2>atom_literal(Node::) -&gt; string()</h2><p>Returns the literal string represented by an atom   node.</p><a name="atom_literal-1"></a><p>Returns the literal string represented by an <strong>atom</strong>  
+node. This includes surrounding single-quote characters if necessary.  
+Characters beyond 255 will be escaped.</p><p>Note that e.g. the result of <strong>atom("x\ny")</strong> represents
+any and all of `x\ny'', `x\12y'',
+`x\012y'' and `x\^Jy\''; see <a href="#string-1">string/1</a>.
+</p><p><em>See also:</em> <a href="#atom-1">atom/1</a>, <a href="#string-1">string/1</a>.</p><h2>atom_literal(Node, X2) -&gt; term()
+</h2><p>Returns the literal string represented by an atom node.</p><a name="atom_literal-2"></a><p>Returns the literal string represented by an <strong>atom</strong>
+node. This includes surrounding single-quote characters if necessary.
+Depending on the encoding a character beyond 255 will be escaped
+(<strong>latin1</strong>) or copied as is (<strong>utf8</strong>).
+</p><p><em>See also:</em> <a href="#atom-1">atom/1</a>, <a href="#atom_literal-1">atom_literal/1</a>, <a href="#string-1">string/1</a>.</p><h2>atom_name(Node::) -&gt; string()</h2><p>Returns the printname of an atom node.</p><a name="atom_name-1"></a><p>Returns the printname of an <strong>atom</strong> node.
+</p><p><em>See also:</em> <a href="#atom-1">atom/1</a>.</p><h2>atom_value(Node::) -&gt; atom()</h2><p>Returns the value represented by an atom node.</p><a name="atom_value-1"></a><p>Returns the value represented by an <strong>atom</strong> node.
+</p><p><em>See also:</em> <a href="#atom-1">atom/1</a>.</p><h2>attribute(Name::) -&gt;</h2><p>Equivalent to attribute(Name, none). </p><a name="attribute-1"></a><p>Equivalent to <a href="#attribute-2">attribute(Name, none)</a>.</p><h2>attribute(Name::, Args::none | []) -&gt;</h2><p>Creates an abstract program attribute.</p><a name="attribute-2"></a><p>Creates an abstract program attribute. If
+<strong>Arguments</strong> is <strong>[A1, ..., An]</strong>, the result
+represents "<strong>-Name(A1, ..., An).</strong>". Otherwise, if <strong>Arguments</strong> is
+<strong>none</strong>, the result represents
+"<strong>-Name.</strong>". The latter form makes it possible
+to represent preprocessor directives such as
+"<strong>-endif.</strong>". Attributes are source code forms.</p><p>Note: The preprocessor macro definition directive
+"<strong>-define(Name, Body).</strong>" has relatively
+few requirements on the syntactical form of <strong>Body</strong> (viewed
+as a sequence of tokens). The <strong>text</strong> node type can be used
+for a <strong>Body</strong> that is not a normal Erlang construct.
+</p><p><em>See also:</em> <a href="#attribute-1">attribute/1</a>, <a href="#attribute_arguments-1">attribute_arguments/1</a>, <a href="#attribute_name-1">attribute_name/1</a>, <a href="#is_form-1">is_form/1</a>, <a href="#text-1">text/1</a>.</p><h2>attribute_arguments(Node::) -&gt; none | []</h2><p>Returns the list of argument subtrees of an attribute node, if any.</p><a name="attribute_arguments-1"></a><p>Returns the list of argument subtrees of an
+<strong>attribute</strong> node, if any. If <strong>Node</strong>
+represents "<strong>-Name.</strong>", the result is
+<strong>none</strong>. Otherwise, if <strong>Node</strong> represents
+"<strong>-Name(E1, ..., En).</strong>",
+<strong>[E1, ..., E1]</strong> is returned.
+</p><p><em>See also:</em> <a href="#attribute-1">attribute/1</a>.</p><h2>attribute_name(Node::) -&gt;</h2><p>Returns the name subtree of an attribute node.</p><a name="attribute_name-1"></a><p>Returns the name subtree of an <strong>attribute</strong> node.
+</p><p><em>See also:</em> <a href="#attribute-1">attribute/1</a>.</p><h2>binary(List::[]) -&gt;</h2><p>Creates an abstract binary-object template.</p><a name="binary-1"></a><p>Creates an abstract binary-object template. If
+<strong>Fields</strong> is <strong>[F1, ..., Fn]</strong>, the result
+represents "<strong>&lt;&lt;F1, ..., Fn&gt;&gt;</strong>".
+</p><p><em>See also:</em> <a href="#binary_field-2">binary_field/2</a>, <a href="#binary_fields-1">binary_fields/1</a>.</p><h2>binary_comp(Template::, Body::[]) -&gt;</h2><p>Creates an abstract binary comprehension.</p><a name="binary_comp-2"></a><p>Creates an abstract binary comprehension. If <strong>Body</strong> is
+<strong>[E1, ..., En]</strong>, the result represents
+"<strong>&lt;&lt;Template || E1, ..., En&gt;&gt;</strong>".
+</p><p><em>See also:</em> <a href="#binary_comp_body-1">binary_comp_body/1</a>, <a href="#binary_comp_template-1">binary_comp_template/1</a>, <a href="#generator-2">generator/2</a>.</p><h2>binary_comp_body(Node::) -&gt; []</h2><p>Returns the list of body subtrees of a binary_comp node.</p><a name="binary_comp_body-1"></a><p>Returns the list of body subtrees of a <strong>binary_comp</strong> node.
+</p><p><em>See also:</em> <a href="#binary_comp-2">binary_comp/2</a>.</p><h2>binary_comp_template(Node::) -&gt;</h2><p>Returns the template subtree of a binary_comp node.</p><a name="binary_comp_template-1"></a><p>Returns the template subtree of a <strong>binary_comp</strong> node.
+</p><p><em>See also:</em> <a href="#binary_comp-2">binary_comp/2</a>.</p><h2>binary_field(Body::) -&gt;</h2><p>Equivalent to binary_field(Body, []). </p><a name="binary_field-1"></a><p>Equivalent to <a href="#binary_field-2">binary_field(Body, [])</a>.</p><h2>binary_field(Body::, Types::[]) -&gt;</h2><p>Creates an abstract binary template field.</p><a name="binary_field-2"></a><p>Creates an abstract binary template field. If
+<strong>Types</strong> is the empty list, the result simply represents
+"<strong>Body</strong>", otherwise, if <strong>Types</strong> is
+<strong>[T1, ..., Tn]</strong>, the result represents
+"<strong>Body/T1-...-Tn</strong>".
+</p><p><em>See also:</em> <a href="#binary-1">binary/1</a>, <a href="#binary_field-1">binary_field/1</a>, <a href="#binary_field-3">binary_field/3</a>, <a href="#binary_field_body-1">binary_field_body/1</a>, <a href="#binary_field_size-1">binary_field_size/1</a>, <a href="#binary_field_types-1">binary_field_types/1</a>.</p><h2>binary_field(Body::, Size::none |, Types::[]) -&gt;</h2><p>Creates an abstract binary template field.</p><a name="binary_field-3"></a><p>Creates an abstract binary template field.
+If <strong>Size</strong> is <strong>none</strong>, this is equivalent to
+"<strong>binary_field(Body, Types)</strong>", otherwise it is
+equivalent to "<strong>binary_field(size_qualifier(Body, Size), Types)</strong>".</p><p>(This is a utility function.)
+</p><p><em>See also:</em> <a href="#binary-1">binary/1</a>, <a href="#binary_field-2">binary_field/2</a>, <a href="#size_qualifier-2">size_qualifier/2</a>.</p><h2>binary_field_body(Node::) -&gt;</h2><p>Returns the body subtree of a binary_field.</p><a name="binary_field_body-1"></a><p>Returns the body subtree of a <strong>binary_field</strong>.
+</p><p><em>See also:</em> <a href="#binary_field-2">binary_field/2</a>.</p><h2>binary_field_size(Node::) -&gt; none |</h2><p>Returns the size specifier subtree of a binary_field node, if any.</p><a name="binary_field_size-1"></a><p>Returns the size specifier subtree of a
+<strong>binary_field</strong> node, if any. If <strong>Node</strong>
+represents "<strong>Body:Size</strong>" or
+"<strong>Body:Size/T1, ..., Tn</strong>", the result is <strong>Size</strong>, otherwise
+<strong>none</strong> is returned.</p><p>(This is a utility function.)
+</p><p><em>See also:</em> <a href="#binary_field-2">binary_field/2</a>, <a href="#binary_field-3">binary_field/3</a>.</p><h2>binary_field_types(Node::) -&gt; []</h2><p>Returns the list of type-specifier subtrees of a binary_field node.</p><a name="binary_field_types-1"></a><p>Returns the list of type-specifier subtrees of a
+<strong>binary_field</strong> node. If <strong>Node</strong> represents
+"<strong>.../T1, ..., Tn</strong>", the result is
+<strong>[T1, ..., Tn]</strong>, otherwise the result is the empty list.
+</p><p><em>See also:</em> <a href="#binary_field-2">binary_field/2</a>.</p><h2>binary_fields(Node::) -&gt; []</h2><p>Returns the list of field subtrees of a binary node.</p><a name="binary_fields-1"></a><p>Returns the list of field subtrees of a <strong>binary</strong> node.
+</p><p><em>See also:</em> <a href="#binary-1">binary/1</a>, <a href="#binary_field-2">binary_field/2</a>.</p><h2>binary_generator(Pattern::, Body::) -&gt;</h2><p>Creates an abstract binary_generator.</p><a name="binary_generator-2"></a><p>Creates an abstract binary_generator. The result represents
+"<strong>Pattern &lt;- Body</strong>".
+</p><p><em>See also:</em> <a href="#binary_comp-2">binary_comp/2</a>, <a href="#binary_generator_body-1">binary_generator_body/1</a>, <a href="#binary_generator_pattern-1">binary_generator_pattern/1</a>, <a href="#list_comp-2">list_comp/2</a>.</p><h2>binary_generator_body(Node::) -&gt;</h2><p>Returns the body subtree of a generator node.</p><a name="binary_generator_body-1"></a><p>Returns the body subtree of a <strong>generator</strong> node.
+</p><p><em>See also:</em> <a href="#binary_generator-2">binary_generator/2</a>.</p><h2>binary_generator_pattern(Node::) -&gt;</h2><p>Returns the pattern subtree of a generator node.</p><a name="binary_generator_pattern-1"></a><p>Returns the pattern subtree of a <strong>generator</strong> node.
+</p><p><em>See also:</em> <a href="#binary_generator-2">binary_generator/2</a>.</p><h2>bitstring_type(M::, N::) -&gt;</h2><p>Creates an abstract bitstring type.</p><a name="bitstring_type-2"></a><p>Creates an abstract bitstring type. The result represents
+"<strong>&lt;&lt;_:M, _:_*N&gt;&gt;</strong>".
+</p><p><em>See also:</em> <a href="#bitstring_type_m-1">bitstring_type_m/1</a>, <a href="#bitstring_type_n-1">bitstring_type_n/1</a>.</p><h2>bitstring_type_m(Node::) -&gt;</h2><p>Returns the number of start bits, M,  of a bitstring_type node.</p><a name="bitstring_type_m-1"></a><p>Returns the number of start bits, <strong>M</strong>,  of a <strong>bitstring_type</strong> node.
+</p><p><em>See also:</em> <a href="#bitstring_type-2">bitstring_type/2</a>.</p><h2>bitstring_type_n(Node::) -&gt;</h2><p>Returns the segment size, N, of a bitstring_type node.</p><a name="bitstring_type_n-1"></a><p>Returns the segment size, <strong>N</strong>, of a <strong>bitstring_type</strong> node.
+</p><p><em>See also:</em> <a href="#bitstring_type-2">bitstring_type/2</a>.</p><h2>block_expr(Body::[]) -&gt;</h2><p>Creates an abstract block expression.</p><a name="block_expr-1"></a><p>Creates an abstract block expression. If <strong>Body</strong> is
+<strong>[B1, ..., Bn]</strong>, the result represents "<strong>begin B1, ..., Bn end</strong>".
+</p><p><em>See also:</em> <a href="#block_expr_body-1">block_expr_body/1</a>.</p><h2>block_expr_body(Node::) -&gt; []</h2><p>Returns the list of body subtrees of a block_expr node.</p><a name="block_expr_body-1"></a><p>Returns the list of body subtrees of a <strong>block_expr</strong> node.
+</p><p><em>See also:</em> <a href="#block_expr-1">block_expr/1</a>.</p><h2>case_expr(Argument::, Clauses::[]) -&gt;</h2><p>Creates an abstract case-expression.</p><a name="case_expr-2"></a><p>Creates an abstract case-expression. If <strong>Clauses</strong> is
+<strong>[C1, ..., Cn]</strong>, the result represents "<strong>case Argument of C1; ...; Cn end</strong>". More
+exactly, if each <strong>Ci</strong> represents "<strong>(Pi) Gi -&gt; Bi</strong>", then the result represents
+"<strong>case Argument of P1 G1 -&gt; B1; ...; Pn Gn -&gt; Bn end</strong>".
+</p><p><em>See also:</em> <a href="#case_expr_argument-1">case_expr_argument/1</a>, <a href="#case_expr_clauses-1">case_expr_clauses/1</a>, <a href="#clause-3">clause/3</a>, <a href="#cond_expr-1">cond_expr/1</a>, <a href="#if_expr-1">if_expr/1</a>.</p><h2>case_expr_argument(Node::) -&gt;</h2><p>Returns the argument subtree of a case_expr node.</p><a name="case_expr_argument-1"></a><p>Returns the argument subtree of a <strong>case_expr</strong> node.
+</p><p><em>See also:</em> <a href="#case_expr-2">case_expr/2</a>.</p><h2>case_expr_clauses(Node::) -&gt; []</h2><p>Returns the list of clause subtrees of a case_expr node.</p><a name="case_expr_clauses-1"></a><p>Returns the list of clause subtrees of a <strong>case_expr</strong> node.
+</p><p><em>See also:</em> <a href="#case_expr-2">case_expr/2</a>.</p><h2>catch_expr(Expr::) -&gt;</h2><p>Creates an abstract catch-expression.</p><a name="catch_expr-1"></a><p>Creates an abstract catch-expression. The result represents
+"<strong>catch Expr</strong>".
+</p><p><em>See also:</em> <a href="#catch_expr_body-1">catch_expr_body/1</a>.</p><h2>catch_expr_body(Node::) -&gt;</h2><p>Returns the body subtree of a catch_expr node.</p><a name="catch_expr_body-1"></a><p>Returns the body subtree of a <strong>catch_expr</strong> node.
+</p><p><em>See also:</em> <a href="#catch_expr-1">catch_expr/1</a>.</p><h2>char(Char::char()) -&gt;</h2><p>Creates an abstract character literal.</p><a name="char-1"></a><p>Creates an abstract character literal. The result represents
+"<strong>$Name</strong>", where <strong>Name</strong> corresponds to
+<strong>Value</strong>.</p><p>Note: the literal corresponding to a particular character value is
+not uniquely defined. E.g., the character "<strong>a</strong>" can be
+written both as "<strong>$a</strong>" and "<strong>$\141</strong>", and a Tab
+character can be written as "<strong>$\11</strong>", "<strong>$\011</strong>"
+or "<strong>$\t</strong>".
+</p><p><em>See also:</em> <a href="#char_literal-1">char_literal/1</a>, <a href="#char_literal-2">char_literal/2</a>, <a href="#char_value-1">char_value/1</a>, <a href="#is_char-2">is_char/2</a>.</p><h2>char_literal(Node::) -&gt; nonempty_string()</h2><p>Returns the literal string represented by a char node.</p><a name="char_literal-1"></a><p>Returns the literal string represented by a <strong>char</strong>
+node. This includes the leading "<strong>$</strong>" character.
+Characters beyond 255 will be escaped.
+</p><p><em>See also:</em> <a href="#char-1">char/1</a>.</p><h2>char_literal(Node::, X2::) -&gt; nonempty_string()</h2><p>Returns the literal string represented by a char node.</p><a name="char_literal-2"></a><p>Returns the literal string represented by a <strong>char</strong>
+node. This includes the leading "<strong>$</strong>" character.
+Depending on the encoding a character beyond 255 will be escaped
+(<strong>latin1</strong>) or copied as is (<strong>utf8</strong>).
+</p><p><em>See also:</em> <a href="#char-1">char/1</a>.</p><h2>char_value(Node::) -&gt; char()</h2><p>Returns the value represented by a char node.</p><a name="char_value-1"></a><p>Returns the value represented by a <strong>char</strong> node.
+</p><p><em>See also:</em> <a href="#char-1">char/1</a>.</p><h2>class_qualifier(Class::, Body::) -&gt;</h2><p>Creates an abstract class qualifier.</p><a name="class_qualifier-2"></a><p>Creates an abstract class qualifier. The result represents
+"<strong>Class:Body</strong>".
+</p><p><em>See also:</em> <a href="#class_qualifier_argument-1">class_qualifier_argument/1</a>, <a href="#class_qualifier_body-1">class_qualifier_body/1</a>, <a href="#class_qualifier_stacktrace-1">class_qualifier_stacktrace/1</a>, <a href="#try_expr-4">try_expr/4</a>.</p><h2>class_qualifier(Class::, Body::, Stacktrace::) -&gt;</h2><p>Creates an abstract class qualifier.</p><a name="class_qualifier-3"></a><p>Creates an abstract class qualifier. The result represents
+"<strong>Class:Body:Stacktrace</strong>".
+</p><p><em>See also:</em> <a href="#class_qualifier_argument-1">class_qualifier_argument/1</a>, <a href="#class_qualifier_body-1">class_qualifier_body/1</a>, <a href="#try_expr-4">try_expr/4</a>.</p><h2>class_qualifier_argument(Node::) -&gt;</h2><p>Returns the argument (the class) subtree of a class_qualifier node.</p><a name="class_qualifier_argument-1"></a><p>Returns the argument (the class) subtree of a
+<strong>class_qualifier</strong> node.
+</p><p><em>See also:</em> <a href="#class_qualifier-2">class_qualifier/2</a>.</p><h2>class_qualifier_body(Node::) -&gt;</h2><p>Returns the body subtree of a class_qualifier node.</p><a name="class_qualifier_body-1"></a><p>Returns the body subtree of a <strong>class_qualifier</strong> node.
+</p><p><em>See also:</em> <a href="#class_qualifier-2">class_qualifier/2</a>.</p><h2>class_qualifier_stacktrace(Node::) -&gt;</h2><p>Returns the stacktrace subtree of a class_qualifier node.</p><a name="class_qualifier_stacktrace-1"></a><p>Returns the stacktrace subtree of a <strong>class_qualifier</strong> node.
+</p><p><em>See also:</em> <a href="#class_qualifier-2">class_qualifier/2</a>.</p><h2>clause(Guard::, Body::[]) -&gt;</h2><p>Equivalent to clause([], Guard, Body). </p><a name="clause-2"></a><p>Equivalent to <a href="#clause-3">clause([], Guard, Body)</a>.</p><h2>clause(Patterns::[], Guard::, Body::[]) -&gt;</h2><p>Creates an abstract clause.</p><a name="clause-3"></a><p>Creates an abstract clause. If <strong>Patterns</strong> is
+<strong>[P1, ..., Pn]</strong> and <strong>Body</strong> is <strong>[B1, ..., Bm]</strong>, then if <strong>Guard</strong> is <strong>none</strong>, the
+result represents "<strong>(P1, ..., Pn) -&gt; B1, ..., Bm</strong>", otherwise, unless
+<strong>Guard</strong> is a list, the result represents
+"<strong>(P1, ..., Pn) when Guard -&gt; B1, ..., Bm</strong>".</p><p>For simplicity, the <strong>Guard</strong> argument may also be any
+of the following:
+</p><ul><li><p>An empty list <strong>[]</strong>. This is equivalent to passing
+<strong>none</strong>.</p></li><li><p>A nonempty list <strong>[E1, ..., Ej]</strong> of syntax trees.
+This is equivalent to passing <strong>conjunction([E1, ..., Ej])</strong>.</p></li><li><p>A nonempty list of lists of syntax trees <strong>[[E1_1, ..., E1_k1], ..., [Ej_1, ..., Ej_kj]]</strong>, which is equivalent
+to passing <strong>disjunction([conjunction([E1_1, ..., E1_k1]), ..., conjunction([Ej_1, ..., Ej_kj])])</strong>.</p></li></ul><p>
+</p><p><em>See also:</em> <a href="#clause-2">clause/2</a>, <a href="#clause_body-1">clause_body/1</a>, <a href="#clause_guard-1">clause_guard/1</a>, <a href="#clause_patterns-1">clause_patterns/1</a>.</p><h2>clause_body(Node::) -&gt; []</h2><p>Return the list of body subtrees of a clause node.</p><a name="clause_body-1"></a><p>Return the list of body subtrees of a <strong>clause</strong> node.
+</p><p><em>See also:</em> <a href="#clause-3">clause/3</a>.</p><h2>clause_guard(Node::) -&gt; none |</h2><p>Returns the guard subtree of a clause node, if any.</p><a name="clause_guard-1"></a><p>Returns the guard subtree of a <strong>clause</strong> node, if
+any. If <strong>Node</strong> represents "<strong>(P1, ..., Pn) when Guard -&gt; B1, ..., Bm</strong>", <strong>Guard</strong> is returned. Otherwise, the
+result is <strong>none</strong>.
+</p><p><em>See also:</em> <a href="#clause-3">clause/3</a>.</p><h2>clause_patterns(Node::) -&gt; []</h2><p>Returns the list of pattern subtrees of a clause node.</p><a name="clause_patterns-1"></a><p>Returns the list of pattern subtrees of a <strong>clause</strong> node.
+</p><p><em>See also:</em> <a href="#clause-3">clause/3</a>.</p><h2>comment(Strings::[string()]) -&gt;</h2><p>Equivalent to comment(none, Strings). </p><a name="comment-1"></a><p>Equivalent to <a href="#comment-2">comment(none, Strings)</a>.</p><h2>comment(Pad::, Strings::[string()]) -&gt;</h2><p>Creates an abstract comment with the given padding and text.</p><a name="comment-2"></a><p>Creates an abstract comment with the given padding and text. If
+<strong>Strings</strong> is a (possibly empty) list
+<strong>["Txt1", ..., "TxtN"]</strong>, the result
+represents the source code text
+</p><pre>
+     %Txt1
+     ...
+     %TxtN</pre><p>
+<strong>Padding</strong> states the number of empty character positions
+to the left of the comment separating it horizontally from
+source code on the same line (if any). If <strong>Padding</strong> is
+<strong>none</strong>, a default positive number is used. If
+<strong>Padding</strong> is an integer less than 1, there should be no
+separating space. Comments are in themselves regarded as source
+program forms.
+</p><p><em>See also:</em> <a href="#comment-1">comment/1</a>, <a href="#is_form-1">is_form/1</a>.</p><h2>comment_padding(Node::) -&gt;</h2><p>Returns the amount of padding before the comment, or none.</p><a name="comment_padding-1"></a><p>Returns the amount of padding before the comment, or
+<strong>none</strong>. The latter means that a default padding may be used.
+</p><p><em>See also:</em> <a href="#comment-2">comment/2</a>.</p><h2>comment_text(Node::) -&gt; [string()]</h2><p>Returns the lines of text of the abstract comment.</p><a name="comment_text-1"></a><p>Returns the lines of text of the abstract comment.
+</p><p><em>See also:</em> <a href="#comment-2">comment/2</a>.</p><h2>compact_list(Node::) -&gt;</h2><p>Yields the most compact form for an abstract list skeleton.</p><a name="compact_list-1"></a><p>Yields the most compact form for an abstract list skeleton. The
+result either represents "<strong>[E1, ..., En | Tail]</strong>", where <strong>Tail</strong> is not a list
+skeleton, or otherwise simply "<strong>[E1, ..., En]</strong>". Annotations on subtrees of <strong>Node</strong>
+that represent list skeletons may be lost, but comments will be
+propagated to the result. Returns <strong>Node</strong> itself if
+<strong>Node</strong> does not represent a list skeleton.
+</p><p><em>See also:</em> <a href="#list-2">list/2</a>, <a href="#normalize_list-1">normalize_list/1</a>.</p><h2>concrete(Node::) -&gt; term()</h2><p>Returns the Erlang term represented by a syntax tree.</p><a name="concrete-1"></a><p>Returns the Erlang term represented by a syntax tree. Evaluation
+fails with reason <strong>badarg</strong> if <strong>Node</strong> does not  
+represent a literal term.</p><p>Note: Currently, the set of syntax trees which have a concrete
+representation is larger than the set of trees which can be built
+using the function <a href="#abstract-1">abstract/1</a>. An abstract character
+will be concretised as an integer, while <a href="#abstract-1">abstract/1</a> does
+not at present yield an abstract character for any input. (Use the
+<a href="#char-1">char/1</a> function to explicitly create an abstract  
+character.)</p><p>Note: <strong>arity_qualifier</strong> nodes are recognized. This is to follow The
+Erlang Parser when it comes to wild attributes: both {F, A} and F/A
+are recognized, which makes it possible to turn wild attributes
+into recognized attributes without at the same time making it
+impossible to compile files using the new syntax with the old
+version of the Erlang Compiler.
+</p><p><em>See also:</em> <a href="#abstract-1">abstract/1</a>, <a href="#char-1">char/1</a>, <a href="#is_literal-1">is_literal/1</a>.</p><h2>cond_expr(Clauses::[]) -&gt;</h2><p>Creates an abstract cond-expression.</p><a name="cond_expr-1"></a><p>Creates an abstract cond-expression. If <strong>Clauses</strong> is
+<strong>[C1, ..., Cn]</strong>, the result represents "<strong>cond C1; ...; Cn end</strong>". More exactly, if each
+<strong>Ci</strong> represents "<strong>() Ei -&gt; Bi</strong>", then the result represents "<strong>cond E1 -&gt; B1; ...; En -&gt; Bn end</strong>".
+</p><p><em>See also:</em> <a href="#case_expr-2">case_expr/2</a>, <a href="#clause-3">clause/3</a>, <a href="#cond_expr_clauses-1">cond_expr_clauses/1</a>.</p><h2>cond_expr_clauses(Node::) -&gt; []</h2><p>Returns the list of clause subtrees of a cond_expr node.</p><a name="cond_expr_clauses-1"></a><p>Returns the list of clause subtrees of a <strong>cond_expr</strong> node.
+</p><p><em>See also:</em> <a href="#cond_expr-1">cond_expr/1</a>.</p><h2>conjunction(Tests::[]) -&gt;</h2><p>Creates an abstract conjunction.</p><a name="conjunction-1"></a><p>Creates an abstract conjunction. If <strong>List</strong> is
+<strong>[E1, ..., En]</strong>, the result represents
+"<strong>E1, ..., En</strong>".
+</p><p><em>See also:</em> <a href="#conjunction_body-1">conjunction_body/1</a>, <a href="#disjunction-1">disjunction/1</a>.</p><h2>conjunction_body(Node::) -&gt; []</h2><p>Returns the list of body subtrees of a conjunction node.</p><a name="conjunction_body-1"></a><p>Returns the list of body subtrees of a
+<strong>conjunction</strong> node.
+</p><p><em>See also:</em> <a href="#conjunction-1">conjunction/1</a>.</p><h2>cons(Head::, Tail::) -&gt;</h2><p>"Optimising" list skeleton cons operation.</p><a name="cons-2"></a><p>"Optimising" list skeleton cons operation. Creates an abstract
+list skeleton whose first element is <strong>Head</strong> and whose tail
+corresponds to <strong>Tail</strong>. This is similar to
+<strong>list([Head], Tail)</strong>, except that <strong>Tail</strong> may
+not be <strong>none</strong>, and that the result does not necessarily
+represent exactly "<strong>[Head | Tail]</strong>", but
+may depend on the <strong>Tail</strong> subtree. E.g., if
+<strong>Tail</strong> represents <strong>[X, Y]</strong>, the result may
+represent "<strong>[Head, X, Y]</strong>", rather than
+"<strong>[Head | [X, Y]]</strong>". Annotations on
+<strong>Tail</strong> itself may be lost if <strong>Tail</strong> represents
+a list skeleton, but comments on <strong>Tail</strong> are propagated to
+the result.
+</p><p><em>See also:</em> <a href="#list-2">list/2</a>, <a href="#list_head-1">list_head/1</a>, <a href="#list_tail-1">list_tail/1</a>.</p><h2>constrained_function_type(FunctionType::, FunctionConstraint::[]) -&gt;</h2><p>Creates an abstract constrained function type.</p><a name="constrained_function_type-2"></a><p>Creates an abstract constrained function type.
+If <strong>FunctionConstraint</strong> is <strong>[C1, ..., Cn]</strong>, the result represents
+"<strong>FunctionType when C1, ...Cn</strong>".
+</p><p><em>See also:</em> <a href="#constrained_function_type_argument-1">constrained_function_type_argument/1</a>, <a href="#constrained_function_type_body-1">constrained_function_type_body/1</a>.</p><h2>constrained_function_type_argument(Node::) -&gt;</h2><p>Returns the function constraint subtree of a constrained_function_type node.</p><a name="constrained_function_type_argument-1"></a><p>Returns the function constraint subtree of a
+<strong>constrained_function_type</strong> node.
+</p><p><em>See also:</em> <a href="#constrained_function_type-2">constrained_function_type/2</a>.</p><h2>constrained_function_type_body(Node::) -&gt;</h2><p>Returns the function type subtree of a constrained_function_type node.</p><a name="constrained_function_type_body-1"></a><p>Returns the function type subtree of a
+<strong>constrained_function_type</strong> node.
+</p><p><em>See also:</em> <a href="#constrained_function_type-2">constrained_function_type/2</a>.</p><h2>constraint(Name::, Types::[]) -&gt;</h2><p>Creates an abstract (subtype) constraint.</p><a name="constraint-2"></a><p>Creates an abstract (subtype) constraint. The result represents
+"<strong>Name :: Type</strong>".
+</p><p><em>See also:</em> <a href="#constraint_argument-1">constraint_argument/1</a>, <a href="#constraint_body-1">constraint_body/1</a>.</p><h2>constraint_argument(Node::) -&gt;</h2><p>Returns the name subtree of a constraint node.</p><a name="constraint_argument-1"></a><p>Returns the name subtree of a <strong>constraint</strong> node.
+</p><p><em>See also:</em> <a href="#constraint-2">constraint/2</a>.</p><h2>constraint_body(Node::) -&gt; []</h2><p>Returns the type subtree of a constraint node.</p><a name="constraint_body-1"></a><p>Returns the type subtree of a <strong>constraint</strong> node.
+</p><p><em>See also:</em> <a href="#constraint-2">constraint/2</a>.</p><h2>copy_ann(Source::, Target::) -&gt;</h2><p>Copies the list of user annotations from Source to Target.</p><a name="copy_ann-2"></a><p>Copies the list of user annotations from <strong>Source</strong> to <strong>Target</strong>.</p><p>Note: this is equivalent to <strong>set_ann(Target, get_ann(Source))</strong>, but potentially more efficient.
+</p><p><em>See also:</em> <a href="#get_ann-1">get_ann/1</a>, <a href="#set_ann-2">set_ann/2</a>.</p><h2>copy_attrs(S::, T::) -&gt;</h2><p>Copies the attributes from Source to Target.</p><a name="copy_attrs-2"></a><p>Copies the attributes from <strong>Source</strong> to <strong>Target</strong>.</p><p>Note: this is equivalent to <strong>set_attrs(Target, get_attrs(Source))</strong>, but potentially more efficient.
+</p><p><em>See also:</em> <a href="#get_attrs-1">get_attrs/1</a>, <a href="#set_attrs-2">set_attrs/2</a>.</p><h2>copy_comments(Source::, Target::) -&gt;</h2><p>Copies the pre- and postcomments from Source to Target.</p><a name="copy_comments-2"></a><p>Copies the pre- and postcomments from <strong>Source</strong> to <strong>Target</strong>.</p><p>Note: This is equivalent to
+<strong>set_postcomments(set_precomments(Target, get_precomments(Source)), get_postcomments(Source))</strong>, but
+potentially more efficient.
+</p><p><em>See also:</em> <a href="#comment-2">comment/2</a>, <a href="#get_postcomments-1">get_postcomments/1</a>, <a href="#get_precomments-1">get_precomments/1</a>, <a href="#set_postcomments-2">set_postcomments/2</a>, <a href="#set_precomments-2">set_precomments/2</a>.</p><h2>copy_pos(Source::, Target::) -&gt;</h2><p>Copies the position information from Source to Target.</p><a name="copy_pos-2"></a><p>Copies the position information from <strong>Source</strong> to <strong>Target</strong>.</p><p>This is equivalent to <strong>set_pos(Target, get_pos(Source))</strong>, but potentially more efficient.
+</p><p><em>See also:</em> <a href="#get_pos-1">get_pos/1</a>, <a href="#set_pos-2">set_pos/2</a>.</p><h2>data(Tree::) -&gt; term()</h2><p>For special purposes only.</p><a name="data-1"></a><p><em>For special purposes only</em>. Returns the associated data
+of a syntax tree node. Evaluation fails with reason
+<strong>badarg</strong> if <strong>is_tree(Node)</strong> does not yield
+<strong>true</strong>.
+</p><p><em>See also:</em> <a href="#tree-2">tree/2</a>.</p><h2>disjunction(Tests::[]) -&gt;</h2><p>Creates an abstract disjunction.</p><a name="disjunction-1"></a><p>Creates an abstract disjunction. If <strong>List</strong> is
+<strong>[E1, ..., En]</strong>, the result represents
+"<strong>E1; ...; En</strong>".
+</p><p><em>See also:</em> <a href="#conjunction-1">conjunction/1</a>, <a href="#disjunction_body-1">disjunction_body/1</a>.</p><h2>disjunction_body(Node::) -&gt; []</h2><p>Returns the list of body subtrees of a disjunction node.</p><a name="disjunction_body-1"></a><p>Returns the list of body subtrees of a
+<strong>disjunction</strong> node.
+</p><p><em>See also:</em> <a href="#disjunction-1">disjunction/1</a>.</p><h2>eof_marker() -&gt;</h2><p>Creates an abstract end-of-file marker.</p><a name="eof_marker-0"></a><p>Creates an abstract end-of-file marker. This represents the  
+end of input when reading a sequence of source code forms. An  
+end-of-file marker is itself regarded as a source code form  
+(namely, the last in any sequence in which it occurs). It has no  
+defined lexical form.</p><p>Note: this is retained only for backwards compatibility with
+existing parsers and tools.
+</p><p><em>See also:</em> <a href="#error_marker-1">error_marker/1</a>, <a href="#is_form-1">is_form/1</a>, <a href="#warning_marker-1">warning_marker/1</a>.</p><h2>error_marker(Error::term()) -&gt;</h2><p>Creates an abstract error marker.</p><a name="error_marker-1"></a><p>Creates an abstract error marker. The result represents an
+occurrence of an error in the source code, with an associated Erlang
+I/O ErrorInfo structure given by <strong>Error</strong> (see module
+<a href="./io">io(3)</a> for details). Error markers are regarded as source  
+code forms, but have no defined lexical form.</p><p>Note: this is supported only for backwards compatibility with
+existing parsers and tools.
+</p><p><em>See also:</em> <a href="#eof_marker-0">eof_marker/0</a>, <a href="#error_marker_info-1">error_marker_info/1</a>, <a href="#is_form-1">is_form/1</a>, <a href="#warning_marker-1">warning_marker/1</a>.</p><h2>error_marker_info(Node::) -&gt; term()</h2><p>Returns the ErrorInfo structure of an error_marker node.</p><a name="error_marker_info-1"></a><p>Returns the ErrorInfo structure of an <strong>error_marker</strong> node.
+</p><p><em>See also:</em> <a href="#error_marker-1">error_marker/1</a>.</p><h2>flatten_form_list(Node::) -&gt;</h2><p>Flattens sublists of a form_list node.</p><a name="flatten_form_list-1"></a><p>Flattens sublists of a <strong>form_list</strong> node. Returns
+<strong>Node</strong> with all subtrees of type <strong>form_list</strong>
+recursively expanded, yielding a single "flat" abstract form
+sequence.
+</p><p><em>See also:</em> <a href="#form_list-1">form_list/1</a>.</p><h2>float(Value::float()) -&gt;</h2><p>Creates an abstract floating-point literal.</p><a name="float-1"></a><p>Creates an abstract floating-point literal. The lexical
+representation is the decimal floating-point numeral of <strong>Value</strong>.
+</p><p><em>See also:</em> <a href="#float_literal-1">float_literal/1</a>, <a href="#float_value-1">float_value/1</a>.</p><h2>float_literal(Node::) -&gt; string()</h2><p>Returns the numeral string represented by a float node.</p><a name="float_literal-1"></a><p>Returns the numeral string represented by a <strong>float</strong> node.
+</p><p><em>See also:</em> <a href="#float-1">float/1</a>.</p><h2>float_value(Node::) -&gt; float()</h2><p>Returns the value represented by a float node.</p><a name="float_value-1"></a><p>Returns the value represented by a <strong>float</strong> node. Note
+that floating-point values should usually not be compared for
+equality.
+</p><p><em>See also:</em> <a href="#float-1">float/1</a>.</p><h2>form_list(Forms::[]) -&gt;</h2><p>Creates an abstract sequence of "source code forms".</p><a name="form_list-1"></a><p>Creates an abstract sequence of "source code forms". If
+<strong>Forms</strong> is <strong>[F1, ..., Fn]</strong>, where each
+<strong>Fi</strong> is a form (see <a href="#is_form-1">is_form/1</a>, the result
+represents
+</p><pre>
+     F1
+     ...
+     Fn</pre><p>
+where the <strong>Fi</strong> are separated by one or more line breaks. A
+node of type <strong>form_list</strong> is itself regarded as a source
+code form; see <a href="#flatten_form_list-1">flatten_form_list/1</a>.</p><p>Note: this is simply a way of grouping source code forms as a
+single syntax tree, usually in order to form an Erlang module
+definition.
+</p><p><em>See also:</em> <a href="#flatten_form_list-1">flatten_form_list/1</a>, <a href="#form_list_elements-1">form_list_elements/1</a>, <a href="#is_form-1">is_form/1</a>.</p><h2>form_list_elements(Node::) -&gt; []</h2><p>Returns the list of subnodes of a form_list node.</p><a name="form_list_elements-1"></a><p>Returns the list of subnodes of a <strong>form_list</strong> node.
+</p><p><em>See also:</em> <a href="#form_list-1">form_list/1</a>.</p><h2>fun_expr(Clauses::[]) -&gt;</h2><p>Creates an abstract fun-expression.</p><a name="fun_expr-1"></a><p>Creates an abstract fun-expression. If <strong>Clauses</strong> is
+<strong>[C1, ..., Cn]</strong>, the result represents "<strong>fun C1; ...; Cn end</strong>". More exactly, if each
+<strong>Ci</strong> represents "<strong>(Pi1, ..., Pim) Gi -&gt; Bi</strong>", then the result represents
+"<strong>fun (P11, ..., P1m) G1 -&gt; B1; ...; (Pn1, ..., Pnm) Gn -&gt; Bn end</strong>".
+</p><p><em>See also:</em> <a href="#fun_expr_arity-1">fun_expr_arity/1</a>, <a href="#fun_expr_clauses-1">fun_expr_clauses/1</a>.</p><h2>fun_expr_arity(Node::) -&gt; arity()</h2><p>Returns the arity of a fun_expr node.</p><a name="fun_expr_arity-1"></a><p>Returns the arity of a <strong>fun_expr</strong> node. The result is  
+the number of parameter patterns in the first clause of the  
+fun-expression; subsequent clauses are ignored.</p><p>An exception is thrown if <strong>fun_expr_clauses(Node)</strong>
+returns an empty list, or if the first element of that list is not a
+syntax tree <strong>C</strong> of type <strong>clause</strong> such that
+<strong>clause_patterns(C)</strong> is a nonempty list.
+</p><p><em>See also:</em> <a href="#clause-3">clause/3</a>, <a href="#clause_patterns-1">clause_patterns/1</a>, <a href="#fun_expr-1">fun_expr/1</a>, <a href="#fun_expr_clauses-1">fun_expr_clauses/1</a>.</p><h2>fun_expr_clauses(Node::) -&gt; []</h2><p>Returns the list of clause subtrees of a fun_expr node.</p><a name="fun_expr_clauses-1"></a><p>Returns the list of clause subtrees of a <strong>fun_expr</strong> node.
+</p><p><em>See also:</em> <a href="#fun_expr-1">fun_expr/1</a>.</p><h2>fun_type() -&gt;</h2><p>Creates an abstract fun of any type.</p><a name="fun_type-0"></a><p>Creates an abstract fun of any type. The result represents
+"<strong>fun()</strong>".</p><h2>function(Name::, Clauses::[]) -&gt;</h2><p>Creates an abstract function definition.</p><a name="function-2"></a><p>Creates an abstract function definition. If <strong>Clauses</strong>
+is <strong>[C1, ..., Cn]</strong>, the result represents
+"<strong>Name C1; ...; Name Cn.</strong>". More exactly, if each <strong>Ci</strong>
+represents "<strong>(Pi1, ..., Pim) Gi -&gt; Bi</strong>", then the result represents
+"<strong>Name(P11, ..., P1m) G1 -&gt; B1; ...; Name(Pn1, ..., Pnm) Gn -&gt; Bn.</strong>". Function definitions are source
+code forms.
+</p><p><em>See also:</em> <a href="#function_arity-1">function_arity/1</a>, <a href="#function_clauses-1">function_clauses/1</a>, <a href="#function_name-1">function_name/1</a>, <a href="#is_form-1">is_form/1</a>.</p><h2>function_arity(Node::) -&gt; arity()</h2><p>Returns the arity of a function node.</p><a name="function_arity-1"></a><p>Returns the arity of a <strong>function</strong> node. The result  
+is the number of parameter patterns in the first clause of the  
+function; subsequent clauses are ignored.</p><p>An exception is thrown if <strong>function_clauses(Node)</strong>
+returns an empty list, or if the first element of that list is not
+a syntax tree <strong>C</strong> of type <strong>clause</strong> such that
+<strong>clause_patterns(C)</strong> is a nonempty list.
+</p><p><em>See also:</em> <a href="#clause-3">clause/3</a>, <a href="#clause_patterns-1">clause_patterns/1</a>, <a href="#function-2">function/2</a>, <a href="#function_clauses-1">function_clauses/1</a>.</p><h2>function_clauses(Node::) -&gt; []</h2><p>Returns the list of clause subtrees of a function node.</p><a name="function_clauses-1"></a><p>Returns the list of clause subtrees of a <strong>function</strong> node.
+</p><p><em>See also:</em> <a href="#function-2">function/2</a>.</p><h2>function_name(Node::) -&gt;</h2><p>Returns the name subtree of a function node.</p><a name="function_name-1"></a><p>Returns the name subtree of a <strong>function</strong> node.
+</p><p><em>See also:</em> <a href="#function-2">function/2</a>.</p><h2>function_type(Type) -&gt; term()
+</h2><p>Equivalent to function_type(any_arity, Type). </p><a name="function_type-1"></a><p>Equivalent to <a href="#function_type-2">function_type(any_arity, Type)</a>.</p><h2>function_type(Arguments::any_arity |, Return::) -&gt;</h2><p>Creates an abstract function type.</p><a name="function_type-2"></a><p>Creates an abstract function type. If <strong>Arguments</strong> is
+<strong>[T1, ..., Tn]</strong>, then if it occurs within a function
+specification, the result represents
+"<strong>(T1, ...Tn) -&gt; Return</strong>"; otherwise
+it represents
+"<strong>fun((T1, ...Tn) -&gt; Return)</strong>".
+If <strong>Arguments</strong> is <strong>any_arity</strong>, it represents
+"<strong>fun((...) -&gt; Return)</strong>".</p><p>Note that the <strong>erl_parse</strong> representation is identical for
+"<strong>FunctionType</strong>" and
+"<strong>fun(FunctionType)</strong>".
+</p><p><em>See also:</em> <a href="#function_type_arguments-1">function_type_arguments/1</a>, <a href="#function_type_return-1">function_type_return/1</a>.</p><h2>function_type_arguments(Node::) -&gt; any_arity | []</h2><p>Returns the argument types subtrees of a function_type node.</p><a name="function_type_arguments-1"></a><p>Returns the argument types subtrees of a <strong>function_type</strong> node.
+If <strong>Node</strong> represents "<strong>fun((...) -&gt; Return)</strong>",
+<strong>any_arity</strong> is returned; otherwise, if <strong>Node</strong> represents
+"<strong>(T1, ...Tn) -&gt; Return</strong>" or
+"<strong>fun((T1, ...Tn) -&gt; Return)</strong>",
+<strong>[T1, ..., Tn]</strong> is returned.</p><p><em>See also:</em> <a href="#function_type-1">function_type/1</a>, <a href="#function_type-2">function_type/2</a>.</p><h2>function_type_return(Node::) -&gt;</h2><p>Returns the return type subtrees of a function_type node.</p><a name="function_type_return-1"></a><p>Returns the return type subtrees of a <strong>function_type</strong> node.
+</p><p><em>See also:</em> <a href="#function_type-1">function_type/1</a>, <a href="#function_type-2">function_type/2</a>.</p><h2>generator(Pattern::, Body::) -&gt;</h2><p>Creates an abstract generator.</p><a name="generator-2"></a><p>Creates an abstract generator. The result represents
+"<strong>Pattern &lt;- Body</strong>".
+</p><p><em>See also:</em> <a href="#binary_comp-2">binary_comp/2</a>, <a href="#generator_body-1">generator_body/1</a>, <a href="#generator_pattern-1">generator_pattern/1</a>, <a href="#list_comp-2">list_comp/2</a>.</p><h2>generator_body(Node::) -&gt;</h2><p>Returns the body subtree of a generator node.</p><a name="generator_body-1"></a><p>Returns the body subtree of a <strong>generator</strong> node.
+</p><p><em>See also:</em> <a href="#generator-2">generator/2</a>.</p><h2>generator_pattern(Node::) -&gt;</h2><p>Returns the pattern subtree of a generator node.</p><a name="generator_pattern-1"></a><p>Returns the pattern subtree of a <strong>generator</strong> node.
+</p><p><em>See also:</em> <a href="#generator-2">generator/2</a>.</p><h2>get_ann(Tree::) -&gt; [term()]</h2><p>Returns the list of user annotations associated with a syntax tree node.</p><a name="get_ann-1"></a><p>Returns the list of user annotations associated with a syntax
+tree node. For a newly created node, this is the empty list. The
+annotations may be any terms.
+</p><p><em>See also:</em> <a href="#get_attrs-1">get_attrs/1</a>, <a href="#set_ann-2">set_ann/2</a>.</p><h2>get_attrs(Tree::) -&gt;</h2><p>Returns a representation of the attributes associated with a syntax tree node.</p><a name="get_attrs-1"></a><p>Returns a representation of the attributes associated with a
+syntax tree node. The attributes are all the extra information that
+can be attached to a node. Currently, this includes position
+information, source code comments, and user annotations. The result
+of this function cannot be inspected directly; only attached to
+another node (see <a href="#set_attrs-2">set_attrs/2</a>).</p><p>For accessing individual attributes, see <a href="#get_pos-1">get_pos/1</a>,
+<a href="#get_ann-1">get_ann/1</a>, <a href="#get_precomments-1">get_precomments/1</a> and
+<a href="#get_postcomments-1">get_postcomments/1</a>.
+</p><p><em>See also:</em> <a href="#get_ann-1">get_ann/1</a>, <a href="#get_pos-1">get_pos/1</a>, <a href="#get_postcomments-1">get_postcomments/1</a>, <a href="#get_precomments-1">get_precomments/1</a>, <a href="#set_attrs-2">set_attrs/2</a>.</p><h2>get_pos(Tree::) -&gt; term()</h2><p>Returns the position information associated with Node.</p><a name="get_pos-1"></a><p>Returns the position information associated with
+<strong>Node</strong>. This is usually a nonnegative integer (indicating
+the source code line number), but may be any term. By default, all
+new tree nodes have their associated position information set to the
+integer zero.
+</p><p><em>See also:</em> <a href="#get_attrs-1">get_attrs/1</a>, <a href="#set_pos-2">set_pos/2</a>.</p><h2>get_postcomments(Tree::) -&gt; []</h2><p>Returns the associated post-comments of a node.</p><a name="get_postcomments-1"></a><p>Returns the associated post-comments of a node. This is a
+possibly empty list of abstract comments, in top-down textual order.
+When the code is formatted, post-comments are typically displayed to
+the right of and/or below the node. For example:
+</p><pre>     {foo, X, Y}     % Post-comment of tuple</pre><p>
+If possible, the comment should be moved past any following
+separator characters on the same line, rather than placing the
+separators on the following line. E.g.:
+</p><pre>     foo([X | Xs], Y) -&gt;
+         foo(Xs, bar(X));     % Post-comment of 'bar(X)' node
+      ...</pre><p>
+(where the comment is moved past the rightmost "<strong>)</strong>" and
+the "<strong>;</strong>").
+</p><p><em>See also:</em> <a href="#comment-2">comment/2</a>, <a href="#get_attrs-1">get_attrs/1</a>, <a href="#get_precomments-1">get_precomments/1</a>, <a href="#set_postcomments-2">set_postcomments/2</a>.</p><h2>get_precomments(Tree::) -&gt; []</h2><p>Returns the associated pre-comments of a node.</p><a name="get_precomments-1"></a><p>Returns the associated pre-comments of a node. This is a
+possibly empty list of abstract comments, in top-down textual order.
+When the code is formatted, pre-comments are typically displayed
+directly above the node. For example:
+</p><pre>     % Pre-comment of function
+     foo(X) -&gt; {bar, X}.</pre><p>
+If possible, the comment should be moved before any preceding
+separator characters on the same line. E.g.:
+</p><pre>     foo([X | Xs]) -&gt;
+         % Pre-comment of 'bar(X)' node
+         [bar(X) | foo(Xs)];
+     ...</pre><p>
+(where the comment is moved before the "<strong>[</strong>").
+</p><p><em>See also:</em> <a href="#comment-2">comment/2</a>, <a href="#get_attrs-1">get_attrs/1</a>, <a href="#get_postcomments-1">get_postcomments/1</a>, <a href="#set_precomments-2">set_precomments/2</a>.</p><h2>has_comments(Tree::) -&gt; boolean()</h2><p>Yields false if the node has no associated comments, and true otherwise.</p><a name="has_comments-1"></a><p>Yields <strong>false</strong> if the node has no associated
+comments, and <strong>true</strong> otherwise.</p><p>Note: This is equivalent to <strong>(get_precomments(Node) == []) and (get_postcomments(Node) == [])</strong>, but potentially more
+efficient.
+</p><p><em>See also:</em> <a href="#get_postcomments-1">get_postcomments/1</a>, <a href="#get_precomments-1">get_precomments/1</a>, <a href="#remove_comments-1">remove_comments/1</a>.</p><h2>if_expr(Clauses::[]) -&gt;</h2><p>Creates an abstract if-expression.</p><a name="if_expr-1"></a><p>Creates an abstract if-expression. If <strong>Clauses</strong> is
+<strong>[C1, ..., Cn]</strong>, the result represents "<strong>if C1; ...; Cn end</strong>". More exactly, if each
+<strong>Ci</strong> represents "<strong>() Gi -&gt; Bi</strong>", then the result represents "<strong>if G1 -&gt; B1; ...; Gn -&gt; Bn end</strong>".
+</p><p><em>See also:</em> <a href="#case_expr-2">case_expr/2</a>, <a href="#clause-3">clause/3</a>, <a href="#if_expr_clauses-1">if_expr_clauses/1</a>.</p><h2>if_expr_clauses(Node::) -&gt; []</h2><p>Returns the list of clause subtrees of an if_expr node.</p><a name="if_expr_clauses-1"></a><p>Returns the list of clause subtrees of an <strong>if_expr</strong> node.
+</p><p><em>See also:</em> <a href="#if_expr-1">if_expr/1</a>.</p><h2>implicit_fun(Name::) -&gt;</h2><p>Creates an abstract "implicit fun" expression.</p><a name="implicit_fun-1"></a><p>Creates an abstract "implicit fun" expression. The result
+represents "<strong>fun Name</strong>". <strong>Name</strong> should
+represent either <strong>F/A</strong> or
+<strong>M:F/A</strong>
+</p><p><em>See also:</em> <a href="#arity_qualifier-2">arity_qualifier/2</a>, <a href="#implicit_fun-2">implicit_fun/2</a>, <a href="#implicit_fun-3">implicit_fun/3</a>, <a href="#implicit_fun_name-1">implicit_fun_name/1</a>, <a href="#module_qualifier-2">module_qualifier/2</a>.</p><h2>implicit_fun(Name::, Arity::none |) -&gt;</h2><p>Creates an abstract "implicit fun" expression.</p><a name="implicit_fun-2"></a><p>Creates an abstract "implicit fun" expression. If
+<strong>Arity</strong> is <strong>none</strong>, this is equivalent to
+<strong>implicit_fun(Name)</strong>, otherwise it is equivalent to
+<strong>implicit_fun(arity_qualifier(Name, Arity))</strong>.</p><p>(This is a utility function.)
+</p><p><em>See also:</em> <a href="#implicit_fun-1">implicit_fun/1</a>, <a href="#implicit_fun-3">implicit_fun/3</a>.</p><h2>implicit_fun(Module::none |, Name::, Arity::) -&gt;</h2><p>Creates an abstract module-qualified "implicit fun" expression.</p><a name="implicit_fun-3"></a><p>Creates an abstract module-qualified "implicit fun" expression.
+If <strong>Module</strong> is <strong>none</strong>, this is equivalent to
+<strong>implicit_fun(Name, Arity)</strong>, otherwise it is equivalent to
+<strong>implicit_fun(module_qualifier(Module, arity_qualifier(Name, Arity))</strong>.</p><p>(This is a utility function.)
+</p><p><em>See also:</em> <a href="#implicit_fun-1">implicit_fun/1</a>, <a href="#implicit_fun-2">implicit_fun/2</a>.</p><h2>implicit_fun_name(Node::) -&gt;</h2><p>Returns the name subtree of an implicit_fun node.</p><a name="implicit_fun_name-1"></a><p>Returns the name subtree of an <strong>implicit_fun</strong> node.</p><p>Note: if <strong>Node</strong> represents "<strong>fun N/A</strong>" or "<strong>fun M:N/A</strong>", then the result is the
+subtree representing "<strong>N/A</strong>" or
+"<strong>M:N/A</strong>", respectively.
+</p><p><em>See also:</em> <a href="#arity_qualifier-2">arity_qualifier/2</a>, <a href="#implicit_fun-1">implicit_fun/1</a>, <a href="#module_qualifier-2">module_qualifier/2</a>.</p><h2>infix_expr(Left::, Operator::, Right::) -&gt;</h2><p>Creates an abstract infix operator expression.</p><a name="infix_expr-3"></a><p>Creates an abstract infix operator expression. The result
+represents "<strong>Left Operator Right</strong>".
+</p><p><em>See also:</em> <a href="#infix_expr_left-1">infix_expr_left/1</a>, <a href="#infix_expr_operator-1">infix_expr_operator/1</a>, <a href="#infix_expr_right-1">infix_expr_right/1</a>, <a href="#prefix_expr-2">prefix_expr/2</a>.</p><h2>infix_expr_left(Node::) -&gt;</h2><p>Returns the left argument subtree of an infix_expr node.</p><a name="infix_expr_left-1"></a><p>Returns the left argument subtree of an
+<strong>infix_expr</strong> node.
+</p><p><em>See also:</em> <a href="#infix_expr-3">infix_expr/3</a>.</p><h2>infix_expr_operator(Node::) -&gt;</h2><p>Returns the operator subtree of an infix_expr node.</p><a name="infix_expr_operator-1"></a><p>Returns the operator subtree of an <strong>infix_expr</strong> node.
+</p><p><em>See also:</em> <a href="#infix_expr-3">infix_expr/3</a>.</p><h2>infix_expr_right(Node::) -&gt;</h2><p>Returns the right argument subtree of an infix_expr node.</p><a name="infix_expr_right-1"></a><p>Returns the right argument subtree of an
+<strong>infix_expr</strong> node.
+</p><p><em>See also:</em> <a href="#infix_expr-3">infix_expr/3</a>.</p><h2>integer(Value::integer()) -&gt;</h2><p>Creates an abstract integer literal.</p><a name="integer-1"></a><p>Creates an abstract integer literal. The lexical representation
+is the canonical decimal numeral of <strong>Value</strong>.
+</p><p><em>See also:</em> <a href="#integer_literal-1">integer_literal/1</a>, <a href="#integer_value-1">integer_value/1</a>, <a href="#is_integer-2">is_integer/2</a>.</p><h2>integer_literal(Node::) -&gt; string()</h2><p>Returns the numeral string represented by an integer node.</p><a name="integer_literal-1"></a><p>Returns the numeral string represented by an <strong>integer</strong> node.
+</p><p><em>See also:</em> <a href="#integer-1">integer/1</a>.</p><h2>integer_range_type(Low::, High::) -&gt;</h2><p>Creates an abstract range type.</p><a name="integer_range_type-2"></a><p>Creates an abstract range type. The result represents
+"<strong>Low .. High</strong>".
+</p><p><em>See also:</em> <a href="#integer_range_type_high-1">integer_range_type_high/1</a>, <a href="#integer_range_type_low-1">integer_range_type_low/1</a>.</p><h2>integer_range_type_high(Node::) -&gt;</h2><p>Returns the high limit of an integer_range_type node.</p><a name="integer_range_type_high-1"></a><p>Returns the high limit of an <strong>integer_range_type</strong> node.
+</p><p><em>See also:</em> <a href="#integer_range_type-2">integer_range_type/2</a>.</p><h2>integer_range_type_low(Node::) -&gt;</h2><p>Returns the low limit of an integer_range_type node.</p><a name="integer_range_type_low-1"></a><p>Returns the low limit of an <strong>integer_range_type</strong> node.
+</p><p><em>See also:</em> <a href="#integer_range_type-2">integer_range_type/2</a>.</p><h2>integer_value(Node::) -&gt; integer()</h2><p>Returns the value represented by an integer node.</p><a name="integer_value-1"></a><p>Returns the value represented by an <strong>integer</strong> node.
+</p><p><em>See also:</em> <a href="#integer-1">integer/1</a>.</p><h2>is_atom(Node::, Value::atom()) -&gt; boolean()</h2><p>Returns true if Node has type atom and represents Value, otherwise false.</p><a name="is_atom-2"></a><p>Returns <strong>true</strong> if <strong>Node</strong> has type
+<strong>atom</strong> and represents <strong>Value</strong>, otherwise <strong>false</strong>.
+</p><p><em>See also:</em> <a href="#atom-1">atom/1</a>.</p><h2>is_char(Node::, Value::char()) -&gt; boolean()</h2><p>Returns true if Node has type char and represents Value, otherwise false.</p><a name="is_char-2"></a><p>Returns <strong>true</strong> if <strong>Node</strong> has type
+<strong>char</strong> and represents <strong>Value</strong>, otherwise <strong>false</strong>.
+</p><p><em>See also:</em> <a href="#char-1">char/1</a>.</p><h2>is_form(Node::) -&gt; boolean()</h2><p>Returns true if Node is a syntax tree representing a so-called "source code form", otherwise false.</p><a name="is_form-1"></a><p>Returns <strong>true</strong> if <strong>Node</strong> is a syntax tree
+representing a so-called "source code form", otherwise
+<strong>false</strong>. Forms are the Erlang source code units which,  
+placed in sequence, constitute an Erlang program. Current form types  
+are:</p><p>
+<strong>attribute</strong>
+<strong>comment</strong>
+<strong>error_marker</strong>
+<strong>eof_marker</strong>
+<br/>
+<strong>form_list</strong>
+<strong>function</strong>
+<strong>warning_marker</strong>
+<strong>text</strong>
+<br/>
+</p><p><em>See also:</em> <a href="#attribute-2">attribute/2</a>, <a href="#comment-2">comment/2</a>, <a href="#eof_marker-0">eof_marker/0</a>, <a href="#error_marker-1">error_marker/1</a>, <a href="#form_list-1">form_list/1</a>, <a href="#function-2">function/2</a>, <a href="#type-1">type/1</a>, <a href="#warning_marker-1">warning_marker/1</a>.</p><h2>is_integer(Node::, Value::integer()) -&gt; boolean()</h2><p>Returns true if Node has type integer and represents Value, otherwise false.</p><a name="is_integer-2"></a><p>Returns <strong>true</strong> if <strong>Node</strong> has type
+<strong>integer</strong> and represents <strong>Value</strong>, otherwise <strong>false</strong>.
+</p><p><em>See also:</em> <a href="#integer-1">integer/1</a>.</p><h2>is_leaf(Node::) -&gt; boolean()</h2><p>Returns true if Node is a leaf node, otherwise false.</p><a name="is_leaf-1"></a><p>Returns <strong>true</strong> if <strong>Node</strong> is a leaf node,
+otherwise <strong>false</strong>. The currently recognised leaf node  
+types are:</p><p>
+<strong>atom</strong>
+<strong>char</strong>
+<strong>comment</strong>
+<strong>eof_marker</strong>
+<strong>error_marker</strong>
+<br/>
+<strong>float</strong>
+<strong>fun_type</strong>
+<strong>integer</strong>
+<strong>nil</strong>
+<strong>operator</strong>
+<strong>string</strong>
+<br/>
+<strong>text</strong>
+<strong>underscore</strong>
+<strong>variable</strong>
+<strong>warning_marker</strong>
+<br/>
+</p><p>A node of type <strong>map_expr</strong> is a leaf node if and only if it has no
+argument and no fields.
+A node of type <strong>map_type</strong> is a leaf node if and only if it has no
+fields (<strong>any_size</strong>).
+A node of type <strong>tuple</strong> is a leaf node if and only if its arity is zero.
+A node of type <strong>tuple_type</strong> is a leaf node if and only if it has no
+elements (<strong>any_size</strong>).</p><p>Note: not all literals are leaf nodes, and vice versa. E.g.,
+tuples with nonzero arity and nonempty lists may be literals, but are
+not leaf nodes. Variables, on the other hand, are leaf nodes but not
+literals.
+</p><p><em>See also:</em> <a href="#is_literal-1">is_literal/1</a>, <a href="#type-1">type/1</a>.</p><h2>is_list_skeleton(Node::) -&gt; boolean()</h2><p>Returns true if Node has type list or nil, otherwise false.</p><a name="is_list_skeleton-1"></a><p>Returns <strong>true</strong> if <strong>Node</strong> has type
+<strong>list</strong> or <strong>nil</strong>, otherwise <strong>false</strong>.
+</p><p><em>See also:</em> <a href="#list-2">list/2</a>, <a href="#nil-0">nil/0</a>.</p><h2>is_literal(T::) -&gt; boolean()</h2><p>Returns true if Node represents a literal term, otherwise false.</p><a name="is_literal-1"></a><p>Returns <strong>true</strong> if <strong>Node</strong> represents a
+literal term, otherwise <strong>false</strong>. This function returns
+<strong>true</strong> if and only if the value of
+<strong>concrete(Node)</strong> is defined.
+</p><p><em>See also:</em> <a href="#abstract-1">abstract/1</a>, <a href="#concrete-1">concrete/1</a>.</p><h2>is_proper_list(Node::) -&gt; boolean()</h2><p>Returns true if Node represents a proper list, and false otherwise.</p><a name="is_proper_list-1"></a><p>Returns <strong>true</strong> if <strong>Node</strong> represents a
+proper list, and <strong>false</strong> otherwise. A proper list is a
+list skeleton either on the form "<strong>[]</strong>" or
+"<strong>[E1, ..., En]</strong>", or "<strong>[... | Tail]</strong>" where recursively <strong>Tail</strong> also  
+represents a proper list.</p><p>Note: Since <strong>Node</strong> is a syntax tree, the actual
+run-time values corresponding to its subtrees may often be partially
+or completely unknown. Thus, if <strong>Node</strong> represents e.g.
+"<strong>[... | Ns]</strong>" (where <strong>Ns</strong> is a variable), then
+the function will return <strong>false</strong>, because it is not known
+whether <strong>Ns</strong> will be bound to a list at run-time. If
+<strong>Node</strong> instead represents e.g. "<strong>[1, 2, 3]</strong>" or
+"<strong>[A | []]</strong>", then the function will return
+<strong>true</strong>.
+</p><p><em>See also:</em> <a href="#list-2">list/2</a>.</p><h2>is_string(Node::, Value::string()) -&gt; boolean()</h2><p>Returns true if Node has type string and represents Value, otherwise false.</p><a name="is_string-2"></a><p>Returns <strong>true</strong> if <strong>Node</strong> has type
+<strong>string</strong> and represents <strong>Value</strong>, otherwise <strong>false</strong>.
+</p><p><em>See also:</em> <a href="#string-1">string/1</a>.</p><h2>is_tree(Tree::) -&gt; boolean()</h2><p>For special purposes only.</p><a name="is_tree-1"></a><p><em>For special purposes only</em>. Returns <strong>true</strong> if
+<strong>Tree</strong> is an abstract syntax tree and <strong>false</strong>  
+otherwise.</p><p><em>Note</em>: this function yields <strong>false</strong> for all
+"old-style" <strong>erl_parse</strong>-compatible "parse trees".
+</p><p><em>See also:</em> <a href="#tree-2">tree/2</a>.</p><h2>join_comments(Source::, Target::) -&gt;</h2><p>Appends the comments of Source to the current comments of Target.</p><a name="join_comments-2"></a><p>Appends the comments of <strong>Source</strong> to the current
+comments of <strong>Target</strong>.</p><p>Note: This is equivalent to
+<strong>add_postcomments(get_postcomments(Source), add_precomments(get_precomments(Source), Target))</strong>, but
+potentially more efficient.
+</p><p><em>See also:</em> <a href="#add_postcomments-2">add_postcomments/2</a>, <a href="#add_precomments-2">add_precomments/2</a>, <a href="#comment-2">comment/2</a>, <a href="#get_postcomments-1">get_postcomments/1</a>, <a href="#get_precomments-1">get_precomments/1</a>.</p><h2>list(List::[]) -&gt;</h2><p>Equivalent to list(List, none). </p><a name="list-1"></a><p>Equivalent to <a href="#list-2">list(List, none)</a>.</p><h2>list(Elements::[], Tail::none |) -&gt;</h2><p>Constructs an abstract list skeleton.</p><a name="list-2"></a><p>Constructs an abstract list skeleton. The result has type
+<strong>list</strong> or <strong>nil</strong>. If <strong>List</strong> is a
+nonempty list <strong>[E1, ..., En]</strong>, the result has type
+<strong>list</strong> and represents either "<strong>[E1, ..., En]</strong>", if <strong>Tail</strong> is <strong>none</strong>, or
+otherwise "<strong>[E1, ..., En | Tail]</strong>". If <strong>List</strong> is the empty list,
+<strong>Tail</strong> <em>must</em> be <strong>none</strong>, and in that
+case the result has type <strong>nil</strong> and represents
+"<strong>[]</strong>" (see <a href="#nil-0">nil/0</a>).</p><p>The difference between lists as semantic objects (built up of  
+individual "cons" and "nil" terms) and the various syntactic forms  
+for denoting lists may be bewildering at first. This module provides  
+functions both for exact control of the syntactic representation as  
+well as for the simple composition and deconstruction in terms of  
+cons and head/tail operations.</p><p>Note: in <strong>list(Elements, none)</strong>, the "nil" list
+terminator is implicit and has no associated information (see
+<a href="#get_attrs-1">get_attrs/1</a>), while in the seemingly equivalent
+<strong>list(Elements, Tail)</strong> when <strong>Tail</strong> has type
+<strong>nil</strong>, the list terminator subtree <strong>Tail</strong> may
+have attached attributes such as position, comments, and annotations,
+which will be preserved in the result.
+</p><p><em>See also:</em> <a href="#compact_list-1">compact_list/1</a>, <a href="#cons-2">cons/2</a>, <a href="#get_attrs-1">get_attrs/1</a>, <a href="#is_list_skeleton-1">is_list_skeleton/1</a>, <a href="#is_proper_list-1">is_proper_list/1</a>, <a href="#list-1">list/1</a>, <a href="#list_elements-1">list_elements/1</a>, <a href="#list_head-1">list_head/1</a>, <a href="#list_length-1">list_length/1</a>, <a href="#list_prefix-1">list_prefix/1</a>, <a href="#list_suffix-1">list_suffix/1</a>, <a href="#list_tail-1">list_tail/1</a>, <a href="#nil-0">nil/0</a>, <a href="#normalize_list-1">normalize_list/1</a>.</p><h2>list_comp(Template::, Body::[]) -&gt;</h2><p>Creates an abstract list comprehension.</p><a name="list_comp-2"></a><p>Creates an abstract list comprehension. If <strong>Body</strong> is
+<strong>[E1, ..., En]</strong>, the result represents
+"<strong>[Template || E1, ..., En]</strong>".
+</p><p><em>See also:</em> <a href="#generator-2">generator/2</a>, <a href="#list_comp_body-1">list_comp_body/1</a>, <a href="#list_comp_template-1">list_comp_template/1</a>.</p><h2>list_comp_body(Node::) -&gt; []</h2><p>Returns the list of body subtrees of a list_comp node.</p><a name="list_comp_body-1"></a><p>Returns the list of body subtrees of a <strong>list_comp</strong> node.
+</p><p><em>See also:</em> <a href="#list_comp-2">list_comp/2</a>.</p><h2>list_comp_template(Node::) -&gt;</h2><p>Returns the template subtree of a list_comp node.</p><a name="list_comp_template-1"></a><p>Returns the template subtree of a <strong>list_comp</strong> node.
+</p><p><em>See also:</em> <a href="#list_comp-2">list_comp/2</a>.</p><h2>list_elements(Node::) -&gt; []</h2><p>Returns the list of element subtrees of a list skeleton.</p><a name="list_elements-1"></a><p>Returns the list of element subtrees of a list skeleton.
+<strong>Node</strong> must represent a proper list. E.g., if
+<strong>Node</strong> represents "<strong>[X1, X2 | [X3, X4 | []]</strong>", then
+<strong>list_elements(Node)</strong> yields the list <strong>[X1, X2, X3, X4]</strong>.
+</p><p><em>See also:</em> <a href="#is_proper_list-1">is_proper_list/1</a>, <a href="#list-2">list/2</a>.</p><h2>list_head(Node::) -&gt;</h2><p>Returns the head element subtree of a list node.</p><a name="list_head-1"></a><p>Returns the head element subtree of a <strong>list</strong> node. If
+<strong>Node</strong> represents "<strong>[Head ...]</strong>", the
+result will represent "<strong>Head</strong>".
+</p><p><em>See also:</em> <a href="#cons-2">cons/2</a>, <a href="#list-2">list/2</a>, <a href="#list_tail-1">list_tail/1</a>.</p><h2>list_length(Node::) -&gt; non_neg_integer()</h2><p>Returns the number of element subtrees of a list skeleton.</p><a name="list_length-1"></a><p>Returns the number of element subtrees of a list skeleton.
+<strong>Node</strong> must represent a proper list. E.g., if
+<strong>Node</strong> represents "<strong>[X1 | [X2, X3 | [X4, X5, X6]]]</strong>", then <strong>list_length(Node)</strong> returns the  
+integer 6.</p><p>Note: this is equivalent to
+<strong>length(list_elements(Node))</strong>, but potentially more
+efficient.
+</p><p><em>See also:</em> <a href="#is_proper_list-1">is_proper_list/1</a>, <a href="#list-2">list/2</a>, <a href="#list_elements-1">list_elements/1</a>.</p><h2>list_prefix(Node::) -&gt; []</h2><p>Returns the prefix element subtrees of a list node.</p><a name="list_prefix-1"></a><p>Returns the prefix element subtrees of a <strong>list</strong> node.
+If <strong>Node</strong> represents "<strong>[E1, ..., En]</strong>" or "<strong>[E1, ..., En | Tail]</strong>", the returned value is <strong>[E1, ..., En]</strong>.
+</p><p><em>See also:</em> <a href="#list-2">list/2</a>.</p><h2>list_suffix(Node::) -&gt; none |</h2><p>Returns the suffix subtree of a list node, if one exists.</p><a name="list_suffix-1"></a><p>Returns the suffix subtree of a <strong>list</strong> node, if one
+exists. If <strong>Node</strong> represents "<strong>[E1, ..., En | Tail]</strong>", the returned value is
+<strong>Tail</strong>, otherwise, i.e., if <strong>Node</strong> represents
+"<strong>[E1, ..., En]</strong>", <strong>none</strong> is  
+returned.</p><p>Note that even if this function returns some <strong>Tail</strong>
+that is not <strong>none</strong>, the type of <strong>Tail</strong> can be
+<strong>nil</strong>, if the tail has been given explicitly, and the list
+skeleton has not been compacted (see <a href="#compact_list-1">compact_list/1</a>).
+</p><p><em>See also:</em> <a href="#compact_list-1">compact_list/1</a>, <a href="#list-2">list/2</a>, <a href="#nil-0">nil/0</a>.</p><h2>list_tail(Node::) -&gt;</h2><p>Returns the tail of a list node.</p><a name="list_tail-1"></a><p>Returns the tail of a <strong>list</strong> node. If
+<strong>Node</strong> represents a single-element list
+"<strong>[E]</strong>", then the result has type
+<strong>nil</strong>, representing "<strong>[]</strong>". If
+<strong>Node</strong> represents "<strong>[E1, E2 ...]</strong>", the result will represent "<strong>[E2 ...]</strong>", and if <strong>Node</strong> represents
+"<strong>[Head | Tail]</strong>", the result will
+represent "<strong>Tail</strong>".
+</p><p><em>See also:</em> <a href="#cons-2">cons/2</a>, <a href="#list-2">list/2</a>, <a href="#list_head-1">list_head/1</a>.</p><h2>macro(Name::) -&gt;</h2><p>Equivalent to macro(Name, none). </p><a name="macro-1"></a><p>Equivalent to <a href="#macro-2">macro(Name, none)</a>.</p><h2>macro(Name::, Arguments::none | []) -&gt;</h2><p>Creates an abstract macro application.</p><a name="macro-2"></a><p>Creates an abstract macro application. If <strong>Arguments</strong>
+is <strong>none</strong>, the result represents
+"<strong>?Name</strong>", otherwise, if <strong>Arguments</strong>
+is <strong>[A1, ..., An]</strong>, the result represents
+"<strong>?Name(A1, ..., An)</strong>".</p><p>Notes: if <strong>Arguments</strong> is the empty list, the result
+will thus represent "<strong>?Name()</strong>", including a pair  
+of matching parentheses.</p><p>The only syntactical limitation imposed by the preprocessor on the
+arguments to a macro application (viewed as sequences of tokens) is
+that they must be balanced with respect to parentheses, brackets,
+<strong>begin ... end</strong>, <strong>case ... end</strong>, etc. The
+<strong>text</strong> node type can be used to represent arguments which
+are not regular Erlang constructs.
+</p><p><em>See also:</em> <a href="#macro-1">macro/1</a>, <a href="#macro_arguments-1">macro_arguments/1</a>, <a href="#macro_name-1">macro_name/1</a>, <a href="#text-1">text/1</a>.</p><h2>macro_arguments(Node::) -&gt; none | []</h2><p>Returns the list of argument subtrees of a macro node, if any.</p><a name="macro_arguments-1"></a><p>Returns the list of argument subtrees of a <strong>macro</strong>
+node, if any. If <strong>Node</strong> represents
+"<strong>?Name</strong>", <strong>none</strong> is returned.
+Otherwise, if <strong>Node</strong> represents
+"<strong>?Name(A1, ..., An)</strong>",
+<strong>[A1, ..., An]</strong> is returned.
+</p><p><em>See also:</em> <a href="#macro-2">macro/2</a>.</p><h2>macro_name(Node::) -&gt;</h2><p>Returns the name subtree of a macro node.</p><a name="macro_name-1"></a><p>Returns the name subtree of a <strong>macro</strong> node.
+</p><p><em>See also:</em> <a href="#macro-2">macro/2</a>.</p><h2>make_tree(X1::atom(), X2::[[]]) -&gt;</h2><p>Creates a syntax tree with the given type and subtrees.</p><a name="make_tree-2"></a><p>Creates a syntax tree with the given type and subtrees.
+<strong>Type</strong> must be a node type name (see <a href="#type-1">type/1</a>)
+that does not denote a leaf node type (see <a href="#is_leaf-1">is_leaf/1</a>).
+<strong>Groups</strong> must be a <em>nonempty</em> list of groups of
+syntax trees, representing the subtrees of a node of the given type,
+in left-to-right order as they would occur in the printed program
+text, grouped by category as done by <a href="#subtrees-1">subtrees/1</a>.</p><p>The result of <strong>copy_attrs(Node, make_tree(type(Node), subtrees(Node)))</strong> (see <a href="#update_tree-2">update_tree/2</a>) represents
+the same source code text as the original <strong>Node</strong>, assuming
+that <strong>subtrees(Node)</strong> yields a nonempty list. However, it
+does not necessarily have the same data representation as
+<strong>Node</strong>.
+</p><p><em>See also:</em> <a href="#copy_attrs-2">copy_attrs/2</a>, <a href="#is_leaf-1">is_leaf/1</a>, <a href="#subtrees-1">subtrees/1</a>, <a href="#type-1">type/1</a>, <a href="#update_tree-2">update_tree/2</a>.</p><h2>map_expr(Fields::[]) -&gt;</h2><p>Equivalent to map_expr(none, Fields). </p><a name="map_expr-1"></a><p>Equivalent to <a href="#map_expr-2">map_expr(none, Fields)</a>.</p><h2>map_expr(Argument::none |, Fields::[]) -&gt;</h2><p>Creates an abstract map expression.</p><a name="map_expr-2"></a><p>Creates an abstract map expression. If <strong>Fields</strong> is
+<strong>[F1, ..., Fn]</strong>, then if <strong>Argument</strong> is <strong>none</strong>, the result represents
+"<strong>#{F1, ..., Fn}</strong>",
+otherwise it represents
+"<strong>Argument#{F1, ..., Fn}</strong>".
+</p><p><em>See also:</em> <a href="#map_expr-1">map_expr/1</a>, <a href="#map_expr_argument-1">map_expr_argument/1</a>, <a href="#map_expr_fields-1">map_expr_fields/1</a>, <a href="#map_field_assoc-2">map_field_assoc/2</a>, <a href="#map_field_exact-2">map_field_exact/2</a>.</p><h2>map_expr_argument(Node::) -&gt; none |</h2><p>Returns the argument subtree of a map_expr node, if any.</p><a name="map_expr_argument-1"></a><p>Returns the argument subtree of a <strong>map_expr</strong> node, if any. If <strong>Node</strong>
+represents "<strong>#{...}</strong>", <strong>none</strong> is returned.
+Otherwise, if <strong>Node</strong> represents "<strong>Argument#{...}</strong>",
+<strong>Argument</strong> is returned.
+</p><p><em>See also:</em> <a href="#map_expr-2">map_expr/2</a>.</p><h2>map_expr_fields(Node::) -&gt; []</h2><p>Returns the list of field subtrees of a map_expr node.</p><a name="map_expr_fields-1"></a><p>Returns the list of field subtrees of a <strong>map_expr</strong> node.
+</p><p><em>See also:</em> <a href="#map_expr-2">map_expr/2</a>.</p><h2>map_field_assoc(Name::, Value::) -&gt;</h2><p>Creates an abstract map assoc field.</p><a name="map_field_assoc-2"></a><p>Creates an abstract map assoc field. The result represents
+"<strong>Name =&gt; Value</strong>".
+</p><p><em>See also:</em> <a href="#map_expr-2">map_expr/2</a>, <a href="#map_field_assoc_name-1">map_field_assoc_name/1</a>, <a href="#map_field_assoc_value-1">map_field_assoc_value/1</a>.</p><h2>map_field_assoc_name(Node::) -&gt;</h2><p>Returns the name subtree of a map_field_assoc node.</p><a name="map_field_assoc_name-1"></a><p>Returns the name subtree of a <strong>map_field_assoc</strong> node.
+</p><p><em>See also:</em> <a href="#map_field_assoc-2">map_field_assoc/2</a>.</p><h2>map_field_assoc_value(Node::) -&gt;</h2><p>Returns the value subtree of a map_field_assoc node.</p><a name="map_field_assoc_value-1"></a><p>Returns the value subtree of a <strong>map_field_assoc</strong> node.
+</p><p><em>See also:</em> <a href="#map_field_assoc-2">map_field_assoc/2</a>.</p><h2>map_field_exact(Name::, Value::) -&gt;</h2><p>Creates an abstract map exact field.</p><a name="map_field_exact-2"></a><p>Creates an abstract map exact field. The result represents
+"<strong>Name := Value</strong>".
+</p><p><em>See also:</em> <a href="#map_expr-2">map_expr/2</a>, <a href="#map_field_exact_name-1">map_field_exact_name/1</a>, <a href="#map_field_exact_value-1">map_field_exact_value/1</a>.</p><h2>map_field_exact_name(Node::) -&gt;</h2><p>Returns the name subtree of a map_field_exact node.</p><a name="map_field_exact_name-1"></a><p>Returns the name subtree of a <strong>map_field_exact</strong> node.
+</p><p><em>See also:</em> <a href="#map_field_exact-2">map_field_exact/2</a>.</p><h2>map_field_exact_value(Node::) -&gt;</h2><p>Returns the value subtree of a map_field_exact node.</p><a name="map_field_exact_value-1"></a><p>Returns the value subtree of a <strong>map_field_exact</strong> node.
+</p><p><em>See also:</em> <a href="#map_field_exact-2">map_field_exact/2</a>.</p><h2>map_type() -&gt; term()
+</h2><p>Equivalent to map_type(any_size). </p><a name="map_type-0"></a><p>Equivalent to <a href="#map_type-1">map_type(any_size)</a>.</p><h2>map_type(Fields::any_size | []) -&gt;</h2><p>Creates an abstract type map.</p><a name="map_type-1"></a><p>Creates an abstract type map. If <strong>Fields</strong> is
+<strong>[F1, ..., Fn]</strong>, the result represents
+"<strong>#{F1, ..., Fn}</strong>";
+otherwise, if <strong>Fields</strong> is <strong>any_size</strong>, it represents
+"<strong>map()</strong>".
+</p><p><em>See also:</em> <a href="#map_type_fields-1">map_type_fields/1</a>.</p><h2>map_type_assoc(Name::, Value::) -&gt;</h2><p>Creates an abstract map type assoc field.</p><a name="map_type_assoc-2"></a><p>Creates an abstract map type assoc field. The result represents
+"<strong>Name =&gt; Value</strong>".
+</p><p><em>See also:</em> <a href="#map_type-1">map_type/1</a>, <a href="#map_type_assoc_name-1">map_type_assoc_name/1</a>, <a href="#map_type_assoc_value-1">map_type_assoc_value/1</a>.</p><h2>map_type_assoc_name(Node::) -&gt;</h2><p>Returns the name subtree of a map_type_assoc node.</p><a name="map_type_assoc_name-1"></a><p>Returns the name subtree of a <strong>map_type_assoc</strong> node.
+</p><p><em>See also:</em> <a href="#map_type_assoc-2">map_type_assoc/2</a>.</p><h2>map_type_assoc_value(Node::) -&gt;</h2><p>Returns the value subtree of a map_type_assoc node.</p><a name="map_type_assoc_value-1"></a><p>Returns the value subtree of a <strong>map_type_assoc</strong> node.
+</p><p><em>See also:</em> <a href="#map_type_assoc-2">map_type_assoc/2</a>.</p><h2>map_type_exact(Name::, Value::) -&gt;</h2><p>Creates an abstract map type exact field.</p><a name="map_type_exact-2"></a><p>Creates an abstract map type exact field. The result represents
+"<strong>Name := Value</strong>".
+</p><p><em>See also:</em> <a href="#map_type-1">map_type/1</a>, <a href="#map_type_exact_name-1">map_type_exact_name/1</a>, <a href="#map_type_exact_value-1">map_type_exact_value/1</a>.</p><h2>map_type_exact_name(Node::) -&gt;</h2><p>Returns the name subtree of a map_type_exact node.</p><a name="map_type_exact_name-1"></a><p>Returns the name subtree of a <strong>map_type_exact</strong> node.
+</p><p><em>See also:</em> <a href="#map_type_exact-2">map_type_exact/2</a>.</p><h2>map_type_exact_value(Node::) -&gt;</h2><p>Returns the value subtree of a map_type_exact node.</p><a name="map_type_exact_value-1"></a><p>Returns the value subtree of a <strong>map_type_exact</strong> node.
+</p><p><em>See also:</em> <a href="#map_type_exact-2">map_type_exact/2</a>.</p><h2>map_type_fields(Node::) -&gt; any_size | []</h2><p>Returns the list of field subtrees of a map_type node.</p><a name="map_type_fields-1"></a><p>Returns the list of field subtrees of a <strong>map_type</strong> node.
+If <strong>Node</strong> represents "<strong>map()</strong>", <strong>any_size</strong> is returned;
+otherwise, if <strong>Node</strong> represents
+"<strong>#{F1, ..., Fn}</strong>",
+<strong>[F1, ..., Fn]</strong> is returned.
+</p><p><em>See also:</em> <a href="#map_type-0">map_type/0</a>, <a href="#map_type-1">map_type/1</a>.</p><h2>match_expr(Pattern::, Body::) -&gt;</h2><p>Creates an abstract match-expression.</p><a name="match_expr-2"></a><p>Creates an abstract match-expression. The result represents
+"<strong>Pattern = Body</strong>".
+</p><p><em>See also:</em> <a href="#match_expr_body-1">match_expr_body/1</a>, <a href="#match_expr_pattern-1">match_expr_pattern/1</a>.</p><h2>match_expr_body(Node::) -&gt;</h2><p>Returns the body subtree of a match_expr node.</p><a name="match_expr_body-1"></a><p>Returns the body subtree of a <strong>match_expr</strong> node.
+</p><p><em>See also:</em> <a href="#match_expr-2">match_expr/2</a>.</p><h2>match_expr_pattern(Node::) -&gt;</h2><p>Returns the pattern subtree of a match_expr node.</p><a name="match_expr_pattern-1"></a><p>Returns the pattern subtree of a <strong>match_expr</strong> node.
+</p><p><em>See also:</em> <a href="#match_expr-2">match_expr/2</a>.</p><h2>meta(T::) -&gt;</h2><p>Creates a meta-representation of a syntax tree.</p><a name="meta-1"></a><p>Creates a meta-representation of a syntax tree. The result
+represents an Erlang expression "<strong>MetaTree</strong>"
+which, if evaluated, will yield a new syntax tree representing the
+same source code text as <strong>Tree</strong> (although the actual data
+representation may be different). The expression represented by
+<strong>MetaTree</strong> is <em>implementation independent</em> with
+regard to the data structures used by the abstract syntax tree
+implementation. Comments attached to nodes of <strong>Tree</strong> will  
+be preserved, but other attributes are lost.</p><p>Any node in <strong>Tree</strong> whose node type is
+<strong>variable</strong> (see <a href="#type-1">type/1</a>), and whose list of
+annotations (see <a href="#get_ann-1">get_ann/1</a>) contains the atom
+<strong>meta_var</strong>, will remain unchanged in the resulting tree,
+except that exactly one occurrence of <strong>meta_var</strong> is  
+removed from its annotation list.</p><p>The main use of the function <strong>meta/1</strong> is to transform a
+data structure <strong>Tree</strong>, which represents a piece of program
+code, into a form that is <em>representation independent when printed</em>. E.g., suppose <strong>Tree</strong> represents a variable
+named "V". Then (assuming a function <strong>print/1</strong> for
+printing syntax trees), evaluating <strong>print(abstract(Tree))</strong>
+- simply using <a href="#abstract-1">abstract/1</a> to map the actual data
+structure onto a syntax tree representation - would output a string
+that might look something like "<strong>{tree, variable, ..., "V", ...}</strong>", which is obviously dependent on the implementation of
+the abstract syntax trees. This could e.g. be useful for caching a
+syntax tree in a file. However, in some situations like in a program
+generator generator (with two "generator"), it may be unacceptable.
+Using <strong>print(meta(Tree))</strong> instead would output a
+<em>representation independent</em> syntax tree generating
+expression; in the above case, something like
+"<strong>erl_syntax:variable("V")</strong>".
+</p><p><em>See also:</em> <a href="#abstract-1">abstract/1</a>, <a href="#get_ann-1">get_ann/1</a>, <a href="#type-1">type/1</a>.</p><h2>module_qualifier(Module::, Body::) -&gt;</h2><p>Creates an abstract module qualifier.</p><a name="module_qualifier-2"></a><p>Creates an abstract module qualifier. The result represents
+"<strong>Module:Body</strong>".
+</p><p><em>See also:</em> <a href="#module_qualifier_argument-1">module_qualifier_argument/1</a>, <a href="#module_qualifier_body-1">module_qualifier_body/1</a>.</p><h2>module_qualifier_argument(Node::) -&gt;</h2><p>Returns the argument (the module) subtree of a module_qualifier node.</p><a name="module_qualifier_argument-1"></a><p>Returns the argument (the module) subtree of a
+<strong>module_qualifier</strong> node.
+</p><p><em>See also:</em> <a href="#module_qualifier-2">module_qualifier/2</a>.</p><h2>module_qualifier_body(Node::) -&gt;</h2><p>Returns the body subtree of a module_qualifier node.</p><a name="module_qualifier_body-1"></a><p>Returns the body subtree of a <strong>module_qualifier</strong> node.
+</p><p><em>See also:</em> <a href="#module_qualifier-2">module_qualifier/2</a>.</p><h2>named_fun_expr(Name::, Clauses::[]) -&gt;</h2><p>Creates an abstract named fun-expression.</p><a name="named_fun_expr-2"></a><p>Creates an abstract named fun-expression. If <strong>Clauses</strong> is
+<strong>[C1, ..., Cn]</strong>, the result represents "<strong>fun Name C1; ...; Name Cn end</strong>".
+More exactly, if each <strong>Ci</strong> represents
+"<strong>(Pi1, ..., Pim) Gi -&gt; Bi</strong>",
+then the result represents
+"<strong>fun Name(P11, ..., P1m) G1 -&gt; B1; ...; Name(Pn1, ..., Pnm) Gn -&gt; Bn end</strong>".
+</p><p><em>See also:</em> <a href="#named_fun_expr_arity-1">named_fun_expr_arity/1</a>, <a href="#named_fun_expr_clauses-1">named_fun_expr_clauses/1</a>, <a href="#named_fun_expr_name-1">named_fun_expr_name/1</a>.</p><h2>named_fun_expr_arity(Node::) -&gt; arity()</h2><p>Returns the arity of a named_fun_expr node.</p><a name="named_fun_expr_arity-1"></a><p>Returns the arity of a <strong>named_fun_expr</strong> node. The result is  
+the number of parameter patterns in the first clause of the  
+named fun-expression; subsequent clauses are ignored.</p><p>An exception is thrown if <strong>named_fun_expr_clauses(Node)</strong>
+returns an empty list, or if the first element of that list is not a
+syntax tree <strong>C</strong> of type <strong>clause</strong> such that
+<strong>clause_patterns(C)</strong> is a nonempty list.
+</p><p><em>See also:</em> <a href="#clause-3">clause/3</a>, <a href="#clause_patterns-1">clause_patterns/1</a>, <a href="#named_fun_expr-2">named_fun_expr/2</a>, <a href="#named_fun_expr_clauses-1">named_fun_expr_clauses/1</a>.</p><h2>named_fun_expr_clauses(Node::) -&gt; []</h2><p>Returns the list of clause subtrees of a named_fun_expr node.</p><a name="named_fun_expr_clauses-1"></a><p>Returns the list of clause subtrees of a <strong>named_fun_expr</strong> node.
+</p><p><em>See also:</em> <a href="#named_fun_expr-2">named_fun_expr/2</a>.</p><h2>named_fun_expr_name(Node::) -&gt;</h2><p>Returns the name subtree of a named_fun_expr node.</p><a name="named_fun_expr_name-1"></a><p>Returns the name subtree of a <strong>named_fun_expr</strong> node.
+</p><p><em>See also:</em> <a href="#named_fun_expr-2">named_fun_expr/2</a>.</p><h2>nil() -&gt;</h2><p>Creates an abstract empty list.</p><a name="nil-0"></a><p>Creates an abstract empty list. The result represents
+"<strong>[]</strong>". The empty list is traditionally called "nil".
+</p><p><em>See also:</em> <a href="#is_list_skeleton-1">is_list_skeleton/1</a>, <a href="#list-2">list/2</a>.</p><h2>normalize_list(Node::) -&gt;</h2><p>Expands an abstract list skeleton to its most explicit form.</p><a name="normalize_list-1"></a><p>Expands an abstract list skeleton to its most explicit form. If
+<strong>Node</strong> represents "<strong>[E1, ..., En | Tail]</strong>", the result represents "<strong>[E1 | ... [En | Tail1] ... ]</strong>", where
+<strong>Tail1</strong> is the result of
+<strong>normalize_list(Tail)</strong>. If <strong>Node</strong> represents
+"<strong>[E1, ..., En]</strong>", the result simply
+represents "<strong>[E1 | ... [En | []] ... ]</strong>". If <strong>Node</strong> does not represent a list skeleton,
+<strong>Node</strong> itself is returned.
+</p><p><em>See also:</em> <a href="#compact_list-1">compact_list/1</a>, <a href="#list-2">list/2</a>.</p><h2>operator(Name::atom() | string()) -&gt;</h2><p>Creates an abstract operator.</p><a name="operator-1"></a><p>Creates an abstract operator. The name of the operator is the
+character sequence represented by <strong>Name</strong>. This is
+analogous to the print name of an atom, but an operator is never
+written within single-quotes; e.g., the result of
+<strong>operator(</strong>++')' represents "<strong>++</strong>" rather
+than "`++''".
+</p><p><em>See also:</em> <a href="#atom-1">atom/1</a>, <a href="#operator_literal-1">operator_literal/1</a>, <a href="#operator_name-1">operator_name/1</a>.</p><h2>operator_literal(Node::) -&gt; string()</h2><p>Returns the literal string represented by an operator node.</p><a name="operator_literal-1"></a><p>Returns the literal string represented by an
+<strong>operator</strong> node. This is simply the operator name as a string.
+</p><p><em>See also:</em> <a href="#operator-1">operator/1</a>.</p><h2>operator_name(Node::) -&gt; atom()</h2><p>Returns the name of an operator node.</p><a name="operator_name-1"></a><p>Returns the name of an <strong>operator</strong> node. Note that
+the name is returned as an atom.
+</p><p><em>See also:</em> <a href="#operator-1">operator/1</a>.</p><h2>parentheses(Expr::) -&gt;</h2><p>Creates an abstract parenthesised expression.</p><a name="parentheses-1"></a><p>Creates an abstract parenthesised expression. The result
+represents "<strong>(Body)</strong>", independently of the
+context.
+</p><p><em>See also:</em> <a href="#parentheses_body-1">parentheses_body/1</a>.</p><h2>parentheses_body(Node::) -&gt;</h2><p>Returns the body subtree of a parentheses node.</p><a name="parentheses_body-1"></a><p>Returns the body subtree of a <strong>parentheses</strong> node.
+</p><p><em>See also:</em> <a href="#parentheses-1">parentheses/1</a>.</p><h2>prefix_expr(Operator::, Argument::) -&gt;</h2><p>Creates an abstract prefix operator expression.</p><a name="prefix_expr-2"></a><p>Creates an abstract prefix operator expression. The result
+represents "<strong>Operator Argument</strong>".
+</p><p><em>See also:</em> <a href="#infix_expr-3">infix_expr/3</a>, <a href="#prefix_expr_argument-1">prefix_expr_argument/1</a>, <a href="#prefix_expr_operator-1">prefix_expr_operator/1</a>.</p><h2>prefix_expr_argument(Node::) -&gt;</h2><p>Returns the argument subtree of a prefix_expr node.</p><a name="prefix_expr_argument-1"></a><p>Returns the argument subtree of a <strong>prefix_expr</strong> node.
+</p><p><em>See also:</em> <a href="#prefix_expr-2">prefix_expr/2</a>.</p><h2>prefix_expr_operator(Node::) -&gt;</h2><p>Returns the operator subtree of a prefix_expr node.</p><a name="prefix_expr_operator-1"></a><p>Returns the operator subtree of a <strong>prefix_expr</strong> node.
+</p><p><em>See also:</em> <a href="#prefix_expr-2">prefix_expr/2</a>.</p><h2>receive_expr(Clauses::[]) -&gt;</h2><p>Equivalent to receive_expr(Clauses, none, []). </p><a name="receive_expr-1"></a><p>Equivalent to <a href="#receive_expr-3">receive_expr(Clauses, none, [])</a>.</p><h2>receive_expr(Clauses::[], Timeout::none |, Action::[]) -&gt;</h2><p>Creates an abstract receive-expression.</p><a name="receive_expr-3"></a><p>Creates an abstract receive-expression. If <strong>Timeout</strong>
+is <strong>none</strong>, the result represents "<strong>receive C1; ...; Cn end</strong>" (the <strong>Action</strong>
+argument is ignored). Otherwise, if <strong>Clauses</strong> is
+<strong>[C1, ..., Cn]</strong> and <strong>Action</strong> is <strong>[A1, ..., Am]</strong>, the result represents "<strong>receive C1; ...; Cn after Timeout -&gt; A1, ..., Am end</strong>". More exactly, if each <strong>Ci</strong> represents
+"<strong>(Pi) Gi -&gt; Bi</strong>", then the
+result represents "<strong>receive P1 G1 -&gt; B1; ...; Pn Gn -&gt; Bn ... end</strong>".</p><p>Note that in Erlang, a receive-expression must have at least one
+clause if no timeout part is specified.
+</p><p><em>See also:</em> <a href="#case_expr-2">case_expr/2</a>, <a href="#clause-3">clause/3</a>, <a href="#receive_expr-1">receive_expr/1</a>, <a href="#receive_expr_action-1">receive_expr_action/1</a>, <a href="#receive_expr_clauses-1">receive_expr_clauses/1</a>, <a href="#receive_expr_timeout-1">receive_expr_timeout/1</a>.</p><h2>receive_expr_action(Node::) -&gt; []</h2><p>Returns the list of action body subtrees of a receive_expr node.</p><a name="receive_expr_action-1"></a><p>Returns the list of action body subtrees of a
+<strong>receive_expr</strong> node. If <strong>Node</strong> represents
+"<strong>receive C1; ...; Cn end</strong>", this is the
+empty list.
+</p><p><em>See also:</em> <a href="#receive_expr-3">receive_expr/3</a>.</p><h2>receive_expr_clauses(Node::) -&gt; []</h2><p>Returns the list of clause subtrees of a receive_expr node.</p><a name="receive_expr_clauses-1"></a><p>Returns the list of clause subtrees of a
+<strong>receive_expr</strong> node.
+</p><p><em>See also:</em> <a href="#receive_expr-3">receive_expr/3</a>.</p><h2>receive_expr_timeout(Node::) -&gt; none |</h2><p>Returns the timeout subtree of a receive_expr node, if any.</p><a name="receive_expr_timeout-1"></a><p>Returns the timeout subtree of a <strong>receive_expr</strong> node,
+if any. If <strong>Node</strong> represents "<strong>receive C1; ...; Cn end</strong>", <strong>none</strong> is returned.
+Otherwise, if <strong>Node</strong> represents "<strong>receive C1; ...; Cn after Timeout -&gt; ... end</strong>",
+<strong>Timeout</strong> is returned.
+</p><p><em>See also:</em> <a href="#receive_expr-3">receive_expr/3</a>.</p><h2>record_access(Argument::, Type::, Field::) -&gt;</h2><p>Creates an abstract record field access expression.</p><a name="record_access-3"></a><p>Creates an abstract record field access expression. The result
+represents "<strong>Argument#Type.Field</strong>".
+</p><p><em>See also:</em> <a href="#record_access_argument-1">record_access_argument/1</a>, <a href="#record_access_field-1">record_access_field/1</a>, <a href="#record_access_type-1">record_access_type/1</a>, <a href="#record_expr-3">record_expr/3</a>.</p><h2>record_access_argument(Node::) -&gt;</h2><p>Returns the argument subtree of a record_access node.</p><a name="record_access_argument-1"></a><p>Returns the argument subtree of a <strong>record_access</strong> node.
+</p><p><em>See also:</em> <a href="#record_access-3">record_access/3</a>.</p><h2>record_access_field(Node::) -&gt;</h2><p>Returns the field subtree of a record_access node.</p><a name="record_access_field-1"></a><p>Returns the field subtree of a <strong>record_access</strong> node.
+</p><p><em>See also:</em> <a href="#record_access-3">record_access/3</a>.</p><h2>record_access_type(Node::) -&gt;</h2><p>Returns the type subtree of a record_access node.</p><a name="record_access_type-1"></a><p>Returns the type subtree of a <strong>record_access</strong> node.
+</p><p><em>See also:</em> <a href="#record_access-3">record_access/3</a>.</p><h2>record_expr(Type::, Fields::[]) -&gt;</h2><p>Equivalent to record_expr(none, Type, Fields). </p><a name="record_expr-2"></a><p>Equivalent to <a href="#record_expr-3">record_expr(none, Type, Fields)</a>.</p><h2>record_expr(Argument::none |, Type::, Fields::[]) -&gt;</h2><p>Creates an abstract record expression.</p><a name="record_expr-3"></a><p>Creates an abstract record expression. If <strong>Fields</strong> is
+<strong>[F1, ..., Fn]</strong>, then if <strong>Argument</strong> is
+<strong>none</strong>, the result represents
+"<strong>#Type{F1, ..., Fn}</strong>",
+otherwise it represents
+"<strong>Argument#Type{F1, ..., Fn}</strong>".
+</p><p><em>See also:</em> <a href="#record_access-3">record_access/3</a>, <a href="#record_expr-2">record_expr/2</a>, <a href="#record_expr_argument-1">record_expr_argument/1</a>, <a href="#record_expr_fields-1">record_expr_fields/1</a>, <a href="#record_expr_type-1">record_expr_type/1</a>, <a href="#record_field-2">record_field/2</a>, <a href="#record_index_expr-2">record_index_expr/2</a>.</p><h2>record_expr_argument(Node::) -&gt; none |</h2><p>Returns the argument subtree of a record_expr node, if any.</p><a name="record_expr_argument-1"></a><p>Returns the argument subtree of a <strong>record_expr</strong> node,
+if any. If <strong>Node</strong> represents
+"<strong>#Type{...}</strong>", <strong>none</strong> is returned.
+Otherwise, if <strong>Node</strong> represents
+"<strong>Argument#Type{...}</strong>",
+<strong>Argument</strong> is returned.
+</p><p><em>See also:</em> <a href="#record_expr-3">record_expr/3</a>.</p><h2>record_expr_fields(Node::) -&gt; []</h2><p>Returns the list of field subtrees of a record_expr node.</p><a name="record_expr_fields-1"></a><p>Returns the list of field subtrees of a
+<strong>record_expr</strong> node.
+</p><p><em>See also:</em> <a href="#record_expr-3">record_expr/3</a>.</p><h2>record_expr_type(Node::) -&gt;</h2><p>Returns the type subtree of a record_expr node.</p><a name="record_expr_type-1"></a><p>Returns the type subtree of a <strong>record_expr</strong> node.
+</p><p><em>See also:</em> <a href="#record_expr-3">record_expr/3</a>.</p><h2>record_field(Name::) -&gt;</h2><p>Equivalent to record_field(Name, none). </p><a name="record_field-1"></a><p>Equivalent to <a href="#record_field-2">record_field(Name, none)</a>.</p><h2>record_field(Name::, Value::none |) -&gt;</h2><p>Creates an abstract record field specification.</p><a name="record_field-2"></a><p>Creates an abstract record field specification. If
+<strong>Value</strong> is <strong>none</strong>, the result represents
+simply "<strong>Name</strong>", otherwise it represents
+"<strong>Name = Value</strong>".
+</p><p><em>See also:</em> <a href="#record_expr-3">record_expr/3</a>, <a href="#record_field_name-1">record_field_name/1</a>, <a href="#record_field_value-1">record_field_value/1</a>.</p><h2>record_field_name(Node::) -&gt;</h2><p>Returns the name subtree of a record_field node.</p><a name="record_field_name-1"></a><p>Returns the name subtree of a <strong>record_field</strong> node.
+</p><p><em>See also:</em> <a href="#record_field-2">record_field/2</a>.</p><h2>record_field_value(Node::) -&gt; none |</h2><p>Returns the value subtree of a record_field node, if any.</p><a name="record_field_value-1"></a><p>Returns the value subtree of a <strong>record_field</strong> node,
+if any. If <strong>Node</strong> represents
+"<strong>Name</strong>", <strong>none</strong> is
+returned. Otherwise, if <strong>Node</strong> represents
+"<strong>Name = Value</strong>", <strong>Value</strong>
+is returned.
+</p><p><em>See also:</em> <a href="#record_field-2">record_field/2</a>.</p><h2>record_index_expr(Type::, Field::) -&gt;</h2><p>Creates an abstract record field index expression.</p><a name="record_index_expr-2"></a><p>Creates an abstract record field index expression. The result
+represents "<strong>#Type.Field</strong>".</p><p>(Note: the function name <strong>record_index/2</strong> is reserved
+by the Erlang compiler, which is why that name could not be used
+for this constructor.)
+</p><p><em>See also:</em> <a href="#record_expr-3">record_expr/3</a>, <a href="#record_index_expr_field-1">record_index_expr_field/1</a>, <a href="#record_index_expr_type-1">record_index_expr_type/1</a>.</p><h2>record_index_expr_field(Node::) -&gt;</h2><p>Returns the field subtree of a record_index_expr node.</p><a name="record_index_expr_field-1"></a><p>Returns the field subtree of a <strong>record_index_expr</strong> node.
+</p><p><em>See also:</em> <a href="#record_index_expr-2">record_index_expr/2</a>.</p><h2>record_index_expr_type(Node::) -&gt;</h2><p>Returns the type subtree of a record_index_expr node.</p><a name="record_index_expr_type-1"></a><p>Returns the type subtree of a <strong>record_index_expr</strong> node.
+</p><p><em>See also:</em> <a href="#record_index_expr-2">record_index_expr/2</a>.</p><h2>record_type(Name::, Fields::[]) -&gt;</h2><p>Creates an abstract record type.</p><a name="record_type-2"></a><p>Creates an abstract record type. If <strong>Fields</strong> is
+<strong>[F1, ..., Fn]</strong>, the result represents
+"<strong>#Name{F1, ..., Fn}</strong>".
+</p><p><em>See also:</em> <a href="#record_type_fields-1">record_type_fields/1</a>, <a href="#record_type_name-1">record_type_name/1</a>.</p><h2>record_type_field(Name::, Type::) -&gt;</h2><p>Creates an abstract record type field.</p><a name="record_type_field-2"></a><p>Creates an abstract record type field. The result represents
+"<strong>Name :: Type</strong>".
+</p><p><em>See also:</em> <a href="#record_type_field_name-1">record_type_field_name/1</a>, <a href="#record_type_field_type-1">record_type_field_type/1</a>.</p><h2>record_type_field_name(Node::) -&gt;</h2><p>Returns the name subtree of a record_type_field node.</p><a name="record_type_field_name-1"></a><p>Returns the name subtree of a <strong>record_type_field</strong> node.
+</p><p><em>See also:</em> <a href="#record_type_field-2">record_type_field/2</a>.</p><h2>record_type_field_type(Node::) -&gt;</h2><p>Returns the type subtree of a record_type_field node.</p><a name="record_type_field_type-1"></a><p>Returns the type subtree of a <strong>record_type_field</strong> node.
+</p><p><em>See also:</em> <a href="#record_type_field-2">record_type_field/2</a>.</p><h2>record_type_fields(Node::) -&gt; []</h2><p>Returns the fields subtree of a record_type node.</p><a name="record_type_fields-1"></a><p>Returns the fields subtree of a <strong>record_type</strong> node.
+</p><p><em>See also:</em> <a href="#record_type-2">record_type/2</a>.</p><h2>record_type_name(Node::) -&gt;</h2><p>Returns the name subtree of a record_type node.</p><a name="record_type_name-1"></a><p>Returns the name subtree of a <strong>record_type</strong> node.
+</p><p><em>See also:</em> <a href="#record_type-2">record_type/2</a>.</p><h2>remove_comments(Node::) -&gt;</h2><p>Clears the associated comments of Node.</p><a name="remove_comments-1"></a><p>Clears the associated comments of <strong>Node</strong>.</p><p>Note: This is equivalent to
+<strong>set_precomments(set_postcomments(Node, []), [])</strong>, but
+potentially more efficient.
+</p><p><em>See also:</em> <a href="#set_postcomments-2">set_postcomments/2</a>, <a href="#set_precomments-2">set_precomments/2</a>.</p><h2>revert(Node::) -&gt;</h2><p>Returns an erl_parse-compatible representation of a syntax tree, if possible.</p><a name="revert-1"></a><p>Returns an <strong>erl_parse</strong>-compatible representation of a
+syntax tree, if possible. If <strong>Tree</strong> represents a
+well-formed Erlang program or expression, the conversion should work
+without problems. Typically, <a href="#is_tree-1">is_tree/1</a> yields
+<strong>true</strong> if conversion failed (i.e., the result is still an
+abstract syntax tree), and <strong>false</strong> otherwise.</p><p>The <a href="#is_tree-1">is_tree/1</a> test is not completely foolproof. For a
+few special node types (e.g. <strong>arity_qualifier</strong>), if such a
+node occurs in a context where it is not expected, it will be left
+unchanged as a non-reverted subtree of the result. This can only
+happen if <strong>Tree</strong> does not actually represent legal Erlang
+code.
+</p><p><em>See also:</em> <a href="./erl_parse">erl_parse(3)</a>, <a href="#revert_forms-1">revert_forms/1</a>.</p><h2>revert_forms(Forms::) -&gt; []</h2><p>Reverts a sequence of Erlang source code forms.</p><a name="revert_forms-1"></a><p>Reverts a sequence of Erlang source code forms. The sequence can
+be given either as a <strong>form_list</strong> syntax tree (possibly
+nested), or as a list of "program form" syntax trees. If successful,
+the corresponding flat list of <strong>erl_parse</strong>-compatible
+syntax trees is returned (see <a href="#revert-1">revert/1</a>). If some program
+form could not be reverted, <strong>{error, Form}</strong> is thrown.
+Standalone comments in the form sequence are discarded.
+</p><p><em>See also:</em> <a href="#form_list-1">form_list/1</a>, <a href="#is_form-1">is_form/1</a>, <a href="#revert-1">revert/1</a>.</p><h2>set_ann(Node::, As::[term()]) -&gt;</h2><p>Sets the list of user annotations of Node to Annotations.</p><a name="set_ann-2"></a><p>Sets the list of user annotations of <strong>Node</strong> to <strong>Annotations</strong>.
+</p><p><em>See also:</em> <a href="#add_ann-2">add_ann/2</a>, <a href="#copy_ann-2">copy_ann/2</a>, <a href="#get_ann-1">get_ann/1</a>.</p><h2>set_attrs(Node::, Attr::) -&gt;</h2><p>Sets the attributes of Node to Attributes.</p><a name="set_attrs-2"></a><p>Sets the attributes of <strong>Node</strong> to <strong>Attributes</strong>.
+</p><p><em>See also:</em> <a href="#copy_attrs-2">copy_attrs/2</a>, <a href="#get_attrs-1">get_attrs/1</a>.</p><h2>set_pos(Node::, Pos::term()) -&gt;</h2><p>Sets the position information of Node to Pos.</p><a name="set_pos-2"></a><p>Sets the position information of <strong>Node</strong> to <strong>Pos</strong>.
+</p><p><em>See also:</em> <a href="#copy_pos-2">copy_pos/2</a>, <a href="#get_pos-1">get_pos/1</a>.</p><h2>set_postcomments(Node::, Cs::[]) -&gt;</h2><p>Sets the post-comments of Node to Comments.</p><a name="set_postcomments-2"></a><p>Sets the post-comments of <strong>Node</strong> to
+<strong>Comments</strong>. <strong>Comments</strong> should be a possibly
+empty list of abstract comments, in top-down textual order
+</p><p><em>See also:</em> <a href="#add_postcomments-2">add_postcomments/2</a>, <a href="#comment-2">comment/2</a>, <a href="#copy_comments-2">copy_comments/2</a>, <a href="#get_postcomments-1">get_postcomments/1</a>, <a href="#join_comments-2">join_comments/2</a>, <a href="#remove_comments-1">remove_comments/1</a>, <a href="#set_precomments-2">set_precomments/2</a>.</p><h2>set_precomments(Node::, Cs::[]) -&gt;</h2><p>Sets the pre-comments of Node to Comments.</p><a name="set_precomments-2"></a><p>Sets the pre-comments of <strong>Node</strong> to
+<strong>Comments</strong>. <strong>Comments</strong> should be a possibly
+empty list of abstract comments, in top-down textual order.
+</p><p><em>See also:</em> <a href="#add_precomments-2">add_precomments/2</a>, <a href="#comment-2">comment/2</a>, <a href="#copy_comments-2">copy_comments/2</a>, <a href="#get_precomments-1">get_precomments/1</a>, <a href="#join_comments-2">join_comments/2</a>, <a href="#remove_comments-1">remove_comments/1</a>, <a href="#set_postcomments-2">set_postcomments/2</a>.</p><h2>size_qualifier(Body::, Size::) -&gt;</h2><p>Creates an abstract size qualifier.</p><a name="size_qualifier-2"></a><p>Creates an abstract size qualifier. The result represents
+"<strong>Body:Size</strong>".
+</p><p><em>See also:</em> <a href="#size_qualifier_argument-1">size_qualifier_argument/1</a>, <a href="#size_qualifier_body-1">size_qualifier_body/1</a>.</p><h2>size_qualifier_argument(Node::) -&gt;</h2><p>Returns the argument subtree (the size) of a size_qualifier node.</p><a name="size_qualifier_argument-1"></a><p>Returns the argument subtree (the size) of a
+<strong>size_qualifier</strong> node.
+</p><p><em>See also:</em> <a href="#size_qualifier-2">size_qualifier/2</a>.</p><h2>size_qualifier_body(Node::) -&gt;</h2><p>Returns the body subtree of a size_qualifier node.</p><a name="size_qualifier_body-1"></a><p>Returns the body subtree of a <strong>size_qualifier</strong> node.
+</p><p><em>See also:</em> <a href="#size_qualifier-2">size_qualifier/2</a>.</p><h2>string(String::string()) -&gt;</h2><p>Creates an abstract string literal.</p><a name="string-1"></a><p>Creates an abstract string literal. The result represents
+<strong>"Text"</strong> (including the surrounding
+double-quotes), where <strong>Text</strong> corresponds to the sequence
+of characters in <strong>Value</strong>, but not representing a
+<em>specific</em> string literal.</p><p>For example, the result of <strong>string("x\ny")</strong> represents any and all of
+<strong>"x\ny"</strong>, <strong>"x\12y"</strong>, <strong>"x\012y"</strong> and <strong>"x\^Jy"</strong>; see <a href="#char-1">char/1</a>.
+</p><p><em>See also:</em> <a href="#char-1">char/1</a>, <a href="#is_string-2">is_string/2</a>, <a href="#string_literal-1">string_literal/1</a>, <a href="#string_literal-2">string_literal/2</a>, <a href="#string_value-1">string_value/1</a>.</p><h2>string_literal(Node::) -&gt; nonempty_string()</h2><p>Returns the literal string represented by a string node.</p><a name="string_literal-1"></a><p>Returns the literal string represented by a <strong>string</strong>
+node. This includes surrounding double-quote characters.
+Characters beyond 255 will be escaped.
+</p><p><em>See also:</em> <a href="#string-1">string/1</a>.</p><h2>string_literal(Node::, X2::) -&gt; nonempty_string()</h2><p>Returns the literal string represented by a string node.</p><a name="string_literal-2"></a><p>Returns the literal string represented by a <strong>string</strong>
+node. This includes surrounding double-quote characters.
+Depending on the encoding characters beyond 255 will be escaped
+(<strong>latin1</strong>) or copied as is (<strong>utf8</strong>).
+</p><p><em>See also:</em> <a href="#string-1">string/1</a>.</p><h2>string_value(Node::) -&gt; string()</h2><p>Returns the value represented by a string node.</p><a name="string_value-1"></a><p>Returns the value represented by a <strong>string</strong> node.
+</p><p><em>See also:</em> <a href="#string-1">string/1</a>.</p><h2>subtrees(T::) -&gt; [[]]</h2><p>Returns the grouped list of all subtrees of a syntax tree.</p><a name="subtrees-1"></a><p>Returns the grouped list of all subtrees of a syntax tree. If
+<strong>Node</strong> is a leaf node (see <a href="#is_leaf-1">is_leaf/1</a>), this
+is the empty list, otherwise the result is always a nonempty list,
+containing the lists of subtrees of <strong>Node</strong>, in  
+left-to-right order as they occur in the printed program text, and  
+grouped by category. Often, each group contains only a single  
+subtree.</p><p>Depending on the type of <strong>Node</strong>, the size of some  
+groups may be variable (e.g., the group consisting of all the  
+elements of a tuple), while others always contain the same number of  
+elements - usually exactly one (e.g., the group containing the  
+argument expression of a case-expression). Note, however, that the  
+exact structure of the returned list (for a given node type) should  
+in general not be depended upon, since it might be subject to change  
+without notice.</p><p>The function <a href="#subtrees-1">subtrees/1</a> and the constructor functions
+<a href="#make_tree-2">make_tree/2</a> and <a href="#update_tree-2">update_tree/2</a> can be a  
+great help if one wants to traverse a syntax tree, visiting all its  
+subtrees, but treat nodes of the tree in a uniform way in most or all  
+cases. Using these functions makes this simple, and also assures that  
+your code is not overly sensitive to extensions of the syntax tree  
+data type, because any node types not explicitly handled by your code  
+can be left to a default case.</p><p>For example:
+</p><pre>     postorder(F, Tree) -&gt;
+        F(case subtrees(Tree) of
+            [] -&gt; Tree;
+            List -&gt; update_tree(Tree,
+                                [[postorder(F, Subtree)
+                                  || Subtree &amp;lt;- Group]
+                                 || Group &amp;lt;- List])
+          end).</pre><p>
+maps the function <strong>F</strong> on <strong>Tree</strong> and all its
+subtrees, doing a post-order traversal of the syntax tree. (Note the
+use of <a href="#update_tree-2">update_tree/2</a> to preserve node attributes.) For a
+simple function like:
+</p><pre>     f(Node) -&gt;
+        case type(Node) of
+            atom -&gt; atom("a_" ++ atom_name(Node));
+            _ -&gt; Node
+        end.</pre><p>
+the call <strong>postorder(fun f/1, Tree)</strong> will yield a new
+representation of <strong>Tree</strong> in which all atom names have been
+extended with the prefix "a_", but nothing else (including comments,
+annotations and line numbers) has been changed.
+</p><p><em>See also:</em> <a href="#copy_attrs-2">copy_attrs/2</a>, <a href="#is_leaf-1">is_leaf/1</a>, <a href="#make_tree-2">make_tree/2</a>, <a href="#type-1">type/1</a>.</p><h2>text(String::string()) -&gt;</h2><p>Creates an abstract piece of source code text.</p><a name="text-1"></a><p>Creates an abstract piece of source code text. The result
+represents exactly the sequence of characters in <strong>String</strong>.
+This is useful in cases when one wants full control of the resulting
+output, e.g., for the appearance of floating-point numbers or macro
+definitions.
+</p><p><em>See also:</em> <a href="#text_string-1">text_string/1</a>.</p><h2>text_string(Node::) -&gt; string()</h2><p>Returns the character sequence represented by a text node.</p><a name="text_string-1"></a><p>Returns the character sequence represented by a <strong>text</strong> node.
+</p><p><em>See also:</em> <a href="#text-1">text/1</a>.</p><h2>tree(Type::atom()) -&gt; #tree{type=atom(), attr=#attr{pos=term(), ann=[term()], com=none | #com{pre=[], post=[]}}, data=term()}</h2><p>Equivalent to tree(Type, []). </p><a name="tree-1"></a><p>Equivalent to <a href="#tree-2">tree(Type, [])</a>.</p><h2>tree(Type::atom(), Data::term()) -&gt; #tree{type=atom(), attr=#attr{pos=term(), ann=[term()], com=none | #com{pre=[], post=[]}}, data=term()}</h2><p>For special purposes only.</p><a name="tree-2"></a><p><em>For special purposes only</em>. Creates an abstract syntax
+tree node with type tag <strong>Type</strong> and associated data
+<strong>Data</strong>.</p><p>This function and the related <a href="#is_tree-1">is_tree/1</a> and
+<a href="#data-1">data/1</a> provide a uniform way to extend the set of
+<strong>erl_parse</strong> node types. The associated data is any term,  
+whose format may depend on the type tag.</p><p><a name="Notes:"></a><em>Notes:</em>
+</p><ul><li><p>Any nodes created outside of this module must have type tags
+distinct from those currently defined by this module; see
+<a href="#type-1">type/1</a> for a complete list.</p></li><li><p>The type tag of a syntax tree node may also be used
+as a primary tag by the <strong>erl_parse</strong> representation;
+in that case, the selector functions for that node type
+<em>must</em> handle both the abstract syntax tree and the
+<strong>erl_parse</strong> form. The function <strong>type(T)</strong>
+should return the correct type tag regardless of the
+representation of <strong>T</strong>, so that the user sees no
+difference between <strong>erl_syntax</strong> and
+<strong>erl_parse</strong> nodes.</p></li></ul><p>
+</p><p><em>See also:</em> <a href="#data-1">data/1</a>, <a href="#is_tree-1">is_tree/1</a>, <a href="#type-1">type/1</a>.</p><h2>try_after_expr(Body::[], After::[]) -&gt;</h2><p>Equivalent to try_expr(Body, [], [], After). </p><a name="try_after_expr-2"></a><p>Equivalent to <a href="#try_expr-4">try_expr(Body, [], [], After)</a>.</p><h2>try_expr(Body::[], Handlers::[]) -&gt;</h2><p>Equivalent to try_expr(Body, [], Handlers). </p><a name="try_expr-2"></a><p>Equivalent to <a href="#try_expr-3">try_expr(Body, [], Handlers)</a>.</p><h2>try_expr(Body::[], Clauses::[], Handlers::[]) -&gt;</h2><p>Equivalent to try_expr(Body, Clauses, Handlers, []). </p><a name="try_expr-3"></a><p>Equivalent to <a href="#try_expr-4">try_expr(Body, Clauses, Handlers, [])</a>.</p><h2>try_expr(Body::[], Clauses::[], Handlers::[], After::[]) -&gt;</h2><p>Creates an abstract try-expression.</p><a name="try_expr-4"></a><p>Creates an abstract try-expression. If <strong>Body</strong> is
+<strong>[B1, ..., Bn]</strong>, <strong>Clauses</strong> is <strong>[C1, ..., Cj]</strong>, <strong>Handlers</strong> is <strong>[H1, ..., Hk]</strong>, and
+<strong>After</strong> is <strong>[A1, ..., Am]</strong>, the result
+represents "<strong>try B1, ..., Bn of C1; ...; Cj catch H1; ...; Hk after A1, ..., Am end</strong>". More exactly, if each
+<strong>Ci</strong> represents "<strong>(CPi) CGi -&gt; CBi</strong>", and each <strong>Hi</strong> represents
+"<strong>(HPi) HGi -&gt; HBi</strong>", then the
+result represents "<strong>try B1, ..., Bn of CP1 CG1 -&gt; CB1; ...; CPj CGj -&gt; CBj catch HP1 HG1 -&gt; HB1; ...; HPk HGk -&gt; HBk after A1, ..., Am end</strong>"; see
+<a href="#case_expr-2">case_expr/2</a>. If <strong>Clauses</strong> is the empty list,
+the <strong>of ...</strong> section is left out. If <strong>After</strong> is
+the empty list, the <strong>after ...</strong> section is left out. If
+<strong>Handlers</strong> is the empty list, and <strong>After</strong> is
+nonempty, the <strong>catch ...</strong> section is left out.
+</p><p><em>See also:</em> <a href="#case_expr-2">case_expr/2</a>, <a href="#class_qualifier-2">class_qualifier/2</a>, <a href="#clause-3">clause/3</a>, <a href="#try_after_expr-2">try_after_expr/2</a>, <a href="#try_expr-2">try_expr/2</a>, <a href="#try_expr-3">try_expr/3</a>, <a href="#try_expr_after-1">try_expr_after/1</a>, <a href="#try_expr_body-1">try_expr_body/1</a>, <a href="#try_expr_clauses-1">try_expr_clauses/1</a>, <a href="#try_expr_handlers-1">try_expr_handlers/1</a>.</p><h2>try_expr_after(Node::) -&gt; []</h2><p>Returns the list of "after" subtrees of a try_expr node.</p><a name="try_expr_after-1"></a><p>Returns the list of "after" subtrees of a <strong>try_expr</strong> node.
+</p><p><em>See also:</em> <a href="#try_expr-4">try_expr/4</a>.</p><h2>try_expr_body(Node::) -&gt; []</h2><p>Returns the list of body subtrees of a try_expr node.</p><a name="try_expr_body-1"></a><p>Returns the list of body subtrees of a <strong>try_expr</strong> node.
+</p><p><em>See also:</em> <a href="#try_expr-4">try_expr/4</a>.</p><h2>try_expr_clauses(Node::) -&gt; []</h2><p>Returns the list of case-clause subtrees of a try_expr node.</p><a name="try_expr_clauses-1"></a><p>Returns the list of case-clause subtrees of a
+<strong>try_expr</strong> node. If <strong>Node</strong> represents
+"<strong>try Body catch H1; ...; Hn end</strong>", the result is the empty list.
+</p><p><em>See also:</em> <a href="#try_expr-4">try_expr/4</a>.</p><h2>try_expr_handlers(Node::) -&gt; []</h2><p>Returns the list of handler-clause subtrees of a try_expr node.</p><a name="try_expr_handlers-1"></a><p>Returns the list of handler-clause subtrees of a
+<strong>try_expr</strong> node.
+</p><p><em>See also:</em> <a href="#try_expr-4">try_expr/4</a>.</p><h2>tuple(List::[]) -&gt;</h2><p>Creates an abstract tuple.</p><a name="tuple-1"></a><p>Creates an abstract tuple. If <strong>Elements</strong> is
+<strong>[X1, ..., Xn]</strong>, the result represents
+"<strong>{X1, ..., Xn}</strong>".</p><p>Note: The Erlang language has distinct 1-tuples, i.e.,
+<strong>{X}</strong> is always distinct from <strong>X</strong> itself.
+</p><p><em>See also:</em> <a href="#tuple_elements-1">tuple_elements/1</a>, <a href="#tuple_size-1">tuple_size/1</a>.</p><h2>tuple_elements(Node::) -&gt; []</h2><p>Returns the list of element subtrees of a tuple node.</p><a name="tuple_elements-1"></a><p>Returns the list of element subtrees of a <strong>tuple</strong> node.
+</p><p><em>See also:</em> <a href="#tuple-1">tuple/1</a>.</p><h2>tuple_size(Node::) -&gt; non_neg_integer()</h2><p>Returns the number of elements of a tuple node.</p><a name="tuple_size-1"></a><p>Returns the number of elements of a <strong>tuple</strong> node.</p><p>Note: this is equivalent to
+<strong>length(tuple_elements(Node))</strong>, but potentially more
+efficient.
+</p><p><em>See also:</em> <a href="#tuple-1">tuple/1</a>, <a href="#tuple_elements-1">tuple_elements/1</a>.</p><h2>tuple_type() -&gt; term()
+</h2><p>Equivalent to tuple_type(any_size). </p><a name="tuple_type-0"></a><p>Equivalent to <a href="#tuple_type-1">tuple_type(any_size)</a>.</p><h2>tuple_type(Elements::any_size | []) -&gt;</h2><p>Creates an abstract type tuple.</p><a name="tuple_type-1"></a><p>Creates an abstract type tuple. If <strong>Elements</strong> is
+<strong>[T1, ..., Tn]</strong>, the result represents
+"<strong>{T1, ..., Tn}</strong>";
+otherwise, if <strong>Elements</strong> is <strong>any_size</strong>, it represents
+"<strong>tuple()</strong>".
+</p><p><em>See also:</em> <a href="#tuple_type_elements-1">tuple_type_elements/1</a>.</p><h2>tuple_type_elements(Node::) -&gt; any_size | []</h2><p>Returns the list of type element subtrees of a tuple_type node.</p><a name="tuple_type_elements-1"></a><p>Returns the list of type element subtrees of a <strong>tuple_type</strong> node.
+If <strong>Node</strong> represents "<strong>tuple()</strong>", <strong>any_size</strong> is returned;
+otherwise, if <strong>Node</strong> represents
+"<strong>{T1, ..., Tn}</strong>",
+<strong>[T1, ..., Tn]</strong> is returned.
+</p><p><em>See also:</em> <a href="#tuple_type-0">tuple_type/0</a>, <a href="#tuple_type-1">tuple_type/1</a>.</p><h2>type(Tree::) -&gt; atom()</h2><p>Returns the type tag of Node.</p><a name="type-1"></a><p>Returns the type tag of <strong>Node</strong>. If <strong>Node</strong>
+does not represent a syntax tree, evaluation fails with reason
+<strong>badarg</strong>. Node types currently defined by this module are:</p><p>
+application
+annotated_type
+arity_qualifier
+atom
+<br/>
+attribute
+binary
+binary_field
+bitstring_type
+<br/>
+block_expr
+case_expr
+catch_expr
+char
+<br/>
+class_qualifier
+clause
+comment
+cond_expr
+<br/>
+conjunction
+constrained_function_type
+constraint
+disjunction
+<br/>
+eof_marker
+error_marker
+float
+form_list
+<br/>
+fun_expr
+fun_type
+function
+function_type
+<br/>
+generator
+if_expr
+implicit_fun
+infix_expr
+<br/>
+integer
+integer_range_type
+list
+list_comp
+<br/>
+macro
+map_expr
+map_field_assoc
+map_field_exact
+<br/>
+map_type
+map_type_assoc
+map_type_exact
+match_expr
+module_qualifier
+<br/>
+named_fun_expr
+nil
+operator
+parentheses
+<br/>
+prefix_expr
+receive_expr
+record_access
+record_expr
+<br/>
+record_field
+record_index_expr
+record_type
+record_type_field
+<br/>
+size_qualifier
+string
+text
+try_expr
+<br/>
+tuple
+tuple_type
+typed_record_field
+type_application
+type_union
+underscore
+user_type_application
+variable
+<br/>
+warning_marker
+<br/>
+</p><p>The user may (for special purposes) create additional nodes
+with other type tags, using the <a href="#tree-2">tree/2</a> function.</p><p>Note: The primary constructor functions for a node type should
+always have the same name as the node type itself.
+</p><p><em>See also:</em> <a href="#annotated_type-2">annotated_type/2</a>, <a href="#application-3">application/3</a>, <a href="#arity_qualifier-2">arity_qualifier/2</a>, <a href="#atom-1">atom/1</a>, <a href="#attribute-2">attribute/2</a>, <a href="#binary-1">binary/1</a>, <a href="#binary_field-2">binary_field/2</a>, <a href="#bitstring_type-2">bitstring_type/2</a>, <a href="#block_expr-1">block_expr/1</a>, <a href="#case_expr-2">case_expr/2</a>, <a href="#catch_expr-1">catch_expr/1</a>, <a href="#char-1">char/1</a>, <a href="#class_qualifier-2">class_qualifier/2</a>, <a href="#clause-3">clause/3</a>, <a href="#comment-2">comment/2</a>, <a href="#cond_expr-1">cond_expr/1</a>, <a href="#conjunction-1">conjunction/1</a>, <a href="#constrained_function_type-2">constrained_function_type/2</a>, <a href="#constraint-2">constraint/2</a>, <a href="#disjunction-1">disjunction/1</a>, <a href="#eof_marker-0">eof_marker/0</a>, <a href="#error_marker-1">error_marker/1</a>, <a href="#float-1">float/1</a>, <a href="#form_list-1">form_list/1</a>, <a href="#fun_expr-1">fun_expr/1</a>, <a href="#fun_type-0">fun_type/0</a>, <a href="#function-2">function/2</a>, <a href="#function_type-1">function_type/1</a>, <a href="#function_type-2">function_type/2</a>, <a href="#generator-2">generator/2</a>, <a href="#if_expr-1">if_expr/1</a>, <a href="#implicit_fun-2">implicit_fun/2</a>, <a href="#infix_expr-3">infix_expr/3</a>, <a href="#integer-1">integer/1</a>, <a href="#integer_range_type-2">integer_range_type/2</a>, <a href="#list-2">list/2</a>, <a href="#list_comp-2">list_comp/2</a>, <a href="#macro-2">macro/2</a>, <a href="#map_expr-2">map_expr/2</a>, <a href="#map_field_assoc-2">map_field_assoc/2</a>, <a href="#map_field_exact-2">map_field_exact/2</a>, <a href="#map_type-0">map_type/0</a>, <a href="#map_type-1">map_type/1</a>, <a href="#map_type_assoc-2">map_type_assoc/2</a>, <a href="#map_type_exact-2">map_type_exact/2</a>, <a href="#match_expr-2">match_expr/2</a>, <a href="#module_qualifier-2">module_qualifier/2</a>, <a href="#named_fun_expr-2">named_fun_expr/2</a>, <a href="#nil-0">nil/0</a>, <a href="#operator-1">operator/1</a>, <a href="#parentheses-1">parentheses/1</a>, <a href="#prefix_expr-2">prefix_expr/2</a>, <a href="#receive_expr-3">receive_expr/3</a>, <a href="#record_access-3">record_access/3</a>, <a href="#record_expr-2">record_expr/2</a>, <a href="#record_field-2">record_field/2</a>, <a href="#record_index_expr-2">record_index_expr/2</a>, <a href="#record_type-2">record_type/2</a>, <a href="#record_type_field-2">record_type_field/2</a>, <a href="#size_qualifier-2">size_qualifier/2</a>, <a href="#string-1">string/1</a>, <a href="#text-1">text/1</a>, <a href="#tree-2">tree/2</a>, <a href="#try_expr-3">try_expr/3</a>, <a href="#tuple-1">tuple/1</a>, <a href="#tuple_type-0">tuple_type/0</a>, <a href="#tuple_type-1">tuple_type/1</a>, <a href="#type_application-2">type_application/2</a>, <a href="#type_union-1">type_union/1</a>, <a href="#typed_record_field-2">typed_record_field/2</a>, <a href="#underscore-0">underscore/0</a>, <a href="#user_type_application-2">user_type_application/2</a>, <a href="#variable-1">variable/1</a>, <a href="#warning_marker-1">warning_marker/1</a>.</p><h2>type_application(TypeName::, Arguments::[]) -&gt;</h2><p>Creates an abstract type application expression.</p><a name="type_application-2"></a><p>Creates an abstract type application expression. If <strong>Arguments</strong> is
+<strong>[T1, ..., Tn]</strong>, the result represents
+"<strong>TypeName(T1, ...Tn)</strong>".
+</p><p><em>See also:</em> <a href="#type_application-3">type_application/3</a>, <a href="#type_application_arguments-1">type_application_arguments/1</a>, <a href="#type_application_name-1">type_application_name/1</a>, <a href="#user_type_application-2">user_type_application/2</a>.</p><h2>type_application(Module::none |, TypeName::, Arguments::[]) -&gt;</h2><p>Creates an abstract type application expression.</p><a name="type_application-3"></a><p>Creates an abstract type application expression. If
+<strong>Module</strong> is <strong>none</strong>, this is call is equivalent
+to <strong>type_application(TypeName, Arguments)</strong>, otherwise it is
+equivalent to <strong>type_application(module_qualifier(Module, TypeName), Arguments)</strong>.</p><p>(This is a utility function.)
+</p><p><em>See also:</em> <a href="#module_qualifier-2">module_qualifier/2</a>, <a href="#type_application-2">type_application/2</a>.</p><h2>type_application_arguments(Node::) -&gt; []</h2><p>Returns the arguments subtrees of a type_application node.</p><a name="type_application_arguments-1"></a><p>Returns the arguments subtrees of a <strong>type_application</strong> node.
+</p><p><em>See also:</em> <a href="#type_application-2">type_application/2</a>.</p><h2>type_application_name(Node::) -&gt;</h2><p>Returns the type name subtree of a type_application node.</p><a name="type_application_name-1"></a><p>Returns the type name subtree of a <strong>type_application</strong> node.
+</p><p><em>See also:</em> <a href="#type_application-2">type_application/2</a>.</p><h2>type_union(Types::[]) -&gt;</h2><p>Creates an abstract type union.</p><a name="type_union-1"></a><p>Creates an abstract type union. If <strong>Types</strong> is
+<strong>[T1, ..., Tn]</strong>, the result represents
+"<strong>T1 | ... | Tn</strong>".
+</p><p><em>See also:</em> <a href="#type_union_types-1">type_union_types/1</a>.</p><h2>type_union_types(Node::) -&gt; []</h2><p>Returns the list of type subtrees of a type_union node.</p><a name="type_union_types-1"></a><p>Returns the list of type subtrees of a <strong>type_union</strong> node.
+</p><p><em>See also:</em> <a href="#type_union-1">type_union/1</a>.</p><h2>typed_record_field(Field::, Type::) -&gt;</h2><p>Creates an abstract typed record field specification.</p><a name="typed_record_field-2"></a><p>Creates an abstract typed record field specification. The
+result represents "<strong>Field :: Type</strong>".
+</p><p><em>See also:</em> <a href="#typed_record_field_body-1">typed_record_field_body/1</a>, <a href="#typed_record_field_type-1">typed_record_field_type/1</a>.</p><h2>typed_record_field_body(Node::) -&gt;</h2><p>Returns the field subtree of a typed_record_field node.</p><a name="typed_record_field_body-1"></a><p>Returns the field subtree of a <strong>typed_record_field</strong> node.
+</p><p><em>See also:</em> <a href="#typed_record_field-2">typed_record_field/2</a>.</p><h2>typed_record_field_type(Node::) -&gt;</h2><p>Returns the type subtree of a typed_record_field node.</p><a name="typed_record_field_type-1"></a><p>Returns the type subtree of a <strong>typed_record_field</strong> node.
+</p><p><em>See also:</em> <a href="#typed_record_field-2">typed_record_field/2</a>.</p><h2>underscore() -&gt;</h2><p>Creates an abstract universal pattern ("_").</p><a name="underscore-0"></a><p>Creates an abstract universal pattern ("<strong>_</strong>"). The
+lexical representation is a single underscore character. Note that
+this is <em>not</em> a variable, lexically speaking.
+</p><p><em>See also:</em> <a href="#variable-1">variable/1</a>.</p><h2>update_tree(Node::, Groups::[[]]) -&gt;</h2><p>Creates a syntax tree with the same type and attributes as the given tree.</p><a name="update_tree-2"></a><p>Creates a syntax tree with the same type and attributes as the
+given tree. This is equivalent to <strong>copy_attrs(Node, make_tree(type(Node), Groups))</strong>.
+</p><p><em>See also:</em> <a href="#copy_attrs-2">copy_attrs/2</a>, <a href="#make_tree-2">make_tree/2</a>, <a href="#type-1">type/1</a>.</p><h2>user_type_application(TypeName::, Arguments::[]) -&gt;</h2><p>Creates an abstract user type.</p><a name="user_type_application-2"></a><p>Creates an abstract user type. If <strong>Arguments</strong> is
+<strong>[T1, ..., Tn]</strong>, the result represents
+"<strong>TypeName(T1, ...Tn)</strong>".
+</p><p><em>See also:</em> <a href="#type_application-2">type_application/2</a>, <a href="#user_type_application_arguments-1">user_type_application_arguments/1</a>, <a href="#user_type_application_name-1">user_type_application_name/1</a>.</p><h2>user_type_application_arguments(Node::) -&gt; []</h2><p>Returns the arguments subtrees of a user_type_application node.</p><a name="user_type_application_arguments-1"></a><p>Returns the arguments subtrees of a <strong>user_type_application</strong> node.
+</p><p><em>See also:</em> <a href="#user_type_application-2">user_type_application/2</a>.</p><h2>user_type_application_name(Node::) -&gt;</h2><p>Returns the type name subtree of a user_type_application node.</p><a name="user_type_application_name-1"></a><p>Returns the type name subtree of a <strong>user_type_application</strong> node.
+</p><p><em>See also:</em> <a href="#user_type_application-2">user_type_application/2</a>.</p><h2>variable(Name::atom() | string()) -&gt;</h2><p>Creates an abstract variable with the given name.</p><a name="variable-1"></a><p>Creates an abstract variable with the given name.
+<strong>Name</strong> may be any atom or string that represents a
+lexically valid variable name, but <em>not</em> a single underscore
+character; see <a href="#underscore-0">underscore/0</a>.</p><p>Note: no checking is done whether the character sequence
+represents a proper variable name, i.e., whether or not its first
+character is an uppercase Erlang character, or whether it does not
+contain control characters, whitespace, etc.
+</p><p><em>See also:</em> <a href="#underscore-0">underscore/0</a>, <a href="#variable_literal-1">variable_literal/1</a>, <a href="#variable_name-1">variable_name/1</a>.</p><h2>variable_literal(Node::) -&gt; string()</h2><p>Returns the name of a variable node as a string.</p><a name="variable_literal-1"></a><p>Returns the name of a <strong>variable</strong> node as a string.
+</p><p><em>See also:</em> <a href="#variable-1">variable/1</a>.</p><h2>variable_name(Node::) -&gt; atom()</h2><p>Returns the name of a variable node as an atom.</p><a name="variable_name-1"></a><p>Returns the name of a <strong>variable</strong> node as an atom.
+</p><p><em>See also:</em> <a href="#variable-1">variable/1</a>.</p><h2>warning_marker(Warning::term()) -&gt;</h2><p>Creates an abstract warning marker.</p><a name="warning_marker-1"></a><p>Creates an abstract warning marker. The result represents an
+occurrence of a possible problem in the source code, with an
+associated Erlang I/O ErrorInfo structure given by <strong>Error</strong>
+(see module <a href="./io">io(3)</a> for details). Warning markers are  
+regarded as source code forms, but have no defined lexical form.</p><p>Note: this is supported only for backwards compatibility with
+existing parsers and tools.
+</p><p><em>See also:</em> <a href="#eof_marker-0">eof_marker/0</a>, <a href="#error_marker-1">error_marker/1</a>, <a href="#is_form-1">is_form/1</a>, <a href="#warning_marker_info-1">warning_marker_info/1</a>.</p><h2>warning_marker_info(Node::) -&gt; term()</h2><p>Returns the ErrorInfo structure of a warning_marker node.</p><a name="warning_marker_info-1"></a><p>Returns the ErrorInfo structure of a <strong>warning_marker</strong> node.
+</p><p><em>See also:</em> <a href="#warning_marker-1">warning_marker/1</a>.</p><h1>Authors</h1><span class="aname">Richard Carlsson</span><span class="email">carlsson.richard@gmail.com</span></body></html>

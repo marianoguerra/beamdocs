@@ -1,0 +1,943 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Runtime_Tools</h1><h1>Runtime_Tools</h1><p><em>Runtime Tools</em></p><h4>Introduction</h4><p>The Linux Trace Toolkit: next generation is an open source system software package
+for correlated tracing of the Linux kernel, user applications and libraries. </p><p>For more information, please visit <a href="http://lttng.org">http://lttng.org</a></p><h4>Building Erlang/OTP with LTTng support</h4><p>
+Configure and build Erlang with LTTng support:
+</p><p>For LTTng to work properly with Erlang/OTP you need
+the following packages installed:</p><ul><li><p>LTTng-tools: a command line interface to control tracing sessions.</p></li><li><p>LTTng-UST: user space tracing library.</p></li></ul><p>On Ubuntu this can be installed via <strong>aptitude</strong>:</p><pre><code class="">$ sudo aptitude install lttng-tools liblttng-ust-dev</code></pre><p>See <a href="http://lttng.org/docs/#doc-installing-lttng">Installing LTTng</a>
+for more information on how to install LTTng on your system.</p><p>After LTTng is properly installed on the system Erlang/OTP can be built with LTTng support.</p><pre><code class="">$ ./configure --with-dynamic-trace=lttng
+$ make </code></pre><h4>Dyntrace Tracepoints</h4><p>All tracepoints are in the domain of <strong>org_erlang_dyntrace</strong></p><p>All Erlang types are the string equivalent in LTTng.</p><p><em>process_spawn</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>parent : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>entry : string</strong> :: Code Location. Ex. <strong>"lists:sort/1"</strong></li></ul><p>
+Available through
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> with trace flag <strong>procs</strong> and <strong>{tracer,dyntrace,[]}</strong> as tracer module.
+</p><p>Example:</p><pre><code class="">process_spawn: { cpu_id = 3 }, { pid = "&lt;0.131.0&gt;", parent = "&lt;0.130.0&gt;", entry = "erlang:apply/2" }</code></pre><p><em>process_link</em></p><ul><li><strong>to : string</strong> :: Process ID or Port ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>from : string</strong> :: Process ID or Port ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>type : string</strong> :: <strong>"link" | "unlink"</strong></li></ul><p>
+Available through
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> with trace flag <strong>procs</strong> and <strong>{tracer,dyntrace,[]}</strong> as tracer module.
+</p><p>Example:</p><pre><code class="">process_link: { cpu_id = 3 }, { from = "&lt;0.130.0&gt;", to = "&lt;0.131.0&gt;", type = "link" }</code></pre><p><em>process_exit</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>reason : string</strong> :: Exit reason. Ex. <strong>"normal"</strong></li></ul><p>
+Available through
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> with trace flag <strong>procs</strong> and <strong>{tracer,dyntrace,[]}</strong> as tracer module.
+</p><p>Example:</p><pre><code class="">process_exit: { cpu_id = 3 }, { pid = "&lt;0.130.0&gt;", reason = "normal" }</code></pre><p><em>process_register</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>name : string</strong> :: Registered name. Ex. <strong>"logger"</strong></li><li><strong>type : string</strong> :: <strong>"register" | "unregister"</strong></li></ul><p>Example:</p><pre><code class="">process_register: { cpu_id = 0 }, { pid = "&lt;0.128.0&gt;", name = "dyntrace_lttng_SUITE" type = "register" }</code></pre><p><em>process_scheduled</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>entry : string</strong> :: Code Location. Ex. <strong>"lists:sort/1"</strong></li><li><strong>type : string</strong> :: <strong>"in" | "out" | "in_exiting" | "out_exiting" | "out_exited"</strong></li></ul><p>
+Available through
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> with trace flag <strong>running</strong> and <strong>{tracer,dyntrace,[]}</strong> as tracer module.
+</p><p>Example:</p><pre><code class="">process_scheduled: { cpu_id = 0 }, { pid = "&lt;0.136.0&gt;", entry = "erlang:apply/2", type = "in" }</code></pre><p><em>port_open</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>driver : string</strong> :: Driver name. Ex. <strong>"tcp_inet"</strong></li><li><strong>port : string</strong> :: Port ID. Ex. <strong>"#Port&lt;0.1031&gt;"</strong></li></ul><p>
+Available through
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> with trace flag <strong>ports</strong> and <strong>{tracer,dyntrace,[]}</strong> as tracer module.
+</p><p>Example:</p><pre><code class="">port_open: { cpu_id = 5 }, { pid = "&lt;0.131.0&gt;", driver = "'/bin/sh -s unix:cmd'", port = "#Port&lt;0.1887&gt;" }</code></pre><p><em>port_exit</em></p><ul><li><strong>port : string</strong> :: Port ID. Ex. <strong>"#Port&lt;0.1031&gt;"</strong></li><li><strong>reason : string</strong> :: Exit reason. Ex. <strong>"normal"</strong></li></ul><p>
+Available through
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> with trace flag <strong>ports</strong> and <strong>{tracer,dyntrace,[]}</strong> as tracer module.
+</p><p>Example:</p><pre><code class="">port_exit: { cpu_id = 5 }, { port = "#Port&lt;0.1887&gt;", reason = "normal" }</code></pre><p><em>port_link</em></p><ul><li><strong>to : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>from : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>type : string</strong> :: <strong>"link" | "unlink"</strong></li></ul><p>
+Available through
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> with trace flag <strong>ports</strong> and <strong>{tracer,dyntrace,[]}</strong> as tracer module.
+</p><p>Example:</p><pre><code class="">port_link: { cpu_id = 5 }, { from = "#Port&lt;0.1887&gt;", to = "&lt;0.131.0&gt;", type = "unlink" }</code></pre><p><em>port_scheduled</em></p><p>
+Available through
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> with trace flag <strong>running</strong> and <strong>{tracer,dyntrace,[]}</strong> as tracer module.
+</p><ul><li><strong>port : string</strong> :: Port ID. Ex. <strong>"#Port&lt;0.1031&gt;"</strong></li><li><strong>entry : string</strong> :: Callback. Ex. <strong>"open"</strong></li><li><strong>type : string</strong> :: <strong>"in" | "out" | "in_exiting" | "out_exiting" | "out_exited"</strong></li></ul><p>Example:</p><pre><code class="">port_scheduled: { cpu_id = 5 }, { pid = "#Port&lt;0.1905&gt;", entry = "close", type = "out" }</code></pre><p>
+Available through
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> with trace flag <strong>running</strong> and <strong>{tracer,dyntrace,[]}</strong> as tracer module.
+</p><p><em>function_call</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>entry : string</strong> :: Code Location. Ex. <strong>"lists:sort/1"</strong></li><li><strong>depth : integer</strong> :: Stack depth. Ex. <strong>0</strong></li></ul><p>
+Available through
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> with trace flag <strong>call</strong> and <strong>{tracer,dyntrace,[]}</strong> as tracer module.
+</p><p>Example:</p><pre><code class="">function_call: { cpu_id = 5 }, { pid = "&lt;0.145.0&gt;", entry = "dyntrace_lttng_SUITE:'-t_call/1-fun-1-'/0", depth = 0 }</code></pre><p><em>function_return</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>entry : string</strong> :: Code Location. Ex. <strong>"lists:sort/1"</strong></li><li><strong>depth : integer</strong> :: Stack depth. Ex. <strong>0</strong></li></ul><p>
+Available through
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> with trace flag <strong>call</strong> or <strong>return_to</strong> and <strong>{tracer,dyntrace,[]}</strong> as tracer module.
+</p><p>Example:</p><pre><code class="">function_return: { cpu_id = 5 }, { pid = "&lt;0.145.0&gt;", entry = "dyntrace_lttng_SUITE:waiter/0", depth = 0 }</code></pre><p><em>function_exception</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>entry : string</strong> :: Code Location. Ex. <strong>"lists:sort/1"</strong></li><li><strong>class : string</strong> :: Error reason. Ex. <strong>"error"</strong></li></ul><p>
+Available through
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> with trace flag <strong>call</strong> and <strong>{tracer,dyntrace,[]}</strong> as tracer module.
+</p><p>Example:</p><pre><code class="">function_exception: { cpu_id = 5 }, { pid = "&lt;0.144.0&gt;", entry = "t:call_exc/1", class = "error" }</code></pre><p><em>message_send</em></p><ul><li><strong>from : string</strong> :: Process ID or Port ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>to : string</strong> :: Process ID or Port ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>message : string</strong> :: Message sent. Ex. <strong>"{&lt;0.162.0&gt;,ok}"</strong></li></ul><p>
+Available through
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> with trace flag <strong>send</strong> and <strong>{tracer,dyntrace,[]}</strong> as tracer module.
+</p><p>Example:</p><pre><code class="">message_send: { cpu_id = 3 }, { from = "#Port&lt;0.1938&gt;", to = "&lt;0.160.0&gt;", message = "{#Port&lt;0.1938&gt;,eof}" }</code></pre><p><em>message_receive</em></p><ul><li><strong>to : string</strong> :: Process ID or Port ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>message : string</strong> :: Message received. Ex. <strong>"{&lt;0.162.0&gt;,ok}"</strong></li></ul><p>
+Available through
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> with trace flag <strong>'receive'</strong> and <strong>{tracer,dyntrace,[]}</strong> as tracer module.
+</p><p>Example:</p><pre><code class="">message_receive: { cpu_id = 7 }, { to = "&lt;0.167.0&gt;", message = "{&lt;0.165.0&gt;,ok}" }</code></pre><p><em>gc_minor_start</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>need : integer</strong> :: Heap need. Ex. <strong>2</strong></li><li><strong>heap : integer</strong> :: Young heap word size. Ex. <strong>233</strong></li><li><strong>old_heap : integer</strong> :: Old heap word size. Ex. <strong>233</strong></li></ul><p>
+Available through
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> with trace flag <strong>garbage_collection</strong> and <strong>{tracer,dyntrace,[]}</strong> as tracer module.
+</p><p>Example:</p><pre><code class="">gc_minor_start: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", need = 0, heap = 610, old_heap = 0 }</code></pre><p><em>gc_minor_end</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>reclaimed : integer</strong> :: Heap reclaimed. Ex. <strong>2</strong></li><li><strong>heap : integer</strong> :: Young heap word size. Ex. <strong>233</strong></li><li><strong>old_heap : integer</strong> :: Old heap word size. Ex. <strong>233</strong></li></ul><p>
+Available through
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> with trace flag <strong>garbage_collection</strong> and <strong>{tracer,dyntrace,[]}</strong> as tracer module.
+</p><p>Example:</p><pre><code class="">gc_minor_end: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", reclaimed = 120, heap = 1598, old_heap = 1598 }</code></pre><p><em>gc_major_start</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>need : integer</strong> :: Heap need. Ex. <strong>2</strong></li><li><strong>heap : integer</strong> :: Young heap word size. Ex. <strong>233</strong></li><li><strong>old_heap : integer</strong> :: Old heap word size. Ex. <strong>233</strong></li></ul><p>
+Available through
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> with trace flag <strong>garbage_collection</strong> and <strong>{tracer,dyntrace,[]}</strong> as tracer module.
+</p><p>Example:</p><pre><code class="">gc_major_start: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", need = 8, heap = 2586, old_heap = 1598 }</code></pre><p><em>gc_major_end</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>reclaimed : integer</strong> :: Heap reclaimed. Ex. <strong>2</strong></li><li><strong>heap : integer</strong> :: Young heap word size. Ex. <strong>233</strong></li><li><strong>old_heap : integer</strong> :: Old heap word size. Ex. <strong>233</strong></li></ul><p>
+Available through
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> with trace flag <strong>garbage_collection</strong> and <strong>{tracer,dyntrace,[]}</strong> as tracer module.
+</p><p>Example:</p><pre><code class="">gc_major_end: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", reclaimed = 240, heap = 4185, old_heap = 0 }</code></pre><h4>BEAM Tracepoints</h4><p>All tracepoints are in the domain of <strong>org_erlang_otp</strong></p><p>All Erlang types are the string equivalent in LTTng.</p><p><em>scheduler_poll</em></p><ul><li><strong>scheduler : integer</strong> :: Scheduler ID. Ex. <strong>1</strong></li><li><strong>runnable : integer</strong> :: Runnable. Ex. <strong>1</strong></li></ul><p>Example:</p><pre><code class="">scheduler_poll: { cpu_id = 4 }, { scheduler = 1, runnable = 1 }</code></pre><p><em>driver_init</em></p><ul><li><strong>driver : string</strong> :: Driver name. Ex. <strong>"tcp_inet"</strong></li><li><strong>major : integer</strong> :: Major version. Ex. <strong>3</strong></li><li><strong>minor : integer</strong> :: Minor version. Ex. <strong>1</strong></li><li><strong>flags : integer</strong> :: Flags. Ex. <strong>1</strong></li></ul><p>Example:</p><pre><code class="">driver_init: { cpu_id = 2 }, { driver = "caller_drv", major = 3, minor = 3, flags = 1 }</code></pre><p><em>driver_start</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>driver : string</strong> :: Driver name. Ex. <strong>"tcp_inet"</strong></li><li><strong>port : string</strong> :: Port ID. Ex. <strong>"#Port&lt;0.1031&gt;"</strong></li></ul><p>Example:</p><pre><code class="">driver_start: { cpu_id = 2 }, { pid = "&lt;0.198.0&gt;", driver = "caller_drv", port = "#Port&lt;0.3676&gt;" }</code></pre><p><em>driver_output</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>port : string</strong> :: Port ID. Ex. <strong>"#Port&lt;0.1031&gt;"</strong></li><li><strong>driver : string</strong> :: Driver name. Ex. <strong>"tcp_inet"</strong></li><li><strong>bytes : integer</strong> :: Size of data returned. Ex. <strong>82</strong></li></ul><p>Example:</p><pre><code class="">driver_output: { cpu_id = 2 }, { pid = "&lt;0.198.0&gt;", port = "#Port&lt;0.3677&gt;", driver = "/bin/sh -s unix:cmd", bytes = 36 }</code></pre><p><em>driver_outputv</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>port : string</strong> :: Port ID. Ex. <strong>"#Port&lt;0.1031&gt;"</strong></li><li><strong>driver : string</strong> :: Driver name. Ex. <strong>"tcp_inet"</strong></li><li><strong>bytes : integer</strong> :: Size of data returned. Ex. <strong>82</strong></li></ul><p>Example:</p><pre><code class="">driver_outputv: { cpu_id = 5 }, { pid = "&lt;0.194.0&gt;", port = "#Port&lt;0.3663&gt;", driver = "tcp_inet", bytes = 3 }</code></pre><p><em>driver_ready_input</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>port : string</strong> :: Port ID. Ex. <strong>"#Port&lt;0.1031&gt;"</strong></li><li><strong>driver : string</strong> :: Driver name. Ex. <strong>"tcp_inet"</strong></li></ul><p>Example:</p><pre><code class="">driver_ready_input: { cpu_id = 5 }, { pid = "&lt;0.189.0&gt;", port = "#Port&lt;0.3637&gt;", driver = "inet_gethost 4 " }</code></pre><p><em>driver_ready_output</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>port : string</strong> :: Port ID. Ex. <strong>"#Port&lt;0.1031&gt;"</strong></li><li><strong>driver : string</strong> :: Driver name. Ex. <strong>"tcp_inet"</strong></li></ul><p>Example:</p><pre><code class="">driver_ready_output: { cpu_id = 5 }, { pid = "&lt;0.194.0&gt;", port = "#Port&lt;0.3663&gt;", driver = "tcp_inet" }</code></pre><p><em>driver_timeout</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>port : string</strong> :: Port ID. Ex. <strong>"#Port&lt;0.1031&gt;"</strong></li><li><strong>driver : string</strong> :: Driver name. Ex. <strong>"tcp_inet"</strong></li></ul><p>Example:</p><pre><code class="">driver_timeout: { cpu_id = 5 }, { pid = "&lt;0.196.0&gt;", port = "#Port&lt;0.3664&gt;", driver = "tcp_inet" }</code></pre><p><em>driver_stop_select</em></p><ul><li><strong>driver : string</strong> :: Driver name. Ex. <strong>"tcp_inet"</strong></li></ul><p>Example:</p><pre><code class="">driver_stop_select: { cpu_id = 5 }, { driver = "unknown" }</code></pre><p><em>driver_flush</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>port : string</strong> :: Port ID. Ex. <strong>"#Port&lt;0.1031&gt;"</strong></li><li><strong>driver : string</strong> :: Driver name. Ex. <strong>"tcp_inet"</strong></li></ul><p>Example:</p><pre><code class="">driver_flush: { cpu_id = 7 }, { pid = "&lt;0.204.0&gt;", port = "#Port&lt;0.3686&gt;", driver = "tcp_inet" }</code></pre><p><em>driver_stop</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>port : string</strong> :: Port ID. Ex. <strong>"#Port&lt;0.1031&gt;"</strong></li><li><strong>driver : string</strong> :: Driver name. Ex. <strong>"tcp_inet"</strong></li></ul><p>Example:</p><pre><code class="">driver_stop: { cpu_id = 5 }, { pid = "[]", port = "#Port&lt;0.3673&gt;", driver = "tcp_inet" }</code></pre><p><em>driver_process_exit</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>port : string</strong> :: Port ID. Ex. <strong>"#Port&lt;0.1031&gt;"</strong></li><li><strong>driver : string</strong> :: Driver name. Ex. <strong>"tcp_inet"</strong></li></ul><p><em>driver_ready_async</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>port : string</strong> :: Port ID. Ex. <strong>"#Port&lt;0.1031&gt;"</strong></li><li><strong>driver : string</strong> :: Driver name. Ex. <strong>"tcp_inet"</strong></li></ul><p>Example:</p><pre><code class="">driver_ready_async: { cpu_id = 3 }, { pid = "&lt;0.181.0&gt;", port = "#Port&lt;0.3622&gt;", driver = "tcp_inet" }</code></pre><p><em>driver_call</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>port : string</strong> :: Port ID. Ex. <strong>"#Port&lt;0.1031&gt;"</strong></li><li><strong>driver : string</strong> :: Driver name. Ex. <strong>"tcp_inet"</strong></li><li><strong>command : integer</strong> :: Command integer. Ex. <strong>1</strong></li><li><strong>bytes : integer</strong> :: Size of data returned. Ex. <strong>82</strong></li></ul><p>Example:</p><pre><code class="">driver_call: { cpu_id = 2 }, { pid = "&lt;0.202.0&gt;", port = "#Port&lt;0.3676&gt;", driver = "caller_drv", command = 0, bytes = 2 }</code></pre><p><em>driver_control</em></p><ul><li><strong>pid : string</strong> :: Process ID. Ex. <strong>"&lt;0.131.0&gt;"</strong></li><li><strong>port : string</strong> :: Port ID. Ex. <strong>"#Port&lt;0.1031&gt;"</strong></li><li><strong>driver : string</strong> :: Driver name. Ex. <strong>"tcp_inet"</strong></li><li><strong>command : integer</strong> :: Command integer. Ex. <strong>1</strong></li><li><strong>bytes : integer</strong> :: Size of data returned. Ex. <strong>82</strong></li></ul><p>Example:</p><pre><code class="">driver_control: { cpu_id = 3 }, { pid = "&lt;0.32767.8191&gt;", port = "#Port&lt;0.0&gt;", driver = "forker", command = 83, bytes = 32 }</code></pre><p><em>aio_pool_get</em></p><ul><li><strong>port : string</strong> :: Port ID. Ex. <strong>"#Port&lt;0.1031&gt;"</strong></li><li><strong>length : integer</strong> :: Async queue length. Ex. <strong>0</strong></li></ul><p>Example:</p><pre><code class="">aio_pool_get: { cpu_id = 4 }, { port = "#Port&lt;0.3614&gt;", length = 0 }</code></pre><p><em>aio_pool_put</em></p><ul><li><strong>port : string</strong> :: Port ID. Ex. <strong>"#Port&lt;0.1031&gt;"</strong></li><li><strong>length : integer</strong> :: Async queue length. Ex. <strong>-1</strong></li></ul><p>Async queue length is not defined for <strong>put</strong> operations.</p><p>Example:</p><pre><code class="">aio_pool_put: { cpu_id = 3 }, { port = "#Port&lt;0.3614&gt;", length = -1 }</code></pre><p><em>carrier_create</em></p><ul><li><strong>type : string</strong> :: Carrier type. Ex. <strong>"ets_alloc"</strong></li><li><strong>instance : integer</strong> :: Allocator instance. Ex. <strong>1</strong></li><li><strong>size : integer</strong> :: Carrier size. Ex. <strong>262144</strong></li><li><strong>mbc_carriers : integer</strong> :: Number of multiblock carriers in instance. Ex. <strong>3</strong></li><li><strong>mbc_carriers_size : integer</strong> :: Total size of multiblock blocks carriers in instance. Ex. <strong>1343488</strong></li><li><strong>mbc_blocks : integer</strong> :: Number of multiblock blocks in instance. Ex. <strong>122</strong></li><li><strong>mbc_blocks_size : integer</strong> :: Total size of all multiblock blocks in instance. Ex. <strong>285296</strong></li><li><strong>sbc_carriers : integer</strong> :: Number of singleblock carriers in instance. Ex. <strong>1</strong></li><li><strong>sbc_carriers_size : integer</strong> :: Total size of singleblock blocks carriers in instance. Ex. <strong>1343488</strong></li><li><strong>sbc_blocks : integer</strong> :: Number of singleblocks in instance. Ex. <strong>1</strong></li><li><strong>sbc_blocks_size : integer</strong> :: Total size of all singleblock blocks in instance. Ex. <strong>285296</strong></li></ul><p>Example:</p><pre><code class="">carrier_create: { cpu_id = 2 }, { type = "ets_alloc", instance = 7, size = 2097152, mbc_carriers = 4, mbc_carriers_size = 3440640, mbc_blocks = 526, mbc_blocks_size = 1278576, sbc_carriers = 0, sbc_carriers_size = 0, sbc_blocks = 0, sbc_blocks_size = 0 }</code></pre><p><em>carrier_destroy</em></p><ul><li><strong>type : string</strong> :: Carrier type. Ex. <strong>"ets_alloc"</strong></li><li><strong>instance : integer</strong> :: Allocator instance. Ex. <strong>1</strong></li><li><strong>size : integer</strong> :: Carrier size. Ex. <strong>262144</strong></li><li><strong>mbc_carriers : integer</strong> :: Number of multiblock carriers in instance. Ex. <strong>3</strong></li><li><strong>mbc_carriers_size : integer</strong> :: Total size of multiblock blocks carriers in instance. Ex. <strong>1343488</strong></li><li><strong>mbc_blocks : integer</strong> :: Number of multiblock blocks in instance. Ex. <strong>122</strong></li><li><strong>mbc_blocks_size : integer</strong> :: Total size of all multiblock blocks in instance. Ex. <strong>285296</strong></li><li><strong>sbc_carriers : integer</strong> :: Number of singleblock carriers in instance. Ex. <strong>1</strong></li><li><strong>sbc_carriers_size : integer</strong> :: Total size of singleblock blocks carriers in instance. Ex. <strong>1343488</strong></li><li><strong>sbc_blocks : integer</strong> :: Number of singleblocks in instance. Ex. <strong>1</strong></li><li><strong>sbc_blocks_size : integer</strong> :: Total size of all singleblock blocks in instance. Ex. <strong>285296</strong></li></ul><p>Example:</p><pre><code class="">carrier_destroy: { cpu_id = 6 }, { type = "ets_alloc", instance = 7, size = 262144, mbc_carriers = 3, mbc_carriers_size = 3178496, mbc_blocks = 925, mbc_blocks_size = 2305336, sbc_carriers = 0, sbc_carriers_size = 0, sbc_blocks = 0, sbc_blocks_size = 0 }</code></pre><p><em>carrier_pool_put</em></p><ul><li><strong>type : string</strong> :: Carrier type. Ex. <strong>"ets_alloc"</strong></li><li><strong>instance : integer</strong> :: Allocator instance. Ex. <strong>1</strong></li><li><strong>size : integer</strong> :: Carrier size. Ex. <strong>262144</strong></li></ul><p>Example:</p><pre><code class="">carrier_pool_put: { cpu_id = 3 }, { type = "ets_alloc", instance = 5, size = 1048576 }</code></pre><p><em>carrier_pool_get</em></p><ul><li><strong>type : string</strong> :: Carrier type. Ex. <strong>"ets_alloc"</strong></li><li><strong>instance : integer</strong> :: Allocator instance. Ex. <strong>1</strong></li><li><strong>size : integer</strong> :: Carrier size. Ex. <strong>262144</strong></li></ul><p>Example:</p><pre><code class="">carrier_pool_get: { cpu_id = 7 }, { type = "ets_alloc", instance = 4, size = 3208 }</code></pre><h4>Example of process tracing</h4><p>An example of process tracing of <strong>os_mon</strong> and friends.</p><p>Clean start of lttng in a bash shell.</p><pre>$ lttng create erlang-demo
+Spawning a session daemon
+Session erlang-demo created.
+Traces will be written in /home/egil/lttng-traces/erlang-demo-20160526-165920</pre><p>Start an Erlang node with lttng enabled.</p><pre>$ erl
+Erlang/OTP 19 [erts-8.0] [source-4d7b24d] [64-bit] [smp:8:8] [async-threads:10] [hipe] [kernel-poll:false] [lttng]
+
+Eshell V8.0  (abort with ^G)
+1&gt;</pre><p>Load the <strong>dyntrace</strong> module.</p><pre>1&gt; <span class="input">l(dyntrace).</span>
+{module,dyntrace}</pre><p>All tracepoints via dyntrace are now visibile and can be listed through <strong>lttng list -u</strong>.</p><p>Enable the process_register LTTng tracepoint for Erlang.</p><pre>$ lttng enable-event -u org_erlang_dyntrace:process_register
+UST event org_erlang_dyntrace:process_register created in channel channel0</pre><p>Enable process tracing for new processes and use <strong>dyntrace</strong> as tracer backend.</p><pre>2&gt; <span class="input">erlang:trace(new,true,[procs,{tracer,dyntrace,[]}]).</span>
+0</pre><p>Start LTTng tracing.</p><pre>$ lttng start
+Tracing started for session erlang-demo</pre><p>Start the <strong>os_mon</strong> application in Erlang.</p><pre>3&gt; <span class="input">application:ensure_all_started(os_mon).</span>
+{ok,[sasl,os_mon]}</pre><p>Stop LTTng tracing and view the result.</p><pre>$ lttng stop
+Tracing stopped for session erlang-demo
+$ lttng view
+[17:20:42.561168759] (+?.?????????) elxd1168lx9 org_erlang_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.66.0&gt;", name = "sasl_sup", type = "register" }
+[17:20:42.561215519] (+0.000046760) elxd1168lx9 org_erlang_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.67.0&gt;", name = "sasl_safe_sup", type = "register" }
+[17:20:42.562149024] (+0.000933505) elxd1168lx9 org_erlang_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.68.0&gt;", name = "alarm_handler", type = "register" }
+[17:20:42.571035803] (+0.008886779) elxd1168lx9 org_erlang_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.69.0&gt;", name = "release_handler", type = "register" }
+[17:20:42.574939868] (+0.003904065) elxd1168lx9 org_erlang_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.74.0&gt;", name = "os_mon_sup", type = "register" }
+[17:20:42.576818712] (+0.001878844) elxd1168lx9 org_erlang_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.75.0&gt;", name = "disksup", type = "register" }
+[17:20:42.580032013] (+0.003213301) elxd1168lx9 org_erlang_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.76.0&gt;", name = "memsup", type = "register" }
+[17:20:42.583046339] (+0.003014326) elxd1168lx9 org_erlang_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.78.0&gt;", name = "cpu_sup", type = "register" }
+[17:20:42.586206242] (+0.003159903) elxd1168lx9 org_erlang_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.82.0&gt;", name = "timer_server", type = "register" }</pre><a name="History"></a><h4>History</h4><p>
+The first implementation of DTrace probes for the Erlang virtual
+machine was presented at the <a href="http://www.erlang.org/euc/08/">2008 Erlang User Conference</a>.  That
+work, based on the Erlang/OTP R12 release, was discontinued due to
+what appears to be miscommunication with the original developers.
+</p><p>
+Several users have created Erlang port drivers, linked-in drivers, or
+NIFs that allow Erlang code to try to activate a probe,
+e.g. <strong>foo_module:dtrace_probe("message goes here!")</strong>.
+</p><a name="Goals"></a><h4>Goals</h4><ul><li> Annotate as much of the Erlang VM as is practical. </li><li> The initial goal is to trace file I/O operations. </li><li> Support all platforms that implement DTrace: OS X, Solaris, and (I hope) FreeBSD and NetBSD. </li><li> To the extent that it's practical, support SystemTap on Linux via DTrace provider compatibility. </li><li> Allow Erlang code to supply annotations. </li></ul><a name="Supported-platforms"></a><h4>Supported platforms</h4><ul><li> OS X 10.6.x / Snow Leopard, OS X 10.7.x / Lion and probably newer versions. </li><li> Solaris 10.  I have done limited testing on Solaris 11 and OpenIndiana release 151a, and both appear to work. </li><li> FreeBSD 9.0 and 10.0. </li><li> Linux via SystemTap compatibility.  Please see <a href="SYSTEMTAP">$ERL_TOP/HOWTO/SYSTEMTAP.md</a> for more details. </li></ul><p>
+Just add the <strong>--with-dynamic-trace=dtrace</strong> option to your command when you 
+run the <strong>configure</strong> script. If you are using systemtap, the configure option 
+is <strong>--with-dynamic-trace=systemtap</strong>
+</p><a name="Status"></a><h4>Status</h4><p>
+As of R15B01, the dynamic trace code is included in the OTP source distribution,
+although it's considered experimental. The main development of the dtrace code 
+still happens outside of Ericsson, but there is no need to fetch a patched 
+version of the OTP source to get the basic functionality.
+</p><a name="DTrace-probe-specifications"></a><h4>DTrace probe specifications</h4><p>
+Probe specifications can be found in <strong>erts/emulator/beam/erlang_dtrace.d</strong>, and
+a few example scripts can be found under <strong>lib/runtime_tools/examples/</strong>.
+</p><a name="Introduction"></a><h4>Introduction</h4><p>
+SystemTap is DTrace for Linux. In fact Erlang's SystemTap support
+is build using SystemTap's DTrace compatibility's layer. For an
+introduction to Erlang DTrace support read <a href="DTRACE">$ERL_TOP/HOWTO/DTRACE.md</a>.
+</p><a name="Requisites"></a><h4>Requisites</h4><ul><li> <p>Linux Kernel with UTRACE support
+</p> <p>check for UTRACE support in your current kernel:
+</p> <pre><code class="">
+# grep CONFIG_UTRACE /boot/config-`uname -r`
+CONFIG_UTRACE=y
+</code></pre> <p>Fedora 16 is known to contain UTRACE, for most other Linux distributions
+a custom build kernel will be required.
+Check Fedora's SystemTap documentation for additional required packages
+(e.g. Kernel Debug Symbols)
+</p> </li><li> <p>SystemTap &gt; 1.6
+</p> <p>A the time of writing this, the latest released version of SystemTap is
+version 1.6. Erlang's DTrace support requires a MACRO that was introduced
+after that release. So either get a newer release or build SystemTap from
+git yourself (see: http://sourceware.org/systemtap/getinvolved.html)
+</p> </li></ul><a name="Building-Erlang"></a><h4>Building Erlang</h4><p>
+Configure and build Erlang with SystemTap support:
+</p><pre><code class="">
+# ./configure --with-dynamic-trace=systemtap + whatever args you need
+# make
+</code></pre><a name="Testing"></a><h4>Testing</h4><p>
+SystemTap, unlike DTrace, needs to know what binary it is tracing and has to
+be able to read that binary before it starts tracing. Your probe script
+therefor has to reference the correct beam emulator and stap needs to be able
+to find that binary.
+The examples are written for "beam", but other versions such as "beam.smp" or
+"beam.debug.smp" might exist (depending on your configuration). Make sure you
+either specify the full the path of the binary in the probe or your "beam"
+binary is in the search path.
+</p><p>
+All available probes can be listed like this:
+</p><pre><code class="">
+# stap -L 'process("beam").mark("*")'
+</code></pre><p>
+or:
+</p><pre><code class="">
+# PATH=/path/to/beam:$PATH stap -L 'process("beam").mark("*")'
+</code></pre><p>
+Probes in the dtrace.so NIF library like this:
+</p><pre><code class="">
+# PATH=/path/to/dtrace/priv/lib:$PATH stap -L 'process("dtrace.so").mark("*")'
+</code></pre><a name="Running-SystemTap-scripts"></a><h4>Running SystemTap scripts</h4><p>
+Adjust the process("beam") reference to your beam version and attach the script
+to a running "beam" instance:
+</p><pre><code class="">
+# stap /path/to/probe/script/port1.systemtap -x &lt;pid of beam&gt;
+</code></pre><p><em>Runtime_Tools</em> provides low footprint tracing/debugging
+tools suitable for inclusion in a production system.</p><h3>runtime_tools</h3><p>The Runtime tools Application</p><p>This chapter describes the Runtime_Tools application in OTP,
+which provides low footprint tracing/debugging tools suitable
+for inclusion in a production system.</p><h4>Configuration</h4><p>There are currently no configuration parameters available for
+this application.
+</p><h4>SEE ALSO</h4><p>application(3)</p><h3>dbg</h3><p>The Text Based Trace Facility</p><p>This module implements a text based interface to the
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a> and the
+<a href="../erts/erlang#trace_pattern-2">erts/erlang#trace_pattern-2</a> BIFs.  It makes it
+possible to trace functions, processes, ports and messages.
+
+To quickly get started on tracing function calls you can use the following
+code in the Erlang shell:
+<pre>
+1&gt; dbg:tracer(). %% Start the default trace message receiver
+{ok,&lt;0.36.0&gt;}
+2&gt; dbg:p(all, c). %% Setup call (c) tracing on all processes
+{ok,[{matched,nonode@nohost,26}]}
+3&gt; dbg:tp(lists, seq, x). %% Setup an exception return trace (x) on lists:seq
+{ok,[{matched,nonode@nohost,2},{saved,x}]}
+4&gt; lists:seq(1,10).
+(&lt;0.34.0&gt;) call lists:seq(1,10)
+(&lt;0.34.0&gt;) returned from lists:seq/2 -&gt; [1,2,3,4,5,6,7,8,9,10]
+[1,2,3,4,5,6,7,8,9,10]
+    </pre>
+For more examples of how to use <strong>dbg</strong> from the Erlang
+shell, see the <a href="#simple_example">simple example</a> section.
+The utilities are also suitable to use in system testing on
+large systems, where other tools have too much impact on the
+system performance.  Some primitive support for sequential tracing
+is also included, see the <a href="#advanced">advanced topics</a> section.
+</p><h3>Functions</h3><h4>fun2ms(LiteralFun) -&gt; MatchSpec</h4><p>Pseudo function that transforms fun syntax to match_spec.</p><ul><li><span class="v">LiteralFun = fun() literal</span></li><li><span class="v">MatchSpec = term()</span></li></ul><p>Pseudo function that by means of a <strong>parse_transform</strong>
+translates the <em>literal</em><strong>fun()</strong> typed as parameter in
+the function call to a match specification as described in
+the <strong>match_spec</strong> manual of ERTS users guide.
+(with literal I mean that the <strong>fun()</strong> needs to
+textually be written as the parameter of the function, it
+cannot be held in a variable which in turn is passed to the 
+function). </p><p>The parse transform is implemented in the module
+<strong>ms_transform</strong> and the source <em>must</em> include the
+file <strong>ms_transform.hrl</strong> in STDLIB for this
+pseudo function to work. Failing to include the hrl file in
+the source will result in a runtime error, not a compile
+time ditto. The include file is easiest included by adding
+the line
+<strong>-include_lib("stdlib/include/ms_transform.hrl").</strong> to
+the source file.</p><p>The <strong>fun()</strong> is very restricted, it can take only a
+single parameter (the parameter list to match), a sole variable or a
+list. It needs to use the <strong>is_</strong>XXX guard tests and one
+cannot use language constructs that have no representation
+in a match_spec (like <strong>if</strong>, <strong>case</strong>,
+<strong>receive</strong> etc). The return value from the fun will be
+the return value of the resulting match_spec.</p><p>Example:</p><pre>
+1&gt; <span class="input">dbg:fun2ms(fun([M,N]) when N &gt; 3 -&gt; return_trace() end).</span>
+[{['$1','$2'],[{'&gt;','$2',3}],[{return_trace}]}]</pre><p>Variables from the environment can be imported, so that this
+works:</p><pre>
+2&gt; <span class="input">X=3.</span>
+3
+3&gt; <span class="input">dbg:fun2ms(fun([M,N]) when N &gt; X  -&gt; return_trace() end).</span>
+[{['$1','$2'],[{'&gt;','$2',{const,3}}],[{return_trace}]}]</pre><p>The imported variables will be replaced by match_spec
+<strong>const</strong> expressions, which is consistent with the
+static scoping for Erlang <strong>fun()</strong>s. Local or global
+function calls cannot be in the guard or body of the fun
+however. Calls to builtin match_spec functions of course is
+allowed:</p><pre>
+4&gt; <span class="input">dbg:fun2ms(fun([M,N]) when N &gt; X, is_atomm(M)  -&gt; return_trace() end).</span>
+Error: fun containing local erlang function calls ('is_atomm' called in guard)\
+ cannot be translated into match_spec
+{error,transform_error}
+5&gt; <span class="input">dbg:fun2ms(fun([M,N]) when N &gt; X, is_atom(M)  -&gt; return_trace() end).</span>
+[{['$1','$2'],[{'&gt;','$2',{const,3}},{is_atom,'$1'}],[{return_trace}]}]</pre><p>As you can see by the example, the function can be called from
+the shell too. The <strong>fun()</strong> needs to be literally in the
+call when used from the shell as well. Other means than the 
+parse_transform are used in the shell case, but more or less
+the same restrictions apply (the exception being records,
+as they are not handled by the shell).</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>If the parse_transform is not applied to a module which calls this
+pseudo function, the call will fail in runtime (with a 
+<strong>badarg</strong>). The module <strong>dbg</strong> actually exports a
+function with this name, but it should never really be called
+except for when using the function in the shell. If the
+<strong>parse_transform</strong> is properly applied by including
+the <strong>ms_transform.hrl</strong> header file, compiled code
+will never call the function, but the function call is
+replaced by a literal match_spec.</p></div><p>More information is provided by the <strong>ms_transform</strong>
+manual page in STDLIB.</p><h4>h() -&gt; ok</h4><p>Give a list of available help items on standard output.</p><p>Gives a list of items for brief online help.</p><h4>h(Item) -&gt; ok</h4><p>Give brief help for an item.</p><ul><li><span class="v">Item = atom()</span></li></ul><p>Gives a brief help text for functions in the dbg module. The
+available items can be listed with <strong>dbg:h/0</strong></p><h4>p(Item) -&gt; {ok, MatchDesc} | {error, term()}</h4><p>Trace messages to and from Item.</p><p>Equivalent to <strong>p(Item, [m])</strong>.</p><h4>p(Item, Flags) -&gt; {ok, MatchDesc} | {error, term()}</h4><p>Trace Item according to Flags.</p><ul><li><span class="v">MatchDesc = [MatchNum]</span></li><li><span class="v">MatchNum = {matched, node(), integer()} | {matched, node(), 0, RPCError}</span></li><li><span class="v">RPCError = term()</span></li></ul><p>Traces <strong>Item</strong> in accordance to the value specified
+by <strong>Flags</strong>. The variation of <strong>Item</strong> is listed below:</p><dl><dt><strong>pid()</strong> or <strong>port()</strong></dt><dd>The corresponding process or port is traced. The process or port may be a remote process or port (on another Erlang node). The node must be in the list of traced nodes (see <a href="#n-1">n-1</a> and <a href="#tracer-3">tracer-3</a>).</dd><dt><strong>all</strong></dt><dd>All processes and ports in the system as well as all processes and ports created hereafter are to be traced.</dd><dt><strong>processes</strong></dt><dd>All processes in the system as well as all processes created hereafter are to be traced.</dd><dt><strong>ports</strong></dt><dd>All ports in the system as well as all ports created hereafter are to be traced.</dd><dt><strong>new</strong></dt><dd>All processes and ports created after the call is are to be traced.</dd><dt><strong>new_processes</strong></dt><dd>All processes created after the call is are to be traced.</dd><dt><strong>new_ports</strong></dt><dd>All ports created after the call is are to be traced.</dd><dt><strong>existing</strong></dt><dd>All existing processes and ports are traced.</dd><dt><strong>existing_processes</strong></dt><dd>All existing processes are traced.</dd><dt><strong>existing_ports</strong></dt><dd>All existing ports are traced.</dd><dt><strong>atom()</strong></dt><dd>The process or port with the corresponding registered name is traced. The process or port may be a remote process (on another Erlang node). The node must be added with the <a href="#n-1">n-1</a> or <a href="#tracer-3">tracer-3</a> function.</dd><dt><strong>integer()</strong></dt><dd>The process <strong>&lt;0.Item.0&gt;</strong> is traced.</dd><dt><strong>{X, Y, Z}</strong></dt><dd>The process <strong>&lt;X.Y.Z&gt;</strong> is traced. </dd><dt><strong>string()</strong></dt><dd>If the <strong>Item</strong> is a string "&lt;X.Y.Z&gt;" as returned from <a href="../erts/erlang#pid_to_list-1">erts/erlang#pid_to_list-1</a>, the process <strong>&lt;X.Y.Z&gt;</strong> is traced. </dd></dl><p>When enabling an <strong>Item</strong> that represents a group of processes,
+the <strong>Item</strong> is enabled on all nodes added with the
+<a href="#n-1">n-1</a> or
+<a href="#tracer-3">tracer-3</a> function.</p><p><strong>Flags</strong> can be a single atom,
+or a list of flags. The available flags are:
+</p><dl><dt><strong>s (send)</strong></dt><dd> <p>Traces the messages the process or port sends.</p> </dd><dt><strong>r (receive)</strong></dt><dd> <p>Traces the messages the process or port receives.</p> </dd><dt><strong>m (messages)</strong></dt><dd> <p>Traces the messages the process or port receives and sends.</p> </dd><dt><strong>c (call)</strong></dt><dd> <p>Traces global function calls for the process
+according to the trace patterns set in the system (see tp/2).</p> </dd><dt><strong>p (procs)</strong></dt><dd> <p>Traces process related events to the process.</p> </dd><dt><strong>ports</strong></dt><dd> <p>Traces port related events to the port.</p> </dd><dt><strong>sos (set on spawn)</strong></dt><dd> <p>Lets all processes created by the traced
+process inherit the trace flags 
+of the traced process.</p> </dd><dt><strong>sol (set on link)</strong></dt><dd> <p>Lets another process, <strong>P2</strong>, inherit the
+trace flags of the traced 
+process whenever the traced process links to <strong>P2</strong>.</p> </dd><dt><strong>sofs (set on first spawn)</strong></dt><dd> <p>This is the same as <strong>sos</strong>, but only 
+for the first process spawned by the traced process.</p> </dd><dt><strong>sofl (set on first link)</strong></dt><dd> <p>This is the same as <strong>sol</strong>, but only for
+the first call to
+<a href="../erts/erlang#link-1">erts/erlang#link-1</a> by the traced process.</p> </dd><dt><strong>all</strong></dt><dd> <p>Sets all flags except <strong>silent</strong>.</p> </dd><dt><strong>clear</strong></dt><dd> <p>Clears all flags.
+</p> </dd></dl><p>The list can also include any of the flags allowed in 
+<a href="../erts/erlang#trace-3">erts/erlang#trace-3</a></p><p>The function returns either an error tuple or a tuple
+<strong>{ok, List}</strong>. The <strong>List</strong> consists of
+specifications of how many processes and ports that matched (in the
+case of a pure pid() exactly 1). The specification of
+matched processes is <strong>{matched, Node, N}</strong>. If the
+remote processor call,<strong>rpc</strong>, to a remote node fails,
+the <strong>rpc</strong> error message is delivered as a fourth
+argument and the number of matched processes are 0. Note
+that the result {ok, List} may contain a list where
+<strong>rpc</strong> calls to one, several or even all nodes failed.</p><h4>c(Mod, Fun, Args)</h4><p>Evaluate <strong>apply(M,F,Args)</strong>with <strong>all</strong>trace flags set.</p><p>Equivalent to <strong>c(Mod, Fun, Args, all)</strong>.</p><h4>c(Mod, Fun, Args, Flags)</h4><p>Evaluate <strong>apply(M,F,Args)</strong>with <strong>Flags</strong>trace flags set.</p><p>Evaluates the expression <strong>apply(Mod, Fun, Args)</strong> with the trace
+flags in <strong>Flags</strong> set. This is a convenient way to trace processes 
+from the Erlang shell.</p><h4>i() -&gt; ok</h4><p>Display information about all traced processes and ports.</p><p>Displays information about all traced processes and ports.</p><h4>tp(Module,MatchSpec)</h4><p>Set pattern for traced global function calls</p><p>Same as tp({Module, '_', '_'}, MatchSpec)</p><h4>tp(Module,Function,MatchSpec)</h4><p>Set pattern for traced global function calls</p><p>Same as tp({Module, Function, '_'}, MatchSpec)</p><h4>tp(Module, Function, Arity, MatchSpec)</h4><p>Set pattern for traced global function calls</p><p>Same as tp({Module, Function, Arity}, MatchSpec)</p><h4>tp({Module, Function, Arity}, MatchSpec) -&gt; {ok, MatchDesc} | {error, term()}</h4><p>Set pattern for traced global function calls</p><ul><li><span class="v">Module = atom() | '_'</span></li><li><span class="v">Function = atom() | '_'</span></li><li><span class="v">Arity = integer() |'_'</span></li><li><span class="v">MatchSpec = integer() | Built-inAlias | [] | match_spec()</span></li><li><span class="v">Built-inAlias = x | c | cx</span></li><li><span class="v">MatchDesc = [MatchInfo]</span></li><li><span class="v">MatchInfo = {saved, integer()} | MatchNum</span></li><li><span class="v">MatchNum = {matched, node(), integer()} | {matched, node(), 0, RPCError}</span></li></ul><p>This function enables call trace for one or more
+functions. All exported functions matching the <strong>{Module, Function, Arity}</strong>
+argument will be concerned, but the
+<strong>match_spec()</strong> may further narrow down the set of function
+calls generating trace messages.</p><p>For a description of the <strong>match_spec()</strong> syntax,
+please turn to the
+<em>User's guide</em> part of the online
+documentation for the runtime system (<em>erts</em>). The
+chapter <a href="./match_spec">erts/match_spec</a>
+explains the general match specification "language".
+The most common generic match specifications used can be
+found as <strong>Built-inAlias</strong>', see
+<a href="#ltp-0">ltp-0</a> below for details.
+</p><p>The Module, Function and/or Arity parts of the tuple may
+be specified as the atom <strong>'_'</strong> which is a "wild-card"
+matching all modules/functions/arities. Note, if the
+Module is specified as <strong>'_'</strong>, the Function and Arity
+parts have to be specified as '_' too. The same holds for the
+Functions relation to the Arity.</p><p>All nodes added with <a href="#n-1">n-1</a> or
+<a href="#tracer-3">tracer-3</a> will
+be affected by this call, and if Module is not <strong>'_'</strong>
+the module will be loaded on all nodes.</p><p>The function returns either an error tuple or a tuple
+<strong>{ok, List}</strong>. The <strong>List</strong> consists of specifications of how
+many functions that matched, in the same way as the processes and ports
+are presented in the return value of <a href="#p-2">p-2</a>. </p><p>There may be a tuple <strong>{saved, N}</strong> in the return value,
+if the MatchSpec is other
+than []. The integer <strong>N</strong> may then be used in
+subsequent calls to this function and will stand as an
+"alias" for the given expression. There are also a couple of
+built-in aliases for common expressions, see
+<a href="#ltp-0">ltp-0</a> below for details.</p><p>If an error is returned, it can be due to errors in
+compilation of the match specification. Such errors are
+presented as a list of tuples <strong>{error, string()}</strong> where
+the string is a textual explanation of the compilation
+error. An example:</p><pre>
+(x@y)4&gt; <span class="input">dbg:tp({dbg,ltp,0},[{[],[],[{message, two, arguments}, {noexist}]}]).</span>
+{error,
+ [{error,"Special form 'message' called with wrong number of
+          arguments in {message,two,arguments}."},
+  {error,"Function noexist/1 does_not_exist."}]}</pre><h4>tpl(Module,MatchSpec)</h4><p>Set pattern for traced local (as well as global) function calls</p><p>Same as tpl({Module, '_', '_'}, MatchSpec)</p><h4>tpl(Module,Function,MatchSpec)</h4><p>Set pattern for traced local (as well as global) function calls</p><p>Same as tpl({Module, Function, '_'}, MatchSpec)</p><h4>tpl(Module, Function, Arity, MatchSpec)</h4><p>Set pattern for traced local (as well as global) function calls</p><p>Same as tpl({Module, Function, Arity}, MatchSpec)</p><h4>tpl({Module, Function, Arity}, MatchSpec) -&gt; {ok, MatchDesc} | {error, term()}</h4><p>Set pattern for traced local (as well as global) function calls</p><p>This function works as <a href="#tp-2">tp-2</a>, but enables
+tracing for local calls (and local functions) as well as for
+global calls (and functions).</p><h4>tpe(Event, MatchSpec) -&gt; {ok, MatchDesc} | {error, term()}</h4><p>Set pattern for traced event</p><ul><li><span class="v">Event = send | 'receive'</span></li><li><span class="v">MatchSpec = integer() | Built-inAlias | [] | match_spec()</span></li><li><span class="v">Built-inAlias = x | c | cx</span></li><li><span class="v">MatchDesc = [MatchInfo]</span></li><li><span class="v">MatchInfo = {saved, integer()} | MatchNum</span></li><li><span class="v">MatchNum = {matched, node(), 1} | {matched, node(), 0, RPCError}</span></li></ul><p>This function associates a match specification with trace event
+<strong>send</strong> or <strong>'receive'</strong>. By default all executed <strong>send</strong>
+and <strong>'receive'</strong> events are traced if enabled for a process.
+A match specification can be used to filter traced events
+based on sender, receiver and/or message content.</p><p>For a description of the <strong>match_spec()</strong> syntax,
+please turn to the <em>User's guide</em> part of the online
+documentation for the runtime system (<em>erts</em>). The
+chapter <a href="./match_spec">erts/match_spec</a>
+explains the general match specification "language".</p><p>For <strong>send</strong>, the matching is done on the list <strong>[Receiver, Msg]</strong>.
+<strong>Receiver</strong> is the process or port identity of the receiver and
+<strong>Msg</strong> is the message term. The pid of the sending process can be
+accessed with the guard function <strong>self/0</strong>.</p><p>For <strong>'receive'</strong>, the matching is done on the list <strong>[Node, Sender, Msg]</strong>.
+<strong>Node</strong> is the node name of the sender. <strong>Sender</strong> is the
+process or port identity of the sender, or the atom
+<strong>undefined</strong> if the sender is not known (which may
+be the case for remote senders). <strong>Msg</strong> is the
+message term. The pid of the receiving process can be
+accessed with the guard function <strong>self/0</strong>.</p><p>All nodes added with <a href="#n-1">n-1</a> or
+<a href="#tracer-3">tracer-3</a> will
+be affected by this call.</p><p>The return value is the same as for
+<a href="#tp-2">tp-2</a>. The number of matched
+events are never larger than 1 as <strong>tpe/2</strong> does not
+accept any form of wildcards for argument <strong>Event</strong>.</p><h4>ctp()</h4><p>Clear call trace pattern for the specified functions</p><p>Same as ctp({'_', '_', '_'})</p><h4>ctp(Module)</h4><p>Clear call trace pattern for the specified functions</p><p>Same as ctp({Module, '_', '_'})</p><h4>ctp(Module, Function)</h4><p>Clear call trace pattern for the specified functions</p><p>Same as ctp({Module, Function, '_'})</p><h4>ctp(Module, Function, Arity)</h4><p>Clear call trace pattern for the specified functions</p><p>Same as ctp({Module, Function, Arity})</p><h4>ctp({Module, Function, Arity}) -&gt; {ok, MatchDesc} | {error, term()}</h4><p>Clear call trace pattern for the specified functions</p><ul><li><span class="v">Module = atom() | '_'</span></li><li><span class="v">Function = atom() | '_'</span></li><li><span class="v">Arity = integer() | '_'</span></li><li><span class="v">MatchDesc = [MatchNum]</span></li><li><span class="v">MatchNum = {matched, node(), integer()} | {matched, node(), 0, RPCError}</span></li></ul><p>This function disables call tracing on the specified
+functions. The semantics of the parameter is the same
+as for the corresponding function specification in
+<a href="#tp-2">tp-2</a> or <a href="#tpl-2">tpl-2</a>. Both local and global call trace
+is disabled. </p><p>The return value reflects how many functions that matched,
+and is constructed as described in <a href="#tp-2">tp-2</a>. No tuple
+<strong>{saved, N}</strong> is however ever returned (for obvious reasons).</p><h4>ctpl()</h4><p>Clear call trace pattern for the specified functions</p><p>Same as ctpl({'_', '_', '_'})</p><h4>ctpl(Module)</h4><p>Clear call trace pattern for the specified functions</p><p>Same as ctpl({Module, '_', '_'})</p><h4>ctpl(Module, Function)</h4><p>Clear call trace pattern for the specified functions</p><p>Same as ctpl({Module, Function, '_'})</p><h4>ctpl(Module, Function, Arity)</h4><p>Clear call trace pattern for the specified functions</p><p>Same as ctpl({Module, Function, Arity})</p><h4>ctpl({Module, Function, Arity}) -&gt; {ok, MatchDesc} | {error, term()}</h4><p>Clear call trace pattern for the specified functions</p><p>This function works as <a href="#ctp-1">ctp-1</a>, but only disables
+tracing set up with <a href="#tpl-2">tpl-2</a>
+(not with <a href="#tp-2">tp-2</a>).</p><h4>ctpg()</h4><p>Clear call trace pattern for the specified functions</p><p>Same as ctpg({'_', '_', '_'})</p><h4>ctpg(Module)</h4><p>Clear call trace pattern for the specified functions</p><p>Same as ctpg({Module, '_', '_'})</p><h4>ctpg(Module, Function)</h4><p>&gt;Clear call trace pattern for the specified functions</p><p>Same as ctpg({Module, Function, '_'})</p><h4>ctpg(Module, Function, Arity)</h4><p>&gt;Clear call trace pattern for the specified functions</p><p>Same as ctpg({Module, Function, Arity})</p><h4>ctpg({Module, Function, Arity}) -&gt; {ok, MatchDesc} | {error, term()}</h4><p>Clear call trace pattern for the specified functions</p><p>This function works as <a href="#ctp-1">ctp-1</a>, but only disables
+tracing set up with <a href="#tp-2">tp-2</a>
+(not with <a href="#tpl-2">tpl-2</a>).</p><h4>ctpe(Event) -&gt; {ok, MatchDesc} | {error, term()}</h4><p>Clear trace pattern for the specified event</p><ul><li><span class="v">Event = send | 'receive'</span></li><li><span class="v">MatchDesc = [MatchNum]</span></li><li><span class="v">MatchNum = {matched, node(), 1} | {matched, node(), 0, RPCError}</span></li></ul><p>This function clears match specifications for the specified
+trace event (<strong>send</strong> or <strong>'receive'</strong>). It will revert back
+to the default behavior of tracing all triggered events.</p><p>The return value follow the same style as for
+<a href="#ctp-1">ctp-1</a>.</p><h4>ltp() -&gt; ok</h4><p>List saved and built-in match specifications on the console.</p><p>Use this function to recall all match specifications previously
+used in the session (i. e. previously saved during calls
+to <a href="#tp-2">tp-2</a>, and built-in match specifications.
+This is very useful, as a complicated
+match_spec can be quite awkward to write. Note that the
+match specifications are lost if <a href="#stop-0">stop-0</a> is called.</p><p>Match specifications used can be saved in a file (if a
+read-write file system is present) for use in later
+debugging sessions, see <a href="#wtp-1">wtp-1</a>
+and <a href="#rtp-1">rtp-1</a></p><p>There are three built-in trace patterns:
+<strong>exception_trace</strong>, <strong>caller_trace</strong> 
+and <strong>caller_exception_trace</strong> (or <strong>x</strong>, <strong>c</strong> and 
+<strong>cx</strong> respectively). 
+Exception trace sets a trace which will show function names, 
+parameters, return values and exceptions thrown from functions. 
+Caller traces display function names, parameters and information 
+about which function called it. An example using a built-in alias:</p><pre>
+(x@y)4&gt; <span class="input">dbg:tp(lists,sort,cx).</span>
+{ok,[{matched,nonode@nohost,2},{saved,cx}]}
+(x@y)4&gt; <span class="input">lists:sort([2,1]).</span>
+(&lt;0.32.0&gt;) call lists:sort([2,1]) ({erl_eval,do_apply,5})
+(&lt;0.32.0&gt;) returned from lists:sort/1 -&gt; [1,2]
+[1,2]</pre><h4>dtp() -&gt; ok</h4><p>Delete all saved match specifications.</p><p>Use this function to "forget" all match specifications
+saved during calls to <a href="#tp-2">tp-2</a>.
+This is useful when one wants to restore other match
+specifications from a file with <a href="#rtp-1">rtp-1</a>. Use
+<a href="#dtp-1">dtp-1</a> to delete specific saved match specifications.</p><h4>dtp(N) -&gt; ok</h4><p>Delete a specific saved match_spec.</p><ul><li><span class="v">N = integer()</span></li></ul><p>Use this function to "forget" a specific match specification
+saved during calls to <a href="#tp-2">tp-2</a>.</p><h4>wtp(Name) -&gt; ok | {error, IOError}</h4><p>Write all saved and built-in match specifications to a file</p><ul><li><span class="v">Name = string()</span></li><li><span class="v">IOError = term()</span></li></ul><p>This function will save all match specifications saved
+during the session (during calls to <a href="#tp-2">tp-2</a>)
+and built-in match specifications in a text
+file with the name designated by <strong>Name</strong>. The format
+of the file is textual, why it can be edited with an
+ordinary text editor, and then restored with
+<a href="#rtp-1">rtp-1</a>. </p><p>Each match spec in the file ends with a full stop
+(<strong>.</strong>) and new (syntactically correct) match
+specifications can be added to the file manually.</p><p>The function returns <strong>ok</strong> or an error tuple where the
+second element contains the I/O error that made the
+writing impossible.</p><h4>rtp(Name) -&gt; ok | {error, Error}</h4><p>Read saved match specifications from file.</p><ul><li><span class="v">Name = string()</span></li><li><span class="v">Error = term()</span></li></ul><p>This function reads match specifications from a file
+(possibly) generated by the <a href="#wtp-1">wtp-1</a>
+function. It checks
+the syntax of all match specifications and verifies that
+they are correct. The error handling principle is "all or
+nothing", i. e. if some of the match specifications are
+wrong, none of the specifications are added to the list of
+saved match specifications for the running system. </p><p>The match specifications in the file are <em>merged</em>
+with the current match specifications, so that no duplicates
+are generated. Use <a href="#ltp-0">ltp-0</a>
+to see what numbers were
+assigned to the specifications from the file.</p><p>The function will return an error, either due to I/O
+problems (like a non existing or non readable file) or due
+to file format problems. The errors from a bad format file
+are in a more or less textual format, which will give a hint
+to what's causing the problem.
+</p><h4>n(Nodename) -&gt; {ok, Nodename} | {error, Reason}</h4><p>Add a remote node to the list of traced nodes</p><ul><li><span class="v">Nodename = atom()</span></li><li><span class="v">Reason = term()</span></li></ul><p>The <strong>dbg</strong> server keeps a list of nodes where tracing
+should be performed. Whenever a <a href="#tp-2">tp-2</a> call or a
+<a href="#p-2">p-2</a> call is made, it is executed for all nodes in this
+list including the local node (except for <a href="#p-2">p-2</a> with a
+specific <strong>pid()</strong> or <strong>port()</strong> as first argument, in which case the
+command is executed only on the node where the designated
+process or port resides).
+</p><p>This function adds a remote node (<strong>Nodename</strong>) to the
+list of nodes where tracing is performed. It starts a tracer
+process on the remote node, which will send all trace messages
+to the tracer process on the local node (via the Erlang
+distribution). If no tracer process is running on the local
+node, the error reason <strong>no_local_tracer</strong> is returned. The
+tracer process on the local node must be started with the
+<a href="#tracer-2">tracer-2</a> function.
+</p><p>If <strong>Nodename</strong> is the local node, the error reason
+<strong>cant_add_local_node</strong> is returned.
+</p><p>If a trace port (see <a href="#trace_port-2">trace_port-2</a>) is
+running on the local node, remote nodes cannot be traced with
+a tracer process. The error reason
+<strong>cant_trace_remote_pid_to_local_port</strong> is returned. A
+trace port can however be started on the remote node with the
+<a href="#tracer-3">tracer-3</a> function.
+</p><p>The function will also return an error if the node
+<strong>Nodename</strong> is not reachable.</p><h4>cn(Nodename) -&gt; ok</h4><p>Clear a node from the list of traced nodes.</p><ul><li><span class="v">Nodename = atom()</span></li></ul><p>Clears a node from the list of traced nodes. Subsequent
+calls to <a href="#tp-2">tp-2</a> and
+<a href="#p-2">p-2</a> will not consider that
+node, but tracing already activated on the node will continue
+to be in effect.</p><p>Returns <strong>ok</strong>, cannot fail.</p><h4>ln() -&gt; ok</h4><p>Show the list of traced nodes on the console.</p><p>Shows the list of traced nodes on the console.</p><h4>tracer() -&gt; {ok, pid()} | {error, already_started}</h4><p>Start a tracer server that handles trace messages.</p><p>This function starts a server on the local node that will
+be the recipient of all trace messages. All subsequent calls
+to <a href="#p-2">p-2</a> will result in messages sent to the newly
+started trace server.</p><p>A trace server started in this way will simply display the
+trace messages in a formatted way in the Erlang shell
+(i. e. use io:format). See <a href="#tracer-2">tracer-2</a>
+for a description of how the trace message handler can be customized.
+</p><p>To start a similar tracer on a remote node, use <a href="#n-1">n-1</a>.</p><h4>tracer(Type, Data) -&gt; {ok, pid()} | {error, Error}</h4><p>Start a tracer server with additional parameters</p><ul><li><span class="v">Type = port | process | module</span></li><li><span class="v">Data = PortGenerator | HandlerSpec | ModuleSpec</span></li><li><span class="v">PortGenerator = fun() (no arguments)</span></li><li><span class="v">Error = term()</span></li><li><span class="v">HandlerSpec = {HandlerFun, InitialData}</span></li><li><span class="v">HandlerFun = fun() (two arguments)</span></li><li><span class="v">ModuleSpec = fun() (no arguments) | {TracerModule, TracerState}</span></li><li><span class="v">TracerModule = atom()</span></li><li><span class="v">InitialData = TracerState = term()</span></li></ul><p>This function starts a tracer server with additional
+parameters on the local node. The first parameter, the
+<strong>Type</strong>, indicates if trace messages should be handled
+by a receiving process (<strong>process</strong>), by a tracer port
+(<strong>port</strong>) or by a tracer module
+(<strong>module</strong>). For a description about tracer ports see
+<a href="#trace_port-2">trace_port-2</a>
+and for a tracer modules see
+<a href="./erl_tracer">erts/erl_tracer</a>.
+</p><p>If <strong>Type</strong> is <strong>process</strong>, a message handler function can
+be specified (<strong>HandlerSpec</strong>). The handler function, which
+should be a <strong>fun</strong> taking two arguments, will be called
+for each trace message, with the first argument containing the
+message as it is and the second argument containing the return
+value from the last invocation of the fun. The initial value
+of the second parameter is specified in the <strong>InitialData</strong>
+part of the <strong>HandlerSpec</strong>. The <strong>HandlerFun</strong> may
+choose any appropriate action to take when invoked, and can
+save a state for the next invocation by returning it.
+</p><p>If <strong>Type</strong> is <strong>port</strong>, then the second parameter should
+be a <em>fun</em> which takes no arguments and returns a
+newly opened trace port when called. Such a <em>fun</em> is
+preferably generated by calling <a href="#trace_port-2">trace_port-2</a>.
+</p><p>if <strong>Type</strong> is <strong>module</strong>, then the second parameter should
+be either a tuple describing the <a href="./erl_tracer">erts/erl_tracer</a>
+module to be used for tracing and the state to be used for
+that tracer module or a fun returning the same tuple.</p><p>If an error is returned, it can either be due to a tracer
+server already running (<strong>{error,already_started}</strong>) or
+due to the <strong>HandlerFun</strong> throwing an exception.
+</p><p>To start a similar tracer on a remote node, use
+<a href="#tracer-3">tracer-3</a>.
+</p><h4>tracer(Nodename, Type, Data) -&gt; {ok, Nodename} | {error, Reason}</h4><p>Start a tracer server on given node with additional parameters</p><ul><li><span class="v">Nodename = atom()</span></li></ul><p>This function is equivalent to <a href="#tracer-2">tracer-2</a>, but acts on
+the given node. A tracer is started on the node
+(<strong>Nodename</strong>) and the node is added to the list of traced nodes.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This function is not equivalent to <a href="#n-1">n-1</a>. While
+<a href="#n-1">n-1</a> starts a process tracer which redirects all trace
+information to a process tracer on the local node (i.e. the
+trace control node), <a href="#tracer-3">tracer-3</a> starts a tracer of any
+type which is independent of the tracer on the trace control
+node.</p></div><p>For details, see <a href="#tracer-2">tracer-2</a>.</p><h4>trace_port(Type, Parameters) -&gt; fun()</h4><p>Create and returns a trace port generating<em>fun</em></p><ul><li><span class="v">Type = ip | file</span></li><li><span class="v">Parameters = Filename | WrapFilesSpec | IPPortSpec</span></li><li><span class="v">Filename = string() | [string()] | atom()</span></li><li><span class="v">WrapFilesSpec = {Filename, wrap, Suffix} | {Filename, wrap, Suffix, WrapSize} | {Filename, wrap, Suffix, WrapSize, WrapCnt}</span></li><li><span class="v">Suffix = string()</span></li><li><span class="v">WrapSize = integer() &gt;= 0 | {time, WrapTime}</span></li><li><span class="v">WrapTime = integer() &gt;= 1</span></li><li><span class="v">WrapCnt = integer() &gt;= 1</span></li><li><span class="v">IpPortSpec = PortNumber | {PortNumber, QueSize}</span></li><li><span class="v">PortNumber = integer()</span></li><li><span class="v">QueSize = integer()</span></li></ul><p>This function creates a trace port generating <em>fun</em>.
+The <em>fun</em> takes no arguments and returns a newly opened
+trace port. The return value from this function is suitable as
+a second parameter to tracer/2, i.e. <strong>dbg:tracer(port, dbg:trace_port(ip, 4711))</strong>. </p><p>A trace port is an
+Erlang port to a dynamically linked in driver that handles
+trace messages directly, without the overhead of sending them
+as messages in the Erlang virtual machine.</p><p>Two trace drivers are currently implemented, the
+<strong>file</strong> and the <strong>ip</strong> trace drivers. The file driver
+sends all trace messages into one or several binary files, 
+from where they later can be fetched and processed with the
+<a href="#trace_client-2">trace_client-2</a> function. The ip driver opens a TCP/IP
+port where it listens for connections. When a client
+(preferably started by calling <a href="#trace_client-2">trace_client-2</a> on
+another Erlang node) connects, all trace messages are sent
+over the IP network for further processing by the remote
+client. </p><p>Using a trace port significantly lowers the overhead
+imposed by using tracing.</p><p>The file trace driver expects a filename or a wrap files 
+specification as parameter. A file is written with a high
+degree of buffering, why all trace messages are <em>not</em>
+guaranteed to be saved in the file in case of a system
+crash. That is the price to pay for low tracing overhead.</p><p>A wrap files specification is used to limit the disk
+space consumed by the trace. The trace is written to a
+limited number of files each with a limited size. 
+The actual filenames are <strong>Filename ++ SeqCnt ++ Suffix</strong>, where <strong>SeqCnt</strong> counts as a decimal string
+from <strong>0</strong> to <strong>WrapCnt</strong> and then around again from
+<strong>0</strong>. When a trace term written to 
+the current file makes it longer than <strong>WrapSize</strong>,
+that file is closed, if the number of files in this 
+wrap trace is as many as <strong>WrapCnt</strong> the oldest file
+is deleted then a new file is opened to become the current.
+Thus, when a wrap trace has been stopped, there are at most
+<strong>WrapCnt</strong> trace files saved with a size of at least
+<strong>WrapSize</strong> (but not much bigger), except for 
+the last file that might even be empty. The default values
+are <strong>WrapSize = 128*1024</strong> and <strong>WrapCnt = 8</strong>.</p><p>The <strong>SeqCnt</strong> values in the filenames are all in the
+range <strong>0</strong> through <strong>WrapCnt</strong> with a gap in the
+circular sequence. The gap is needed to find the end of the
+trace.</p><p>If the <strong>WrapSize</strong> is specified as 
+<strong>{time, WrapTime}</strong>, the current file is closed when it
+has been open more than <strong>WrapTime</strong> milliseconds,
+regardless of it being empty or not.</p><p>The ip trace driver has a queue of <strong>QueSize</strong> messages
+waiting to be delivered. If the driver cannot deliver messages
+as fast as they are produced by the runtime system, a special
+message is sent, which indicates how many messages that are
+dropped. That message will arrive at the handler function
+specified in <a href="#trace_client-3">trace_client-3</a>
+as the tuple <strong>{drop, N}</strong> where <strong>N</strong> is the number of consecutive messages
+dropped. In case of heavy tracing, drop's are likely to occur,
+and they surely occur if no client is reading the trace
+messages. The default value of <strong>QueSize</strong> is 200.</p><h4>flush_trace_port()</h4><p>Equivalent to flush_trace_port(node()).</p><p>Equivalent to <strong>flush_trace_port(node())</strong>.</p><h4>flush_trace_port(Nodename) -&gt; ok | {error, Reason}</h4><p>Flush internal data buffers in a trace driver on the given node.</p><p>Equivalent to <strong>trace_port_control(Nodename,flush)</strong>.</p><h4>trace_port_control(Operation)</h4><p>Equivalent to trace_port_control(node(),Operation).</p><p>Equivalent to <strong>trace_port_control(node(),Operation)</strong>.</p><h4>trace_port_control(Nodename,Operation) -&gt;  ok | {ok, Result} | {error, Reason}</h4><p>Perform a control operation on the active trace port driver on the given node.</p><ul><li><span class="v">Nodename = atom()</span></li></ul><p>This function is used to do a control operation on the
+active trace port driver on the given node
+(<strong>Nodename</strong>). Which operations are allowed as well
+as their return values depend on which trace driver
+is used.</p><p>Returns either <strong>ok</strong> or <strong>{ok, Result}</strong> 
+if the operation was successful, or <strong>{error, Reason}</strong> 
+if the current tracer is a process 
+or if it is a port not supporting the operation.</p><p>The allowed values for <strong>Operation</strong> are:</p><dl><dt><strong>flush</strong></dt><dd> <p>This function is used to flush the internal buffers 
+held by a trace port driver. Currently only the 
+file trace driver supports this operation. 
+Returns <strong>ok</strong>.</p> </dd><dt><strong>get_listen_port</strong></dt><dd> <p>Returns <strong>{ok, IpPort}</strong> where <strong>IpPort</strong> is
+the IP port number used by the driver listen socket.
+Only the ip trace driver supports this operation.</p> </dd></dl><h4>trace_client(Type, Parameters) -&gt; pid()</h4><p>Start a trace client that reads messages created by a trace port driver</p><ul><li><span class="v">Type = ip | file | follow_file</span></li><li><span class="v">Parameters = Filename | WrapFilesSpec | IPClientPortSpec</span></li><li><span class="v">Filename = string() | [string()] | atom()</span></li><li><span class="v">WrapFilesSpec = see trace_port/2</span></li><li><span class="v">Suffix = string()</span></li><li><span class="v">IpClientPortSpec = PortNumber | {Hostname, PortNumber}</span></li><li><span class="v">PortNumber = integer()</span></li><li><span class="v">Hostname = string()</span></li></ul><p>This function starts a trace client that reads the output
+created by a trace port driver and handles it in mostly the
+same way as a tracer process created by the
+<a href="#tracer-0">tracer-0</a> function.</p><p>If <strong>Type</strong> is <strong>file</strong>, the client reads all trace
+messages stored in the file named <strong>Filename</strong> or 
+specified by <strong>WrapFilesSpec</strong> (must be the same as used
+when creating the trace, see trace_port/2)
+and let's the default handler function format the
+messages on the console. This is one way to interpret the data
+stored in a file by the file trace port driver.</p><p>If <strong>Type</strong> is <strong>follow_file</strong>, the client behaves as
+in the <strong>file</strong> case, but keeps trying to read (and
+process) more data
+from the file until stopped by <a href="#stop_trace_client-1">stop_trace_client-1</a>.
+<strong>WrapFilesSpec</strong> is not allowed as second argument 
+for this <strong>Type</strong>.</p><p>If <strong>Type</strong> is <strong>ip</strong>, the client connects to the
+TCP/IP port <strong>PortNumber</strong> on the host <strong>Hostname</strong>,
+from where it reads trace messages until the TCP/IP connection
+is closed. If no <strong>Hostname</strong> is specified, the local host
+is assumed.</p><p>As an example, one can let trace messages be sent over the
+network to another Erlang node (preferably <em>not</em>
+distributed), where the formatting occurs:</p><p>On the node <strong>stack</strong> there's an Erlang node
+<strong>ant@stack</strong>, in the shell, type the following:</p><pre>
+ant@stack&gt; <span class="input">dbg:tracer(port, dbg:trace_port(ip,4711)).</span>
+&lt;0.17.0&gt;
+ant@stack&gt; <span class="input">dbg:p(self(), send).</span>
+{ok,1}</pre><p>All trace messages are now sent to the trace port driver,
+which in turn listens for connections on the TCP/IP port
+4711. If we want to see the messages on another node,
+preferably on another host, we do like this:</p><pre>
+-&gt; <span class="input">dbg:trace_client(ip, {"stack", 4711}).</span>
+&lt;0.42.0&gt;</pre><p>If we now send a message from the shell on the node
+<strong>ant@stack</strong>, where all sends from the shell are traced:</p><pre>
+ant@stack&gt; <span class="input">self() ! hello.</span>
+hello</pre><p>The following will appear at the console on the node that
+started the trace client:</p><pre>
+(&lt;0.23.0&gt;) &lt;0.23.0&gt; ! hello
+(&lt;0.23.0&gt;) &lt;0.22.0&gt; ! {shell_rep,&lt;0.23.0&gt;,{value,hello,[],[]}}</pre><p>The last line is generated due to internal message passing
+in the Erlang shell. The process id's will vary.</p><h4>trace_client(Type, Parameters, HandlerSpec) -&gt; pid()</h4><p>Start a trace client that reads messages created by a trace port driver, with a user defined handler</p><ul><li><span class="v">Type = ip | file | follow_file</span></li><li><span class="v">Parameters = Filename | WrapFilesSpec | IPClientPortSpec</span></li><li><span class="v">Filename = string() | [string()] | atom()</span></li><li><span class="v">WrapFilesSpec = see trace_port/2</span></li><li><span class="v">Suffix = string()</span></li><li><span class="v">IpClientPortSpec = PortNumber | {Hostname, PortNumber}</span></li><li><span class="v">PortNumber = integer()</span></li><li><span class="v">Hostname = string()</span></li><li><span class="v">HandlerSpec = {HandlerFun, InitialData}</span></li><li><span class="v">HandlerFun = fun() (two arguments)</span></li><li><span class="v">InitialData = term()</span></li></ul><p>This function works exactly as <a href="#trace_client-2">trace_client-2</a>,
+but allows you to write your own handler function. The handler
+function works mostly as the one described in
+<a href="#tracer-2">tracer-2</a>, but will also have to be prepared to handle
+trace messages of the form <strong>{drop, N}</strong>, where <strong>N</strong> is
+the number of dropped messages. This pseudo trace message will
+only occur if the ip trace driver is used.</p><p>For trace type <strong>file</strong>, the pseudo trace message
+<strong>end_of_trace</strong> will appear at the end of the trace. The
+return value from the handler function is in this case
+ignored.</p><h4>stop_trace_client(Pid) -&gt; ok</h4><p>Stop a trace client gracefully.</p><ul><li><span class="v">Pid = pid()</span></li></ul><p>This function shuts down a previously started trace
+client. The <strong>Pid</strong> argument is the process id returned
+from the <a href="#trace_client-2">trace_client-2</a>
+or <a href="#trace_client-3">trace_client-3</a> call.</p><h4>get_tracer()</h4><p>Equivalent to get_tracer(node()).</p><p>Equivalent to <strong>get_tracer(node())</strong>.</p><h4>get_tracer(Nodename) -&gt; {ok, Tracer}</h4><p>Return the process or port to which all trace messages are sent.</p><ul><li><span class="v">Nodename = atom()</span></li><li><span class="v">Tracer = port() | pid() | {module(), term()}</span></li></ul><p>Returns the process, port or tracer module to which all trace
+messages are sent.</p><h4>stop() -&gt; ok</h4><p>Stop the <strong>dbg</strong>server and the tracing of all processes.</p><p>Stops the <strong>dbg</strong> server and clears all trace flags for
+all processes and all local trace patterns for all functions. Also
+shuts down all trace clients and closes all trace ports.</p><p>Note that no global trace patterns are affected by this
+function.</p><h4>stop_clear() -&gt; ok</h4><p>Stop the <strong>dbg</strong>server and the tracing of all processes, and clears trace patterns.</p><p>Same as stop/0, but also clears all trace patterns on global functions calls.</p><a name="simple_example"></a><h4>Simple examples - tracing from the shell</h4><p>The simplest way of tracing from the Erlang shell is to use
+<strong>dbg:c/3</strong> or <strong>dbg:c/4</strong>, e.g. tracing the function
+<strong>dbg:get_tracer/0</strong>:</p><pre>
+(tiger@durin)84&gt; <span class="input">dbg:c(dbg,get_tracer,[]).</span>
+(&lt;0.154.0&gt;) &lt;0.152.0&gt; ! {&lt;0.154.0&gt;,{get_tracer,tiger@durin}}
+(&lt;0.154.0&gt;) out {dbg,req,1}
+(&lt;0.154.0&gt;) &lt;&lt; {dbg,{ok,&lt;0.153.0&gt;}}
+(&lt;0.154.0&gt;) in {dbg,req,1}
+(&lt;0.154.0&gt;) &lt;&lt; timeout
+{ok,&lt;0.153.0&gt;}
+(tiger@durin)85&gt;</pre><p>Another way of tracing from the shell is to explicitly start a
+<em>tracer</em> and then set the <em>trace flags</em> of your
+choice on the processes you want to trace, e.g. trace messages and
+process events:</p><pre>
+(tiger@durin)66&gt; <span class="input">Pid = spawn(fun() -&gt; receive {From,Msg} -&gt; From ! Msg end end).</span>
+&lt;0.126.0&gt;
+(tiger@durin)67&gt; <span class="input">dbg:tracer().</span>
+{ok,&lt;0.128.0&gt;}
+(tiger@durin)68&gt; <span class="input">dbg:p(Pid,[m,procs]).</span>
+{ok,[{matched,tiger@durin,1}]}
+(tiger@durin)69&gt; <span class="input">Pid ! {self(),hello}.</span>
+(&lt;0.126.0&gt;) &lt;&lt; {&lt;0.116.0&gt;,hello}
+{&lt;0.116.0&gt;,hello}
+(&lt;0.126.0&gt;) &lt;&lt; timeout
+(&lt;0.126.0&gt;) &lt;0.116.0&gt; ! hello
+(&lt;0.126.0&gt;) exit normal
+(tiger@durin)70&gt; <span class="input">flush().</span>
+Shell got hello
+ok
+(tiger@durin)71&gt;</pre><p>If you set the <strong>call</strong> trace flag, you also have to set a
+<em>trace pattern</em> for the functions you want to trace:</p><pre>
+(tiger@durin)77&gt; <span class="input">dbg:tracer().</span>
+{ok,&lt;0.142.0&gt;}
+(tiger@durin)78&gt; <span class="input">dbg:p(all,call).</span>
+{ok,[{matched,tiger@durin,3}]}
+(tiger@durin)79&gt; <span class="input">dbg:tp(dbg,get_tracer,0,[]).</span>
+{ok,[{matched,tiger@durin,1}]}
+(tiger@durin)80&gt; <span class="input">dbg:get_tracer().</span>
+(&lt;0.116.0&gt;) call dbg:get_tracer()
+{ok,&lt;0.143.0&gt;}
+(tiger@durin)81&gt; <span class="input">dbg:tp(dbg,get_tracer,0,[{'_',[],[{return_trace}]}]).</span>
+{ok,[{matched,tiger@durin,1},{saved,1}]}
+(tiger@durin)82&gt; <span class="input">dbg:get_tracer().</span>
+(&lt;0.116.0&gt;) call dbg:get_tracer()
+(&lt;0.116.0&gt;) returned from dbg:get_tracer/0 -&gt; {ok,&lt;0.143.0&gt;}
+{ok,&lt;0.143.0&gt;}
+(tiger@durin)83&gt;</pre><a name="advanced"></a><h4>Advanced topics - combining with seq_trace</h4><p>The <strong>dbg</strong> module is primarily targeted towards
+tracing through the <strong>erlang:trace/3</strong> function. It is
+sometimes desired to trace messages in a more delicate way, which
+can be done with the help of the <strong>seq_trace</strong> module. 
+</p><p><strong>seq_trace</strong> implements sequential tracing (known in the
+AXE10 world, and sometimes called "forlopp tracing"). <strong>dbg</strong>
+can interpret messages generated from <strong>seq_trace</strong> and the
+same tracer function for both types of tracing can be used. The
+<strong>seq_trace</strong> messages can even be sent to a trace port for
+further analysis.
+</p><p>As a match specification can turn on sequential tracing, the
+combination of <strong>dbg</strong> and <strong>seq_trace</strong> can be quite
+powerful.  This brief example shows a session where sequential
+tracing is used:</p><pre>
+1&gt; <span class="input">dbg:tracer().</span>
+{ok,&lt;0.30.0&gt;}
+2&gt; <span class="input">{ok, Tracer} = dbg:get_tracer().</span>
+{ok,&lt;0.31.0&gt;}
+3&gt; <span class="input">seq_trace:set_system_tracer(Tracer).</span>
+false
+4&gt; <span class="input">dbg:tp(dbg, get_tracer, 0, [{[],[],[{set_seq_token, send, true}]}]).</span>
+{ok,[{matched,nonode@nohost,1},{saved,1}]}
+5&gt; <span class="input">dbg:p(all,call).</span>
+{ok,[{matched,nonode@nohost,22}]}
+6&gt; <span class="input">dbg:get_tracer(), seq_trace:set_token([]).</span>
+(&lt;0.25.0&gt;) call dbg:get_tracer()
+SeqTrace [0]: (&lt;0.25.0&gt;) &lt;0.30.0&gt; ! {&lt;0.25.0&gt;,get_tracer} [Serial: {2,4}]
+SeqTrace [0]: (&lt;0.30.0&gt;) &lt;0.25.0&gt; ! {dbg,{ok,&lt;0.31.0&gt;}} [Serial: {4,5}]
+{1,0,5,&lt;0.30.0&gt;,4}</pre><p>This session sets the system_tracer to the same process as
+the ordinary tracer process (i. e. &lt;0.31.0&gt;) and sets the
+trace pattern for the function <strong>dbg:get_tracer</strong> to one that
+has the action of setting a sequential token. When the function
+is called by a traced process (all processes are traced in this
+case), the process gets "contaminated" by the token and
+<strong>seq_trace</strong> messages are sent both for the server request
+and the response. The <strong>seq_trace:set_token([])</strong> after the
+call clears the <strong>seq_trace</strong> token, why no messages are sent
+when the answer propagates via the shell to the console port. 
+The output would otherwise have been more noisy.</p><h4>Note of caution</h4><p>When tracing function calls on a group leader process (an IO process), there is risk 
+of causing a deadlock. This will happen if a group leader process generates a trace 
+message and the tracer process, by calling the trace handler function, sends an IO 
+request to the same group leader. The problem can only occur if the trace handler 
+prints to tty using an <strong>io</strong> function such as <a href="../stdlib/io#format-2">stdlib/io#format-2</a>.
+Note that when
+<strong>dbg:p(all,call)</strong> is called, IO processes are also traced.
+Here's an example:</p><pre>
+%% Using a default line editing shell
+1&gt; <span class="input">dbg:tracer(process, {fun(Msg,_) -&gt; io:format("~p~n", [Msg]), 0 end, 0}).</span>
+{ok,&lt;0.37.0&gt;}
+2&gt; <span class="input">dbg:p(all, [call]).</span>
+{ok,[{matched,nonode@nohost,25}]}
+3&gt; <span class="input">dbg:tp(mymod,[{'_',[],[]}]).</span>
+{ok,[{matched,nonode@nohost,0},{saved,1}]}
+4&gt; <span class="input">mymod:</span> % TAB pressed here
+%% -- Deadlock --</pre><p>Here's another example:</p><pre>
+%% Using a shell without line editing (oldshell)
+1&gt; <span class="input">dbg:tracer(process).</span>
+{ok,&lt;0.31.0&gt;}
+2&gt; <span class="input">dbg:p(all, [call]).</span>
+{ok,[{matched,nonode@nohost,25}]}
+3&gt; <span class="input">dbg:tp(lists,[{'_',[],[]}]).</span>
+{ok,[{matched,nonode@nohost,0},{saved,1}]}
+% -- Deadlock --</pre><p>The reason we get a deadlock in the first example is because when TAB is pressed 
+to expand the function name, the group leader (which handles character input) calls
+<strong>mymod:module_info()</strong>. This generates a trace message which, in turn, causes the 
+tracer process to send an IO request to the group leader (by calling <strong>io:format/2</strong>).
+We end up in a deadlock.</p><p>In the second example we use the default trace handler function. This handler
+prints to tty by sending IO requests to the <strong>user</strong> process. When Erlang is
+started in oldshell mode, the shell process will have <strong>user</strong> as its
+group leader and so will the tracer process in this example. Since <strong>user</strong> calls 
+functions in <strong>lists</strong> we end up in a deadlock as soon as the first IO request is sent.</p><p>Here are a few suggestions for how to avoid deadlock:</p><ul><li>Don't trace the group leader of the tracer process. If tracing has been switched on for all processes, call <strong>dbg:p(TracerGLPid,clear)</strong> to stop tracing the group leader (<strong>TracerGLPid</strong>). <strong>process_info(TracerPid,group_leader)</strong> tells you  which process this is (<strong>TracerPid</strong> is returned from <strong>dbg:get_tracer/0</strong>).</li><li>Don't trace the <strong>user</strong> process if using the default trace handler function.</li><li>In your own trace handler function, call <strong>erlang:display/1</strong> instead of an <strong>io</strong> function or, if <strong>user</strong> is not used as group leader, print to  <strong>user</strong> instead of the default group leader. Example: <strong>io:format(user,Str,Args)</strong>.</li></ul><h3>dyntrace</h3><p>Interface to dynamic tracing</p><p>This module implements interfaces to dynamic tracing, should such be compiled into the virtual machine. For a standard and/or commercial build, no dynamic tracing is available, in which case none of the functions in this module is usable or give any effect.Should dynamic tracing be enabled in the current build, either by configuring with <strong>./configure --with-dynamic-trace=dtrace</strong> or with  <strong>./configure --with-dynamic-trace=systemtap</strong>, the module can be used for two things:<ul><li>Trigger the user-probe <strong>user_trace_i4s4</strong> in the NIF library <strong>dyntrace.so</strong> by calling <strong>dyntrace:p/{1,2,3,4,5,6,7,8}</strong>.</li><li>Set a user specified tag that will be present in the trace messages of both the <strong>efile_drv</strong> and the user-probe mentioned above.</li></ul>Both building with dynamic trace probes and using them is experimental and unsupported by Erlang/OTP. It is included as an option for the developer to trace and debug performance issues in their systems.The original implementation is mostly done by Scott Lystiger Fritchie as an Open Source Contribution and it should be viewed as such even though the source for dynamic tracing as well as this module is included in the main distribution. However, the ability to use dynamic tracing of the virtual machine is a very valuable contribution which OTP has every intention to maintain as a tool for the developer.How to write <strong>d</strong> programs or <strong>systemtap</strong> scripts can be learned from books and from a lot of pages on the Internet. This manual page does not include any documentation about using the dynamic trace tools of respective platform. The <strong>examples</strong> directory of the <strong>runtime_tools</strong> application however contains comprehensive examples of both <strong>d</strong> and <strong>systemtap</strong> programs that will help you get started. Another source of information is the <a href="DTRACE">dtrace</a> and <a href="SYSTEMTAP">systemtap</a> chapters in the Runtime Tools Users' Guide.</p><h3>Functions</h3><h4>available() -&gt; boolean()</h4><p>Check if dynamic tracing is available</p><p>This function uses the NIF library to determine if dynamic
+tracing is available. Usually calling <a href="../erts/erlang#system_info/1">erlang:system_info/1</a>
+is a better indicator of the availability of dynamic
+tracing.</p><p>The function will throw an exception if the <strong>dyntrace</strong> NIF library could not be loaded by the on_load function of this module.</p><h4>p() -&gt; true | false | error | badarg</h4><p>Trigger the user trace probe.</p><p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message only containing the user tag and zeroes/empty strings in all other fields.</p><h4>p(integer() | string()) -&gt; true | false | error | badarg</h4><p>Trigger the user trace probe.</p><p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer or string parameter in the first integer/string field.</p><h4>p(integer() | string(), integer() | string()) -&gt; true | false | error | badarg</h4><p>Trigger the user trace probe.</p><p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer() or string() parameters as the first fields of respective type. integer() parameters should be put before any string() parameters. I.e. <strong>p(1,"Hello")</strong> is ok, as is <strong>p(1,1)</strong> and <strong>p("Hello","Again")</strong>, but not <strong>p("Hello",1)</strong>.</p><h4>p(integer() | string(), integer() | string(), integer() | string()) -&gt; true | false | error | badarg</h4><p>Trigger the user trace probe.</p><p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer() or string() parameters as the first fields of respective type. integer() parameters should be put before any string() parameters, as in <a href="#p/2">p/2</a>.</p><h4>p(integer() | string(), integer() | string(), integer() | string(), integer() | string()) -&gt; true | false | error | badarg</h4><p>Trigger the user trace probe.</p><p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer() or string() parameters as the first fields of respective type. integer() parameters should be put before any string() parameters, as in <a href="#p/2">p/2</a>.</p><h4>p(integer(), integer() | string(), integer() | string(), integer() | string(), string()) -&gt; true | false | error | badarg</h4><p>Trigger the user trace probe.</p><p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer() or string() parameters as the first fields of respective type. integer() parameters should be put before any string() parameters, as in <a href="#p/2">p/2</a>.</p><p>There can be no more than four parameters of any type (integer() or string()), so the first parameter has to be an integer() and the last a string().</p><h4>p(integer(), integer(), integer() | string(), integer() | string(), string(), string()) -&gt; true | false | error | badarg</h4><p>Trigger the user trace probe.</p><p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer() or string() parameters as the first fields of respective type. integer() parameters should be put before any string() parameters, as in <a href="#p/2">p/2</a>.</p><p>There can be no more than four parameters of any type (integer() or string()), so the first two parameters has to be integer()'s and the last two string()'s.</p><h4>p(integer(), integer(), integer(), integer() | string(), string(), string(), string()) -&gt; true | false | error | badarg</h4><p>Trigger the user trace probe.</p><p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer() or string() parameters as the first fields of respective type. integer() parameters should be put before any string() parameters, as in <a href="#p/2">p/2</a>.</p><p>There can be no more than four parameters of any type (integer() or string()), so the first three parameters has to be integer()'s and the last three string()'s.</p><h4>p(integer(), integer(), integer(), integer(), string(), string(), string(), string()) -&gt; true | false | error | badarg</h4><p>Trigger the user trace probe.</p><p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing all the integer()'s and string()'s provided, as well as any user tag set in the current process.</p><h4>get_tag() -&gt; binary() | undefined</h4><p>Get the user tag set in the process.</p><p>This function returns the user tag set in the current
+process. If no tag is set or dynamic tracing is not available,
+it returns <strong>undefined</strong></p><h4>get_tag() -&gt; binary() | undefined</h4><p>Get the user tag set in the process or sent to the process.</p><p>This function returns the user tag set in the current
+process or, if no user tag is present, the last user tag sent
+to the process together with a message (in the same way as
+<a href="./seq_trace">sequential trace tokens</a> are spread to other processes together with
+messages. For an explanation of how user tags can be spread
+together with messages, see <a href="#spread_tag/1">spread_tag/1</a>. If no tag is
+found or dynamic tracing is not available, it returns
+<strong>undefined</strong></p><h4>put_tag(Item) -&gt; binary() | undefined</h4><p>Set the user tag of the current process.</p><ul><li><span class="v">Item = iodata()</span></li></ul><p>This function sets the user tag of the current process. The user tag is a binary(), but can be specified as any iodata(), which is automatically converted to a binary by this function.</p><p>The user tag is provided to the user probes triggered by calls top <strong>dyntrace:p/{1,2,3,4,5,6,7,8}</strong> as well as probes in the efile_driver. In the future, user tags might be added to more probes.</p><p>The old user tag (if any) is returned, or <strong>undefined</strong> if no user tag was present or dynamic tracing is not enabled.</p><h4>spread_tag(boolean()) -&gt; TagData</h4><p>Start or stop spreading dynamic trace user tags with the next message.</p><ul><li><span class="v">TagData = opaque data that can be used as parameter to </span></li></ul><p>This function controls if user tags are to be spread to other processes with the next message. Spreading of user tags work like spreading of sequential trace tokens, so that a received user tag will be active in the process until the next message arrives (if that message does not also contain the user tag.</p><p>This functionality is used when a client process communicates with a file i/o-server to spread the user tag to the I/O-server and then down to the efile_drv driver. By using <strong>spread_tag/1</strong> and <strong>restore_tag/1</strong>, one can enable or disable spreading of user tags to other processes and then restore the previous state of the user tag. The TagData returned from this call contains all previous information so the state (including any previously spread user tags) will be completely restored by a later call to <strong>restore_tag/1</strong>.</p><p>The <a href="./file">file</a> module already spread's tags, so there is noo need to manually call these function to get user tags spread to the efile driver through that module.</p><p>The most use of this function would be if one for example uses the <a href="./io">io</a> module to communicate with an I/O-server for a regular file, like in the following example:</p><pre>
+f() -&gt;
+   {ok, F} = file:open("test.tst",[write]),
+   Saved = dyntrace:spread_tag(true),
+   io:format(F,"Hello world!",[]),
+   dyntrace:restore_tag(Saved),
+   file:close(F).
+</pre><p>In this example, any user tag set in the calling process will be spread to the I/O-server when the io:format call is done.</p><h4>restore_tag(TagData) -&gt; true</h4><p>Restore to a previous state of user tag spreading.</p><ul><li><span class="v">TagData = opaque data returned by </span></li></ul><p>Restores the previous state of user tags and their spreading as it was before a call to <a href="#spread_tag/1">spread_tag/1</a>. Note that the restoring is not limited to the same process, one can utilize this to turn off spreding in one process and restore it in a newly created, the one that actually is going to send messages:</p><pre>
+f() -&gt;
+    TagData=dyntrace:spread_tag(false),
+    spawn(fun() -&gt;
+             dyntrace:restore_tag(TagData),
+             do_something()
+          end),
+    do_something_else(),
+    dyntrace:restore_tag(TagData).
+</pre><p>Correctly handling user tags and their spreading might take some effort, as Erlang programs tend to send and receive messages so that sometimes the user tag gets lost due to various things, like double receives or communication with a port (ports do not handle user tags, in the same way as they do not handle regular sequential trace tokens).</p><h3>erts_alloc_config</h3><p>Configuration tool for erts_alloc</p><p><a href="./erts_alloc">erts_alloc(3)</a> is an
+Erlang Run-Time System internal memory allocator library.
+<strong>erts_alloc_config</strong> is intended to be used to aid creation
+of an <a href="./erts_alloc">erts_alloc(3)</a>
+configuration that is suitable for a limited number of runtime
+scenarios. The configuration that <strong>erts_alloc_config</strong>
+produce is intended as a suggestion, and may need to be
+adjusted manually.The configuration is created based on information about a number
+of runtime scenarios. It is obviously impossible to foresee every
+runtime scenario that can occur. The important scenarios are
+those that cause maximum or minimum load on specific memory
+allocators. Load in this context is total size of memory blocks
+allocated.The current implementation of <strong>erts_alloc_config</strong> concentrate
+on configuration of multi-block carriers. Information gathered
+when a runtime scenario is saved is mainly current and maximum use
+of multi-block carriers. If a parameter that change the use of
+multi-block carriers is changed, a previously generated
+configuration is invalid and <strong>erts_alloc_config</strong> needs
+to be run again. It is mainly the single block carrier threshold
+that effects the use of multi-block carriers, but other
+single-block carrier parameters might as well. If another value of
+a single block carrier parameter than the default is desired, use
+the desired value when running <strong>erts_alloc_config</strong>.A configuration is created in the following way:<ul><li> <p>Pass the <a href="../erts/erts_alloc#Mea">+Mea config</a>
+command-line flag to the Erlang runtime system you are going
+to use for creation of the allocator configuration. It will
+disable features that prevent <strong>erts_alloc_config</strong> from
+doing its job. Note, you should <em>not</em> use this flag
+when using the created configuration. Also note that it is
+important that you use the same
+<a href="../erts/erl#+S">amount of schedulers</a>
+when creating the configuration as you are going the use on
+the system using the configuration.</p> </li><li> <p>Run your applications with different scenarios (the more
+the better) and save information about each scenario by calling
+<a href="#save_scenario/0">save_scenario/0</a>.
+It may be hard to know when the applications are at an (for
+<strong>erts_alloc_config</strong>) important runtime scenario. A good
+approach may therefore be to call
+<a href="#save_scenario/0">save_scenario/0</a>
+repeatedly, e.g. once every tenth second. Note that it is
+important that your applications reach the runtime scenarios
+that are important for <strong>erts_alloc_config</strong> when you are
+saving scenarios; otherwise, the configuration may perform
+bad.</p> </li><li> <p>When you have covered all scenarios, call
+<a href="#make_config/1">make_config/1</a>
+in order to create a configuration. The configuration is
+written to a file that you have chosen. This configuration
+file can later be read by an Erlang runtime-system at
+startup. Pass the command line argument 
+<a href="../erts/erl#args_file">-args_file FileName</a>
+to the <a href="./erl">erl(1)</a> command.</p> </li><li> <p>The configuration produced by <strong>erts_alloc_config</strong> may
+need to be manually adjusted as already stated. Do not modify the
+file produced by <strong>erts_alloc_config</strong>; instead, put your
+modifications in another file and load this file after the
+file produced by <strong>erts_alloc_config</strong>. That is, put the
+<a href="../erts/erl#args_file">-args_file FileName</a>
+argument that reads your modification file later on the
+command-line than the 
+<a href="../erts/erl#args_file">-args_file FileName</a>
+argument that reads the configuration file produced by
+<strong>erts_alloc_config</strong>. If a memory allocation parameter
+appear multiple times, the last version of will be used, i.e.,
+you can override parameters in the configuration file produced
+by <strong>erts_alloc_config</strong>. Doing it this way simplifies
+things when you want to rerun <strong>erts_alloc_config</strong>.</p> </li></ul><strong>erts_alloc_config</strong> saves information about runtime scenarios
+and performs computations in a server that is automatically
+started. The server register itself under the name
+<strong>'__erts_alloc_config__'</strong>.</p><h3>Functions</h3><h4>save_scenario() -&gt; ok | {error, Error}</h4><p>Saves information about current runtime scenario</p><ul><li><span class="v">Error = term()</span></li></ul><p><strong>save_scenario/0</strong> saves information about the current
+runtime scenario. This information will later be used when
+<a href="#make_config/0">make_config/0</a>,
+or <a href="#make_config/1">make_config/1</a>
+is called.</p><p>The first time <strong>save_scenario/0</strong> is called a server
+will be started. This server will save runtime scenarios. All
+saved scenarios can be removed by calling
+<a href="#make_config/0">stop/0</a>.</p><h4>make_config() -&gt; ok | {error, Error}</h4><p>Creates an erts_alloc configuration</p><ul><li><span class="v">Error = term()</span></li></ul><p>This is the same as calling
+<a href="#make_config/1">make_config(group_leader())</a>.</p><h4>make_config(FileNameOrIODev) -&gt; ok | {error, Error}</h4><p>Creates an erts_alloc configuration</p><ul><li><span class="v">FileNameOrIODev = string() | io_device()</span></li><li><span class="v">Error = term()</span></li></ul><p><strong>make_config/1</strong> uses the information previously saved by
+<a href="#save_scenario/0">save_scenario/0</a>
+in order to produce an <strong>erts_alloc</strong> configuration. At
+least one scenario have had to be saved. All scenarios
+previously saved will be used when creating the
+configuration.  </p><p>If <strong>FileNameOrIODev</strong> is a <strong>string()</strong>,
+<strong>make_config/1</strong> will use <strong>FileNameOrIODev</strong> as a
+filename. A file named <strong>FileNameOrIODev</strong> is created and
+the configuration will be written to that file. If
+<strong>FileNameOrIODev</strong> is an
+<a href="./io">io_device()</a> (see the
+documentation of the module
+<a href="./io">io</a>), the configuration
+will be written to the io device.</p><h4>stop() -&gt; ok | {error, Error}</h4><ul><li><span class="v">Error = term()</span></li></ul><p>Stops the server that saves runtime scenarios.</p><h4>See Also</h4><p><a href="./erts_alloc">erts_alloc(3)</a>,
+<a href="./erl">erl(1)</a>,
+<a href="./io">io(3)</a></p><h3>msacc</h3><p>Convenience functions for microstate accounting</p><p>This module implements some convenience functions for analyzing
+microstate accounting data. For details about how to use the basic api and
+what the different states represent see
+<a href="../erts/erlang#statistics_microstate_accounting">erts/erlang#statistics_microstate_accounting</a>.<a name="msacc_print_example"></a><em>Basic Scenario</em><pre>1&gt; <span class="input">msacc:start(1000).</span>
+ok
+2&gt; <span class="input">msacc:print().</span>
+Average thread real-time    : 1000513 us
+Accumulated system run-time :    2213 us
+Average scheduler run-time  :    1076 us
+
+        Thread      aux check_io emulator       gc    other     port    sleep
+
+Stats per thread:
+     async( 0)    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%  100.00%
+     async( 1)    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%  100.00%
+       aux( 1)    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%   99.99%
+ scheduler( 1)    0.00%    0.03%    0.13%    0.00%    0.01%    0.00%   99.82%
+ scheduler( 2)    0.00%    0.00%    0.00%    0.00%    0.03%    0.00%   99.97%
+
+Stats per type:
+         async    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%  100.00%
+           aux    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%   99.99%
+     scheduler    0.00%    0.02%    0.06%    0.00%    0.02%    0.00%   99.89%
+ok
+</pre>This first command enables microstate accounting for 1000 milliseconds.
+See <a href="#start-0">start-0</a>,
+<a href="#stop-0">stop-0</a>,
+<a href="#reset-0">reset-0</a> and
+<a href="#start-1">start-1</a> for more details.
+The second command prints the statistics gathered during that time.
+First three general statistics are printed.<dl><dt>Average real-time</dt><dd>The average time spent collecting data in the threads. This should be close to the time which data was collected. </dd><dt>System run-time</dt><dd>The total run-time of all threads in the system. This is what you get if you call <strong>msacc:stats(total_runtime,Stats).</strong> </dd><dt>Average scheduler run-time</dt><dd>The average run-time for the schedulers. This is the average amount of time the schedulers did not sleep.</dd></dl>Then one column per state is printed with a the percentage of time this
+thread spent in the state out of it's own real-time. After the thread
+specific time, the accumulated time for each type of thread is printed in
+a similar format.Since we have the average real-time and the percentage spent in each
+state we can easily calculate the time spent in each state by multiplying
+<strong>Average thread real-time</strong> with <strong>Thread state %</strong>, i.e. to
+get the time Scheduler 1 spent in the emulator state we do
+<strong>1000513us * 0.13% = 1300us</strong>.</p><h3>Data Types</h3><span class="name">msacc_data</span><span class="name">msacc_data_thread</span><span class="name">msacc_data_counters</span><p>A map containing the different microstate accounting states and
+the number of microseconds spent in it.</p><span class="name">msacc_stats</span><span class="name">msacc_stats_thread</span><p>A map containing information about a specific thread. The
+percentages in the map can be either run-time or real-time depending
+on if <strong>runtime</strong> or <strong>realtime</strong> was requested from
+<a href="#stats-2">stats/2</a>. <strong>system</strong> is the
+percentage of total system time for this specific thread.</p><span class="name">msacc_stats_counters</span><p>A map containing the different microstate accounting states. Each
+value in the map contains another map with the percentage of time that
+this thread has spent in the specific state. Both the percentage of
+<strong>system</strong> time and the time for that specific <strong>thread</strong> is part of
+the map.</p><span class="name">msacc_type</span><span class="name">msacc_id</span><span class="name">msacc_state</span><p>The different states that a thread can be in. See
+<a href="../erts/erlang#statistics_microstate_accounting"> erlang:statistics(microstate_accounting)</a> for details.
+</p><span class="name">msacc_print_options</span><p>The different options that can be given to
+<a href="#print-2">print-2</a>.
+</p><h3>Functions</h3><h4>available/0</h4><p>Check if microstate accounting is available</p><p>This function checks whether microstate accounting
+is available or not.</p><h4>start/0</h4><p>Start microstate accounting.</p><p>Start microstate accounting. Returns whether it was
+previously enabled or disabled.</p><h4>start/1</h4><p>Start microstate accounting for a time.</p><p>Resets all counters and then starts microstate accounting
+for the given milliseconds.</p><h4>stop/0</h4><p>Stop microstate accounting.</p><p>Stop microstate accounting.
+Returns whether is was previously enabled or disabled.</p><h4>reset/0</h4><p>Reset microstate accounting counters</p><p>Reset microstate accounting counters.
+Returns whether is was enabled or disabled.</p><h4>print/0</h4><p>Print microstate statistics</p><p>
+Prints the current microstate accounting to standard out.
+Same as
+<a href="#print-1">print-1</a>
+</p><h4>print/1</h4><p>Print microstate statistics</p><p>Print the given microstate statistics values to stdout.
+Same as
+<a href="#print-1">print-1</a>
+</p><h4>print/2</h4><p>Print microstate statistics</p><p>Print the given microstate statistics values to standard out.
+With many states this can be quite verbose. See the top of this
+reference manual for a brief description of what the fields mean.</p><p>It is possible to print more specific types of statistics by
+first manipulating the <strong>DataOrStats</strong> using
+<a href="#stats-2">stats-2</a>.
+For instance if you want to print the percentage of run-time for each
+thread you can do:</p><pre><span class="input">msacc:print(msacc:stats(runtime,msacc:stats())).</span></pre><p>If you want to only print run-time per thread type you can do:</p><pre><span class="input">msacc:print(msacc:stats(type,msacc:stats(runtime,msacc:stats()))).</span></pre><p><em>Options</em></p><dl><dt><strong>system</strong></dt><dd>Print percentage of time spent in each state out of system time as well as thread time. Default: false.</dd></dl><h4>print/3</h4><p>Print microstate statistics</p><p>Print the given microstate statistics values to the given file
+or device. The other arguments behave the same way as for
+<a href="#print-2">print-2</a>.</p><h4>stats/0</h4><p>Returns a runtime system independent version of the microstate
+statistics data presented by
+<a href="../erts/erlang#statistics_microstate_accounting">erts/erlang#statistics_microstate_accounting</a>.
+All counters have been normalized to be in microsecond resolution.</p><h4>stats/2</h4><p>Returns the system time for the given microstate statistics values.
+System time is the accumulated time of all threads.</p><dl><dt><strong>realtime</strong></dt><dd>Returns all time recorded for all threads.</dd><dt><strong>runtime</strong></dt><dd>Returns all time spent doing work for all threads, i.e. all time not spent in the <strong>sleep</strong> state.</dd></dl><h4>stats/2</h4><p>Returns fractions of real-time or run-time spent in the various
+threads from the given microstate statistics values.</p><h4>stats/2</h4><p>Returns a list of microstate statistics values where the values
+for all threads of the same type has been merged.</p><h4>to_file/1</h4><p>Dumps the current microstate statistics counters to a file that can
+be parsed with <a href="../kernel/file#consult/1"> file:consult/1</a>.</p><h4>from_file/1</h4><p>Read a file dump produced by <a href="#to_file/1"> to_file(Filename)</a>.</p><h3>scheduler</h3><p>Measure scheduler utilization</p><p>This module contains utility functions for easier measurement and
+calculation of scheduler utilization, otherwise obtained from calling the
+more primitive <a href="../erts/erlang#statistics_scheduler_wall_time">erts/erlang#statistics_scheduler_wall_time</a>.The simplest usage is to call <a href="#utilization-1">utilization-1</a>.</p><h3>Data Types</h3><span class="name">sched_sample</span><span class="name">sched_type</span><span class="name">sched_id</span><span class="name">sched_util_result</span><p>A list of tuples containing results for individual schedulers
+as well as aggregated averages. <strong>Util</strong> is the scheduler utilization
+as a floating point value between 0.0 and 1.0. <strong>Percent</strong> is the
+same utilization as a more human readable string expressed in percent.</p><dl><dt><strong>{normal, SchedulerId, Util, Percent}</strong></dt><dd>Scheduler utilization of a normal scheduler with number <strong>SchedulerId</strong>.</dd><dt><strong>{cpu, SchedulerId, Util, Percent}</strong></dt><dd>Scheduler utilization of a dirty-cpu scheduler with number <strong>SchedulerId</strong>.</dd><dt><strong>{io, SchedulerId, Util, Percent}</strong></dt><dd>Scheduler utilization of a dirty-io scheduler with number <strong>SchedulerId</strong>. This tuple will only exist if both samples were taken with <a href="#sample_all-0">sample_all-0</a>.</dd><dt><strong>{total, Util, Percent}</strong></dt><dd>Total utilization of all normal and dirty-cpu schedulers.</dd><dt><strong>{weighted, Util, Percent}</strong></dt><dd>Total utilization of all normal and dirty-cpu schedulers, weighted against maximum amount of available CPU time.</dd></dl><h3>Functions</h3><h4>sample/0</h4><p>Get scheduler utilization sample.</p><p>Return a scheduler utilization sample for normal and dirty-cpu
+schedulers.</p><h4>sample_all/0</h4><p>Get scheduler utilization sample.</p><p>Return a scheduler utilization sample for all schedulers,
+including dirty-io schedulers.</p><h4>utilization/1</h4><p>Measure scheduler utilizations during a period of time.</p><p>Measure utilization for normal and dirty-cpu schedulers during
+<strong><span class="anno">Seconds</span></strong> seconds, and then return the result.</p><h4>utilization/1</h4><p>Measure scheduler utilizations since sample.</p><p>Calculate scheduler utilizations for the time interval from when
+<strong><span class="anno">Sample</span></strong> was taken and "now". The same as calling
+<strong>scheduler:utilization(Sample, scheduler:sample_all())</strong>.</p><h4>utilization/2</h4><p>Measure scheduler utilizations between two samples.</p><p>Calculates scheduler utilizations for the time interval between
+the two samples obtained from calling
+<a href="#sample-0">sample-0</a> or
+<a href="#sample_all-0">sample_all-0</a>.</p><h3>system_information</h3><p>System Information</p><h3>Functions</h3><h4>sanity_check/0</h4><p>Perform a sanity check</p><p>Performs a sanity check on the system. If no issues
+were found, <strong>ok</strong> is returned. If issues were
+found, <strong>{failed, <span class="anno">Failures</span>}</strong> is
+returned. All failures found will be part of the
+<strong><span class="anno">Failures</span></strong> list. Currently defined
+<strong><span class="anno">Failure</span></strong> elements in the
+<strong><span class="anno">Failures</span></strong> list:</p><dl><dt><strong><span class="anno">InvalidAppFile</span></strong></dt><dd><p>An application has an invalid <strong>.app</strong> file. The
+second element identifies the application which has the
+invalid <strong>.app</strong> file.</p></dd><dt><strong><span class="anno">InvalidApplicationVersion</span></strong></dt><dd><p>An application has an invalid application version.
+The second element identifies the application version that
+is invalid.</p></dd><dt><strong><span class="anno">MissingRuntimeDependencies</span></strong></dt><dd><p>An application is missing
+<a href="../kernel/app#runtime_dependencies">runtime dependencies</a>. The second element identifies the
+application (with version) that has missing dependencies.
+The third element contains the missing dependencies.</p> <p>Note that this check use application versions that
+are loaded, or will be loaded when used. You might have
+application versions that satisfies all dependencies
+installed in the system, but if those are not loaded this
+check will fail. The system will of course also fail when
+used like this. This may happen when you have multiple 
+<a href="./versions">branched versions</a> of the same application installed in the
+system, but you do not use a
+<a href="../doc/system_principles/system_principles#BOOTSCRIPT">boot script</a> identifing the correct application version.</p> </dd></dl><p>Currently the sanity check is limited to verifying
+runtime dependencies found in the <strong>.app</strong> files of
+all applications. More checks will be introduced in the
+future. This implies that the return type <em>will</em>
+change in the future.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>An <strong>ok</strong> return value only means that
+<strong>sanity_check/0</strong> did not find any issues, <em>not</em>
+that no issues exist.</p></div><h4>to_file/1</h4><p>Write miscellaneous system information to file</p><p>Writes  miscellaneous system information to file. This
+information will typically be requested by the Erlang/OTP team
+at Ericsson AB when reporting an issue.</p></body></html>

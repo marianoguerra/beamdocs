@@ -1,0 +1,200 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>snmp</h1><h1>snmp</h1><p>The SNMP Application</p><p>This chapter describes the <strong>snmp</strong>
+application in OTP.  The SNMP application provides the following
+services:<ul><li> <p>a multilingual extensible SNMP agent</p> </li><li> <p>a SNMP manager</p> </li><li> <p>a MIB compiler</p> </li></ul></p><a name="configuration_params"></a><h2>Configuration</h2><p>The following configuration parameters are defined for the SNMP
+application. Refer to application(3) for more information about
+configuration parameters.
+</p><p>The snmp part of the config file specifying the configuration 
+parameters is basically the following tuple:</p><pre>
+      {snmp, snmp_components_config()}
+    </pre><p>A minimal config file for starting a node with both a manager 
+and an agent:</p><pre>
+      [{snmp, 
+        [{agent, [{db_dir, "/tmp/snmp/agent/db"},
+                  {config, [{dir, "/tmp/snmp/agent/conf"}]}]},
+         {manager, [{config, [{dir, "/tmp/snmp/manager/conf"},
+                              {db_dir, "/tmp/snmp/manager/db"}]}]}]}
+        ]
+       }
+      ].
+    </pre><p>Each snmp component has its own set of configuration parameters,
+even though some of the types are common to both components. </p><pre>
+      snmp_components_config() -&gt; [snmp_component_config()]
+      snmp_component_config() -&gt; {agent, agent_options()} | {manager, manager_options()}
+      agent_options() = [agent_option()]
+      agent_option() = {restart_type,     restart_type()}     | 
+                       {agent_type,       agent_type()}       |  
+                       {agent_verbosity,  verbosity()}        |  
+                       {discovery,        agent_discovery()}  |  
+                       {versions,         versions()}         |  
+                       {gb_max_vbs,       gb_max_vbs()}       |  
+                       {priority,         priority()}         |  
+                       {multi_threaded,   multi_threaded()}   |  
+                       {db_dir,           db_dir()}           |  
+                       {db_init_error,    db_init_error()}    |  
+                       {local_db,         local_db()}         |  
+                       {net_if,           agent_net_if()}     |  
+                       {mibs,             mibs()}             |  
+                       {mib_storage,      mib_storage()}      |  
+                       {mib_server,       mib_server()}       |  
+                       {audit_trail_log,  audit_trail_log()}  |  
+                       {error_report_mod, error_report_mod()} |  
+                       {note_store,       note_store()}       |  
+                       {symbolic_store,   symbolic_store()}   |  
+                       {target_cache,     target_cache()}     |  
+                       {config,           agent_config()}
+      manager_options() = [manager_option()]
+      manager_option() = {restart_type,             restart_type()}    | 
+                         {net_if,                   manager_net_if()}  |  
+                         {server,                   server()}          | 
+                         {note_store,               note_store()}      | 
+                         {config,                   manager_config()}  |  
+                         {inform_request_behaviour, manager_irb()}     | 
+                         {mibs,                     manager_mibs()}    | 
+                         {priority,                 priority()}        |  
+                         {audit_trail_log,          audit_trail_log()} | 
+                         {versions,                 versions()}        | 
+                         {def_user_mod,             def_user_module()  | 
+                         {def_user_data,            def_user_data()}
+    </pre><a name="agent_opts_and_types"></a><p>Agent specific config options and types:</p><dl><dt><a name="agent_type"></a> <strong>agent_type() = master | sub &lt;optional&gt;</strong></dt><dd> <p>If <strong>master</strong>, one master agent is
+started. Otherwise, no agents are started. </p> <p>Default is <strong>master</strong>.</p> </dd><dt><a name="agent_disco"></a> <strong>agent_discovery() = [agent_discovery_opt()] &lt;optional&gt;</strong></dt><dd> <p><strong>agent_discovery_opt() =  {terminating, agent_terminating_discovery_opts()} |  {originating, agent_originating_discovery_opts()}</strong></p> <p>The <strong>terminating</strong> options effects discovery initiated by 
+a manager. </p> <p>The <strong>originating</strong> options effects discovery initiated 
+by this agent. </p> <p>For defaults see the options in <strong>agent_discovery_opt()</strong>.</p> </dd><dt><a name="agent_term_disco_opts"></a> <strong>agent_terminating_discovery_opts() = [agent_terminating_discovery_opt()] &lt;optional&gt;</strong></dt><dd> <p><strong>agent_terminating_discovery_opt() =  {enable, boolean()} |  {stage2, discovery | plain} |  {trigger_username, string()}</strong></p> <p>These are options effecting discovery <strong>terminating</strong> in this
+agent (i.e. initiated by a manager). </p> <p>The default values for the <strong>terminating</strong> 
+discovery options are: </p> <ul><li>enable: <strong>true</strong></li><li>stage2: <strong>discovery</strong></li><li>trigger_username: <strong>""</strong></li></ul> </dd><dt><a name="agent_orig_disco_opts"></a> <strong>agent_originating_discovery_opts() = [agent_originating_discovery_opt()] &lt;optional&gt;</strong></dt><dd> <p><strong>agent_originating_discovery_opt() =  {enable, boolean()}</strong></p> <p>These are options effecting discovery <strong>originating</strong> in this
+agent. </p> <p>The default values for the <strong>originating</strong> 
+discovery options are: </p> <ul><li>enable: <strong>true</strong></li></ul> </dd><dt><a name="agent_mt"></a> <strong>multi_threaded() = bool() &lt;optional&gt;</strong></dt><dd> <p>If <strong>true</strong>, the agent is multi-threaded, with one
+thread for each get request. </p> <p>Default is <strong>false</strong>.</p> </dd><dt><a name="agent_data_dir"></a> <strong>db_dir() = string() &lt;mandatory&gt;</strong></dt><dd> <p>Defines where the SNMP agent internal db files are stored.</p> </dd><dt><a name="agent_gb_max_vbs"></a> <strong>gb_max_vbs() = pos_integer() | infinity &lt;optional&gt;</strong></dt><dd> <p>Defines the maximum number of varbinds allowed 
+in a Get-BULK response.</p> <p>Default is <strong>1000</strong>.</p> </dd><dt><a name="agent_local_db"></a> <strong>local_db() = [local_db_opt()] &lt;optional&gt;</strong></dt><dd> <p><strong>local_db_opt() = {repair, agent_repair()} | {auto_save, agent_auto_save()} |   {verbosity, verbosity()}</strong></p> <p>Defines options specific for the SNMP agent local database.</p> <p>For defaults see the options in <strong>local_db_opt()</strong>.</p> </dd><dt><a name="agent_ldb_repair"></a> <strong>agent_repair() = false | true | force &lt;optional&gt;</strong></dt><dd> <p>When starting snmpa_local_db it always tries to open an
+existing database. If <strong>false</strong>, and some errors occur, a new
+database is created instead. If <strong>true</strong>, an existing file
+will be repaired. If <strong>force</strong>, the table will be repaired
+even if it was properly closed. </p> <p>Default is <strong>true</strong>.</p> </dd><dt><a name="agent_ldb_auto_save"></a> <strong>agent_auto_save() = integer() | infinity &lt;optional&gt;</strong></dt><dd> <p>The auto save interval. The table is flushed to disk
+whenever not accessed for this amount of time.</p> <p>Default is <strong>5000</strong>.</p> </dd><dt><a name="agent_net_if"></a> <strong>agent_net_if() = [agent_net_if_opt()] &lt;optional&gt;</strong></dt><dd> <p><strong>agent_net_if_opt() = {module, agent_net_if_module()} |  {verbosity, verbosity()} |  {options, agent_net_if_options()}</strong></p> <p>Defines options specific for the SNMP agent network interface 
+entity. </p> <p>For defaults see the options in <strong>agent_net_if_opt()</strong>.</p> </dd><dt><a name="agent_ni_module"></a> <strong>agent_net_if_module() = atom() &lt;optional&gt;</strong></dt><dd> <p>Module which handles the network interface part for the
+SNMP agent. Must implement the 
+<a href="snmpa_network_interface">snmpa_network_interface</a> behaviour.</p> <p>Default is <strong>snmpa_net_if</strong>.</p> </dd><dt><a name="agent_ni_opts"></a> <strong>agent_net_if_options() = [agent_net_if_option()] &lt;optional&gt;</strong></dt><dd> <p><strong>agent_net_if_option() = {bind_to, bind_to()} |   {sndbuf, sndbuf()} |   {recbuf, recbuf()} |   {no_reuse, no_reuse()} |   {req_limit, req_limit()} | {filter, agent_net_if_filter_options()}</strong></p> <p>These options are actually specific to the used module.
+The ones shown here are applicable to the default 
+<strong>agent_net_if_module()</strong>.</p> <p>For defaults see the options in <strong>agent_net_if_option()</strong>.</p> </dd><dt><a name="agent_ni_req_limit"></a> <strong>req_limit() = integer() | infinity &lt;optional&gt;</strong></dt><dd> <p>Max number of simultaneous requests handled by the agent.</p> <p>Default is <strong>infinity</strong>.</p> </dd><dt><a name="agent_ni_filter_opts"></a> <strong>agent_net_if_filter_options() = [agent_net_if_filter_option()] &lt;optional&gt;</strong></dt><dd> <p><strong>agent_net_if_filter_option() = {module, agent_net_if_filter_module()}</strong></p> <p>These options are actually specific to the used module.
+The ones shown here are applicable to the default 
+<strong>agent_net_if_filter_module()</strong>.</p> <p>For defaults see the options in 
+<strong>agent_net_if_filter_option()</strong>.</p> </dd><dt><a name="agent_ni_filter_module"></a> <strong>agent_net_if_filter_module() = atom() &lt;optional&gt;</strong></dt><dd> <p>Module which handles the network interface filter part for the
+SNMP agent. Must implement the 
+<a href="snmpa_network_interface_filter">snmpa_network_interface_filter</a> behaviour.</p> <p>Default is <strong>snmpa_net_if_filter</strong>.</p> </dd><dt><a name="agent_mibs"></a> <strong>agent_mibs() = [string()] &lt;optional&gt;</strong></dt><dd> <p>Specifies a list of MIBs (including path) that defines which MIBs
+are initially loaded into the SNMP master agent. </p> <p>Note that the following mibs will always be loaded:</p> <ul><li>version v1: <strong>STANDARD-MIB</strong></li><li>version v2: <strong>SNMPv2</strong></li><li>version v3: <strong>SNMPv2</strong>, <strong>SNMP-FRAMEWORK-MIB</strong>  and <strong>SNMP-MPD-MIB</strong></li></ul> <p>Default is <strong>[]</strong>.</p> </dd><dt><a name="agent_mib_storage"></a> <strong>mib_storage() = [mib_storage_opt()] &lt;optional&gt;</strong></dt><dd> <p><strong>mib_storage_opt() = {module, mib_storage_module()} |  {options, mib_storage_options()}</strong></p> <p>This option specifies how basic mib data is stored. 
+This option is used by two parts of the snmp agent: 
+The mib-server and the symbolic-store. </p> <p>Default is <strong>[{module, snmpa_mib_storage_ets}]</strong>. </p> </dd><dt><a name="agent_mst_module"></a> <strong>mib_storage_module() = snmpa_mib_data_ets | snmpa_mib_data_dets | snmpa_mib_data_mnesia | module()</strong></dt><dd> <p>Defines the mib storage module of the SNMP agent as defined by the 
+<a href="snmpa_mib_storage">snmpa_mib_storage</a> 
+behaviour. </p> <p>Several entities (<strong>mib-server</strong> via the its data module and 
+the <strong>symbolic-store</strong>) of the snmp agent uses this for storage 
+of miscelaneous mib related data retrieved while loading a mib. </p> <p>There are several implementations provided with the agent: 
+<strong>snmpa_mib_storage_ets</strong>, <strong>snmpa_mib_storage_dets</strong> and 
+<strong>snmpa_mib_storage_mnesia</strong>. </p> <p>Default module is <strong>snmpa_mib_storage_ets</strong>. </p> </dd><dt><a name="agent_mst_options"></a> <strong>mib_storage_options() = list() &lt;optional&gt;</strong></dt><dd> <p>This is implementattion depended. That is, it depends on the 
+module. For each module a specific set of options are valid. 
+For the module provided with the app, these options are supported: </p> <ul><li> <p><strong>snmpa_mib_storage_ets</strong>: <strong>{dir, filename()} | {action, keep | clear}, {checksum, boolean()}</strong></p> <ul><li> <p><strong>dir</strong> - If present, points to a directory where a file 
+to which all data in the ets table is "synced". </p> <p>Also, when a table is opened this file is read, 
+if it exists. </p> <p>By default, this will <em>not</em> be used. </p>  </li><li> <p><strong>action</strong> - Specifies the behaviour when a non-empty 
+file is found: Keep its content or clear it out. </p> <p>Default is <strong>keep</strong>. </p>  </li><li> <p><strong>checksum</strong> - Defines if the file is checksummed 
+or not. </p> <p>Default is <strong>false</strong>. </p>  </li></ul> </li><li> <p><strong>snmpa_mib_storage_dets</strong>: <strong>{dir, filename()} | {action, keep | clear}, {auto_save, default | pos_integer()} | {repair, force | boolean()}</strong></p> <ul><li> <p><strong>dir</strong> - This <em>mandatory</em> option points to a 
+directory where to place the file of a dets table. </p> </li><li> <p><strong>action</strong> - Specifies the behaviour when a non-empty 
+file is found: Keep its content or clear it out. </p> <p>Default is <strong>keep</strong>. </p>  </li><li> <p><strong>auto_save</strong> - Defines the dets auto-save frequency. </p> <p>Default is <strong>default</strong>. </p>  </li><li> <p><strong>repair</strong> - Defines the dets repair behaviour. </p> <p>Default is <strong>false</strong>. </p>  </li></ul> </li><li> <p><strong>snmpa_mib_storage_mnesia</strong>: <strong>{action, keep | clear}, {nodes, [node()]}</strong></p> <ul><li> <p><strong>action</strong> - Specifies the behaviour when a non-empty, 
+already existing, table: Keep its content or clear it out. </p> <p>Default is <strong>keep</strong>. </p> </li><li> <p><strong>nodes</strong> - A list of node names (or an atom 
+describing a list of nodes) defining where to open the table. 
+Its up to the user to ensure that mnesia is actually running 
+on the specified nodes. </p> <p>The following distinct values are recognised: </p> <ul><li> <p><strong>[]</strong> - Translated into a list of the own node: <strong>[node()]</strong></p> </li><li> <p><strong>all</strong> - <strong>erlang:nodes()</strong></p> </li><li> <p><strong>visible</strong> - <strong>erlang:nodes(visible)</strong></p> </li><li> <p><strong>connected</strong> - <strong>erlang:nodes(connected)</strong></p> </li><li> <p><strong>db_nodes</strong> - <strong>mnesia:system_info(db_nodes)</strong></p> </li></ul> <p>Default is the result of the call: <strong>erlang:nodes()</strong>. </p> </li></ul> </li></ul> </dd><dt><a name="agent_mib_server"></a> <strong>mib_server() = [mib_server_opt()] &lt;optional&gt;</strong></dt><dd> <p><strong>mib_server_opt() = {mibentry_override, mibentry_override()} |  {trapentry_override, trapentry_override()} |  {verbosity, verbosity()} | {cache, mibs_cache()} | {data_module, mib_server_data_module()}</strong></p> <p>Defines options specific for the SNMP agent mib server. </p> <p>For defaults see the options in <strong>mib_server_opt()</strong>.</p> </dd><dt><a name="agent_ms_meo"></a> <strong>mibentry_override() = bool() &lt;optional&gt;</strong></dt><dd> <p>If this value is false, then when loading a mib each mib-
+entry is checked prior to installation of the mib. 
+The purpose of the check is to prevent that the same symbolic 
+mibentry name is used for different oid's.</p> <p>Default is <strong>false</strong>.</p> </dd><dt><a name="agent_ms_teo"></a> <strong>trapentry_override() = bool() &lt;optional&gt;</strong></dt><dd> <p>If this value is false, then when loading a mib each trap
+is checked prior to installation of the mib. 
+The purpose of the check is to prevent that the same symbolic 
+trap name is used for different trap's.</p> <p>Default is <strong>false</strong>.</p> </dd><dt><a name="agent_ms_data_module"></a> <strong>mib_server_data_module() = snmpa_mib_data_tttn | module() &lt;optional&gt;</strong></dt><dd> <p>Defines the backend data module of the SNMP agent mib-server as 
+defined by the 
+<a href="snmpa_mib_data">snmpa_mib_data</a> 
+behaviour. </p> <p>At present only the default module is provided with the agent,  
+<strong>snmpa_mib_data_tttn</strong>. </p> <p>Default module is <strong>snmpa_mib_data_tttn</strong>. </p> </dd><dt><a name="agent_ms_cache"></a> <strong>mibs_cache() = bool() | mibs_cache_opts() &lt;optional&gt;</strong></dt><dd> <p>Shall the agent utilize the mib server lookup cache or not.</p> <p>Default is <strong>true</strong> (in which case the <strong>mibs_cache_opts()</strong> 
+default values apply).</p> </dd><dt><a name="agent_ms_cache_opts"></a> <strong>mibs_cache_opts() = [mibs_cache_opt()] &lt;optional&gt;</strong></dt><dd> <p><strong>mibs_cache_opt() = {autogc, mibs_cache_autogc()} | {gclimit, mibs_cache_gclimit()} | {age, mibs_cache_age()}</strong></p> <p>Defines options specific for the SNMP agent mib server cache. </p> <p>For defaults see the options in <strong>mibs_cache_opt()</strong>.</p> </dd><dt><a name="agent_ms_cache_autogc"></a> <strong>mibs_cache_autogc() = bool() &lt;optional&gt;</strong></dt><dd> <p>Defines if the mib server shall perform cache gc automatically or 
+leave it to the user (see 
+<a href="./snmpa#gc_mibs_cache">gc_mibs_cache/0,1,2,3</a>). </p> <p>Default is <strong>true</strong>.</p> </dd><dt><a name="agent_ms_cache_age"></a> <strong>mibs_cache_age() = integer() &gt; 0 &lt;optional&gt;</strong></dt><dd> <p>Defines how old the entries in the cache will be allowed 
+to become before they are GC'ed (assuming GC is performed). 
+Each entry in the cache is "touched" whenever it is accessed. </p> <p>The age is defined in milliseconds. </p> <p>Default is <strong>10 timutes</strong>.</p> </dd><dt><a name="agent_ms_cache_gclimit"></a> <strong>mibs_cache_gclimit() = integer() &gt; 0 | infinity &lt;optional&gt;</strong></dt><dd> <p>When performing a GC, this is the max number of cache entries 
+that will be deleted from the cache. </p> <p>The reason for having this limit is that if the cache is 
+large, the GC can potentially take a long time, during which 
+the agent is locked. </p> <p>Default is <strong>100</strong>.</p> </dd><dt><a name="agent_error_report_mod"></a> <strong>error_report_mod() = atom() &lt;optional&gt;</strong></dt><dd> <p>Defines an error report module, implementing the 
+<a href="snmpa_error_report">snmpa_error_report</a> 
+behaviour. Two modules are provided with the toolkit: 
+<strong>snmpa_error_logger</strong> and <strong>snmpa_error_io</strong>.</p> <p>Default is <strong>snmpa_error_logger</strong>.</p> </dd><dt><a name="agent_symbolic_store"></a> <strong>symbolic_store() = [symbolic_store_opt()]</strong></dt><dd> <p><strong>symbolic_store_opt() = {verbosity, verbosity()}</strong></p> <p>Defines options specific for the SNMP agent symbolic store. </p> <p>For defaults see the options in <strong>symbolic_store_opt()</strong>.</p> </dd><dt><a name="agent_target_cache"></a> <strong>target_cache() = [target_cache_opt()]</strong></dt><dd> <p><strong>target_cache_opt() = {verbosity, verbosity()}</strong></p> <p>Defines options specific for the SNMP agent target cache. </p> <p>For defaults see the options in <strong>target_cache_opt()</strong>.</p> </dd><dt><a name="agent_config"></a> <strong>agent_config() = [agent_config_opt()] &lt;mandatory&gt;</strong></dt><dd> <p><strong>agent_config_opt() = {dir, agent_config_dir()} |  {force_load, force_load()} | {verbosity, verbosity()}</strong></p> <p>Defines specific config related options for the SNMP agent. </p> <p>For defaults see the options in <strong>agent_config_opt()</strong>.</p> </dd><dt><a name="agent_config_dir"></a> <strong>agent_config_dir = dir() &lt;mandatory&gt;</strong></dt><dd> <p>Defines where the SNMP agent configuration files are stored.</p> </dd><dt><a name="agent_force_load"></a> <strong>force_load() = bool() &lt;optional&gt;</strong></dt><dd> <p>If <strong>true</strong> the configuration files are re-read
+during start-up, and the contents of the configuration 
+database ignored.  Thus, if <strong>true</strong>, changes to 
+the configuration database are lost upon reboot of the 
+agent. </p> <p>Default is <strong>false</strong>.</p> </dd></dl><a name="manager_opts_and_types"></a><p>Manager specific config options and types:</p><dl><dt><a name="manager_server"></a> <strong>server() = [server_opt()] &lt;optional&gt;</strong></dt><dd> <p><strong>server_opt() = {timeout, server_timeout()} |  {verbosity, verbosity()}</strong></p> <p>Specifies the options for the manager server process.</p> <p>Default is <strong>silence</strong>.</p> </dd><dt><a name="manager_server_timeout"></a> <strong>server_timeout() = integer() &lt;optional&gt;</strong></dt><dd> <p>Asynchronous request cleanup time. For every requests,
+some info is stored internally, in order to be able to 
+deliver the reply (when it arrives) to the proper destination.
+If the reply arrives, this info will be deleted. But if
+there is no reply (in time), the info has to be deleted
+after the <em>best before</em> time has been passed.
+This cleanup will be performed at regular intervals, defined 
+by the <strong>server_timeout()</strong> time.
+The information will have an <em>best before</em> time,
+defined by the <strong>Expire</strong> time given when calling the
+request function (see 
+<a href="./snmpm#async_get">async_get</a>,
+<a href="./snmpm#async_get_next">async_get_next</a> and 
+<a href="./snmpm#async_set">async_set</a>).</p> <p>Time in milli-seconds.</p> <p>Default is <strong>30000</strong>.</p> </dd><dt><a name="manager_config"></a> <strong>manager_config() = [manager_config_opt()] &lt;mandatory&gt;</strong></dt><dd> <p><strong>manager_config_opt() = {dir, manager_config_dir()} |  {db_dir, manager_db_dir()} |  {db_init_error, db_init_error()} |  {repair, manager_repair()} |  {auto_save, manager_auto_save()} |  {verbosity, verbosity()}</strong></p> <p>Defines specific config related options for the SNMP manager. </p> <p>For defaults see the options in <strong>manager_config_opt()</strong>.</p> </dd><dt><a name="manager_config_dir"></a> <strong>manager_config_dir = dir() &lt;mandatory&gt;</strong></dt><dd> <p>Defines where the SNMP manager configuration files are stored.</p> </dd><dt><a name="manager_config_db_dir"></a> <strong>manager_db_dir = dir() &lt;mandatory&gt;</strong></dt><dd> <p>Defines where the SNMP manager store persistent data.</p> </dd><dt><a name="manager_config_repair"></a> <strong>manager_repair() = false | true | force &lt;optional&gt;</strong></dt><dd> <p>Defines the repair option for the persistent database (if 
+and how the table is repaired when opened). </p> <p>Default is <strong>true</strong>.</p> </dd><dt><a name="manager_config_auto_save"></a> <strong>manager_auto_save() = integer() | infinity &lt;optional&gt;</strong></dt><dd> <p>The auto save interval. The table is flushed to disk
+whenever not accessed for this amount of time.</p> <p>Default is <strong>5000</strong>.</p> </dd><dt><a name="manager_irb"></a> <strong>manager_irb() = auto | user | {user, integer()} &lt;optional&gt;</strong></dt><dd> <p>This option defines how the manager will handle the sending of 
+response (acknowledgment) to received inform-requests. </p> <ul><li> <p><strong>auto</strong> - The manager will autonomously send response
+(acknowledgment&gt; to inform-request messages.</p> </li><li> <p><strong>{user, integer()}</strong> - The manager will send response
+(acknowledgment) to inform-request messages when the 
+<a href="./snmpm_user#handle_inform">handle_inform</a> 
+function completes. The integer is the time, in milli-seconds, 
+that the manager will consider the stored inform-request info 
+valid.</p> </li><li> <p><strong>user</strong> - Same as <strong>{user, integer()}</strong>, except that 
+the default time, 15 seconds (15000), is used.</p> </li></ul> <p>See 
+<a href="snmpm_network_interface">snmpm_network_interface</a>, 
+<a href="snmpm_user">handle_inform</a> and 
+<a href="snmp_manager_netif">definition of the manager net if</a> for more info.</p> <p>Default is <strong>auto</strong>.</p> </dd><dt><a name="manager_mibs"></a> <strong>manager_mibs() = [string()] &lt;optional&gt;</strong></dt><dd> <p>Specifies a list of MIBs (including path) and defines which MIBs
+are initially loaded into the SNMP manager. </p> <p>Default is <strong>[]</strong>.</p> </dd><dt><a name="manager_net_if"></a> <strong>manager_net_if() = [manager_net_if_opt()] &lt;optional&gt;</strong></dt><dd> <p><strong>manager_net_if_opt() = {module, manager_net_if_module()} |  {verbosity, verbosity()} |  {options, manager_net_if_options()}</strong></p> <p>Defines options specific for the SNMP manager network interface 
+entity. </p> <p>For defaults see the options in <strong>manager_net_if_opt()</strong>.</p> </dd><dt><a name="manager_ni_opts"></a> <strong>manager_net_if_options() = [manager_net_if_option()] &lt;optional&gt;</strong></dt><dd> <p><strong>manager_net_if_option() = {bind_to, bind_to()} |  {sndbuf, sndbuf()} |   {recbuf, recbuf()} |  {no_reuse, no_reuse()} | {filter, manager_net_if_filter_options()} </strong></p> <p>These options are actually specific to the used module.
+The ones shown here are applicable to the default 
+<strong>manager_net_if_module()</strong>.</p> <p>For defaults see the options in <strong>manager_net_if_option()</strong>.</p> </dd><dt><a name="manager_ni_module"></a> <strong>manager_net_if_module() = atom() &lt;optional&gt;</strong></dt><dd> <p>The module which handles the network interface part for the
+SNMP manager. It must implement the 
+<a href="snmpm_network_interface">snmpm_network_interface</a> behaviour.</p> <p>Default is <strong>snmpm_net_if</strong>.</p> </dd><dt><a name="manager_ni_filter_opts"></a> <strong>manager_net_if_filter_options() = [manager_net_if_filter_option()] &lt;optional&gt;</strong></dt><dd> <p><strong>manager_net_if_filter_option() = {module, manager_net_if_filter_module()}</strong></p> <p>These options are actually specific to the used module.
+The ones shown here are applicable to the default 
+<strong>manager_net_if_filter_module()</strong>.</p> <p>For defaults see the options in 
+<strong>manager_net_if_filter_option()</strong>.</p> </dd><dt><a name="manager_ni_filter_module"></a> <strong>manager_net_if_filter_module() = atom() &lt;optional&gt;</strong></dt><dd> <p>Module which handles the network interface filter part for the
+SNMP manager. Must implement the 
+<a href="snmpm_network_interface_filter">snmpm_network_interface_filter</a> behaviour.</p> <p>Default is <strong>snmpm_net_if_filter</strong>.</p> </dd><dt><a name="manager_def_user_module"></a> <strong>def_user_module() = atom() &lt;optional&gt;</strong></dt><dd> <p>The module implementing the default user. See the 
+<a href="snmpm_user">snmpm_user</a> behaviour.</p> <p>Default is <strong>snmpm_user_default</strong>.</p> </dd><dt><a name="manager_def_user_data"></a> <strong>def_user_data() = term() &lt;optional&gt;</strong></dt><dd> <p>Data for the default user. Passed to the user module when 
+calling the callback functions.</p> <p>Default is <strong>undefined</strong>.</p> </dd></dl><a name="common_types"></a><p>Common config types:</p><dl><dt><a name="restart_type"></a> <strong>restart_type() = permanent | transient | temporary</strong></dt><dd> <p>See <a href="../stdlib/supervisor#child_spec">supervisor</a> 
+documentation for more info.</p> <p>Default is <strong>permanent</strong> for the agent and <strong>transient</strong>
+for the manager.</p> </dd><dt><a name="db_init_error"></a> <strong>db_init_error() = terminate | create | create_db_and_dir</strong></dt><dd> <p>Defines what to do if the agent or manager is unable to open an
+existing database file. <strong>terminate</strong> means that the
+agent/manager will terminate and <strong>create</strong> means that the 
+agent/manager will remove the faulty file(s) and create new ones,
+and <strong>create_db_and_dir</strong> means that the agent/manager will
+create the database file along with any missing parent directories
+for the database file.</p> <p>Default is <strong>terminate</strong>.</p> </dd><dt><a name="prio"></a> <strong>priority() = atom() &lt;optional&gt;</strong></dt><dd> <p>Defines the Erlang priority for all SNMP processes.</p> <p>Default is <strong>normal</strong>.</p> </dd><dt><a name="versions"></a> <strong>versions() = [version()] &lt;optional&gt;</strong></dt><dd> <p><strong>version() = v1 | v2 | v3</strong></p> <p>Which SNMP versions shall be accepted/used.</p> <p>Default is <strong>[v1,v2,v3]</strong>.</p> </dd><dt><a name="verbosity"></a> <strong>verbosity() = silence | info | log | debug | trace &lt;optional&gt;</strong></dt><dd> <p>Verbosity for a SNMP process. This specifies now much debug info
+is printed.</p> <p>Default is <strong>silence</strong>.</p> </dd><dt><a name="bind_to"></a> <strong>bind_to() = bool() &lt;optional&gt;</strong></dt><dd> <p>If <strong>true</strong>, net_if binds to the IP address.
+If <strong>false</strong>, net_if listens on any IP address on the host
+where it is running. </p> <p>Default is <strong>false</strong>.</p> </dd><dt><a name="no_reuse"></a> <strong>no_reuse() = bool() &lt;optional&gt;</strong></dt><dd> <p>If <strong>true</strong>, net_if does not specify that the IP
+and port address should be reusable. If <strong>false</strong>, 
+the address is set to reusable. </p> <p>Default is <strong>false</strong>.</p> </dd><dt><a name="recbuf"></a> <strong>recbuf() = integer() &lt;optional&gt;</strong></dt><dd> <p>Receive buffer size. </p> <p>Default value is defined by <strong>gen_udp</strong>.</p> </dd><dt><a name="sndbuf"></a> <strong>sndbuf() = integer() &lt;optional&gt;</strong></dt><dd> <p>Send buffer size. </p> <p>Default value is defined by <strong>gen_udp</strong>.</p> </dd><dt><a name="note_store"></a> <strong>note_store() = [note_store_opt()] &lt;optional&gt;</strong></dt><dd> <p><strong>note_store_opt() = {timeout, note_store_timeout()} |  {verbosity, verbosity()}</strong></p> <p>Specifies the start-up verbosity for the SNMP note store.</p> <p>For defaults see the options in <strong>note_store_opt()</strong>.</p> </dd><dt><a name="ns_timeout"></a> <strong>note_store_timeout() = integer() &lt;optional&gt;</strong></dt><dd> <p>Note cleanup time. When storing a note in the note store,
+each note is given lifetime. Every <strong>timeout</strong> the note_store
+process performs a GC to remove the expired note's. Time in
+milli-seconds.</p> <p>Default is <strong>30000</strong>.</p> </dd><dt><a name="audit_trail_log"></a> <strong>audit_trail_log() = [audit_trail_log_opt()] &lt;optional&gt;</strong></dt><dd> <p><strong>audit_trail_log_opt() = {type, atl_type()} | {dir, atl_dir()} |  {size, atl_size()} |  {repair, atl_repair()} | {seqno, atl_seqno()}</strong></p> <p>If present, this option specifies the options for the 
+audit trail logging. The <strong>disk_log</strong> module is used 
+to maintain a wrap log. If present, the <strong>dir</strong> and 
+<strong>size</strong> options are mandatory.</p> <p>If not present, audit trail logging is not used.</p> </dd><dt><a name="atl_type"></a> <strong>atl_type() = read | write | read_write &lt;optional&gt;</strong></dt><dd> <p>Specifies what type of an audit trail log should be used. 
+The effect of the type is actually different for the the agent
+and the manager. </p> <p>For the agent:</p> <ul><li>If <strong>write</strong> is specified, only set requests are logged.  </li><li>If <strong>read</strong> is specified, only get requests are logged.  </li><li>If <strong>read_write</strong>, all requests are logged.  </li></ul> <p>For the manager:</p> <ul><li>If <strong>write</strong> is specified, only sent messages are logged.  </li><li>If <strong>read</strong> is specified, only received messages are logged.  </li><li>If <strong>read_write</strong>, both outgoing and incoming messages are  logged.  </li></ul> <p>Default is <strong>read_write</strong>.</p> </dd><dt><a name="atl_dir"></a> <strong>atl_dir = dir() &lt;mandatory&gt;</strong></dt><dd> <p>Specifies where the audit trail log should be stored.</p> <p>If <strong>audit_trail_log</strong> specifies that logging should take
+place, this parameter <em>must</em> be defined.</p> </dd><dt><a name="atl_size"></a> <strong>atl_size() = {integer(), integer()} &lt;mandatory&gt;</strong></dt><dd> <p>Specifies the size of the audit
+trail log.  This parameter is sent to <strong>disk_log</strong>.  </p> <p>If <strong>audit_trail_log</strong> specifies that logging should 
+take place, this parameter <em>must</em> be defined.</p> </dd><dt><a name="atl_repair"></a> <strong>atl_repair() = true | false | truncate | snmp_repair &lt;optional&gt;</strong></dt><dd> <p>Specifies if and how the audit trail log shall be repaired
+when opened. Unless this parameter has the value <strong>snmp_repair</strong>
+it is sent to <strong>disk_log</strong>. If, on the other hand, the value is
+<strong>snmp_repair</strong>, snmp attempts to handle certain faults on its
+own. And even if it cannot repair the file, it does not truncate it 
+directly, but instead <em>moves it aside</em> for later off-line 
+analysis.</p> <p>Default is <strong>true</strong>.</p> </dd><dt><a name="atl_seqno"></a> <strong>atl_seqno() = true | false &lt;optional&gt;</strong></dt><dd> <p>Specifies if the audit trail log entries will be (sequence)
+numbered or not. The range of the sequence numbers are according
+to RFC 5424, i.e. 1 through 2147483647. </p> <p>Default is <strong>false</strong>.</p> </dd></dl><h2>See Also</h2><p>application(3), disk_log(3)</p></body></html>

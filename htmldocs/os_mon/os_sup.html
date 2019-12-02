@@ -1,0 +1,90 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>os_sup</h1><h1>os_sup</h1><p>Interface to OS System Messages</p><p><strong>os_sup</strong> is a process providing a message passing service
+from the operating system to the error logger in the Erlang
+runtime system. It is part of the OS_Mon application, see
+<a href="os_mon_app">os_mon(6)</a>. Available for
+Solaris and Windows.Messages received from the operating system results in an
+user defined callback function being called. This function can do
+whatever filtering and formatting is necessary and then deploy any
+type of logging suitable for the user's application.</p><h2>Solaris Operation</h2><p>The Solaris (SunOS 5.x) messages are retrieved from
+the syslog-daemon, <strong>syslogd</strong>.</p><p>Enabling the service includes actions which require root
+privileges, such as change of ownership and file privileges of an
+executable binary file, and creating a modified copy of
+the configuration file for <strong>syslogd</strong>. When <strong>os_sup</strong> is
+terminated, the service must be disabled, meaning the original
+configuration must be restored. Enabling/disabling can be done
+either outside or inside <strong>os_sup</strong>, see
+<a href="#config">Configuration</a> below.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>This process cannot run in multiple instances on the same
+hardware. OS_Mon must be configured to start <strong>os_sup</strong> on
+one node only if two or more Erlang nodes execute on the same
+machine.</p></div><p>The format of received events is not defined.</p><h2>Windows Operation</h2><p>The Windows messages are retrieved from the eventlog file.</p><p>The <strong>nteventlog</strong> module is used to implement <strong>os_sup</strong>.
+See <a href="nteventlog">nteventlog(3)</a>. Note
+that the start functions of <strong>nteventlog</strong> does not need to be
+used, in this case the process is started automatically as part of
+the OS_Mon supervision tree.</p><p>OS messages are formatted as a tuple
+<strong>{Time, Category, Facility, Severity, Message}</strong>:</p><dl><dt><strong>Time = {MegaSecs, Secs, MicroSecs}</strong></dt><dd> <p>A time stamp as returned by the BIF <strong>now()</strong>.</p> </dd><dt><strong>Category = string()</strong></dt><dd> <p>Usually one of <strong>"System"</strong>, <strong>"Application"</strong> or
+<strong>"Security"</strong>. Note that the NT eventlog viewer has
+another notion of category, which in most cases is totally
+meaningless and therefore not imported into Erlang. What is
+called a category here is one of the main three types of
+events occurring in a normal NT system.</p> </dd><dt><strong>Facility = string()</strong></dt><dd> <p>The source of the message, usually the name of
+the application that generated it. This could be almost any
+string. When matching messages from certain applications,
+the version number of the application may have to be
+accounted for. This is what the NT event viewer calls
+"source".</p> </dd><dt><strong>Severity = string()</strong></dt><dd> <p>One of <strong>"Error"</strong>, <strong>"Warning"</strong>,
+<strong>"Informational"</strong>, <strong>"Audit_Success"</strong>,
+<strong>"Audit_Faulure"</strong> or, in case of a currently unknown
+Windows NT version <strong>"Severity_Unknown"</strong>.</p> </dd><dt><strong>Message = string()</strong></dt><dd> <p>Formatted exactly as it would be in the NT eventlog viewer.
+Binary data is not imported into Erlang.</p> </dd></dl><a name="config"></a><h2>Configuration</h2><dl><dt><strong>os_sup_mfa = {Module, Function, Args}</strong></dt><dd> <p>The callback function to use. <strong>Module</strong> and
+<strong>Function</strong> are atoms and <strong>Args</strong> is a list of terms.
+When an OS message <strong>Msg</strong> is received, this function is
+called as <strong>apply(Module, Function, [Msg | Args])</strong>.</p> <p>Default is <strong>{os_sup, error_report, [Tag]}</strong> which will
+send the event to the error logger using
+<a href="../kernel/error_logger#error_report/2">error_logger:error_report(Tag, Msg)</a>. <strong>Tag</strong> is the value of
+<strong>os_sup_errortag</strong>, see below.</p> </dd><dt><strong>os_sup_errortag = atom()</strong></dt><dd> <p>This parameter defines the error report type used when
+messages are sent to error logger using the default callback
+function. Default is <strong>std_error</strong>, which means the events
+are handled by the standard event handler.</p> </dd><dt><strong>os_sup_enable = bool()</strong></dt><dd> <p>Solaris only. Defines if the service should be enabled (and
+disabled) inside (<strong>true</strong>) or outside (<strong>false</strong>)
+<strong>os_sup</strong>. For backwards compatibility reasons,
+the default is <strong>true</strong>. The recommended value is
+<strong>false</strong>, as the Erlang emulator should normally not be
+run with <strong>root</strong> privileges, as is required for enabling
+the service.</p> </dd><dt><strong>os_sup_own = string()</strong></dt><dd> <p>Solaris only. Defines the directory which contains
+the backup copy and the Erlang specific configuration files
+for <strong>syslogd</strong>, and a named pipe to receive the messages
+from <strong>syslogd</strong>. Default is <strong>"/etc"</strong>.</p> </dd><dt><strong>os_sup_syslogconf = string()</strong></dt><dd> <p>Solaris only. Defines the full name of the configuration file
+for <strong>syslogd</strong>. Default is <strong>"/etc/syslog.conf"</strong>.</p> </dd></dl><h1>Functions</h1><h2>enable() -&gt; ok | {error, Res}</h2><h2>enable(Dir, Conf) -&gt; ok | {error, Error}</h2><p>Enable the service (Solaris only)</p><ul><li><span class="v">Dir = Conf = Res = string()</span></li></ul><p>Enables the <strong>os_sup</strong> service. Needed on Solaris only.</p><p>If the configuration parameter <strong>os_sup_enable</strong> is
+<strong>false</strong>, this function is called automatically by
+<strong>os_sup</strong>, using the values of <strong>os_sup_own</strong> and
+<strong>os_sup_syslogconf</strong> as arguments.</p><p>If <strong>os_sup_enable</strong> is <strong>true</strong>, this function must
+be called <em>before</em> OS_Mon/<strong>os_sup</strong> is started.
+<strong>Dir</strong> defines the directory which contains the backup
+copy and the Erlang specific configuration files for
+<strong>syslogd</strong>, and a named pipe to receive the messages
+from <strong>syslogd</strong>. Defaults to <strong>"/etc"</strong>. <strong>Conf</strong>
+defines the full name of the configuration file for
+<strong>syslogd</strong>. Default is <strong>"/etc/syslog.conf"</strong>.</p><p>Results in a OS call to:</p><pre><code class="">
+&lt;PRIVDIR&gt;/bin/mod_syslog otp Dir Conf
+        </code></pre><p>where <strong>&lt;PRIVDIR&gt;</strong> is the <strong>priv</strong> directory of
+OS_Mon, <strong>code:priv_dir(os_mon)</strong>.</p><p>Returns <strong>ok</strong> if this yields the expected result
+<strong>"0"</strong>, and <strong>{error, Res}</strong> if it yields anything
+else.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This function requires root privileges to succeed.</p></div><h2>disable() -&gt; ok | {error, Res}</h2><h2>disable(Dir, Conf) -&gt; ok | {error, Error}</h2><p>Disable the service (Solaris only)</p><ul><li><span class="v">Dir = Conf = Res = string()</span></li></ul><p>Disables the <strong>os_sup</strong> service. Needed on Solaris only.</p><p>If the configuration parameter <strong>os_sup_enable</strong> is
+<strong>false</strong>, this function is called automatically by
+<strong>os_sup</strong>, using the same arguments as when
+<strong>enable/2</strong> was called.</p><p>If <strong>os_sup_enable</strong> is <strong>true</strong>, this function must
+be called <em>after</em> OS_Mon/<strong>os_sup</strong> is stopped.
+<strong>Dir</strong> defines the directory which contains the backup
+copy and the Erlang specific configuration files for
+<strong>syslogd</strong>, and a named pipe to receive the messages
+from <strong>syslogd</strong>. Defaults to <strong>"/etc"</strong>. <strong>Conf</strong>
+defines the full name of the configuration file for
+<strong>syslogd</strong>. Default is <strong>"/etc/syslog.conf"</strong>.</p><p>Results in a OS call to:</p><pre><code class="">
+&lt;PRIVDIR&gt;/bin/mod_syslog nootp Dir Conf
+        </code></pre><p>where <strong>&lt;PRIVDIR&gt;</strong> is the <strong>priv</strong> directory of
+OS_Mon, <strong>code:priv_dir(os_mon)</strong>.</p><p>Returns <strong>ok</strong> if this yields the expected result
+<strong>"0"</strong>, and <strong>{error, Res}</strong> if it yields anything
+else.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This function requires root privileges to succeed.</p></div><h2>See also</h2><p><a href="./error_logger">error_logger(3)</a>,
+<a href="os_mon_app">os_mon(3)</a></p><p><strong>syslogd(1M)</strong>, <strong>syslog.conf(4)</strong> in the Solaris
+documentation.</p></body></html>

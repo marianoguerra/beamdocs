@@ -1,0 +1,58 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Definition of Manager Net if</h1><img src="snmp_manager_netif_1.gif" title="The Purpose of Manager Net if"></img><p>The Network Interface (Net if) process delivers SNMP PDUs to the
+manager server, and receives SNMP PDUs from the manager server. 
+The most common behaviour of a Net if process is that is receives 
+request PDU from the manager server, encodes the PDU into bytes
+and transmits the bytes onto the network to an agent. When the 
+reply from the agent is received by the Net if process, which it
+decodes into an SNMP PDU, which it sends to the manager server. </p><p>However, that simple behaviour can be modified in numerous
+ways. For example, the Net if process can apply some kind of
+encrypting/decrypting scheme on the bytes. </p><p>The snmp application provides two different modules, 
+<strong>snmpm_net_if</strong> (the default) and <strong>snmpm_net_if_mt</strong>, 
+both uses UDP as the transport protocol i.e the transport domains
+<strong>transportDomainUdpIpv4</strong> and/or <strong>transportDomainUdpIpv6</strong>.
+The difference between the two modules is that the latter is
+"multi-threaded",  i.e. for each message/request a new process
+is created that processes the message/request and then exits. </p><p>It is also possible to write your own Net if process and
+this section describes how to do that.</p><a name="mandatory_functions"></a><h2>Mandatory Functions</h2><p>A Net if process must implement the SNMP manager 
+<a href="snmpm_network_interface">network interface behaviour</a>. </p><h2>Messages</h2><p>The section <em>Messages</em> describes mandatory messages, which
+Net if must send to the manager server process.     
+</p><p>In this section a <strong>Domain</strong> field is the transport domain i.e
+one of <strong>transportDomainUdpIpv4</strong> or <strong>transportDomainUdpIpv6</strong>,
+and an <strong>Addr</strong> field is an
+<strong>{</strong><a href="../kernel/inet#type-ip_address">kernel/inet#type-ip_address</a><strong>,IpPort}</strong> tuple.</p><p>Net if must send the following message when it receives an
+SNMP PDU from the network that is aimed for the MasterAgent:
+</p><pre>
+Server ! {snmp_pdu, Pdu, Domain, Addr}
+    </pre><ul><li> <p><strong>Pdu</strong> is an SNMP PDU record, as defined in
+<strong>snmp_types.hrl</strong>, with the SNMP request.</p> </li><li> <p><strong>Domain</strong> is the source transport domain. </p> </li><li> <p><strong>Addr</strong> is the source address. </p> </li></ul><pre>
+Server ! {snmp_trap, Trap, Domain, Addr}
+    </pre><ul><li> <p><strong>Trap</strong> is either an SNMP pdu record or an trappdu record, 
+as defined in <strong>snmp_types.hrl</strong>, with the SNMP request.</p> </li><li> <p><strong>Domain</strong> is the source transport domain. </p> </li><li> <p><strong>Addr</strong> is the source address. </p> </li></ul><pre>
+Server ! {snmp_inform, Ref, Pdu, PduMS, Domain, Addr}
+    </pre><ul><li> <p><strong>Ref</strong> is either the atom <strong>ignore</strong> or something
+that can be used to identify the inform-request (e.g. request-id).
+<strong>ignore</strong> is used if the response (acknowledgment) to the
+inform-request has already been sent (this means that the server 
+will not make the call to the 
+<a href="./snmpm_network_interface#inform_response">inform_response</a> 
+function). See the 
+<a href="snmp_app">inform request behaviour</a> 
+configuration option for more info.</p> </li><li> <p><strong>Pdu</strong> is an SNMP PDU record, as defined in
+<strong>snmp_types.hrl</strong>, with the SNMP request.</p> </li><li> <p><strong>Domain</strong> is the source transport domain. </p> </li><li> <p><strong>Addr</strong> is the source address. </p> </li></ul><pre>
+Server ! {snmp_report, Data, Domain, Addr}
+    </pre><ul><li> <p><strong>Data</strong> is either <strong>{ok, Pdu}</strong> or 
+<strong>{error, ReqId, ReasonInfo, Pdu}</strong>. Which one is used depends 
+on the return value from the MPD 
+<a href="./snmpm_mpd#process_msg">process_msg</a> function. If the MsgData is <strong>ok</strong>, 
+the first is used, and if it is <strong>{error, ReqId, Reason}</strong>
+the latter is used.</p> </li><li> <p><strong>Pdu</strong> is an SNMP PDU record, as defined in
+<strong>snmp_types.hrl</strong>, with the SNMP request.</p> </li><li> <p><strong>ReqId</strong> is an integer.</p> </li><li> <p><strong>ReasonInfo</strong> is a term().</p> </li><li> <p><strong>Domain</strong> is the source transport domain. </p> </li><li> <p><strong>Addr</strong> is the source address. </p> </li></ul><h2>Notes</h2><p>Since the Net if process is responsible for encoding and
+decoding of SNMP messages, it must also update the relevant
+counters in the SNMP group in MIB-II.  It can use the functions
+in the module <strong>snmpm_mpd</strong> for this purpose (refer to the 
+Reference Manual, section <strong>snmp</strong>, module <strong>snmpm_mpd</strong>
+for more details).
+</p><p>There are also some useful functions for encoding and
+decoding of SNMP messages in the module <strong>snmp_pdus</strong>.
+</p></body></html>

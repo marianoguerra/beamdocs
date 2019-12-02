@@ -1,0 +1,430 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>string</h1><h1>string</h1><p>String processing functions.</p><p>This module provides functions for string processing.A string in this module is represented by <a href="./unicode#type-chardata">unicode#type-chardata</a>, that is, a list of codepoints,
+binaries with UTF-8-encoded codepoints
+(<em>UTF-8 binaries</em>), or a mix of the two.<pre><code class="">
+"abcd"               is a valid string
+&lt;&lt;"abcd"&gt;&gt;           is a valid string
+["abcd"]             is a valid string
+&lt;&lt;"abc..Ã¥Ã¤Ã¶"/utf8&gt;&gt;  is a valid string
+&lt;&lt;"abc..Ã¥Ã¤Ã¶"&gt;&gt;       is NOT a valid string,
+                     but a binary with Latin-1-encoded codepoints
+[&lt;&lt;"abc"&gt;&gt;, "..Ã¥Ã¤Ã¶"] is a valid string
+[atom]               is NOT a valid string</code></pre>
+This module operates on grapheme clusters. A <em>grapheme cluster</em>
+is a user-perceived character, which can be represented by several
+codepoints.
+<pre><code class="">
+"Ã¥"  [229] or [97, 778]
+"eÌ"  [101, 778]</code></pre>
+The string length of "ÃâeÌ" is 3, even though it is represented by the
+codepoints <strong>[223,8593,101,778]</strong> or the UTF-8 binary
+<strong>&lt;&lt;195,159,226,134,145,101,204,138&gt;&gt;</strong>.
+
+Grapheme clusters for codepoints of class <strong>prepend</strong>
+and non-modern (or decomposed) Hangul is not handled for performance
+reasons in
+<a href="#find/3">find/3</a>,
+<a href="#replace/3">replace/3</a>,
+<a href="#split/2">split/2</a>,
+<a href="#lexemes/2">lexemes/2</a> and
+<a href="#trim/3">trim/3</a>.
+
+Splitting and appending strings is to be done on grapheme clusters
+borders.
+There is no verification that the results of appending strings are
+valid or normalized.
+
+Most of the functions expect all input to be normalized to one form,
+see for example <a href="./unicode#characters_to_nfc_list/1">unicode#characters_to_nfc_list/1</a>.
+
+Language or locale specific handling of input is not considered
+in any function.
+
+The functions can crash for non-valid input strings. For example,
+the functions expect UTF-8 binaries but not all functions
+verify that all binaries are encoded correctly.
+
+Unless otherwise specified the return value type is the same as
+the input type. That is, binary input returns binary output,
+list input returns a list output, and mixed input can return a
+mixed output.<pre><code class="">
+1&gt; string:trim("  sarah  ").
+"sarah"
+2&gt; string:trim(&lt;&lt;"  sarah  "&gt;&gt;).
+&lt;&lt;"sarah"&gt;&gt;
+3&gt; string:lexemes("foo bar", " ").
+["foo","bar"]
+4&gt; string:lexemes(&lt;&lt;"foo bar"&gt;&gt;, " ").
+[&lt;&lt;"foo"&gt;&gt;,&lt;&lt;"bar"&gt;&gt;]</code></pre>This module has been reworked in Erlang/OTP 20 to
+handle <a href="./unicode#type-chardata">unicode#type-chardata</a> and operate on grapheme
+clusters. The <a href="#oldapi">oldapi</a> that only work on Latin-1 lists as input
+are still available but should not be used, they will be
+deprecated in a future release.
+</p><h1>Data Types</h1><span class="name">direction</span><span class="name">grapheme_cluster</span><p>A user-perceived character, consisting of one or more
+codepoints.</p><h1>Functions</h1><h2>casefold/1</h2><p>Convert a string to a comparable string.</p><p>
+Converts <strong><span class="anno">String</span></strong> to a case-agnostic
+comparable string. Function <strong>casefold/1</strong> is preferred
+over <strong>lowercase/1</strong> when two strings are to be compared
+for equality. See also <a href="#equal/4">equal/4</a>.
+</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">string:casefold("Î© and áº SHARP S").</span>
+"Ï and ss sharp s"</pre><h2>chomp/1</h2><p>Remove trailing end of line control characters.</p><p>
+Returns a string where any trailing <strong>\n</strong> or
+<strong>\r\n</strong> have been removed from <strong><span class="anno">String</span></strong>.
+</p><p><em>Example:</em></p><pre>
+182&gt; <span class="input">string:chomp(&lt;&lt;"\nHello\n\n"&gt;&gt;).</span>
+&lt;&lt;"\nHello"&gt;&gt;
+183&gt; <span class="input">string:chomp("\nHello\r\r\n").</span>
+"\nHello\r"</pre><h2>equal/2</h2><h2>equal/3</h2><h2>equal/4</h2><p>Test string equality.</p><p>
+Returns <strong>true</strong> if <strong><span class="anno">A</span></strong> and
+<strong><span class="anno">B</span></strong> are equal, otherwise <strong>false</strong>.
+</p><p>
+If <strong><span class="anno">IgnoreCase</span></strong> is <strong>true</strong>
+the function does <a href="#casefold/1"> ing</a> on the fly before the equality test.
+</p><p>If <strong><span class="anno">Norm</span></strong> is not <strong>none</strong>
+the function applies normalization on the fly before the equality test.
+There are four available normalization forms:
+<a href="./unicode#characters_to_nfc_list/1">unicode#characters_to_nfc_list/1</a>,
+<a href="./unicode#characters_to_nfd_list/1">unicode#characters_to_nfd_list/1</a>,
+<a href="./unicode#characters_to_nfkc_list/1">unicode#characters_to_nfkc_list/1</a>, and
+<a href="./unicode#characters_to_nfkd_list/1">unicode#characters_to_nfkd_list/1</a>.
+</p><p>By default,
+<strong><span class="anno">IgnoreCase</span></strong> is <strong>false</strong> and
+<strong><span class="anno">Norm</span></strong> is <strong>none</strong>.</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">string:equal("Ã¥Ã¤Ã¶", &lt;&lt;"Ã¥Ã¤Ã¶"/utf8&gt;&gt;).</span>
+true
+2&gt; <span class="input">string:equal("Ã¥Ã¤Ã¶", unicode:characters_to_nfd_binary("Ã¥Ã¤Ã¶")).</span>
+false
+3&gt; <span class="input">string:equal("Ã¥Ã¤Ã¶", unicode:characters_to_nfd_binary("ÃÃÃ"), true, nfc).</span>
+true</pre><h2>find/2</h2><h2>find/3</h2><p>Find start of substring.</p><p>
+Removes anything before <strong><span class="anno">SearchPattern</span></strong> in <strong><span class="anno">String</span></strong>
+and returns the remainder of the string or <strong>nomatch</strong> if <strong><span class="anno">SearchPattern</span></strong> is not
+found.
+<strong><span class="anno">Dir</span></strong>, which can be <strong>leading</strong> or
+<strong>trailing</strong>, indicates from which direction characters
+are to be searched.
+</p><p>
+By default, <strong><span class="anno">Dir</span></strong> is <strong>leading</strong>.
+</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">string:find("ab..cd..ef", ".").</span>
+"..cd..ef"
+2&gt; <span class="input">string:find(&lt;&lt;"ab..cd..ef"&gt;&gt;, "..", trailing).</span>
+&lt;&lt;"..ef"&gt;&gt;
+3&gt; <span class="input">string:find(&lt;&lt;"ab..cd..ef"&gt;&gt;, "x", leading).</span>
+nomatch
+4&gt; <span class="input">string:find("ab..cd..ef", "x", trailing).</span>
+nomatch</pre><h2>is_empty/1</h2><p>Check if the string is empty.</p><p>Returns <strong>true</strong> if <strong><span class="anno">String</span></strong> is the
+empty string, otherwise <strong>false</strong>.</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">string:is_empty("foo").</span>
+false
+2&gt; <span class="input">string:is_empty(["",&lt;&lt;&gt;&gt;]).</span>
+true</pre><h2>length/1</h2><p>Calculate length of the string.</p><p>
+Returns the number of grapheme clusters in <strong><span class="anno">String</span></strong>.
+</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">string:length("ÃâeÌ").</span>
+3
+2&gt; <span class="input">string:length(&lt;&lt;195,159,226,134,145,101,204,138&gt;&gt;).</span>
+3</pre><h2>lexemes/2</h2><p>Split string into lexemes.</p><p>
+Returns a list of lexemes in <strong><span class="anno">String</span></strong>, separated
+by the grapheme clusters in <strong><span class="anno">SeparatorList</span></strong>.
+</p><p>
+Notice that, as shown in this example, two or more
+adjacent separator graphemes clusters in <strong><span class="anno">String</span></strong>
+are treated as one. That is, there are no empty
+strings in the resulting list of lexemes.
+See also <a href="#split/3">split/3</a> which returns
+empty strings.
+</p><p>Notice that <strong>[$\r,$\n]</strong> is one grapheme cluster.</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">string:lexemes("abc deÌfxxghix jkl\r\nfoo", "x e" ++ [[$\r,$\n]]).</span>
+["abc","deÌf","ghi","jkl","foo"]
+2&gt; <span class="input">string:lexemes(&lt;&lt;"abc deÌfxxghix jkl\r\nfoo"/utf8&gt;&gt;, "x e" ++ [$\r,$\n]).</span>
+[&lt;&lt;"abc"&gt;&gt;,&lt;&lt;"deÌf"/utf8&gt;&gt;,&lt;&lt;"ghi"&gt;&gt;,&lt;&lt;"jkl\r\nfoo"&gt;&gt;]</pre><h2>lowercase/1</h2><p>Convert a string to lowercase</p><p>
+Converts <strong><span class="anno">String</span></strong> to lowercase.
+</p><p>
+Notice that function <a href="#casefold/1">casefold/1</a>
+should be used when converting a string to
+be tested for equality.
+</p><p><em>Example:</em></p><pre>
+2&gt; <span class="input">string:lowercase(string:uppercase("MichaÅ")).</span>
+"michaÅ"</pre><h2>next_codepoint/1</h2><p>Pick the first codepoint.</p><p>
+Returns the first codepoint in <strong><span class="anno">String</span></strong>
+and the rest of <strong><span class="anno">String</span></strong> in the tail. Returns
+an empty list if <strong><span class="anno">String</span></strong> is empty or an
+<strong>{error, String}</strong> tuple if the next byte is invalid.
+</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">string:next_codepoint(unicode:characters_to_binary("eÌfg")).</span>
+[101|&lt;&lt;"Ìfg"/utf8&gt;&gt;]</pre><h2>next_grapheme/1</h2><p>Pick the first grapheme cluster.</p><p>
+Returns the first grapheme cluster in <strong><span class="anno">String</span></strong>
+and the rest of <strong><span class="anno">String</span></strong> in the tail. Returns
+an empty list if <strong><span class="anno">String</span></strong> is empty or an
+<strong>{error, String}</strong> tuple if the next byte is invalid.
+</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">string:next_grapheme(unicode:characters_to_binary("eÌfg")).</span>
+["eÌ"|&lt;&lt;"fg"&gt;&gt;]</pre><h2>nth_lexeme/3</h2><p>Pick the nth lexeme.</p><p>Returns lexeme number <strong><span class="anno">N</span></strong> in
+<strong><span class="anno">String</span></strong>, where lexemes are separated by
+the grapheme clusters in <strong><span class="anno">SeparatorList</span></strong>.
+</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">string:nth_lexeme("abc.deÌf.ghiejkl", 3, ".e").</span>
+"ghi"</pre><h2>pad/2</h2><h2>pad/3</h2><h2>pad/4</h2><p>Pad a string to given length.</p><p>
+Pads <strong><span class="anno">String</span></strong> to <strong><span class="anno">Length</span></strong> with
+grapheme cluster <strong><span class="anno">Char</span></strong>.
+<strong><span class="anno">Dir</span></strong>, which can be <strong>leading</strong>, <strong>trailing</strong>,
+or <strong>both</strong>, indicates where the padding should be added.
+</p><p>By default, <strong><span class="anno">Char</span></strong> is <strong>$\s</strong> and
+<strong><span class="anno">Dir</span></strong> is <strong>trailing</strong>.
+</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">string:pad(&lt;&lt;"HeÌllÃ¶"/utf8&gt;&gt;, 8).</span>
+[&lt;&lt;72,101,204,138,108,108,195,182&gt;&gt;,32,32,32]
+2&gt; <span class="input">io:format("'~ts'~n",[string:pad("HeÌllÃ¶", 8, leading)]).</span>
+'   HeÌllÃ¶'
+3&gt; <span class="input">io:format("'~ts'~n",[string:pad("HeÌllÃ¶", 8, both)]).</span>
+' HeÌllÃ¶  '</pre><h2>prefix/2</h2><p>Remove prefix from string.</p><p>
+If <strong><span class="anno">Prefix</span></strong> is the prefix of
+<strong><span class="anno">String</span></strong>, removes it and returns the
+remainder of <strong><span class="anno">String</span></strong>, otherwise returns
+<strong>nomatch</strong>.
+</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">string:prefix(&lt;&lt;"prefix of string"&gt;&gt;, "pre").</span>
+&lt;&lt;"fix of string"&gt;&gt;
+2&gt; <span class="input">string:prefix("pre", "prefix").</span>
+nomatch</pre><h2>replace/3</h2><h2>replace/4</h2><p>Replace a pattern in string.</p><p>
+Replaces <strong><span class="anno">SearchPattern</span></strong> in <strong><span class="anno">String</span></strong>
+with <strong><span class="anno">Replacement</span></strong>.
+<strong><span class="anno">Where</span></strong>, default <strong>leading</strong>, indicates whether
+the <strong>leading</strong>, the <strong>trailing</strong> or <strong>all</strong> encounters of
+<strong><span class="anno">SearchPattern</span></strong> are to be replaced.
+</p><p>Can be implemented as:</p><pre>lists:join(Replacement, split(String, SearchPattern, Where)).</pre><p><em>Example:</em></p><pre>
+1&gt; <span class="input">string:replace(&lt;&lt;"ab..cd..ef"&gt;&gt;, "..", "*").</span>
+[&lt;&lt;"ab"&gt;&gt;,"*",&lt;&lt;"cd..ef"&gt;&gt;]
+2&gt; <span class="input">string:replace(&lt;&lt;"ab..cd..ef"&gt;&gt;, "..", "*", all).</span>
+[&lt;&lt;"ab"&gt;&gt;,"*",&lt;&lt;"cd"&gt;&gt;,"*",&lt;&lt;"ef"&gt;&gt;]</pre><h2>reverse/1</h2><p>Reverses a string</p><p>
+Returns the reverse list of the grapheme clusters in <strong><span class="anno">String</span></strong>.
+</p><p><em>Example:</em></p><pre>
+1&gt; Reverse = <span class="input">string:reverse(unicode:characters_to_nfd_binary("ÃÃÃ")).</span>
+[[79,776],[65,776],[65,778]]
+2&gt; <span class="input">io:format("~ts~n",[Reverse]).</span>
+OÌAÌAÌ</pre><h2>slice/2</h2><h2>slice/3</h2><p>Extract a part of string</p><p>Returns a substring of <strong><span class="anno">String</span></strong> of
+at most <strong><span class="anno">Length</span></strong> grapheme clusters, starting at position
+<strong><span class="anno">Start</span></strong>.</p><p>By default, <strong><span class="anno">Length</span></strong> is <strong>infinity</strong>.</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">string:slice(&lt;&lt;"HeÌllÃ¶ WÃ¶rld"/utf8&gt;&gt;, 4).</span>
+&lt;&lt;"Ã¶ WÃ¶rld"/utf8&gt;&gt;
+2&gt; <span class="input">string:slice(["HeÌllÃ¶ ", &lt;&lt;"WÃ¶rld"/utf8&gt;&gt;], 4,4).</span>
+"Ã¶ WÃ¶"
+3&gt; <span class="input">string:slice(["HeÌllÃ¶ ", &lt;&lt;"WÃ¶rld"/utf8&gt;&gt;], 4,50).</span>
+"Ã¶ WÃ¶rld"</pre><h2>split/2</h2><h2>split/3</h2><p>Split a string into substrings.</p><p>
+Splits <strong><span class="anno">String</span></strong> where <strong><span class="anno">SearchPattern</span></strong>
+is encountered and return the remaining parts.
+<strong><span class="anno">Where</span></strong>, default <strong>leading</strong>, indicates whether
+the <strong>leading</strong>, the <strong>trailing</strong> or <strong>all</strong> encounters of
+<strong><span class="anno">SearchPattern</span></strong> will split <strong><span class="anno">String</span></strong>.
+</p><p><em>Example:</em></p><pre>
+0&gt; <span class="input">string:split("ab..bc..cd", "..").</span>
+["ab","bc..cd"]
+1&gt; <span class="input">string:split(&lt;&lt;"ab..bc..cd"&gt;&gt;, "..", trailing).</span>
+[&lt;&lt;"ab..bc"&gt;&gt;,&lt;&lt;"cd"&gt;&gt;]
+2&gt; <span class="input">string:split(&lt;&lt;"ab..bc....cd"&gt;&gt;, "..", all).</span>
+[&lt;&lt;"ab"&gt;&gt;,&lt;&lt;"bc"&gt;&gt;,&lt;&lt;&gt;&gt;,&lt;&lt;"cd"&gt;&gt;]</pre><h2>take/2</h2><h2>take/3</h2><h2>take/4</h2><p>Take leading or trailing parts.</p><p>Takes characters from <strong><span class="anno">String</span></strong> as long as
+the characters are members of set <strong><span class="anno">Characters</span></strong>
+or the complement of set <strong><span class="anno">Characters</span></strong>.
+<strong><span class="anno">Dir</span></strong>,
+which can be <strong>leading</strong> or <strong>trailing</strong>, indicates from
+which direction characters are to be taken.
+</p><p><em>Example:</em></p><pre>
+5&gt; <span class="input">string:take("abc0z123", lists:seq($a,$z)).</span>
+{"abc","0z123"}
+6&gt; <span class="input">string:take(&lt;&lt;"abc0z123"&gt;&gt;, lists:seq($0,$9), true, leading).</span>
+{&lt;&lt;"abc"&gt;&gt;,&lt;&lt;"0z123"&gt;&gt;}
+7&gt; <span class="input">string:take("abc0z123", lists:seq($0,$9), false, trailing).</span>
+{"abc0z","123"}
+8&gt; <span class="input">string:take(&lt;&lt;"abc0z123"&gt;&gt;, lists:seq($a,$z), true, trailing).</span>
+{&lt;&lt;"abc0z"&gt;&gt;,&lt;&lt;"123"&gt;&gt;}</pre><h2>titlecase/1</h2><p>Convert a string to titlecase.</p><p>
+Converts <strong><span class="anno">String</span></strong> to titlecase.
+</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">string:titlecase("Ã is a SHARP s").</span>
+"Ss is a SHARP s"</pre><h2>to_float/1</h2><p>Return a float whose text representation is the integers (ASCII values) of a string.</p><p>Argument <strong><span class="anno">String</span></strong> is expected to start with a
+valid text represented float (the digits are ASCII values).
+Remaining characters in the string after the float are returned in
+<strong><span class="anno">Rest</span></strong>.</p><p><em>Example:</em></p><pre>
+&gt; <span class="input">{F1,Fs} = string:to_float("1.0-1.0e-1"),</span>
+&gt; <span class="input">{F2,[]} = string:to_float(Fs),</span>
+&gt; <span class="input">F1+F2.</span>
+0.9
+&gt; <span class="input">string:to_float("3/2=1.5").</span>
+{error,no_float}
+&gt; <span class="input">string:to_float("-1.5eX").</span>
+{-1.5,"eX"}</pre><h2>to_integer/1</h2><p>Return an integer whose text representation is the integers (ASCII values) of a string.</p><p>Argument <strong><span class="anno">String</span></strong> is expected to start with a
+valid text represented integer (the digits are ASCII values).
+Remaining characters in the string after the integer are returned in
+<strong><span class="anno">Rest</span></strong>.</p><p><em>Example:</em></p><pre>
+&gt; <span class="input">{I1,Is} = string:to_integer("33+22"),</span>
+&gt; <span class="input">{I2,[]} = string:to_integer(Is),</span>
+&gt; <span class="input">I1-I2.</span>
+11
+&gt; <span class="input">string:to_integer("0.5").</span>
+{0,".5"}
+&gt; <span class="input">string:to_integer("x=2").</span>
+{error,no_integer}</pre><h2>to_graphemes/1</h2><p>Convert a string to a list of grapheme clusters.</p><p>
+Converts <strong><span class="anno">String</span></strong> to a list of grapheme clusters.
+</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">string:to_graphemes("ÃâeÌ").</span>
+[223,8593,[101,778]]
+2&gt; <span class="input">string:to_graphemes(&lt;&lt;"ÃâeÌ"/utf8&gt;&gt;).</span>
+[223,8593,[101,778]]</pre><h2>trim/1</h2><h2>trim/2</h2><h2>trim/3</h2><p>Trim leading or trailing, or both, characters.</p><p>
+Returns a string, where leading or trailing, or both,
+<strong><span class="anno">Characters</span></strong> have been removed.
+<strong><span class="anno">Dir</span></strong> which can be <strong>leading</strong>, <strong>trailing</strong>,
+or <strong>both</strong>, indicates from which direction characters
+are to be removed.
+</p><p> Default <strong><span class="anno">Characters</span></strong> is the set of
+nonbreakable whitespace codepoints, defined as
+Pattern_White_Space in
+<a href="http://unicode.org/reports/tr31/">Unicode Standard Annex #31</a>.
+<strong>By default, <span class="anno">Dir</span></strong> is <strong>both</strong>.
+</p><p>
+Notice that <strong>[$\r,$\n]</strong> is one grapheme cluster according
+to the Unicode Standard.
+</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">string:trim("\t  Hello  \n").</span>
+"Hello"
+2&gt; <span class="input">string:trim(&lt;&lt;"\t  Hello  \n"&gt;&gt;, leading).</span>
+&lt;&lt;"Hello  \n"&gt;&gt;
+3&gt; <span class="input">string:trim(&lt;&lt;".Hello.\n"&gt;&gt;, trailing, "\n.").</span>
+&lt;&lt;".Hello"&gt;&gt;</pre><h2>uppercase/1</h2><p>Convert a string to uppercase.</p><p>
+Converts <strong><span class="anno">String</span></strong> to uppercase.
+</p><p>See also <a href="#titlecase/1">titlecase/1</a>.</p><p><em>Example:</em></p><pre>
+1&gt; <span class="input">string:uppercase("MichaÅ").</span>
+"MICHAÅ"</pre><a name="oldapi"></a><h2>Obsolete API functions</h2><p>Here follows the function of the old API.
+These functions only work on a list of Latin-1 characters.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+The functions are kept for backward compatibility, but are
+not recommended.
+They will be deprecated in a future release.
+</p><p>Any undocumented functions in <strong>string</strong> are not to be used.</p></div><h1>Functions</h1><h2>centre/2</h2><h2>centre/3</h2><p>Center a string.</p><p>Returns a string, where <strong><span class="anno">String</span></strong> is centered in the
+string and surrounded by blanks or <strong><span class="anno">Character</span></strong>.
+The resulting string has length <strong><span class="anno">Number</span></strong>.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="#pad/3">pad/3</a>.
+</p><h2>chars/2</h2><h2>chars/3</h2><p>Return a string consisting of numbers of characters.</p><p>Returns a string consisting of <strong><span class="anno">Number</span></strong> characters
+<strong><span class="anno">Character</span></strong>. Optionally, the string can end with
+string <strong><span class="anno">Tail</span></strong>.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="./lists#duplicate/2">lists#duplicate/2</a>.</p><h2>chr/2</h2><p>Return the index of the first occurrence of a character in a string.</p><p>Returns the index of the first occurrence of
+<strong><span class="anno">Character</span></strong> in <strong><span class="anno">String</span></strong>. Returns
+<strong>0</strong> if <strong><span class="anno">Character</span></strong> does not occur.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="#find/2">find/2</a>.</p><h2>concat/2</h2><p>Concatenate two strings.</p><p>Concatenates <strong><span class="anno">String1</span></strong> and
+<strong><span class="anno">String2</span></strong> to form a new string
+<strong><span class="anno">String3</span></strong>, which is returned.</p><p>
+This function is <a href="#oldapi">obsolete</a>.
+Use <strong>[<span class="anno">String1</span>, <span class="anno">String2</span>]</strong> as
+<strong>Data</strong> argument, and call
+<a href="./unicode#characters_to_list/2">unicode#characters_to_list/2</a> or
+<a href="./unicode#characters_to_binary/2">unicode#characters_to_binary/2</a>
+to flatten the output.
+</p><h2>copies/2</h2><p>Copy a string.</p><p>Returns a string containing <strong><span class="anno">String</span></strong> repeated
+<strong><span class="anno">Number</span></strong> times.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="./lists#duplicate/2">lists#duplicate/2</a>.</p><h2>cspan/2</h2><p>Span characters at start of a string.</p><p>Returns the length of the maximum initial segment of
+<strong><span class="anno">String</span></strong>, which consists entirely of characters
+not from <strong><span class="anno">Chars</span></strong>.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="#take/3">take/3</a>.</p><p><em>Example:</em></p><pre><code class="">
+&gt; string:cspan("\t    abcdef", " \t").
+0</code></pre><h2>join/2</h2><p>Join a list of strings with separator.</p><p>Returns a string with the elements of <strong><span class="anno">StringList</span></strong>
+separated by the string in <strong><span class="anno">Separator</span></strong>.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="./lists#join/2">lists#join/2</a>.</p><p><em>Example:</em></p><pre><code class="">
+&gt; join(["one", "two", "three"], ", ").
+"one, two, three"</code></pre><h2>left/2</h2><h2>left/3</h2><p>Adjust left end of a string.</p><p>Returns <strong><span class="anno">String</span></strong> with the length adjusted in
+accordance with <strong><span class="anno">Number</span></strong>. The left margin is
+fixed. If <strong>length(<span class="anno">String</span>)</strong> &lt;
+<strong><span class="anno">Number</span></strong>, then <strong><span class="anno">String</span></strong> is padded
+with blanks or <strong><span class="anno">Character</span></strong>s.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="#pad/2">pad/2</a> or
+<a href="#pad/3">pad/3</a>.</p><p><em>Example:</em></p><pre><code class="">
+&gt; string:left("Hello",10,$.).
+"Hello....."</code></pre><h2>len/1</h2><p>Return the length of a string.</p><p>Returns the number of characters in <strong><span class="anno">String</span></strong>.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="#length/1">length/1</a>.</p><h2>rchr/2</h2><p>Return the index of the last occurrence of a character in a string.</p><p>Returns the index of the last occurrence of
+<strong><span class="anno">Character</span></strong> in <strong><span class="anno">String</span></strong>. Returns
+<strong>0</strong> if <strong><span class="anno">Character</span></strong> does not occur.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="#find/3">find/3</a>.</p><h2>right/2</h2><h2>right/3</h2><p>Adjust right end of a string.</p><p>Returns <strong><span class="anno">String</span></strong> with the length adjusted in
+accordance with <strong><span class="anno">Number</span></strong>. The right margin is
+fixed. If the length of <strong>(<span class="anno">String</span>)</strong> &lt;
+<strong><span class="anno">Number</span></strong>, then <strong><span class="anno">String</span></strong> is padded
+with blanks or <strong><span class="anno">Character</span></strong>s.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="#pad/3">pad/3</a>.</p><p><em>Example:</em></p><pre><code class="">
+&gt; string:right("Hello", 10, $.).
+".....Hello"</code></pre><h2>rstr/2</h2><p>Find the index of a substring.</p><p>Returns the position where the last occurrence of
+<strong><span class="anno">SubString</span></strong> begins in <strong><span class="anno">String</span></strong>.
+Returns <strong>0</strong> if <strong><span class="anno">SubString</span></strong>
+does not exist in <strong><span class="anno">String</span></strong>.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="#find/3">find/3</a>.</p><p><em>Example:</em></p><pre><code class="">
+&gt; string:rstr(" Hello Hello World World ", "Hello World").
+8</code></pre><h2>span/2</h2><p>Span characters at start of a string.</p><p>Returns the length of the maximum initial segment of
+<strong><span class="anno">String</span></strong>, which consists entirely of characters
+from <strong><span class="anno">Chars</span></strong>.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="#take/2">take/2</a>.</p><p><em>Example:</em></p><pre><code class="">
+&gt; string:span("\t    abcdef", " \t").
+5</code></pre><h2>str/2</h2><p>Find the index of a substring.</p><p>Returns the position where the first occurrence of
+<strong><span class="anno">SubString</span></strong> begins in <strong><span class="anno">String</span></strong>.
+Returns <strong>0</strong> if <strong><span class="anno">SubString</span></strong>
+does not exist in <strong><span class="anno">String</span></strong>.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="#find/2">find/2</a>.</p><p><em>Example:</em></p><pre><code class="">
+&gt; string:str(" Hello Hello World World ", "Hello World").
+8</code></pre><h2>strip/1</h2><h2>strip/2</h2><h2>strip/3</h2><p>Strip leading or trailing characters.</p><p>Returns a string, where leading or trailing, or both, blanks or a
+number of <strong><span class="anno">Character</span></strong> have been removed.
+<strong><span class="anno">Direction</span></strong>, which can be <strong>left</strong>, <strong>right</strong>,
+or <strong>both</strong>, indicates from which direction blanks are to be
+removed. <strong>strip/1</strong> is equivalent to
+<strong>strip(String, both)</strong>.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="#trim/3">trim/3</a>.</p><p><em>Example:</em></p><pre><code class="">
+&gt; string:strip("...Hello.....", both, $.).
+"Hello"</code></pre><h2>sub_string/2</h2><h2>sub_string/3</h2><p>Extract a substring.</p><p>Returns a substring of <strong><span class="anno">String</span></strong>, starting at
+position <strong><span class="anno">Start</span></strong> to the end of the string, or to
+and including position <strong><span class="anno">Stop</span></strong>.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="#slice/3">slice/3</a>.</p><p><em>Example:</em></p><pre><code class="">
+sub_string("Hello World", 4, 8).
+"lo Wo"</code></pre><h2>substr/2</h2><h2>substr/3</h2><p>Return a substring of a string.</p><p>Returns a substring of <strong><span class="anno">String</span></strong>, starting at
+position <strong><span class="anno">Start</span></strong>, and ending at the end of the
+string or at length <strong><span class="anno">Length</span></strong>.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="#slice/3">slice/3</a>.</p><p><em>Example:</em></p><pre><code class="">
+&gt; substr("Hello World", 4, 5).
+"lo Wo"</code></pre><h2>sub_word/2</h2><h2>sub_word/3</h2><p>Extract subword.</p><p>Returns the word in position <strong><span class="anno">Number</span></strong> of
+<strong><span class="anno">String</span></strong>. Words are separated by blanks or
+<strong><span class="anno">Character</span></strong>s.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="#nth_lexeme/3">nth_lexeme/3</a>.</p><p><em>Example:</em></p><pre><code class="">
+&gt; string:sub_word(" Hello old boy !",3,$o).
+"ld b"</code></pre><h2>to_lower/1</h2><h2>to_lower/1</h2><h2>to_upper/1</h2><h2>to_upper/1</h2><p>Convert case of string (ISO/IEC 8859-1).</p><ul><li>String</li></ul><ul><li>Result</li></ul><ul><li>Char</li></ul><ul><li>CharResult</li></ul><p>The specified string or character is case-converted. Notice that
+the supported character set is ISO/IEC 8859-1 (also called Latin 1);
+all values outside this set are unchanged</p><p>This function is <a href="#oldapi">obsolete</a> use
+<a href="#lowercase/1">lowercase/1</a>,
+<a href="#uppercase/1">uppercase/1</a>,
+<a href="#titlecase/1">titlecase/1</a> or
+<a href="#casefold/1">casefold/1</a>.</p><h2>tokens/2</h2><p>Split string into tokens.</p><p>Returns a list of tokens in <strong><span class="anno">String</span></strong>, separated
+by the characters in <strong><span class="anno">SeparatorList</span></strong>.</p><p><em>Example:</em></p><pre><code class="">
+&gt; tokens("abc defxxghix jkl", "x ").
+["abc", "def", "ghi", "jkl"]</code></pre><p>Notice that, as shown in this example, two or more
+adjacent separator characters in <strong><span class="anno">String</span></strong>
+are treated as one. That is, there are no empty
+strings in the resulting list of tokens.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="#lexemes/2">lexemes/2</a>.</p><h2>words/1</h2><h2>words/2</h2><p>Count blank separated words.</p><p>Returns the number of words in <strong><span class="anno">String</span></strong>, separated
+by blanks or <strong><span class="anno">Character</span></strong>.</p><p>This function is <a href="#oldapi">obsolete</a>.
+Use
+<a href="#lexemes/2">lexemes/2</a>.</p><p><em>Example:</em></p><pre><code class="">
+&gt; words(" Hello old boy!", $o).
+4</code></pre><h2>Notes</h2><p>Some of the general string functions can seem to overlap each
+other. The reason is that this string package is the
+combination of two earlier packages and all functions of
+both packages have been retained.</p></body></html>

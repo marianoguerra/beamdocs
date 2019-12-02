@@ -1,0 +1,265 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>ct_netconfc</h1><h1>ct_netconfc</h1><p>NETCONF client module.</p><p>NETCONF client module.The NETCONF client is compliant with RFC 4741 NETCONF Configuration
+Protocol and RFC 4742 Using the NETCONF Configuration Protocol over
+Secure SHell (SSH).<a name="Connecting"></a><em>Connecting to a NETCONF server</em>NETCONF sessions can either be opened by a single call
+to <a href="#open-1">open-1</a> or by a call
+to <a href="#connect-1">connect-1</a> followed
+by one or more calls to
+<a href="#session-1">session-1</a>.The properties of the sessions will be exactly the same, except
+that when
+using <a href="#connect-1">connect-1</a>, you
+may start multiple sessions over the same SSH connection. Each
+session is implemented as an SSH channel.<a href="#open-1">open-1</a> will establish one
+SSH connection with one SSH channel implementing one NETCONF
+session. You may start mutiple sessions by
+calling <a href="#open-1">open-1</a> multiple
+times, but then a new SSH connection will be established for each
+session.For each server to test against, the following entry can be added to a
+configuration file:<pre>
+ {server_id(),options()}.</pre>The <a href="#type-server_id">type-server_id</a>
+or an associated
+<a href="./ct#type-target_name">ct#type-target_name</a>
+must then be used in calls to
+<a href="#connect-2">connect-2</a>
+or <a href="#open-2">open-2</a>.If no configuration exists for a server,
+use <a href="#connect-1">connect-1</a>
+or <a href="#open-1">open-1</a> instead,
+and specify all necessary options in the <strong>Options</strong> parameter.<a name="Logging"></a><em>Logging</em>The NETCONF server uses <strong>error_logger</strong> for logging of NETCONF
+traffic. A special purpose error handler is implemented in
+<strong>ct_conn_log_h</strong>. To use this error handler, add the
+<strong>cth_conn_log</strong> hook in the test suite, for example:<pre>
+ suite() -&gt;
+    [{ct_hooks, [{cth_conn_log, [{,}]}]}].</pre><strong>conn_log_mod()</strong> is the name of the <strong>Common Test</strong> module
+implementing the connection protocol, for example, <strong>ct_netconfc</strong>.Hook option <strong>log_type</strong> specifies the type of logging:<dl><dt><strong>raw</strong></dt><dd><p>The sent and received NETCONF data is logged to a separate
+text file "as is" without any formatting. A link to the file is
+added to the test case HTML log.</p></dd><dt><strong>pretty</strong></dt><dd><p>The sent and received NETCONF data is logged to a separate
+text file with XML data nicely indented. A link to the file is
+added to the test case HTML log.</p></dd><dt><strong>html (default)</strong></dt><dd><p>The sent and received NETCONF traffic is pretty printed
+directly in the test case HTML log.</p></dd><dt><strong>silent</strong></dt><dd><p>NETCONF traffic is not logged.</p></dd></dl>By default, all NETCONF traffic is logged in one single log file.
+However, different connections can be logged in separate files.
+To do this, use hook option <strong>hosts</strong> and list the names of the
+servers/connections to be used in the suite. The connections
+must be named for this to work, that is, they must be opened with
+<a href="#open-2">open-2</a>.Option <strong>hosts</strong> has no effect if <strong>log_type</strong> is set to
+<strong>html</strong> or <strong>silent</strong>.The hook options can also be specified in a configuration file with
+configuration variable <strong>ct_conn_log</strong>:<pre>
+ {ct_conn_log,[{,}]}.</pre>For example:<pre>
+ {ct_conn_log,[{ct_netconfc,[{log_type,pretty},
+                             {hosts,[]}]}]}</pre><em>Logging Example 1:</em><a name="Logging_example_1"></a>The following <strong>ct_hooks</strong> statement causes pretty printing of
+NETCONF traffic to separate logs for the connections named
+<strong>nc_server1</strong> and <strong>nc_server2</strong>. Any other connections are
+logged to default NETCONF log.<pre>
+ suite() -&gt;
+    [{ct_hooks, [{cth_conn_log, [{ct_netconfc,[{log_type,pretty}},
+                                               {hosts,[nc_server1,nc_server2]}]}
+                                ]}]}].</pre>Connections must be opened as follows:<pre>
+ open(nc_server1,[...]),
+ open(nc_server2,[...]).</pre><em>Logging Example 2:</em><a name="Logging_example_2"></a>The following configuration file causes raw logging of all NETCONF 
+traffic in to one single text file:<pre>
+ {ct_conn_log,[{ct_netconfc,[{log_type,raw}]}]}.</pre>The <strong>ct_hooks</strong> statement must look as follows:<pre>
+ suite() -&gt;
+    [{ct_hooks, [{cth_conn_log, []}]}].</pre>The same <strong>ct_hooks</strong> statement without the configuration file
+would cause HTML logging of all NETCONF connections in to the test
+case HTML log.<a name="Notifications"></a><em>Notifications</em>The NETCONF client is also compliant with RFC 5277 NETCONF Event
+Notifications, which defines a mechanism for an asynchronous message 
+notification delivery service for the NETCONF protocol.Specific functions to support this are
+<a href="#create_subscription-1">create_subscription-1</a>
+and
+<a href="#get_event_streams-1">get_event_streams-1</a>.<a name="Default_timeout"></a><em>Default Timeout</em>Most of the functions in this module have one variant with
+a <strong>Timeout</strong> parameter, and one without. If nothing else is
+specified, the default value <strong>infinity</strong> is used when
+the <strong>Timeout</strong> parameter is not given.</p><h1>Data Types</h1><span class="name">client</span><span class="name">error_reason</span><span class="name">event_time</span><span class="name">handle</span><p>Opaque reference for a connection to a NETCONF server or a
+NETCONF session.</p><span class="name">host</span><span class="name">netconf_db</span><span class="name">notification</span><span class="name">notification_content</span><span class="name">option</span><p><strong>SshConnectOption</strong> is any valid option to
+<a href="../ssh/ssh#connect-3">ssh/ssh#connect-3</a>.
+Common options used are <strong>user</strong>, <strong>password</strong>
+and <strong>user_dir</strong>. The <strong>SshConnectOptions</strong> are
+verfied by the SSH application.</p><span class="name">options</span><p>Options used for setting up an SSH connection to a NETCONF
+server.</p><span class="name">server_id</span><p>The identity of a server, specified in a configuration
+file.</p><span class="name">simple_xml</span><p>This type is further described in application
+<a href="./index">xmerl/index</a>.</p><span class="name">stream_data</span><p>For details about the data format for the string values, see
+"XML Schema for Event Notifications" in RFC 5277.</p><span class="name">stream_name</span><span class="name">streams</span><span class="name">xml_attribute_tag</span><span class="name">xml_attribute_value</span><span class="name">xml_attributes</span><span class="name">xml_content</span><span class="name">xml_tag</span><span class="name">xpath</span><span class="name">xs_datetime</span><p>This date and time identifier has the same format as the XML type
+<strong>dateTime</strong> and is compliant with RFC 3339 Date and Time on
+the Internet Timestamps. The format is as follows:</p><pre>
+ [-]CCYY-MM-DDThh:mm:ss[.s][Z|(+|-)hh:mm]</pre><h1>Functions</h1><h2>action/2</h2><h2>action/3</h2><p>Executes an action.</p><p>Executes an action. If the return type is void, <strong>ok</strong> is
+returned instead of <strong>{ok,[simple_xml()]}</strong>.</p><h2>close_session/1</h2><h2>close_session/2</h2><p>Requests graceful termination of the session associated with the client.</p><p>Requests graceful termination of the session associated with the
+client.</p><p>When a NETCONF server receives a <strong>close-session</strong> request, it
+gracefully closes the session.  The server releases any locks and
+resources associated with the session and gracefully closes any
+associated connections. Any NETCONF requests received after a
+<strong>close-session</strong> request are ignored.</p><h2>connect/1</h2><p>Opens an SSH connection to a NETCONF server.</p><p>Opens an SSH connection to a NETCONF server.</p><p>If the server options are specified in a configuration file, use
+<a href="#connect-2">connect-2</a>
+instead.</p><p>The opaque <a href="#type-handle">type-handle</a>
+reference returned from this
+function is required as connection identifier when opening
+sessions over this connection, see
+<a href="#session-1">session-1</a>.</p><p>Option <strong>timeout</strong> (milliseconds) is used when setting up the
+SSH connection. It is not used for any other purposes during the
+lifetime of the connection.</p><h2>connect/2</h2><p>Opens an SSH connection to a named NETCONF server.</p><p>Open an SSH connection to a named NETCONF server.</p><p>If <strong><span class="anno">KeyOrName</span></strong> is a
+configured <strong>server_id()</strong> or a
+<strong>target_name()</strong> associated with such an Id, then the options
+for this server are fetched from the configuration file.</p><p>Argument <strong><span class="anno">ExtraOptions</span></strong> is added to the
+options found in the configuration file. If the same options
+are specified, the values from the configuration file
+overwrite <strong><span class="anno">ExtraOptions</span></strong>.</p><p>If the server is not specified in a configuration file, use
+<a href="#connect-1">connect-1</a>
+instead.</p><p>The opaque <a href="#type-handle">type-handle</a>
+reference returned from this
+function can be used as connection identifier when opening
+sessions over this connection, see
+<a href="#session-1">session-1</a>.
+However, if <strong><span class="anno">KeyOrName</span></strong> is a
+<strong>target_name()</strong>, that is, if the server is named through a
+call to <a href="./ct#require-2">ct#require-2</a>
+or a <strong>require</strong> statement in the test suite, then this name can
+be used instead of
+<a href="#type-handle">type-handle</a>.</p><p>Option <strong>timeout</strong> (milliseconds) is used when setting up the
+SSH connection. It is not used for any other purposes during the
+lifetime of the connection.</p><h2>copy_config/3</h2><h2>copy_config/4</h2><p>Copies configuration data.</p><p>Copies configuration data.</p><p>Which source and target options that can be issued depends on the
+capabilities supported by the server. That is, <strong>:candidate</strong>
+and/or <strong>:startup</strong> are required.</p><h2>create_subscription(Client) -&gt; Result</h2><h2>create_subscription(Client, Stream) -&gt; Result</h2><h2>create_subscription(Client, Stream, Filter) -&gt; Result</h2><h2>create_subscription(Client, Stream, Filter, Timeout) -&gt; Result</h2><h2>create_subscription/5</h2><h2>create_subscription/6</h2><p>Creates a subscription for event notifications.</p><p>Creates a subscription for event notifications.</p><p>This function sets up a subscription for NETCONF event
+notifications of the specified stream type, matching the specified
+filter. The calling process receives notifications as messages of
+type <a href="#type-notification">type-notification</a>.</p><p>Only a subset of the function clauses are show above. The
+full set of valid combinations of input parameters is as
+follows:</p><pre>create_subscription(Client)
+
+create_subscription(Client, Timeout)
+create_subscription(Client, Stream)
+create_subscription(Client, Filter)
+
+create_subscription(Client, Stream, Timeout)
+create_subscription(Client, Filter, Timeout)
+create_subscription(Client, Stream, Filter)
+create_subscription(Client, StartTime, StopTime)
+
+create_subscription(Client, Stream, Filter, Timeout)
+create_subscription(Client, StartTime, StopTime, Timeout)
+create_subscription(Client, Stream, StartTime, StopTime)
+create_subscription(Client, Filter, StartTime, StopTime)
+
+create_subscription(Client, Stream, StartTime, StopTime, Timeout)
+create_subscription(Client, Stream, Filter, StartTime, StopTime)
+create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre><dl><dt><strong><span class="anno">Stream</span></strong></dt><dd><p>Optional parameter that indicates which stream of event
+is of interest. If not present, events in the default NETCONF
+stream are sent.</p></dd><dt><strong><span class="anno">Filter</span></strong></dt><dd><p>Optional parameter that indicates which subset of all
+possible events is of interest. The parameter format is the
+same as that of the filter parameter in the NETCONF protocol
+operations. If not present, all events not precluded by other
+parameters are sent.</p></dd><dt><strong><span class="anno">StartTime</span></strong></dt><dd><p>Optional parameter used to trigger the replay feature and
+indicate that the replay is to start at the time specified.
+If <strong><span class="anno">StartTime</span></strong> is not present, this is not a
+replay subscription.</p> <p>It is not valid to specify start times that are later than
+the current time. If <strong><span class="anno">StartTime</span></strong> is specified
+earlier than the log can support, the replay begins with the
+earliest available notification.</p> <p>This parameter is of type <strong>dateTime</strong> and compliant to
+RFC 3339. Implementations must support time zones.</p></dd><dt><strong><span class="anno">StopTime</span></strong></dt><dd><p>Optional parameter used with the optional replay feature
+to indicate the newest notifications of interest. If
+<strong><span class="anno">StopTime</span></strong> is not present, the notifications
+continues until the subscription is terminated.</p> <p>Must be used with and be later than <strong>StartTime</strong>. Values
+of <strong><span class="anno">StopTime</span></strong> in the future are valid. This
+parameter is of type <strong>dateTime</strong> and compliant to RFC 3339.
+Implementations must support time zones.</p></dd></dl><p>For more details about the event notification mechanism, see
+RFC 5277.</p><h2>delete_config/2</h2><h2>delete_config/3</h2><p>Deletes configuration data.</p><p>Deletes configuration data.</p><p>The running configuration cannot be deleted and <strong>:candidate</strong>
+or <strong>:startup</strong> must be advertised by the server.</p><h2>disconnect/1</h2><p>Closes the given SSH connection.</p><p>Closes the given SSH connection.</p><p>If there are open NETCONF sessions on the connection, these
+will be brutally aborted. To avoid this, close each session
+with <a href="#close_session-1">close_session-1</a></p><h2>edit_config/3</h2><h2>edit_config/4</h2><h2>edit_config/4</h2><h2>edit_config/5</h2><p>Edits configuration data.</p><p>Edits configuration data.</p><p>By default only the running target is available, unless the server
+includes <strong>:candidate</strong> or <strong>:startup</strong> in its list of
+capabilities.</p><p><strong>OptParams</strong> can be used for specifying optional parameters
+(<strong>default-operation</strong>, <strong>test-option</strong>, or
+<strong>error-option</strong>) to be added to the <strong>edit-config</strong>
+request. The value must be a list containing valid simple XML,
+for example:</p><pre>
+ [{'default-operation', ["none"]},
+  {'error-option', ["rollback-on-error"]}]</pre><p>If <strong><span class="anno">OptParams</span></strong> is not given, the default
+value <strong>[]</strong> is used.</p><h2>get/2</h2><h2>get/3</h2><p>Gets data.</p><p>Gets data.</p><p>This operation returns both configuration and state data from the
+server.</p><p>Filter type <strong>xpath</strong> can be used only if the server supports
+<strong>:xpath</strong>.</p><h2>get_capabilities/1</h2><h2>get_capabilities/2</h2><p>Returns the server side capabilities.</p><p>Returns the server side capabilities.</p><p>The following capability identifiers, defined in RFC 4741 NETCONF
+Configuration Protocol, can be returned:</p><ul><li><p><strong>"urn:ietf:params:netconf:base:1.0"</strong></p></li><li><p><strong>"urn:ietf:params:netconf:capability:writable-running:1.0"</strong></p></li><li><p><strong>"urn:ietf:params:netconf:capability:candidate:1.0"</strong></p></li><li><p><strong>"urn:ietf:params:netconf:capability:confirmed-commit:1.0"</strong></p></li><li><p><strong>"urn:ietf:params:netconf:capability:rollback-on-error:1.0"</strong></p></li><li><p><strong>"urn:ietf:params:netconf:capability:startup:1.0"</strong></p></li><li><p><strong>"urn:ietf:params:netconf:capability:url:1.0"</strong></p></li><li><p><strong>"urn:ietf:params:netconf:capability:xpath:1.0"</strong></p></li></ul><p>More identifiers can exist, for example, server-side namespace.</p><h2>get_config/3</h2><h2>get_config/4</h2><p>Gets configuration data.</p><p>Gets configuration data.</p><p>To be able to access another source than <strong>running</strong>, the
+server must advertise <strong>:candidate</strong> and/or <strong>:startup</strong>.</p><p>Filter type <strong>xpath</strong> can be used only if the server supports
+<strong>:xpath</strong>.</p><h2>get_event_streams/1</h2><h2>get_event_streams/2</h2><h2>get_event_streams/2</h2><h2>get_event_streams/3</h2><p>Sends a request to get the specified event streams.</p><p>Sends a request to get the specified event streams.</p><p><strong>Streams</strong> is a list of stream names. The following filter is
+sent to the NETCONF server in a <strong>get</strong> request:</p><pre>
+ &lt;netconf xmlns="urn:ietf:params:xml:ns:netmod:notification"&gt;
+   &lt;streams&gt;
+     &lt;stream&gt;
+       &lt;name&gt;StreamName1&lt;/name&gt;
+     &lt;/stream&gt;
+     &lt;stream&gt;
+       &lt;name&gt;StreamName2&lt;/name&gt;
+     &lt;/stream&gt;
+     ...
+   &lt;/streams&gt;
+ &lt;/netconf&gt;</pre><p>If <strong>Streams</strong> is an empty list, <em>all</em> streams are
+requested by sending the following filter:</p><pre>
+ &lt;netconf xmlns="urn:ietf:params:xml:ns:netmod:notification"&gt;
+   &lt;streams/&gt;
+ &lt;/netconf&gt;</pre><p>If more complex filtering is needed, use
+<a href="#get-2">get-2</a> and
+specify the exact filter according to "XML Schema for Event
+Notifications" in RFC 5277.</p><h2>get_session_id/1</h2><h2>get_session_id/2</h2><p>Returns the session Id associated with the specified client.</p><p>Returns the session Id associated with the specified client.</p><h2>hello/1</h2><h2>hello/2</h2><h2>hello/3</h2><p>Exchanges hello messages with the server.</p><p>Exchanges <strong>hello</strong> messages with the server.</p><p>Adds optional capabilities and sends a <strong>hello</strong> message to the
+server and waits for the return.</p><h2>kill_session/2</h2><h2>kill_session/3</h2><p>Forces termination of the session associated with the supplied session Id.</p><p>Forces termination of the session associated with the supplied
+session Id.</p><p>The server side must abort any ongoing operations, release any
+locks and resources associated with the session, and close any
+associated connections.</p><p>Only if the server is in the confirmed commit phase, the
+configuration is restored to its state before entering the confirmed
+commit phase. Otherwise, no configuration rollback is performed.</p><p>If the specified <strong>SessionId</strong> is equal to the current session
+Id, an error is returned.</p><h2>lock/2</h2><h2>lock/3</h2><p>Locks the configuration target.</p><p>Locks the configuration target.</p><p>Which target parameters that can be used depends on if
+<strong>:candidate</strong> and/or <strong>:startup</strong> are supported by the
+server. If successfull, the configuration system of the device is
+unavailable to other clients (NETCONF, CORBA, SNMP, and so on).
+Locks are intended to be short-lived.</p><p>Operation
+<a href="#kill_session-2">kill_session-2</a>
+can be used to force the release of a lock owned by another NETCONF
+session. How this is achieved by the server side is
+implementation-specific.</p><h2>only_open/1</h2><p>Opens a NETCONF session, but does not send hello.</p><p>Opens a NETCONF session, but does not send <strong>hello</strong>.</p><p>As <a href="#open-1">open-1</a>, but
+does not send a <strong>hello</strong> message.</p><h2>only_open/2</h2><p>Opens a named NETCONF session, but does not send hello.</p><p>Opens a named NETCONF session, but does not send <strong>hello</strong>.</p><p>As <a href="#open-2">open-2</a>, but
+does not send a <strong>hello</strong> message.</p><h2>open/1</h2><p>Opens a NETCONF session and exchanges hello messages.</p><p>Opens a NETCONF session and exchanges <strong>hello</strong> messages.</p><p>If the server options are specified in a configuration file,
+or if a named client is needed for logging purposes (see section
+<a href="#Logging">Logging</a> in this module), use
+<a href="#open-2">open-2</a>
+instead.</p><p>The opaque <a href="#type-handle">type-handle</a>
+reference returned from this
+function is required as client identifier when calling any other
+function in this module.</p><p>Option <strong>timeout</strong> (milliseconds) is used when setting up the
+SSH connection and when waiting for the <strong>hello</strong> message from
+the server. It is not used for any other purposes during the
+lifetime of the connection.</p><h2>open/2</h2><p>Opens a named NETCONF session and exchanges hello messages.</p><p>Opens a named NETCONF session and exchanges <strong>hello</strong>
+messages.</p><p>If <strong><span class="anno">KeyOrName</span></strong> is a
+configured <strong>server_id()</strong> or a
+<strong>target_name()</strong> associated with such an Id, then the options
+for this server are fetched from the configuration file.</p><p>Argument <strong><span class="anno">ExtraOptions</span></strong> is added to the
+options found in the configuration file. If the same
+options are specified, the values from the configuration
+file overwrite <strong><span class="anno">ExtraOptions</span></strong>.</p><p>If the server is not specified in a configuration file, use
+<a href="#open-1">open-1</a>
+instead.</p><p>The opaque <a href="#type-handle">type-handle</a>
+reference returned from this
+function can be used as client identifier when calling any other
+function in this module. However, if <strong><span class="anno">KeyOrName</span></strong> is a
+<strong>target_name()</strong>, that is, if the server is named through a
+call to <a href="./ct#require-2">ct#require-2</a>
+or a <strong>require</strong> statement in the test suite, then this name can
+be used instead of
+<a href="#type-handle">type-handle</a>.</p><p>Option <strong>timeout</strong> (milliseconds) is used when setting up the
+SSH connection and when waiting for the <strong>hello</strong> message from
+the server. It is not used for any other purposes during the
+lifetime of the connection.</p><p>See also
+<a href="./ct#require-2">ct#require-2</a>.</p><h2>send/2</h2><h2>send/3</h2><p>Sends an XML document to the server.</p><p>Sends an XML document to the server.</p><p>The specified XML document is sent "as is" to the server. This
+function can be used for sending XML documents that cannot be
+expressed by other interface functions in this module.</p><h2>send_rpc/2</h2><h2>send_rpc/3</h2><p>Sends a NETCONF rpc request to the server.</p><p>Sends a NETCONF <strong>rpc</strong> request to the server.</p><p>The specified XML document is wrapped in a valid NETCONF <strong>rpc</strong>
+request and sent to the server. The <strong>message-id</strong> and namespace
+attributes are added to element <strong>rpc</strong>.</p><p>This function can be used for sending <strong>rpc</strong> requests that
+cannot be expressed by other interface functions in this module.</p><h2>session/1</h2><h2>session/2</h2><h2>session/2</h2><h2>session/3</h2><p>Opens a NETCONF session as a channel on the given SSH connection, and exchanges hello messages with the server.</p><ul><li>session_options</li></ul><ul><li>session_option</li></ul><p>Opens a NETCONF session as a channel on the given SSH
+connection, and exchanges hello messages with the server.</p><p>The opaque <a href="#type-handle">type-handle</a>
+reference returned from this
+function can be used as client identifier when calling any
+other function in this module. However, if <strong><span class="anno">KeyOrName</span></strong>
+is used and it is a <strong>target_name()</strong>, that is, if the
+server is named through a call
+to <a href="./ct#require-2">ct#require-2</a>
+or a <strong>require</strong> statement in the test suite, then this
+name can be used instead of
+<a href="#type-handle">type-handle</a>.</p><h2>unlock/2</h2><h2>unlock/3</h2><p>Unlocks the configuration target.</p><p>Unlocks the configuration target.</p><p>If the client earlier has acquired a lock through
+<a href="#lock-2">lock-2</a>, this
+operation releases the associated lock. To access another target
+than <strong>running</strong>, the server must support <strong>:candidate</strong>
+and/or <strong>:startup</strong>.</p></body></html>

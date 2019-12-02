@@ -1,0 +1,96 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Distributed Erlang</h1><h2>Distributed Erlang System</h2><p>A <em>distributed Erlang system</em> consists of a number of
+Erlang runtime systems communicating with each other. Each such
+runtime system is called a <em>node</em>. Message passing between
+processes at different nodes, as well as links and monitors, are
+transparent when pids are used. Registered names, however, are
+local to each node. This means that the node must be specified as well
+when sending messages, and so on, using registered names.</p><p>The distribution mechanism is implemented using TCP/IP sockets.
+How to implement an alternative carrier is described in the
+<a href="./alt_dist">ERTS User's Guide</a>.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>
+Starting a distributed node without also specifying
+<a href="../erts/erl#proto_dist">erts/erl#proto_dist</a>
+will expose the node to attacks that may give the attacker
+complete access to the node and in extension the cluster.
+When using un-secure distributed nodes, make sure that the
+network is configured to keep potential attackers out.
+See the <a href="./ssl_distribution"> Using SSL for Erlang Distribution</a> User's Guide
+for details on how to setup a secure distributed node.
+</p></div><h2>Nodes</h2><p>A <em>node</em> is an executing Erlang runtime system that has
+been given a name, using the command-line flag <strong>-name</strong>
+(long names) or <strong>-sname</strong> (short names).</p><p>The format of the node name is an atom <strong>name@host</strong>.
+<strong>name</strong> is the name given by the user. <strong>host</strong> is
+the full host name if long names are used, or the first part of
+the host name if short names are used. <strong>node()</strong> returns
+the name of the node.</p><p><em>Example:</em></p><pre>
+% <span class="input">erl -name dilbert</span>
+(dilbert@uab.ericsson.se)1&gt; <span class="input">node().</span>
+'dilbert@uab.ericsson.se'
+
+% <span class="input">erl -sname dilbert</span>
+(dilbert@uab)1&gt; <span class="input">node().</span>
+dilbert@uab</pre><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>A node with a long node name cannot communicate with a node
+with a short node name.</p></div><h2>Node Connections</h2><p>The nodes in a distributed Erlang system are loosely connected.
+The first time the name of another node is used, for example, if
+<strong>spawn(Node,M,F,A)</strong> or <strong>net_adm:ping(Node)</strong> is called,
+a connection attempt to that node is made.</p><p>Connections are by default transitive. If a node A connects to
+node B, and node B has a connection to node C, then node A
+also tries to connect to node C. This feature can be turned off by
+using the command-line flag <strong>-connect_all false</strong>, see the
+<a href="./erl">erl(1)</a> manual page in ERTS.</p><p>If a node goes down, all connections to that node are removed.
+Calling <strong>erlang:disconnect_node(Node)</strong> forces disconnection
+of a node.</p><p>The list of (visible) nodes currently connected to is returned by
+<strong>nodes()</strong>.</p><h2>epmd</h2><p>The Erlang Port Mapper Daemon <em>epmd</em> is automatically
+started at every host where an Erlang node is started. It is
+responsible for mapping the symbolic node names to machine
+addresses. See the
+<a href="./epmd">epmd(1)</a> manual page in ERTS.</p><h2>Hidden Nodes</h2><p>In a distributed Erlang system, it is sometimes useful to
+connect to a node without also connecting to all other nodes.
+An example is some kind of O&amp;M functionality used to
+inspect the status of a system, without disturbing it. For this
+purpose, a <em>hidden node</em> can be used.</p><p>A hidden node is a node started with the command-line flag
+<strong>-hidden</strong>. Connections between hidden nodes and other nodes
+are not transitive, they must be set up explicitly. Also, hidden
+nodes does not show up in the list of nodes returned by
+<strong>nodes()</strong>. Instead, <strong>nodes(hidden)</strong> or
+<strong>nodes(connected)</strong> must be used. This means, for example,
+that the hidden node is not added to the set of nodes that
+<strong>global</strong> is keeping track of.</p><p>This feature was added in Erlang 5.0/OTP R7.</p><h2>C Nodes</h2><p>A <em>C node</em> is a C program written to act as a hidden node
+in a distributed Erlang system. The library <em>Erl_Interface</em>
+contains functions for this purpose. For more information about
+C nodes, see the <a href="./ei_users_guide"> Erl_Interface</a> application and
+<a href="../doc/tutorial/introduction#interoperability tutorial"> Interoperability Tutorial.</a>.</p><h2>Security</h2><p>Authentication determines which nodes are allowed to communicate
+with each other. In a network of different Erlang nodes, it is
+built into the system at the lowest possible level. Each node has
+its own <em>magic cookie</em>, which is an Erlang atom.</p><p>When a node tries to connect to another node, the magic cookies
+are compared. If they do not match, the connected node rejects
+the connection.</p><p>At start-up, a node has a random atom assigned as its magic
+cookie and the cookie of other nodes is assumed to be
+<strong>nocookie</strong>. The first action of the Erlang network
+authentication server (<strong>auth</strong>) is then to read a file named
+<strong>$HOME/.erlang.cookie</strong>. If the file does not exist, it is
+created. The UNIX permissions mode of the file is set to octal
+400 (read-only by user) and its contents are a random string. An
+atom <strong>Cookie</strong> is created from the contents of the file and
+the cookie of the local node is set to this using
+<strong>erlang:set_cookie(node(), Cookie)</strong>. This also makes
+the local node assume that all other nodes have the same cookie
+<strong>Cookie</strong>.</p><p>Thus, groups of users with identical cookie files get Erlang
+nodes that can communicate freely and without interference from
+the magic cookie system. Users who want to run nodes on separate
+file systems must make certain that their cookie files are
+identical on the different file systems.</p><p>For a node <strong>Node1</strong> with magic cookie <strong>Cookie</strong> to be
+able to connect to, or accept a connection from, another node
+<strong>Node2</strong> with a different cookie <strong>DiffCookie</strong>,
+the function <strong>erlang:set_cookie(Node2, DiffCookie)</strong> must
+first be called at <strong>Node1</strong>. Distributed systems with
+multiple user IDs can be handled in this way.</p><p>The default when a connection is established between two nodes,
+is to immediately connect all other visible nodes as well. This
+way, there is always a fully connected network. If there are
+nodes with different cookies, this method can be inappropriate
+and the command-line flag <strong>-connect_all false</strong> must be set,
+see the <a href="./erl">erl(1)</a>
+manual page in ERTS.</p><p>The magic cookie of the local node is retrieved by calling
+<strong>erlang:get_cookie()</strong>.</p><h2>Distribution BIFs</h2><p>Some useful BIFs for distributed programming
+(for more information, see the <a href="./erlang"> erlang(3)</a> manual page in ERTS:</p><table class="table table-bordered table-hover table-striped"><caption>Distribution BIFs</caption><tbody><tr><td><em>BIF</em></td><td><em>Description</em></td></tr><tr><td><strong>erlang:disconnect_node(Node)</strong></td><td>Forces the disconnection of a node.</td></tr><tr><td><strong>erlang:get_cookie()</strong></td><td>Returns the magic cookie of the current node.</td></tr><tr><td><strong>is_alive()</strong></td><td>Returns <strong>true</strong> if the runtime system is a node and can connect to other nodes, <strong>false</strong> otherwise.</td></tr><tr><td><strong>monitor_node(Node, true|false)</strong></td><td>Monitors the status of <strong>Node</strong>. A message<strong>{nodedown, Node}</strong> is received if the connection to it is lost.</td></tr><tr><td><strong>node()</strong></td><td>Returns the name of the current node. Allowed in guards.</td></tr><tr><td><strong>node(Arg)</strong></td><td>Returns the node where <strong>Arg</strong>, a pid, reference, or port, is located.</td></tr><tr><td><strong>nodes()</strong></td><td>Returns a list of all visible nodes this node is connected to.</td></tr><tr><td><strong>nodes(Arg)</strong></td><td>Depending on <strong>Arg</strong>, this function can return a list not only of visible nodes, but also hidden nodes and previously known nodes, and so on.</td></tr><tr><td><strong>erlang:set_cookie(Node, Cookie)</strong></td><td>Sets the magic cookie used when connecting to <strong>Node</strong>. If <strong>Node</strong> is the current node, <strong>Cookie</strong> is used when connecting to all new nodes.</td></tr><tr><td><strong>spawn[_link|_opt](Node, Fun)</strong></td><td>Creates a process at a remote node.</td></tr><tr><td><strong>spawn[_link|opt](Node, Module, FunctionName, Args)</strong></td><td>Creates a process at a remote node.</td></tr></tbody></table><h2>Distribution Command-Line Flags</h2><p>Examples of command-line flags used for distributed programming
+(for more information, see the <a href="./erl">erl(1) </a> manual page in ERTS:</p><table class="table table-bordered table-hover table-striped"><caption>Distribution Command-Line Flags</caption><tbody><tr><td><em>Command-Line Flag</em></td><td><em>Description</em></td></tr><tr><td><strong>-connect_all false</strong></td><td>Only explicit connection set-ups are used.</td></tr><tr><td><strong>-hidden</strong></td><td>Makes a node into a hidden node.</td></tr><tr><td><strong>-name Name</strong></td><td>Makes a runtime system into a node, using long node names.</td></tr><tr><td><strong>-setcookie Cookie</strong></td><td>Same as calling <strong>erlang:set_cookie(node(), Cookie)</strong>.</td></tr><tr><td><strong>-sname Name</strong></td><td>Makes a runtime system into a node, using short node names.</td></tr></tbody></table><h2>Distribution Modules</h2><p>Examples of modules useful for distributed programming:</p><p>In the Kernel application:</p><table class="table table-bordered table-hover table-striped"><caption>Kernel Modules Useful For Distribution.</caption><tbody><tr><td><em>Module</em></td><td><em>Description</em></td></tr><tr><td><strong>global</strong></td><td>A global name registration facility.</td></tr><tr><td><strong>global_group</strong></td><td>Grouping nodes to global name registration groups.</td></tr><tr><td><strong>net_adm</strong></td><td>Various Erlang net administration routines.</td></tr><tr><td><strong>net_kernel</strong></td><td>Erlang networking kernel.</td></tr></tbody></table><p>In the STDLIB application:</p><table class="table table-bordered table-hover table-striped"><caption>STDLIB Modules Useful For Distribution.</caption><tbody><tr><td><em>Module</em></td><td><em>Description</em></td></tr><tr><td><strong>slave</strong></td><td>Start and control of slave nodes.</td></tr></tbody></table></body></html>

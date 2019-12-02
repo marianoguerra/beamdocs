@@ -1,0 +1,127 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>gen_event Behaviour</h1><a name="gen_event"></a><p>This section is to be read with the <strong>gen_event(3)</strong> manual
+page in STDLIB, where all interface functions and callback
+functions are described in detail.</p><h2>Event Handling Principles</h2><p>In OTP, an <em>event manager</em> is a named object to which
+events can be sent. An <em>event</em> can be, for example,
+an error, an alarm, or some information that is to be logged.</p><p>In the event manager, zero, one, or many <em>event handlers</em>
+are installed. When the event manager is notified
+about an event, the event is processed by all the installed
+event handlers. For example, an event manager for handling errors
+can by default have a handler installed, which writes error
+messages to the terminal. If the error messages during a certain
+period is to be saved to a file as well, the user adds another
+event handler that does this. When logging to the file is no
+longer necessary, this event handler is deleted.</p><p>An event manager is implemented as a process and each event
+handler is implemented as a callback module.</p><p>The event manager essentially maintains a list of
+<strong>{Module, State}</strong> pairs, where each <strong>Module</strong> is an
+event handler, and <strong>State</strong> is the internal state of that
+event handler.</p><h2>Example</h2><p>The callback module for the event handler writing error messages
+to the terminal can look as follows:</p><pre><code class="">
+-module(terminal_logger).
+-behaviour(gen_event).
+
+-export([init/1, handle_event/2, terminate/2]).
+
+init(_Args) -&gt;
+    {ok, []}.
+
+handle_event(ErrorMsg, State) -&gt;
+    io:format("***Error*** ~p~n", [ErrorMsg]),
+    {ok, State}.
+
+terminate(_Args, _State) -&gt;
+    ok.</code></pre><p>The callback module for the event handler writing error messages
+to a file can look as follows:</p><pre><code class="">
+-module(file_logger).
+-behaviour(gen_event).
+
+-export([init/1, handle_event/2, terminate/2]).
+
+init(File) -&gt;
+    {ok, Fd} = file:open(File, read),
+    {ok, Fd}.
+
+handle_event(ErrorMsg, Fd) -&gt;
+    io:format(Fd, "***Error*** ~p~n", [ErrorMsg]),
+    {ok, Fd}.
+
+terminate(_Args, Fd) -&gt;
+    file:close(Fd).</code></pre><p>The code is explained in the next sections.</p><a name="mgr"></a><h2>Starting an Event Manager</h2><p>To start an event manager for handling errors, as described in
+the previous example, call the following function:</p><pre><code class="">
+gen_event:start_link({local, error_man})</code></pre><p>This function spawns and links to a new process, an event
+manager.</p><p>The argument, <strong>{local, error_man}</strong> specifies the name. The
+event manager is then locally registered as <strong>error_man</strong>.</p><p>If the name is omitted, the event manager is not registered.
+Instead its pid must be used. The name can also be given
+as <strong>{global, Name}</strong>, in which case the event manager is
+registered using <strong>global:register_name/2</strong>.</p><p><strong>gen_event:start_link</strong> must be used if the event manager is
+part of a supervision tree, that is, started by a supervisor.
+There is another function, <strong>gen_event:start</strong>, to start a
+standalone event manager, that is, an event manager that is not
+part of a supervision tree.</p><h2>Adding an Event Handler</h2><p>The following example shows how to start an event manager and
+add an event handler to it by using the shell:</p><pre>
+1&gt; <span class="input">gen_event:start({local, error_man}).</span>
+{ok,&lt;0.31.0&gt;}
+2&gt; <span class="input">gen_event:add_handler(error_man, terminal_logger, []).</span>
+ok</pre><p>This function sends a message to the event manager registered as
+<strong>error_man</strong>, telling it to add the event handler
+<strong>terminal_logger</strong>. The event manager calls the callback
+function <strong>terminal_logger:init([])</strong>, where the argument
+<strong>[]</strong> is the third argument to <strong>add_handler</strong>. <strong>init</strong>
+is expected to return <strong>{ok, State}</strong>, where <strong>State</strong> is
+the internal state of the event handler.</p><pre><code class="">
+init(_Args) -&gt;
+    {ok, []}.</code></pre><p>Here, <strong>init</strong> does not need any input data and ignores its
+argument. For <strong>terminal_logger</strong>, the internal state is
+not used. For <strong>file_logger</strong>, the internal state is used
+to save the open file descriptor.</p><pre><code class="">
+init(File) -&gt;
+    {ok, Fd} = file:open(File, read),
+    {ok, Fd}.</code></pre><h2>Notifying about Events</h2><pre>
+3&gt; <span class="input">gen_event:notify(error_man, no_reply).</span>
+***Error*** no_reply
+ok</pre><p><strong>error_man</strong> is the name of the event manager and
+<strong>no_reply</strong> is the event.</p><p>The event is made into a message and sent to the event manager.
+When the event is received, the event manager calls
+<strong>handle_event(Event, State)</strong> for each installed event
+handler, in the same order as they were added. The function is
+expected to return a tuple <strong>{ok,State1}</strong>, where
+<strong>State1</strong> is a new value for the state of the event handler.</p><p>In <strong>terminal_logger</strong>:</p><pre><code class="">
+handle_event(ErrorMsg, State) -&gt;
+    io:format("***Error*** ~p~n", [ErrorMsg]),
+    {ok, State}.</code></pre><p>In <strong>file_logger</strong>:</p><pre><code class="">
+handle_event(ErrorMsg, Fd) -&gt;
+    io:format(Fd, "***Error*** ~p~n", [ErrorMsg]),
+    {ok, Fd}.</code></pre><h2>Deleting an Event Handler</h2><pre>
+4&gt; <span class="input">gen_event:delete_handler(error_man, terminal_logger, []).</span>
+ok</pre><p>This function sends a message to the event manager registered as
+<strong>error_man</strong>, telling it to delete the event handler
+<strong>terminal_logger</strong>. The event manager calls the callback
+function <strong>terminal_logger:terminate([], State)</strong>, where
+the argument <strong>[]</strong> is the third argument to <strong>delete_handler</strong>.
+<strong>terminate</strong> is to be the opposite of <strong>init</strong> and do any
+necessary cleaning up. Its return value is ignored.</p><p>For <strong>terminal_logger</strong>, no cleaning up is necessary:</p><pre><code class="">
+terminate(_Args, _State) -&gt;
+    ok.</code></pre><p>For <strong>file_logger</strong>, the file descriptor opened in <strong>init</strong>
+must be closed:</p><pre><code class="">
+terminate(_Args, Fd) -&gt;
+    file:close(Fd).</code></pre><h2>Stopping</h2><p>When an event manager is stopped, it gives each of
+the installed event handlers the chance to clean up by calling
+<strong>terminate/2</strong>, the same way as when deleting a handler.</p><h2>In a Supervision Tree</h2><p>If the event manager is part of a supervision tree, no stop
+function is needed. The event manager is automatically
+terminated by its supervisor. Exactly how this is done is
+defined by a
+<a href="./sup_princ#shutdown">shutdown strategy</a>
+set in the supervisor.</p><h2>Standalone Event Managers</h2><p>An event manager can also be stopped by calling:</p><pre>
+&gt; <span class="input">gen_event:stop(error_man).</span>
+ok</pre><h2>Handling Other Messages</h2><p>If the <strong>gen_event</strong> is to be able to receive other messages
+than events, the callback function
+<strong>handle_info(Info, StateName, StateData)</strong>
+must be implemented to handle them. Examples of other
+messages are exit messages, if the <strong>gen_event</strong> is linked to
+other processes (than the supervisor) and trapping exit signals.</p><pre><code class="">
+handle_info({'EXIT', Pid, Reason}, State) -&gt;
+    ..code to handle exits here..
+    {ok, NewState}.</code></pre><p>The <strong>code_change</strong> method must also be implemented.</p><pre><code class="">
+code_change(OldVsn, State, Extra) -&gt;
+    ..code to convert state (and more) during code change
+    {ok, NewState}</code></pre></body></html>

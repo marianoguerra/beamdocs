@@ -1,0 +1,69 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Included Applications</h1><a name="included appl"></a><h2>Introduction</h2><p>An application can <em>include</em> other applications.
+An <em>included application</em> has its own application directory
+and <strong>.app</strong> file, but it is started as part of the supervisor
+tree of another application.</p><p>An application can only be included by one other application.</p><p>An included application can include other applications.</p><p>An application that is not included by any other application is
+called a <em>primary application</em>.</p><a name="inclappls"></a><img src="../design_principles/inclappls.gif" title="Primary Application and Included Applications"></img><p>The application controller automatically loads any included
+applications when loading a primary application, but does not start
+them. Instead, the top supervisor of the included application
+must be started by a supervisor in the including application.</p><p>This means that when running, an included application is in fact
+part of the primary application, and a process in an included
+application considers itself belonging to the primary
+application.</p><h2>Specifying Included Applications</h2><p>Which applications to include is defined by
+the <strong>included_applications</strong> key in the <strong>.app</strong> file:</p><pre>
+{application, prim_app,
+ [{description, "Tree application"},
+  {vsn, "1"},
+  {modules, [prim_app_cb, prim_app_sup, prim_app_server]},
+  {registered, [prim_app_server]},
+  {included_applications, [incl_app]},
+  {applications, [kernel, stdlib, sasl]},
+  {mod, {prim_app_cb,[]}},
+  {env, [{file, "/usr/local/log"}]}
+ ]}.</pre><h2>Synchronizing Processes during Startup</h2><p>The supervisor tree of an included application is started as
+part of the supervisor tree of the including application.
+If there is a need for synchronization between processes in
+the including and included applications, this can be achieved
+by using <em>start phases</em>.</p><p>Start phases are defined by the <strong>start_phases</strong> key in
+the <strong>.app</strong> file as a list of tuples <strong>{Phase,PhaseArgs}</strong>,
+where <strong>Phase</strong> is an atom and <strong>PhaseArgs</strong> is a term.</p><p>The value of the <strong>mod</strong> key of the including application
+must be set to <strong>{application_starter,[Module,StartArgs]}</strong>,
+where <strong>Module</strong> as usual is the application callback module.
+<strong>StartArgs</strong> is a term provided as argument to the callback
+function <strong>Module:start/2</strong>:</p><pre><code class="">
+{application, prim_app,
+ [{description, "Tree application"},
+  {vsn, "1"},
+  {modules, [prim_app_cb, prim_app_sup, prim_app_server]},
+  {registered, [prim_app_server]},
+  {included_applications, [incl_app]},
+  {start_phases, [{init,[]}, {go,[]}]},
+  {applications, [kernel, stdlib, sasl]},
+  {mod, {application_starter,[prim_app_cb,[]]}},
+  {env, [{file, "/usr/local/log"}]}
+ ]}.
+
+{application, incl_app,
+ [{description, "Included application"},
+  {vsn, "1"},
+  {modules, [incl_app_cb, incl_app_sup, incl_app_server]},
+  {registered, []},
+  {start_phases, [{go,[]}]},
+  {applications, [kernel, stdlib, sasl]},
+  {mod, {incl_app_cb,[]}}
+ ]}.</code></pre><p>When starting a primary application with included applications,
+the primary application is started the normal way, that is:</p><ul><li>The application controller creates an application master for the application</li><li>The application master calls <strong>Module:start(normal, StartArgs)</strong> to start the top supervisor.</li></ul><p>Then, for the primary application and each included application
+in top-down, left-to-right order, the application master calls
+<strong>Module:start_phase(Phase, Type, PhaseArgs)</strong> for each phase
+defined for the primary application, in that order. If a phase
+is not defined for an included application,
+the function is not called for this phase and application.</p><p>The following requirements apply to the <strong>.app</strong> file for
+an included application:</p><ul><li>The <strong>{mod, {Module,StartArgs}}</strong> option must be included. This option is used to find the callback module <strong>Module</strong> of the application. <strong>StartArgs</strong> is ignored, as <strong>Module:start/2</strong> is called only for the primary application.</li><li>If the included application itself contains included applications, instead the <strong>{mod, {application_starter, [Module,StartArgs]}}</strong> option must be included.</li><li>The <strong>{start_phases, [{Phase,PhaseArgs}]}</strong> option must be included, and the set of specified phases must be a subset of the set of phases specified for the primary application.</li></ul><p>When starting <strong>prim_app</strong> as defined above, the application
+controller calls the following callback functions before
+<strong>application:start(prim_app)</strong> returns a value:</p><pre><code class="">
+application:start(prim_app)
+ =&gt; prim_app_cb:start(normal, [])
+ =&gt; prim_app_cb:start_phase(init, normal, [])
+ =&gt; prim_app_cb:start_phase(go, normal, [])
+ =&gt; incl_app_cb:start_phase(go, normal, [])
+ok</code></pre></body></html>

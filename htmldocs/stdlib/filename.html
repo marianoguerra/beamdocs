@@ -1,0 +1,265 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>filename</h1><h1>filename</h1><p>Filename manipulation functions.</p><p>This module provides functions
+for analyzing and manipulating filenames. These functions are
+designed so that the Erlang code can work on many different
+platforms with different filename formats. With filename
+is meant all strings that can be used to denote a file. The filename
+can be a short relative name like <strong>foo.erl</strong>, a long absolute
+name including a drive designator, a directory name like
+<strong>D:\usr/local\bin\erl/lib\tools\foo.erl</strong>, or any variations
+in between.In Windows, all functions return filenames with forward slashes
+only, even if the arguments contain backslashes. To normalize a
+filename by removing redundant directory separators, use
+<a href="#join/1">join/1</a>.
+The module supports
+<a href="./unicode_usage#notes-about-raw-filenames">raw filenames</a> in the way that if a binary is
+present, or the filename cannot be interpreted according to the return
+value of <a href="../kernel/file#native_name_encoding/0">kernel/file#native_name_encoding/0</a>, a raw filename is also
+returned. For example, <strong>join/1</strong> provided with a path component
+that is a binary (and cannot be interpreted under the current
+native filename encoding) results in a raw filename that is returned
+(the join operation is performed of course). For more information
+about raw filenames, see the
+<a href="./file">kernel/file</a> module.</p><h1>Functions</h1><h2>absname/1</h2><p>Convert a filename to an absolute name, relative the working directory.</p><p>Converts a relative <strong><span class="anno">Filename</span></strong> and returns an
+absolute name. No attempt is made to create the shortest absolute
+name, as this can give incorrect results on file systems that
+allow links.</p><p><em>Unix examples:</em></p><pre>
+1&gt; <span class="input">pwd().</span>
+"/usr/local"
+2&gt; <span class="input">filename:absname("foo").</span>
+"/usr/local/foo"
+3&gt; <span class="input">filename:absname("../x").</span>
+"/usr/local/../x"
+4&gt; <span class="input">filename:absname("/").</span>
+"/"</pre><p><em>Windows examples:</em></p><pre>
+1&gt; <span class="input">pwd().</span>
+"D:/usr/local"
+2&gt; <span class="input">filename:absname("foo").</span>
+"D:/usr/local/foo"
+3&gt; <span class="input">filename:absname("../x").</span>
+"D:/usr/local/../x"
+4&gt; <span class="input">filename:absname("/").</span>
+"D:/"</pre><h2>absname/2</h2><p>Convert a filename to an absolute name, relative a specified directory.</p><p>Same as <a href="#absname/1">absname/1</a>,
+except that the directory to which the filename is to be made
+relative is specified in argument <strong><span class="anno">Dir</span></strong>.</p><h2>absname_join/2</h2><p>Join an absolute directory with a relative filename.</p><p>Joins an absolute directory with a relative filename. Similar to
+<a href="#join/2">join/2</a>, but on platforms
+with tight restrictions on raw filename length and no support for
+symbolic links (read: VxWorks), leading parent directory components
+in <strong><span class="anno">Filename</span></strong> are matched against trailing
+directory components in <strong><span class="anno">Dir</span></strong> so they can be
+removed from the result - minimizing its length.</p><h2>basedir/2</h2><h2>basedir/2</h2><p>Equivalent to <strong>basedir(<span class="anno">PathType</span>, <span class="anno">Application</span>,#{})</strong> or <strong>basedir(<span class="anno">PathsType</span>, <span class="anno">Application</span>,#{})</strong>. </p><ul><li>PathType</li></ul><ul><li>basedir_path_type</li></ul><ul><li>PathsType</li></ul><ul><li>basedir_paths_type</li></ul><ul><li>Application</li></ul><p>
+Equivalent to <a href="#basedir_3_1"> basedir(, , #{})</a>
+or <a href="#basedir_3_2"> basedir(, , #{})</a>.
+</p><h2>basedir/3</h2><h2>basedir/3</h2><ul><li>PathType</li></ul><ul><li>basedir_path_type</li></ul><ul><li>PathsType</li></ul><ul><li>basedir_paths_type</li></ul><ul><li>Application</li></ul><ul><li>Opts</li></ul><ul><li>basedir_opts</li></ul><a name="basedir-3"></a><p>
+Returns a suitable path, or paths, for a given type.  If
+<strong>os</strong> is not set in <strong><span class="anno">Opts</span></strong> the
+function will default to the native option, that is
+<strong>'linux'</strong>, <strong>'darwin'</strong> or <strong>'windows'</strong>, as
+understood by <strong>os:type/0</strong>. Anything not recognized
+as <strong>'darwin'</strong> or <strong>'windows'</strong> is interpreted as
+<strong>'linux'</strong>.</p><p>
+The options <strong>'author'</strong> and <strong>'version'</strong> are only used with <strong>'windows'</strong> option mode.
+</p><ul><li><strong>user_cache</strong> <p>The path location is intended for transient data files on a local machine.</p> <p>
+On Linux:
+Respects the os environment variable <strong>XDG_CACHE_HOME</strong>.
+</p> <pre>
+1&gt; <span class="input">filename:basedir(user_cache, "my_application", #{os=&gt;linux}).</span>
+"/home/otptest/.cache/my_application"</pre> On Darwin: <pre>
+1&gt; <span class="input">filename:basedir(user_cache, "my_application", #{os=&gt;darwin}).</span>
+"/home/otptest/Library/Caches/my_application"</pre> On Windows: <pre>
+1&gt; <span class="input">filename:basedir(user_cache, "My App").</span>
+"c:/Users/otptest/AppData/Local/My App/Cache"
+2&gt; <span class="input">filename:basedir(user_cache, "My App").</span>
+"c:/Users/otptest/AppData/Local/My App/Cache"
+3&gt; <span class="input">filename:basedir(user_cache, "My App", #{author=&gt;"Erlang"}).</span>
+"c:/Users/otptest/AppData/Local/Erlang/My App/Cache"
+4&gt; <span class="input">filename:basedir(user_cache, "My App", #{version=&gt;"1.2"}).</span>
+"c:/Users/otptest/AppData/Local/My App/1.2/Cache"
+5&gt; <span class="input">filename:basedir(user_cache, "My App", #{author=&gt;"Erlang",version=&gt;"1.2"}).</span>
+"c:/Users/otptest/AppData/Local/Erlang/My App/1.2/Cache"</pre> </li><li><strong>user_config</strong> <p>
+The path location is intended for persistent configuration files.
+</p> <p>
+On Linux:
+Respects the os environment variable <strong>XDG_CONFIG_HOME</strong>.
+</p> <pre>
+2&gt; <span class="input">filename:basedir(user_config, "my_application", #{os=&gt;linux}).</span>
+"/home/otptest/.config/my_application"</pre> On Darwin:<pre>
+2&gt; <span class="input">filename:basedir(user_config, "my_application", #{os=&gt;darwin}).</span>
+"/home/otptest/Library/Application Support/my_application"</pre> On Windows:<pre>
+1&gt; <span class="input">filename:basedir(user_config, "My App").</span>
+"c:/Users/otptest/AppData/Roaming/My App"
+2&gt; <span class="input">filename:basedir(user_config, "My App", #{author=&gt;"Erlang", version=&gt;"1.2"}).</span>
+"c:/Users/otptest/AppData/Roaming/Erlang/My App/1.2"</pre> </li><li><strong>user_data</strong> <p>
+The path location is intended for persistent data files.
+</p> <p>
+On Linux:
+Respects the os environment variable <strong>XDG_DATA_HOME</strong>.
+</p> <pre>
+3&gt; <span class="input">filename:basedir(user_data, "my_application", #{os=&gt;linux}).</span>
+"/home/otptest/.local/my_application"</pre> On Darwin:<pre>
+3&gt; <span class="input">filename:basedir(user_data, "my_application", #{os=&gt;darwin}).</span>
+"/home/otptest/Library/Application Support/my_application"</pre> On Windows:<pre>
+8&gt; <span class="input">filename:basedir(user_data, "My App").</span>
+"c:/Users/otptest/AppData/Local/My App"
+9&gt; <span class="input">filename:basedir(user_data, "My App",#{author=&gt;"Erlang",version=&gt;"1.2"}).</span>
+"c:/Users/otptest/AppData/Local/Erlang/My App/1.2"</pre> </li><li><strong>user_log</strong> <p>The path location is intended for transient log files on a local machine.</p> <p>
+On Linux:
+Respects the os environment variable <strong>XDG_CACHE_HOME</strong>.</p> <pre>
+4&gt; <span class="input">filename:basedir(user_log, "my_application", #{os=&gt;linux}).</span>
+"/home/otptest/.cache/my_application/log"</pre> On Darwin:<pre>
+4&gt; <span class="input">filename:basedir(user_log, "my_application", #{os=&gt;darwin}).</span>
+"/home/otptest/Library/Caches/my_application"</pre> On Windows:<pre>
+12&gt; <span class="input">filename:basedir(user_log, "My App").</span>
+"c:/Users/otptest/AppData/Local/My App/Logs"
+13&gt; <span class="input">filename:basedir(user_log, "My App",#{author=&gt;"Erlang",version=&gt;"1.2"}).</span>
+"c:/Users/otptest/AppData/Local/Erlang/My App/1.2/Logs"</pre> </li><li><strong>site_config</strong><p>
+On Linux:
+Respects the os environment variable <strong>XDG_CONFIG_DIRS</strong>.</p> <pre>
+5&gt; <span class="input">filename:basedir(site_data, "my_application", #{os=&gt;linux}).</span>
+["/usr/local/share/my_application",
+ "/usr/share/my_application"]
+6&gt; <span class="input">os:getenv("XDG_CONFIG_DIRS").</span>
+"/etc/xdg/xdg-ubuntu:/usr/share/upstart/xdg:/etc/xdg"
+7&gt; <span class="input">filename:basedir(site_config, "my_application", #{os=&gt;linux}).</span>
+["/etc/xdg/xdg-ubuntu/my_application",
+ "/usr/share/upstart/xdg/my_application",
+ "/etc/xdg/my_application"]
+8&gt; <span class="input">os:unsetenv("XDG_CONFIG_DIRS").</span>
+true
+9&gt; <span class="input">filename:basedir(site_config, "my_application", #{os=&gt;linux}).</span>
+["/etc/xdg/my_application"]</pre> On Darwin:<pre>
+5&gt; <span class="input">filename:basedir(site_config, "my_application", #{os=&gt;darwin}).</span>
+["/Library/Application Support/my_application"]</pre> </li><li><strong>site_data</strong><p>
+On Linux:
+Respects the os environment variable <strong>XDG_DATA_DIRS</strong>.</p> <pre>
+10&gt; <span class="input">os:getenv("XDG_DATA_DIRS").</span>
+"/usr/share/ubuntu:/usr/share/gnome:/usr/local/share/:/usr/share/"
+11&gt; <span class="input">filename:basedir(site_data, "my_application", #{os=&gt;linux}).</span>
+["/usr/share/ubuntu/my_application",
+ "/usr/share/gnome/my_application",
+ "/usr/local/share/my_application",
+ "/usr/share/my_application"]
+12&gt; <span class="input">os:unsetenv("XDG_DATA_DIRS").</span>
+true
+13&gt; <span class="input">filename:basedir(site_data, "my_application", #{os=&gt;linux}).</span>
+["/usr/local/share/my_application",
+ "/usr/share/my_application"]</pre> On Darwin:<pre>
+5&gt; <span class="input">filename:basedir(site_data, "my_application", #{os=&gt;darwin}).</span>
+["/Library/Application Support/my_application"]</pre> </li></ul><h2>basename/1</h2><p>Return the last component of a filename.</p><p>Returns the last component of <strong><span class="anno">Filename</span></strong>, or
+<strong><span class="anno">Filename</span></strong> itself if it does not contain any
+directory separators.</p><p><em>Examples:</em></p><pre>
+5&gt; <span class="input">filename:basename("foo").</span>
+"foo"
+6&gt; <span class="input">filename:basename("/usr/foo").</span>
+"foo"
+7&gt; <span class="input">filename:basename("/").</span>
+[]</pre><h2>basename/2</h2><p>Return the last component of a filename, stripped of the specified extension.</p><p>Returns the last component of <strong><span class="anno">Filename</span></strong> with
+extension <strong><span class="anno">Ext</span></strong> stripped. This function is to be
+used to remove a (possible) specific extension. To remove an
+existing extension when you are unsure which one it is, use
+<strong>rootname(basename(Filename))</strong>.</p><p><em>Examples:</em></p><pre>
+8&gt; <span class="input">filename:basename("~/src/kalle.erl", ".erl").</span>
+"kalle"
+9&gt; <span class="input">filename:basename("~/src/kalle.beam", ".erl").</span>
+"kalle.beam"
+10&gt; <span class="input">filename:basename("~/src/kalle.old.erl", ".erl").</span>
+"kalle.old"
+11&gt; <span class="input">filename:rootname(filename:basename("~/src/kalle.erl")).</span>
+"kalle"
+12&gt; <span class="input">filename:rootname(filename:basename("~/src/kalle.beam")).</span>
+"kalle"</pre><h2>dirname/1</h2><p>Return the directory part of a path name.</p><p>Returns the directory part of <strong><span class="anno">Filename</span></strong>.</p><p><em>Examples:</em></p><pre>
+13&gt; <span class="input">filename:dirname("/usr/src/kalle.erl").</span>
+"/usr/src"
+14&gt; <span class="input">filename:dirname("kalle.erl").</span>
+"."</pre><pre>
+5&gt; <span class="input">filename:dirname("\\usr\\src/kalle.erl").</span> % Windows
+"/usr/src"</pre><h2>extension/1</h2><p>Return the file extension.</p><p>Returns the file extension of <strong><span class="anno">Filename</span></strong>,
+including the period. Returns an empty string if no extension
+exists.</p><p><em>Examples:</em></p><pre>
+15&gt; <span class="input">filename:extension("foo.erl").</span>
+".erl"
+16&gt; <span class="input">filename:extension("beam.src/kalle").</span>
+[]</pre><h2>find_src/1</h2><h2>find_src/2</h2><p>Find the filename and compiler options for a module.</p><p>Finds the source filename and compiler options for a module.
+The result can be fed to <a href="../compiler/compile#file/2">compiler/compile#file/2</a> to compile the file again.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>This function is deprecated. Use <a href="./filelib#find_source/1">filelib#find_source/1</a> instead for finding source files.</p><p>If possible, use the <a href="beam_lib">beam_lib</a>
+module to extract the compiler options and the abstract code
+format from the Beam file and compile that instead.</p></div><p>Argument <strong><span class="anno">Beam</span></strong>, which can be a string or an atom,
+specifies either the module name or the path to the source
+code, with or without extension <strong>".erl"</strong>. In either
+case, the module must be known by the code server, that is,
+<strong>code:which(<span class="anno">Module</span>)</strong> must succeed.</p><p><strong><span class="anno">Rules</span></strong> describes how the source directory can be
+found when the object code directory is known. It is a list of
+tuples <strong>{<span class="anno">BinSuffix</span>, <span class="anno">SourceSuffix</span>}</strong> and
+is interpreted as follows: if the end of the directory name where the
+object is located matches <strong><span class="anno">BinSuffix</span></strong>, then the
+name created by replacing <strong><span class="anno">BinSuffix</span></strong> with
+<strong><span class="anno">SourceSuffix</span></strong> is expanded by calling
+<a href="./filelib#wildcard/1">filelib#wildcard/1</a>.
+If a regular file is found among the matches, the function
+returns that location together with <strong><span class="anno">Options</span></strong>.
+Otherwise the next rule is tried, and so on.</p><p><strong><span class="anno">Rules</span></strong> defaults
+to:</p><pre><code class="">
+[{"", ""}, {"ebin", "src"}, {"ebin", "esrc"},
+ {"ebin", "src/*"}, {"ebin", "esrc/*"}]</code></pre><p>The function returns <strong>{<span class="anno">SourceFile</span>, <span class="anno">Options</span>}</strong> if it succeeds.
+<strong><span class="anno">SourceFile</span></strong> is the absolute path to the source
+file without extension <strong>".erl"</strong>. <strong><span class="anno">Options</span></strong>
+includes the options that are necessary to recompile the file with
+<strong>compile:file/2</strong>, but excludes options such as <strong>report</strong>
+and <strong>verbose</strong>, which do not change the way code is generated.
+The paths in options <strong>{outdir, <span class="anno">Path</span>}</strong> and
+<strong>{i, Path}</strong> are guaranteed to be absolute.</p><h2>flatten/1</h2><p>Convert a filename to a flat string.</p><p>Converts a possibly deep list filename consisting of
+characters and atoms into the corresponding flat string
+filename.</p><h2>join/1</h2><p>Join a list of filename components with directory separators. </p><p>Joins a list of filename <strong><span class="anno">Components</span></strong> with
+directory separators.
+If one of the elements of <strong><span class="anno">Components</span></strong>
+includes an absolute path, such as <strong>"/xxx"</strong>,
+the preceding elements, if any, are removed from the result.</p><p>The result is "normalized":</p><ul><li>Redundant directory separators are removed.</li><li>In Windows, all directory separators are forward slashes and the drive letter is in lower case.</li></ul><p><em>Examples:</em></p><pre>
+17&gt; <span class="input">filename:join(["/usr", "local", "bin"]).</span>
+"/usr/local/bin"
+18&gt; <span class="input">filename:join(["a/b///c/"]).</span>
+"a/b/c"</pre><pre>
+6&gt; <span class="input">filename:join(["B:a\\b///c/"]).</span> % Windows
+"b:a/b/c"</pre><h2>join/2</h2><p>Join two filename components with directory separators. </p><p>Joins two filename components with directory separators.
+Equivalent to <strong>join([<span class="anno">Name1</span>, <span class="anno">Name2</span>])</strong>.
+</p><h2>nativename/1</h2><p>Return the native form of a file path.</p><p>Converts <strong><span class="anno">Path</span></strong> to a form accepted by the command
+shell and native applications on the current platform. On Windows,
+forward slashes are converted to backward slashes. On all
+platforms, the name is normalized as done by
+<a href="#join/1">join/1</a>.</p><p><em>Examples:</em></p><pre>
+19&gt; <span class="input">filename:nativename("/usr/local/bin/").</span> % Unix
+"/usr/local/bin"</pre><pre>
+7&gt; <span class="input">filename:nativename("/usr/local/bin/").</span> % Windows
+"\\usr\\local\\bin"</pre><h2>pathtype/1</h2><p>Return the path type.</p><p>Returns the path type, which is one of the following:</p><dl><dt><strong>absolute</strong></dt><dd> <p>The path name refers to a specific file on a specific
+volume.</p> <p>Unix example: <strong>/usr/local/bin</strong></p> <p>Windows example: <strong>D:/usr/local/bin</strong></p> </dd><dt><strong>relative</strong></dt><dd> <p>The path name is relative to the current working
+directory on the current volume.</p> <p>Example: <strong>foo/bar, ../src</strong></p> </dd><dt><strong>volumerelative</strong></dt><dd> <p>The path name is relative to the current working
+directory on a specified volume, or it is a specific file
+on the current working volume.</p> <p>Windows example: <strong>D:bar.erl, /bar/foo.erl</strong></p> </dd></dl><h2>rootname/1</h2><h2>rootname/2</h2><p>Remove a filename extension.</p><p>Removes a filename extension. <strong>rootname/2</strong> works as
+<strong>rootname/1</strong>, except that the extension is removed only
+if it is <strong><span class="anno">Ext</span></strong>.</p><p><em>Examples:</em></p><pre>
+20&gt; <span class="input">filename:rootname("/beam.src/kalle").</span>
+"/beam.src/kalle"
+21&gt; <span class="input">filename:rootname("/beam.src/foo.erl").</span>
+"/beam.src/foo"
+22&gt; <span class="input">filename:rootname("/beam.src/foo.erl", ".erl").</span>
+"/beam.src/foo"
+23&gt; <span class="input">filename:rootname("/beam.src/foo.beam", ".erl").</span>
+"/beam.src/foo.beam"</pre><h2>safe_relative_path/1</h2><p>Sanitize a relative path to avoid directory traversal attacks.</p><p>Sanitizes the relative path by eliminating ".." and "."
+components to protect against directory traversal attacks.
+Either returns the sanitized path name, or the atom
+<strong>unsafe</strong> if the path is unsafe.
+The path is considered unsafe in the following circumstances:</p><ul><li><p>The path is not relative.</p></li><li><p>A ".." component would climb up above the root of
+the relative path.</p></li></ul><p><em>Examples:</em></p><pre>
+1&gt; <span class="input">filename:safe_relative_path("dir/sub_dir/..").</span>
+"dir"
+2&gt; <span class="input">filename:safe_relative_path("dir/..").</span>
+[]
+3&gt; <span class="input">filename:safe_relative_path("dir/../..").</span>
+unsafe
+4&gt; <span class="input">filename:safe_relative_path("/abs/path").</span>
+unsafe</pre><h2>split/1</h2><p>Split a filename into its path components.</p><p>Returns a list whose elements are the path components of
+<strong><span class="anno">Filename</span></strong>.</p><p><em>Examples:</em></p><pre>
+24&gt; <span class="input">filename:split("/usr/local/bin").</span>
+["/","usr","local","bin"]
+25&gt; <span class="input">filename:split("foo/bar").</span>
+["foo","bar"]
+26&gt; <span class="input">filename:split("a:\\msdev\\include").</span>
+["a:/","msdev","include"]</pre></body></html>

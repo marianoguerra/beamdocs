@@ -1,0 +1,748 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Programming Examples</h1><h1>Programming Examples</h1><p><a name="programming examples"></a>This section contains examples on using records, funs, list
+comprehensions, and the bit syntax.</p><h4>Records and Tuples</h4><p>The main advantage of using records rather than tuples is that
+fields in a record are accessed by name, whereas fields in a
+tuple are accessed by position. To illustrate these differences,
+suppose that you want to represent a person with the tuple
+<strong>{Name, Address, Phone}</strong>.</p><p>To write functions that manipulate this data, remember the following:</p><ul><li>The <strong>Name</strong> field is the first element of the tuple.</li><li>The <strong>Address</strong> field is the second element.</li><li>The <strong>Phone</strong> field is the third element.</li></ul><p>For example, to extract data from a variable <strong>P</strong>
+that contains such a tuple, you can write the following code
+and then use pattern matching to extract the relevant fields:</p><pre><code class="">
+Name = element(1, P),
+Address = element(2, P),
+...</code></pre><p>Such code is difficult to read and understand, and errors
+occur if the numbering of the elements in the tuple is wrong.
+If the data representation of the fields is changed, by re-ordering,
+adding, or removing fields, all references to
+the person tuple must be checked and possibly modified.</p><p>Records allow references to the fields by name, instead of by
+position. In the following example, a record instead of a tuple
+is used to store the data:</p><pre><code class="">
+-record(person, {name, phone, address}).</code></pre><p>This enables references to the fields of the record by name.
+For example, if <strong>P</strong> is a variable whose value is a
+<strong>person</strong> record, the following code access
+the name and address fields of the records:</p><pre><code class="">
+Name = P#person.name,
+Address = P#person.address,
+...</code></pre><p>Internally, records are represented using tagged tuples:</p><pre><code class="">
+{person, Name, Phone, Address}</code></pre><h4>Defining a Record</h4><p>This following definition of a <strong>person</strong> is used in several
+examples in this section. Three fields are included, <strong>name</strong>,
+<strong>phone</strong>, and <strong>address</strong>. The default values for
+<strong>name</strong> and <strong>phone</strong> is "" and [], respectively.
+The default value for <strong>address</strong> is the atom
+<strong>undefined</strong>, since no default value is supplied for this
+field:</p><pre>
+-record(person, {name = "", phone = [], address}).</pre><p>The record must be defined in the shell to enable
+use of the record syntax in the examples:</p><pre>
+&gt; <span class="input">rd(person, {name = "", phone = [], address}).</span>
+person</pre><p>This is because record definitions are only available
+at compile time, not at runtime. For details on records
+in the shell, see the
+<a href="./shell">shell(3)</a>
+manual page in STDLIB.</p><h4>Creating a Record</h4><p>A new <strong>person</strong> record is created as follows:</p><pre>
+&gt; <span class="input">#person{phone=[0,8,2,3,4,3,1,2], name="Robert"}.</span>
+#person{name = "Robert",phone = [0,8,2,3,4,3,1,2],address = undefined}</pre><p>As the <strong>address</strong> field was omitted, its default value
+is used.</p><p>From Erlang 5.1/OTP R8B, a value to all
+fields in a record can be set with the special field <strong>_</strong>.
+<strong>_</strong> means "all fields not explicitly specified".</p><p><em>Example:</em></p><pre>
+&gt; <span class="input">#person{name = "Jakob", _ = '_'}.</span>
+#person{name = "Jakob",phone = '_',address = '_'}</pre><p>It is primarily intended to be used in <strong>ets:match/2</strong> and
+<strong>mnesia:match_object/3</strong>, to set record fields to the atom
+<strong>'_'</strong>. (This is a wildcard in <strong>ets:match/2</strong>.)</p><h4>Accessing a Record Field</h4><p>The following example shows how to access a record field:</p><pre>
+&gt; <span class="input">P = #person{name = "Joe", phone = [0,8,2,3,4,3,1,2]}.</span>
+#person{name = "Joe",phone = [0,8,2,3,4,3,1,2],address = undefined}
+&gt; <span class="input">P#person.name.</span>
+"Joe"</pre><h4>Updating a Record</h4><p>The following example shows how to update a record:</p><pre>
+&gt; <span class="input">P1 = #person{name="Joe", phone=[1,2,3], address="A street"}.</span>
+#person{name = "Joe",phone = [1,2,3],address = "A street"}
+&gt; <span class="input">P2 = P1#person{name="Robert"}.</span>
+#person{name = "Robert",phone = [1,2,3],address = "A street"}</pre><h4>Type Testing</h4><p>The following example shows that the guard succeeds if
+<strong>P</strong> is record of type <strong>person</strong>:</p><pre>
+foo(P) when is_record(P, person) -&gt; a_person;
+foo(_) -&gt; not_a_person.</pre><h4>Pattern Matching</h4><p>Matching can be used in combination with records, as shown in
+the following example:</p><pre>
+&gt; <span class="input">P3 = #person{name="Joe", phone=[0,0,7], address="A street"}.</span>
+#person{name = "Joe",phone = [0,0,7],address = "A street"}
+&gt; <span class="input">#person{name = Name} = P3, Name.</span>
+"Joe"</pre><p>The following function takes a list of <strong>person</strong> records
+and searches for the phone number of a person with a particular
+name:</p><pre><code class="">
+find_phone([#person{name=Name, phone=Phone} | _], Name) -&gt;
+    {found,  Phone};
+find_phone([_| T], Name) -&gt;
+    find_phone(T, Name);
+find_phone([], Name) -&gt;
+    not_found.</code></pre><p>The fields referred to in the pattern can be given in any order.</p><h4>Nested Records</h4><p>The value of a field in a record can be an instance of a
+record. Retrieval of nested data can be done stepwise, or in a
+single step, as shown in the following example:</p><pre>
+-record(name, {first = "Robert", last = "Ericsson"}).
+-record(person, {name = #name{}, phone}).
+
+demo() -&gt;
+  P = #person{name= #name{first="Robert",last="Virding"}, phone=123},
+  First = (P#person.name)#name.first.</pre><p>Here, <strong>demo()</strong> evaluates to <strong>"Robert"</strong>.</p><h4>A Longer Example</h4><p>Comments are embedded in the following example:</p><pre>
+%% File: person.hrl
+
+%%-----------------------------------------------------------
+%% Data Type: person
+%% where:
+%%    name:  A string (default is undefined).
+%%    age:   An integer (default is undefined).
+%%    phone: A list of integers (default is []).
+%%    dict:  A dictionary containing various information 
+%%           about the person. 
+%%           A {Key, Value} list (default is the empty list).
+%%------------------------------------------------------------
+-record(person, {name, age, phone = [], dict = []}).</pre><pre>
+-module(person).
+-include("person.hrl").
+-compile(export_all). % For test purposes only.
+
+%% This creates an instance of a person.
+%%   Note: The phone number is not supplied so the
+%%         default value [] will be used.
+
+make_hacker_without_phone(Name, Age) -&gt;
+   #person{name = Name, age = Age, 
+           dict = [{computer_knowledge, excellent}, 
+                   {drinks, coke}]}.
+
+%% This demonstrates matching in arguments
+
+print(#person{name = Name, age = Age,
+              phone = Phone, dict = Dict}) -&gt;
+  io:format("Name: ~s, Age: ~w, Phone: ~w ~n" 
+            "Dictionary: ~w.~n", [Name, Age, Phone, Dict]).
+
+%% Demonstrates type testing, selector, updating.
+
+birthday(P) when record(P, person) -&gt; 
+   P#person{age = P#person.age + 1}.
+
+register_two_hackers() -&gt;
+   Hacker1 = make_hacker_without_phone("Joe", 29),
+   OldHacker = birthday(Hacker1),
+   % The central_register_server should have 
+   % an interface function for this.
+   central_register_server ! {register_person, Hacker1},
+   central_register_server ! {register_person, 
+             OldHacker#person{name = "Robert", 
+                              phone = [0,8,3,2,4,5,3,1]}}.</pre><h4>map</h4><p>The following function, <strong>double</strong>, doubles every element in a list:</p><pre><code class="">
+double([H|T]) -&gt; [2*H|double(T)];
+double([])    -&gt; [].</code></pre><p>Hence, the argument entered as input is doubled as follows:</p><pre>
+&gt; <span class="input">double([1,2,3,4]).</span>
+[2,4,6,8]</pre><p>The following function, <strong>add_one</strong>, adds one to every
+element in a list:</p><pre><code class="">
+add_one([H|T]) -&gt; [H+1|add_one(T)];
+add_one([])    -&gt; [].</code></pre><p>The functions <strong>double</strong> and <strong>add_one</strong> have a
+similar structure. This can be used by writing a function
+<strong>map</strong> that expresses this similarity:</p><pre><code class="">
+
+map(F, [H|T]) -&gt; [F(H)|map(F, T)];
+map(F, [])    -&gt; [].</code></pre><p>The functions <strong>double</strong> and <strong>add_one</strong> can now be expressed
+in terms of <strong>map</strong> as follows:</p><pre><code class="">
+double(L)  -&gt; map(fun(X) -&gt; 2*X end, L).
+add_one(L) -&gt; map(fun(X) -&gt; 1 + X end, L).</code></pre><p><strong>map(F, List)</strong> is a function that takes a function
+<strong>F</strong> and a list <strong>L</strong> as arguments and returns a new
+list, obtained by applying <strong>F</strong> to each of
+the elements in <strong>L</strong>.</p><p>The process of abstracting out the common features of a number
+of different programs is called <em>procedural abstraction</em>.
+Procedural abstraction can be used to write several
+different functions that have a similar structure, but differ
+in some minor detail. This is done as follows:</p><ul><li><em>Step 1.</em> Write one function that represents the common features of these functions.</li><li><em>Step 2.</em> Parameterize the difference in terms of functions that are passed as arguments to the common function.</li></ul><h4>foreach</h4><p>This section illustrates procedural abstraction. Initially,
+the following two examples are written as conventional
+functions.</p><p>This function prints all elements of a list onto a stream:</p><pre><code class="">
+print_list(Stream, [H|T]) -&gt;
+    io:format(Stream, "~p~n", [H]),
+    print_list(Stream, T);
+print_list(Stream, []) -&gt;
+    true.</code></pre><p>This function broadcasts a message to a list of processes:</p><pre><code class="">
+broadcast(Msg, [Pid|Pids]) -&gt;
+    Pid ! Msg,
+    broadcast(Msg, Pids);
+broadcast(_, []) -&gt;
+    true.</code></pre><p>These two functions have a similar structure. They both
+iterate over a list and do something to each element in the list.
+The "something" is passed on as an extra argument to
+the function that does this.</p><p>The function <strong>foreach</strong> expresses this similarity:</p><pre><code class="">
+
+foreach(F, [H|T]) -&gt;
+    F(H),
+    foreach(F, T);
+foreach(F, []) -&gt;
+    ok.</code></pre><p>Using the function <strong>foreach</strong>, the function <strong>print_list</strong> becomes:</p><pre><code class="">
+foreach(fun(H) -&gt; io:format(S, "~p~n",[H]) end, L)</code></pre><p>Using the function <strong>foreach</strong>, the function <strong>broadcast</strong> becomes:</p><pre><code class="">
+foreach(fun(Pid) -&gt; Pid ! M end, L)</code></pre><p><strong>foreach</strong> is evaluated for its side-effect and not its
+value. <strong>foreach(Fun ,L)</strong> calls <strong>Fun(X)</strong> for each
+element <strong>X</strong> in <strong>L</strong> and the processing occurs in
+the order that the elements were defined in <strong>L</strong>.
+<strong>map</strong> does not define the order in which its elements are
+processed.</p><h4>Syntax of Funs</h4><p>Funs are written with the following syntax (see <a href="../doc/reference_manual/expressions#funs">Fun Expressions </a> for full description):</p><pre><code class="">
+F = fun (Arg1, Arg2, ... ArgN) -&gt;
+        ...
+    end</code></pre><p>This creates an anonymous function of <strong>N</strong> arguments and
+binds it to the variable <strong>F</strong>.</p><p>Another function, <strong>FunctionName</strong>, written in the same module,
+can be passed as an argument, using the following syntax:</p><pre><code class="">
+F = fun FunctionName/Arity</code></pre><p>With this form of function reference, the function that is
+referred to does not need to be exported from the module.</p><p>It is also possible to refer to a function defined in a different module,
+with the following syntax:</p><pre><code class="">
+F = fun Module:FunctionName/Arity</code></pre><p>In this case, the function must be exported from the module in
+question.</p><p>The following program illustrates the different ways of creating
+funs:</p><pre><code class="">
+
+-module(fun_test).
+-export([t1/0, t2/0]).
+-import(lists, [map/2]).
+
+t1() -&gt; map(fun(X) -&gt; 2 * X end, [1,2,3,4,5]).
+
+t2() -&gt; map(fun double/1, [1,2,3,4,5]).
+
+double(X) -&gt; X * 2.</code></pre><p>The fun <strong>F</strong> can be evaluated with the following syntax:</p><pre><code class="">
+F(Arg1, Arg2, ..., Argn)</code></pre><p>To check whether a term is a fun, use the test
+<strong>is_function/1</strong> in a guard.</p><p><em>Example:</em></p><pre><code class="">
+f(F, Args) when is_function(F) -&gt;
+   apply(F, Args);
+f(N, _) when is_integer(N) -&gt;
+   N.</code></pre><p>Funs are a distinct type. The BIFs <strong>erlang:fun_info/1,2</strong> can
+be used to retrieve information about a fun, and the BIF
+<strong>erlang:fun_to_list/1</strong> returns a textual representation of a fun.
+The <strong>check_process_code/2</strong> BIF returns <strong>true</strong> if the process
+contains funs that depend on the old version of a module.</p><h4>Variable Bindings Within a Fun</h4><p>The scope rules for variables that occur in funs are as
+follows:</p><ul><li>All variables that occur in the head of a fun are assumed to be "fresh" variables.</li><li>Variables that are defined before the fun, and that occur in function calls or guard tests within the fun, have the values they had outside the fun.</li><li>Variables cannot be exported from a fun.</li></ul><p>The following examples illustrate these rules:</p><pre><code class="">
+print_list(File, List) -&gt;
+    {ok, Stream} = file:open(File, write),
+    foreach(fun(X) -&gt; io:format(Stream,"~p~n",[X]) end, List),
+    file:close(Stream).</code></pre><p>Here, the variable <strong>X</strong>, defined in
+the head of the fun, is a new variable. The variable
+<strong>Stream</strong>, which is used within the fun, gets its value
+from the <strong>file:open</strong> line.</p><p>As any variable that occurs in the head of a fun is
+considered a new variable, it is equally valid to write
+as follows:</p><pre><code class="">
+print_list(File, List) -&gt;
+    {ok, Stream} = file:open(File, write),
+    foreach(fun(File) -&gt; 
+                io:format(Stream,"~p~n",[File]) 
+            end, List),
+    file:close(Stream).</code></pre><p>Here, <strong>File</strong> is used as the new variable
+instead of <strong>X</strong>. This is not so wise because code in the fun
+body cannot refer to the variable <strong>File</strong>, which is
+defined outside of the fun. Compiling this example gives
+the following diagnostic:</p><pre><code class="">
+./FileName.erl:Line: Warning: variable 'File' 
+      shadowed in 'fun'</code></pre><p>This indicates that the variable <strong>File</strong>, which is defined
+inside the fun, collides with the variable <strong>File</strong>, which is
+defined outside the fun.</p><p>The rules for importing variables into a fun has the consequence
+that certain pattern matching operations must be moved into
+guard expressions and cannot be written in the head of the fun.
+For example, you might write the following code if you intend
+the first clause of <strong>F</strong> to be evaluated when the value of
+its argument is <strong>Y</strong>:</p><pre><code class="">
+f(...) -&gt;
+    Y = ...
+    map(fun(X) when X == Y -&gt;
+             ;
+           (_) -&gt;
+             ...
+        end, ...)
+    ...</code></pre><p>instead of writing the following code:</p><pre><code class="">
+f(...) -&gt;
+    Y = ...
+    map(fun(Y) -&gt;
+             ;
+           (_) -&gt;
+             ...
+        end, ...)
+    ...</code></pre><h4>Funs and Module Lists</h4><p>The following examples show a dialogue with the Erlang shell.
+All the higher order functions discussed are exported from
+the module <strong>lists</strong>.</p><h4>map</h4><p><strong>map</strong> takes a function of one argument and a list of terms:</p><pre><code class="">
+
+map(F, [H|T]) -&gt; [F(H)|map(F, T)];
+map(F, [])    -&gt; [].</code></pre><p>It returns the list obtained by applying the function
+to every argument in the list.</p><p>When a new fun is defined in the shell, the value of the fun
+is printed as <strong>Fun#&lt;erl_eval&gt;</strong>:</p><pre>
+&gt; <span class="input">Double = fun(X) -&gt; 2 * X end.</span>
+#Fun&lt;erl_eval.6.72228031&gt;
+&gt; <span class="input">lists:map(Double, [1,2,3,4,5]).</span>
+[2,4,6,8,10]</pre><h4>any</h4><p><strong>any</strong> takes a predicate <strong>P</strong> of one argument and a
+list of terms:</p><pre><code class="">
+
+any(Pred, [H|T]) -&gt;
+    case Pred(H) of
+        true  -&gt;  true;
+        false -&gt;  any(Pred, T)
+    end;
+any(Pred, []) -&gt;
+    false.</code></pre><p>A predicate is a function that returns <strong>true</strong> or <strong>false</strong>.
+<strong>any</strong> is <strong>true</strong> if there is a term <strong>X</strong> in the list such that
+<strong>P(X)</strong> is <strong>true</strong>.</p><p>A predicate <strong>Big(X)</strong> is defined, which is <strong>true</strong> if
+its argument is greater that 10:</p><pre>
+&gt; <span class="input">Big =  fun(X) -&gt; if X &gt; 10 -&gt; true; true -&gt; false end end.</span>
+#Fun&lt;erl_eval.6.72228031&gt;
+&gt; <span class="input">lists:any(Big, [1,2,3,4]).</span>
+false
+&gt; <span class="input">lists:any(Big, [1,2,3,12,5]).</span>
+true</pre><h4>all</h4><p><strong>all</strong> has the same arguments as <strong>any</strong>:</p><pre><code class="">
+
+all(Pred, [H|T]) -&gt;
+    case Pred(H) of
+        true  -&gt;  all(Pred, T);
+        false -&gt;  false
+    end;
+all(Pred, []) -&gt;
+    true.</code></pre><p>It is <strong>true</strong>
+if the predicate applied to all elements in the list is <strong>true</strong>.</p><pre>
+&gt; <span class="input">lists:all(Big, [1,2,3,4,12,6]).</span>   
+false
+&gt; <span class="input">lists:all(Big, [12,13,14,15]).</span>       
+true</pre><h4>foreach</h4><p><strong>foreach</strong> takes a function of one argument and a list of
+terms:</p><pre><code class="">
+
+foreach(F, [H|T]) -&gt;
+    F(H),
+    foreach(F, T);
+foreach(F, []) -&gt;
+    ok.</code></pre><p>The function is applied to each argument in the list.
+<strong>foreach</strong> returns <strong>ok</strong>. It is only used for its
+side-effect:</p><pre>
+&gt; <span class="input">lists:foreach(fun(X) -&gt; io:format("~w~n",[X]) end, [1,2,3,4]).</span> 
+1
+2
+3
+4
+ok</pre><h4>foldl</h4><p><strong>foldl</strong> takes a function of two arguments, an
+accumulator and a list:</p><pre><code class="">
+
+foldl(F, Accu, [Hd|Tail]) -&gt;
+    foldl(F, F(Hd, Accu), Tail);
+foldl(F, Accu, []) -&gt; Accu.</code></pre><p>The function is called with two
+arguments. The first argument is the successive elements in
+the list. The second argument is the accumulator. The function
+must return a new accumulator, which is used the next time
+the function is called.</p><p>If you have a list of lists <strong>L = ["I","like","Erlang"]</strong>,
+then you can sum the lengths of all the strings in <strong>L</strong> as
+follows:</p><pre>
+&gt; <span class="input">L = ["I","like","Erlang"].</span>
+["I","like","Erlang"]
+10&gt; <span class="input">lists:foldl(fun(X, Sum) -&gt; length(X) + Sum end, 0, L).</span>                    
+11</pre><p><strong>foldl</strong> works like a <strong>while</strong> loop in an imperative
+language:</p><pre><code class="">
+L =  ["I","like","Erlang"],
+Sum = 0,
+while( L != []){
+    Sum += length(head(L)),
+    L = tail(L)
+end</code></pre><h4>mapfoldl</h4><p><strong>mapfoldl</strong> simultaneously maps and folds over a list:</p><pre><code class="">
+
+mapfoldl(F, Accu0, [Hd|Tail]) -&gt;
+    {R,Accu1} = F(Hd, Accu0),
+    {Rs,Accu2} = mapfoldl(F, Accu1, Tail),
+    {[R|Rs], Accu2};
+mapfoldl(F, Accu, []) -&gt; {[], Accu}.</code></pre><p>The following example shows how to change all letters in
+<strong>L</strong> to upper case and then count them.</p><p>First the change to upper case:</p><pre>
+&gt; <span class="input">Upcase =  fun(X) when $a =&lt; X,  X =&lt; $z -&gt; X + $A - $a;</span>
+<span class="input">(X) -&gt; X</span> 
+<span class="input">end.</span>
+#Fun&lt;erl_eval.6.72228031&gt;
+&gt; <span class="input">Upcase_word =</span> 
+<span class="input">fun(X) -&gt;</span> 
+<span class="input">lists:map(Upcase, X)</span> 
+<span class="input">end.</span>
+#Fun&lt;erl_eval.6.72228031&gt;
+&gt; <span class="input">Upcase_word("Erlang").</span>
+"ERLANG"
+&gt; <span class="input">lists:map(Upcase_word, L).</span>
+["I","LIKE","ERLANG"]</pre><p>Now, the fold and the map can be done at the same time:</p><pre>
+&gt; <span class="input">lists:mapfoldl(fun(Word, Sum) -&gt;</span>
+<span class="input">{Upcase_word(Word), Sum + length(Word)}</span>
+<span class="input">end, 0, L).</span>
+{["I","LIKE","ERLANG"],11}</pre><h4>filter</h4><p><strong>filter</strong> takes a predicate of one argument and a list
+and returns all elements in the list that satisfy
+the predicate:</p><pre><code class="">
+
+filter(F, [H|T]) -&gt;
+    case F(H) of
+        true  -&gt; [H|filter(F, T)];
+        false -&gt; filter(F, T)
+    end;
+filter(F, []) -&gt; [].</code></pre><pre>
+&gt; <span class="input">lists:filter(Big, [500,12,2,45,6,7]).</span>
+[500,12,45]</pre><p>Combining maps and filters enables writing of very succinct
+code. For example, to define a set difference
+function <strong>diff(L1, L2)</strong> to be
+the difference between the lists <strong>L1</strong> and <strong>L2</strong>,
+the code can be written as follows:</p><pre><code class="">
+diff(L1, L2) -&gt; 
+    filter(fun(X) -&gt; not member(X, L2) end, L1).</code></pre><p>This gives the list of all elements in L1 that are not contained
+in L2.</p><p> The AND intersection of the list <strong>L1</strong> and <strong>L2</strong> is
+also easily defined:</p><pre><code class="">
+intersection(L1,L2) -&gt; filter(fun(X) -&gt; member(X,L1) end, L2).</code></pre><h4>takewhile</h4><p><strong>takewhile(P, L)</strong> takes elements <strong>X</strong> from a list
+<strong>L</strong> as long as the predicate <strong>P(X)</strong> is true:</p><pre><code class="">
+
+takewhile(Pred, [H|T]) -&gt;
+    case Pred(H) of
+        true  -&gt; [H|takewhile(Pred, T)];
+        false -&gt; []
+    end;
+takewhile(Pred, []) -&gt;
+    [].</code></pre><pre>
+&gt; <span class="input">lists:takewhile(Big, [200,500,45,5,3,45,6]).</span>  
+[200,500,45]</pre><h4>dropwhile</h4><p><strong>dropwhile</strong> is the complement of <strong>takewhile</strong>:</p><pre><code class="">
+
+dropwhile(Pred, [H|T]) -&gt;
+    case Pred(H) of
+        true  -&gt; dropwhile(Pred, T);
+        false -&gt; [H|T]
+    end;
+dropwhile(Pred, []) -&gt;
+    [].</code></pre><pre>
+&gt; <span class="input">lists:dropwhile(Big, [200,500,45,5,3,45,6]).</span>
+[5,3,45,6]</pre><h4>splitwith</h4><p><strong>splitwith(P, L)</strong> splits the list <strong>L</strong> into the two
+sublists <strong>{L1, L2}</strong>, where <strong>L = takewhile(P, L)</strong>
+and <strong>L2 = dropwhile(P, L)</strong>:</p><pre><code class="">
+
+splitwith(Pred, L) -&gt;
+    splitwith(Pred, L, []).
+
+splitwith(Pred, [H|T], L) -&gt;
+    case Pred(H) of 
+        true  -&gt; splitwith(Pred, T, [H|L]);
+        false -&gt; {reverse(L), [H|T]}
+    end;
+splitwith(Pred, [], L) -&gt;
+    {reverse(L), []}.</code></pre><pre>
+&gt; <span class="input">lists:splitwith(Big, [200,500,45,5,3,45,6]).</span>
+{[200,500,45],[5,3,45,6]}</pre><h4>Funs Returning Funs</h4><p>So far, only functions that take
+funs as arguments have been described. More powerful
+functions, that themselves return funs, can also be written. The following
+examples illustrate these type of functions.</p><h4>Simple Higher Order Functions</h4><p><strong>Adder(X)</strong> is a function that given <strong>X</strong>, returns
+a new function <strong>G</strong> such that <strong>G(K)</strong> returns
+<strong>K + X</strong>:</p><pre>
+&gt; <span class="input">Adder = fun(X) -&gt; fun(Y) -&gt; X + Y end end.</span>
+#Fun&lt;erl_eval.6.72228031&gt;
+&gt; <span class="input">Add6 = Adder(6).</span>
+#Fun&lt;erl_eval.6.72228031&gt;
+&gt; <span class="input">Add6(10).</span>
+16</pre><h4>Infinite Lists</h4><p>The idea is to write something like:</p><pre><code class="">
+-module(lazy).
+-export([ints_from/1]).
+ints_from(N) -&gt;
+    fun() -&gt;
+            [N|ints_from(N+1)]
+    end.</code></pre><p>Then proceed as follows:</p><pre>
+&gt; <span class="input">XX = lazy:ints_from(1).</span>
+#Fun&lt;lazy.0.29874839&gt;
+&gt; <span class="input">XX().</span>
+[1|#Fun&lt;lazy.0.29874839&gt;]
+&gt; <span class="input">hd(XX()).</span>
+1
+&gt; <span class="input">Y = tl(XX()).</span>
+#Fun&lt;lazy.0.29874839&gt;
+&gt; <span class="input">hd(Y()).</span>
+2</pre><p>And so on. This is an example of "lazy embedding".</p><h4>Parsing</h4><p>The following examples show parsers of the following type:</p><pre>
+Parser(Toks) -&gt; {ok, Tree, Toks1} | fail</pre><p><strong>Toks</strong> is the list of tokens to be parsed. A successful
+parse returns <strong>{ok, Tree, Toks1}</strong>.</p><ul><li><strong>Tree</strong> is a parse tree.</li><li><strong>Toks1</strong> is a tail of <strong>Tree</strong> that contains symbols encountered after the structure that was correctly parsed.</li></ul><p>An unsuccessful parse returns <strong>fail</strong>.</p><p>The following example illustrates a simple, functional
+parser that parses the grammar:</p><pre>
+(a | b) &amp; (c | d)</pre><p>The following code defines a function <strong>pconst(X)</strong> in
+the module <strong>funparse</strong>, which returns a fun that parses a
+list of tokens:</p><pre><code class="">
+
+pconst(X) -&gt;
+    fun (T) -&gt;
+       case T of
+           [X|T1] -&gt; {ok, {const, X}, T1};
+           _      -&gt; fail
+       end
+    end.</code></pre><p>This function can be used as follows:</p><pre>
+&gt; <span class="input">P1 = funparse:pconst(a).</span>
+#Fun&lt;funparse.0.22674075&gt;
+&gt; <span class="input">P1([a,b,c]).</span>
+{ok,{const,a},[b,c]}
+&gt; <span class="input">P1([x,y,z]).</span>     
+fail</pre><p>Next, the two higher order functions <strong>pand</strong>
+and <strong>por</strong> are defined. They combine primitive parsers to produce more
+complex parsers.</p><p>First <strong>pand</strong>:</p><pre><code class="">
+
+pand(P1, P2) -&gt;
+    fun (T) -&gt;
+        case P1(T) of
+            {ok, R1, T1} -&gt;
+                case P2(T1) of
+                    {ok, R2, T2} -&gt;
+                        {ok, {'and', R1, R2}};
+                    fail -&gt;
+                        fail
+                end;
+            fail -&gt;
+                fail
+        end
+    end.</code></pre><p>Given a parser <strong>P1</strong> for grammar <strong>G1</strong>, and a parser
+<strong>P2</strong> for grammar <strong>G2</strong>, <strong>pand(P1, P2)</strong> returns a
+parser for the grammar, which consists of sequences of tokens
+that satisfy <strong>G1</strong>, followed by sequences of tokens that
+satisfy <strong>G2</strong>.</p><p><strong>por(P1, P2)</strong> returns a parser for the language
+described by the grammar <strong>G1</strong> or <strong>G2</strong>:</p><pre><code class="">
+
+por(P1, P2) -&gt;
+    fun (T) -&gt;
+        case P1(T) of
+            {ok, R, T1} -&gt; 
+                {ok, {'or',1,R}, T1};
+            fail -&gt; 
+                case P2(T) of
+                    {ok, R1, T1} -&gt;
+                        {ok, {'or',2,R1}, T1};
+                    fail -&gt;
+                        fail
+                end
+        end
+    end.</code></pre><p>The original problem was to parse the grammar
+<strong>(a | b) &amp; (c | d)</strong>. The following code addresses this
+problem:</p><pre><code class="">
+
+grammar() -&gt;
+    pand(
+         por(pconst(a), pconst(b)),
+         por(pconst(c), pconst(d))).</code></pre><p>The following code adds a parser interface to the grammar:</p><pre><code class="">
+
+parse(List) -&gt;
+    (grammar())(List).</code></pre><p>The parser can be tested as follows:</p><pre>
+&gt; <span class="input">funparse:parse([a,c]).</span>
+{ok,{'and',{'or',1,{const,a}},{'or',1,{const,c}}}}
+&gt; <span class="input">funparse:parse([a,d]).</span> 
+{ok,{'and',{'or',1,{const,a}},{'or',2,{const,d}}}}
+&gt; <span class="input">funparse:parse([b,c]).</span>   
+{ok,{'and',{'or',2,{const,b}},{'or',1,{const,c}}}}
+&gt; <span class="input">funparse:parse([b,d]).</span> 
+{ok,{'and',{'or',2,{const,b}},{'or',2,{const,d}}}}
+&gt; <span class="input">funparse:parse([a,b]).</span>   
+fail</pre><h4>Simple Examples</h4><p>This section starts with a simple example, showing a generator and a filter:</p><pre>
+&gt; <span class="input">[X || X &lt;- [1,2,a,3,4,b,5,6], X &gt; 3].</span>
+[a,4,b,5,6]</pre><p>This is read as follows: The list of X such that X is taken from the list
+<strong>[1,2,a,...]</strong> and X is greater than 3.</p><p>The notation <strong>X &lt;- [1,2,a,...]</strong> is a generator and
+the expression <strong>X &gt; 3</strong> is a filter.</p><p>An additional filter, <strong>integer(X)</strong>, can be added to restrict
+the result to integers:</p><pre>
+&gt; <span class="input">[X || X &lt;- [1,2,a,3,4,b,5,6], integer(X), X &gt; 3].</span>
+[4,5,6]</pre><p>Generators can be combined. For example, the Cartesian product
+of two lists can be written as follows:</p><pre>
+&gt; <span class="input">[{X, Y} || X &lt;- [1,2,3], Y &lt;- [a,b]].</span>
+[{1,a},{1,b},{2,a},{2,b},{3,a},{3,b}]</pre><h4>Quick Sort</h4><p>The well-known quick sort routine can be written as follows:</p><pre><code class="">
+sort([Pivot|T]) -&gt;
+    sort([ X || X &lt;- T, X &lt; Pivot]) ++
+    [Pivot] ++
+    sort([ X || X &lt;- T, X &gt;= Pivot]);
+sort([]) -&gt; [].</code></pre><p>The expression <strong>[X || X &lt;- T, X &lt; Pivot]</strong> is the list of
+all elements in <strong>T</strong> that are less than <strong>Pivot</strong>.</p><p><strong>[X || X &lt;- T, X &gt;= Pivot]</strong> is the list of all elements in
+<strong>T</strong> that are greater than or equal to <strong>Pivot</strong>.</p><p>A list sorted as follows:</p><ul><li>The first element in the list is isolated and the list is split into two sublists.</li><li>The first sublist contains all elements that are smaller than the first element in the list.</li><li>The second sublist contains all elements that are greater than, or equal to, the first element in the list.</li><li>Then the sublists are sorted and the results are combined.</li></ul><h4>Permutations</h4><p>The following example generates all permutations of
+the elements in a list:</p><pre><code class="">
+perms([]) -&gt; [[]];
+perms(L)  -&gt; [[H|T] || H &lt;- L, T &lt;- perms(L--[H])].</code></pre><p>This takes <strong>H</strong> from <strong>L</strong> in all possible ways.
+The result is the set of all lists <strong>[H|T]</strong>, where <strong>T</strong>
+is the set of all possible permutations of <strong>L</strong>, with
+<strong>H</strong> removed:</p><pre>
+&gt; <span class="input">perms([b,u,g]).</span>
+[[b,u,g],[b,g,u],[u,b,g],[u,g,b],[g,b,u],[g,u,b]]</pre><h4>Pythagorean Triplets</h4><p>Pythagorean triplets are sets of integers <strong>{A,B,C}</strong> such
+that <strong>A**2 + B**2 = C**2</strong>.</p><p>The function <strong>pyth(N)</strong> generates a list of all integers
+<strong>{A,B,C}</strong> such that <strong>A**2 + B**2 = C**2</strong> and where
+the sum of the sides is equal to, or less than, <strong>N</strong>:</p><pre><code class="">
+pyth(N) -&gt;
+    [ {A,B,C} ||
+        A &lt;- lists:seq(1,N),
+        B &lt;- lists:seq(1,N),
+        C &lt;- lists:seq(1,N),
+        A+B+C =&lt; N,
+        A*A+B*B == C*C 
+    ].</code></pre><pre>
+&gt; <span class="input">pyth(3).</span>
+[].
+&gt; <span class="input">pyth(11).</span>
+[].
+&gt; <span class="input">pyth(12).</span>
+[{3,4,5},{4,3,5}]
+&gt; <span class="input">pyth(50).</span>
+[{3,4,5},
+ {4,3,5},
+ {5,12,13},
+ {6,8,10},
+ {8,6,10},
+ {8,15,17},
+ {9,12,15},
+ {12,5,13},
+ {12,9,15},
+ {12,16,20},
+ {15,8,17},
+ {16,12,20}]</pre><p>The following code reduces the search space and is more
+efficient:</p><pre><code class="">
+pyth1(N) -&gt;
+   [{A,B,C} ||
+       A &lt;- lists:seq(1,N-2),
+       B &lt;- lists:seq(A+1,N-1),
+       C &lt;- lists:seq(B+1,N),
+       A+B+C =&lt; N,
+       A*A+B*B == C*C ].</code></pre><h4>Simplifications With List Comprehensions</h4><p>As an example, list comprehensions can be used to simplify some
+of the functions in <strong>lists.erl</strong>:</p><pre><code class="">
+append(L)   -&gt;  [X || L1 &lt;- L, X &lt;- L1].
+map(Fun, L) -&gt; [Fun(X) || X &lt;- L].
+filter(Pred, L) -&gt; [X || X &lt;- L, Pred(X)].</code></pre><h4>Variable Bindings in List Comprehensions</h4><p>The scope rules for variables that occur in list
+comprehensions are as follows:</p><ul><li>All variables that occur in a generator pattern are assumed to be "fresh" variables.</li><li>Any variables that are defined before the list comprehension, and that are used in filters, have the values they had before the list comprehension.</li><li>Variables cannot be exported from a list comprehension.</li></ul><p>As an example of these rules, suppose you want to write
+the function <strong>select</strong>, which selects certain elements from
+a list of tuples. Suppose you write
+<strong>select(X, L) -&gt;  [Y || {X, Y} &lt;- L].</strong> with the intention
+of extracting all tuples from <strong>L</strong>, where the first item is
+<strong>X</strong>.</p><p>Compiling this gives the following diagnostic:</p><pre><code class="">
+./FileName.erl:Line: Warning: variable 'X' shadowed in generate</code></pre><p>This diagnostic warns that the variable <strong>X</strong> in
+the pattern is not the same as the variable <strong>X</strong>
+that occurs in the function head.</p><p>Evaluating <strong>select</strong> gives the following result:</p><pre>
+&gt; <span class="input">select(b,[{a,1},{b,2},{c,3},{b,7}]).</span>
+[1,2,3,7]</pre><p>This is not the wanted result. To achieve the desired
+effect, <strong>select</strong> must be written as follows:</p><pre><code class="">
+select(X, L) -&gt;  [Y || {X1, Y} &lt;- L, X == X1].</code></pre><p>The generator now contains unbound variables and the test has
+been moved into the filter.</p><p>This now works as expected:</p><pre>
+&gt; <span class="input">select(b,[{a,1},{b,2},{c,3},{b,7}]).</span>
+[2,7]</pre><p>A consequence of the rules for importing variables into a
+list comprehensions is that certain pattern matching operations
+must be moved into the filters and cannot be written directly
+in the generators.</p><p>To illustrate this, do <em>not</em> write as follows:</p><pre><code class="">
+f(...) -&gt;
+    Y = ...
+    [ Expression || PatternInvolving Y  &lt;- Expr, ...]
+    ...</code></pre><p>Instead, write as follows:</p><pre><code class="">
+f(...) -&gt;
+    Y = ...
+    [ Expression || PatternInvolving Y1  &lt;- Expr, Y == Y1, ...]
+    ...</code></pre><h4>Introduction</h4><p>The complete specification for the bit syntax appears in the
+<a href="../doc/reference_manual/expressions#bit_syntax">Reference Manual</a>.</p><p>In Erlang, a Bin is used for constructing binaries and matching
+binary patterns. A Bin is written with the following syntax:</p><pre><code class="">
+      &lt;&lt;E1, E2, ... En&gt;&gt;</code></pre><p>A Bin is a low-level sequence of bits or bytes.
+The purpose of a Bin is to enable construction of binaries:</p><pre><code class="">
+Bin = &lt;&lt;E1, E2, ... En&gt;&gt;</code></pre><p>All elements must be bound. Or match a binary:</p><pre><code class="">
+&lt;&lt;E1, E2, ... En&gt;&gt; = Bin </code></pre><p>Here, <strong>Bin</strong> is bound and the elements are bound or
+unbound, as in any match.</p><p>A Bin does not need to consist of a whole number of bytes.</p><p>A <em>bitstring</em> is a sequence of zero or more bits, where
+the number of bits does not need to be divisible by 8. If the number
+of bits is divisible by 8, the bitstring is also a binary.</p><p>Each element specifies a certain <em>segment</em> of the bitstring.
+A segment is a set of contiguous bits of the binary (not
+necessarily on a byte boundary). The first element specifies
+the initial segment, the second element specifies the following
+segment, and so on.</p><p>The following examples illustrate how binaries are constructed,
+or matched, and how elements and tails are specified.</p><h4>Examples</h4><p><em>Example 1:</em> A binary can be constructed from a set of
+constants or a string literal:</p><pre><code class="">
+Bin11 = &lt;&lt;1, 17, 42&gt;&gt;,
+Bin12 = &lt;&lt;"abc"&gt;&gt;</code></pre><p>This gives two binaries of size 3, with the following evaluations:</p><ul><li><strong>binary_to_list(Bin11)</strong> evaluates to <strong>[1, 17, 42]</strong>.</li><li><strong>binary_to_list(Bin12)</strong> evaluates to <strong>[97, 98, 99]</strong>.</li></ul><p><em>Example 2:</em>Similarly, a binary can be constructed
+from a set of bound variables:</p><pre><code class="">
+A = 1, B = 17, C = 42,
+Bin2 = &lt;&lt;A, B, C:16&gt;&gt;</code></pre><p>This gives a binary of size 4.
+Here, a <em>size expression</em> is used for the variable <strong>C</strong> to
+specify a 16-bits segment of <strong>Bin2</strong>.</p><p><strong>binary_to_list(Bin2)</strong> evaluates to <strong>[1, 17, 00, 42]</strong>.</p><p><em>Example 3:</em> A Bin can also be used for matching.
+<strong>D</strong>, <strong>E</strong>, and <strong>F</strong> are unbound variables, and
+<strong>Bin2</strong> is bound, as in Example 2:</p><pre><code class="">
+&lt;&lt;D:16, E, F/binary&gt;&gt; = Bin2</code></pre><p>This gives <strong>D = 273</strong>, <strong>E = 00</strong>, and F binds to a binary
+of size 1: <strong>binary_to_list(F) = [42]</strong>.</p><p><em>Example 4:</em> The following is a more elaborate example
+of matching. Here, <strong>Dgram</strong> is bound to the consecutive
+bytes of an IP datagram of IP protocol version 4. The ambition is
+to extract the header and the data of the datagram:</p><pre><code class="">
+-define(IP_VERSION, 4).
+-define(IP_MIN_HDR_LEN, 5).
+
+DgramSize = byte_size(Dgram),
+case Dgram of 
+    &lt;&lt;?IP_VERSION:4, HLen:4, SrvcType:8, TotLen:16, 
+      ID:16, Flgs:3, FragOff:13,
+      TTL:8, Proto:8, HdrChkSum:16,
+      SrcIP:32,
+      DestIP:32, RestDgram/binary&gt;&gt; when HLen&gt;=5, 4*HLen=&lt;DgramSize -&gt;
+        OptsLen = 4*(HLen - ?IP_MIN_HDR_LEN),
+        &lt;&lt;Opts:OptsLen/binary,Data/binary&gt;&gt; = RestDgram,
+    ...
+end.</code></pre><p>Here, the segment corresponding to the <strong>Opts</strong> variable
+has a <em>type modifier</em>, specifying that <strong>Opts</strong> is to
+bind to a binary. All other variables have the default type
+equal to unsigned integer.</p><p>An IP datagram header is of variable length. This length is
+measured in the number of 32-bit words and is given in
+the segment corresponding to <strong>HLen</strong>. The minimum value of
+<strong>HLen</strong> is 5. It is the segment corresponding to <strong>Opts</strong>
+that is variable, so if <strong>HLen</strong> is equal to 5, <strong>Opts</strong>
+becomes an empty binary.</p><p>The tail variables <strong>RestDgram</strong> and <strong>Data</strong> bind to
+binaries, as all tail variables do. Both can bind to empty
+binaries.</p><p>The match of <strong>Dgram</strong> fails if one of the following occurs:</p><ul><li>The first 4-bits segment of <strong>Dgram</strong> is not equal to 4.</li><li><strong>HLen</strong> is less than 5.</li><li>The size of <strong>Dgram</strong> is less than <strong>4*HLen</strong>.</li></ul><h4>Lexical Note</h4><p>Notice that "<strong>B=&lt;&lt;1&gt;&gt;</strong>" will be interpreted as
+"<strong>B =&lt; &lt;1&gt;&gt;</strong>", which is a syntax error.
+The correct way to write the expression is:
+<strong>B = &lt;&lt;1&gt;&gt;</strong>.</p><h4>Segments</h4><p>Each segment has the following general syntax:</p><p><strong>Value:Size/TypeSpecifierList</strong></p><p>The <strong>Size</strong> or the <strong>TypeSpecifier</strong>, or both, can be
+omitted. Thus, the following variants are allowed:</p><ul><li><strong>Value</strong></li><li><strong>Value:Size</strong></li><li><strong>Value/TypeSpecifierList</strong></li></ul><p>Default values are used when specifications are missing.
+The default values are described in
+<a href="#Defaults">Defaults</a>.</p><p>The <strong>Value</strong> part is any expression, when used in binary construction.
+Used in binary matching, the <strong>Value</strong> part must
+be a literal or a variable. For more information about
+the <strong>Value</strong> part, see
+<a href="#Constructing Binaries and Bitstrings">Constructing Binaries and Bitstrings</a>
+and
+<a href="#Matching Binaries">Matching Binaries</a>.</p><p>The <strong>Size</strong> part of the segment multiplied by the unit in
+<strong>TypeSpecifierList</strong> (described later) gives the number
+of bits for the segment. In construction, <strong>Size</strong> is any
+expression that evaluates to an integer. In matching,
+<strong>Size</strong> must be a constant expression or a variable.</p><p>The <strong>TypeSpecifierList</strong> is a list of type specifiers
+separated by hyphens.</p><dl><dt>Type</dt><dd>The most commonly used types are <strong>integer</strong>, <strong>float</strong>, and <strong>binary</strong>. See <a href="../doc/reference_manual/expressions#bit_syntax">Bit Syntax Expressions in the Reference Manual</a> for a complete description. </dd><dt>Signedness</dt><dd>The signedness specification can be either <strong>signed</strong> or <strong>unsigned</strong>. Notice that signedness only matters for matching.</dd><dt>Endianness</dt><dd>The endianness specification can be either <strong>big</strong>, <strong>little</strong>, or <strong>native</strong>. Native-endian means that the endian is resolved at load time, to be either big-endian or little-endian, depending on what is "native" for the CPU that the Erlang machine is run on.</dd><dt>Unit</dt><dd>The unit size is given as <strong>unit:IntegerLiteral</strong>. The allowed range is 1-256. It is multiplied by the <strong>Size</strong> specifier to give the effective size of the segment. The unit size specifies the alignment for binary segments without size.</dd></dl><p><em>Example:</em></p><pre><code class="">
+X:4/little-signed-integer-unit:8</code></pre><p>This element has a total size of 4*8 = 32 bits, and it contains
+a signed integer in little-endian order.</p><h4>Defaults</h4><p><a name="Defaults"></a>The default type for
+a segment is integer. The default
+type does not depend on the value, even if the value is a
+literal. For example, the default type in <strong>&lt;&lt;3.14&gt;&gt;</strong> is
+integer, not float.</p><p>The default <strong>Size</strong> depends on the type. For integer it is
+8. For float it is 64. For binary it is all of the binary. In
+matching, this default value is only valid for the last
+element. All other binary elements in matching must have a size
+specification.</p><p>The default unit depends on the the type. For <strong>integer</strong>,
+<strong>float</strong>, and <strong>bitstring</strong> it is 1. For binary it is 8.</p><p>The default signedness is <strong>unsigned</strong>.</p><p>The default endianness is <strong>big</strong>.</p><h4>Constructing Binaries and Bitstrings</h4><a name="Constructing Binaries and Bitstrings"></a><p>This section describes the rules for constructing binaries using
+the bit syntax. Unlike when constructing lists or tuples,
+the construction of a binary can fail with a <strong>badarg</strong>
+exception.</p><p>There can be zero or more segments in a binary to be
+constructed. The expression <strong>&lt;&lt;&gt;&gt;</strong> constructs a zero
+length binary.</p><p>Each segment in a binary can consist of zero or more bits.
+There are no alignment rules for individual segments of type
+<strong>integer</strong> and <strong>float</strong>. For binaries and bitstrings
+without size, the unit specifies the alignment. Since the default
+alignment for the <strong>binary</strong> type is 8, the size of a binary
+segment must be a multiple of 8 bits, that is, only whole bytes.</p><p><em>Example:</em></p><pre><code class="">
+&lt;&lt;Bin/binary,Bitstring/bitstring&gt;&gt;</code></pre><p>The variable <strong>Bin</strong> must contain a whole number of bytes,
+because the <strong>binary</strong> type defaults to <strong>unit:8</strong>.
+A <strong>badarg</strong> exception is generated if <strong>Bin</strong>
+consist of, for example, 17 bits.</p><p>The <strong>Bitstring</strong> variable can consist of
+any number of bits, for example, 0, 1, 8, 11, 17, 42, and so on.
+This is because the default <strong>unit</strong> for bitstrings is 1.</p><p>For clarity, it is recommended not to change the unit
+size for binaries. Instead, use <strong>binary</strong> when you need byte alignment
+and <strong>bitstring</strong> when you need bit alignment.</p><p>The following example successfully constructs a bitstring of 7 bits,
+provided that all of X and Y are integers:</p><pre><code class="">
+&lt;&lt;X:1,Y:6&gt;&gt;</code></pre><p>As mentioned earlier, segments have the following general syntax:</p><p><strong>Value:Size/TypeSpecifierList</strong></p><p>When constructing binaries, <strong>Value</strong> and <strong>Size</strong> can be
+any Erlang expression. However, for syntactical reasons, both
+<strong>Value</strong> and <strong>Size</strong> must be enclosed in parenthesis if
+the expression consists of anything more than a single literal
+or a variable. The following gives a compiler syntax error:</p><pre><code class="">
+&lt;&lt;X+1:8&gt;&gt;</code></pre><p>This expression must be rewritten into the following,
+to be accepted by the compiler:</p><pre><code class="">
+&lt;&lt;(X+1):8&gt;&gt;</code></pre><h4>Including Literal Strings</h4><p>A literal string can be written instead of an element:</p><pre><code class="">
+&lt;&lt;"hello"&gt;&gt;</code></pre><p>This is syntactic sugar for the following:</p><pre><code class="">
+&lt;&lt;$h,$e,$l,$l,$o&gt;&gt;</code></pre><h4>Matching Binaries</h4><a name="Matching Binaries"></a><p>This section describes the rules for matching binaries, using
+the bit syntax.</p><p>There can be zero or more segments in a binary pattern.
+A binary pattern can occur wherever patterns are allowed,
+including inside other patterns. Binary patterns cannot be nested.
+The pattern <strong>&lt;&lt;&gt;&gt;</strong> matches a zero length binary.</p><p>Each segment in a binary can consist of zero or more bits.
+A segment of type <strong>binary</strong> must have a size evenly divisible by 8
+(or divisible by the unit size, if the unit size has been changed).
+A segment of type <strong>bitstring</strong> has no restrictions on the size.</p><p>As mentioned earlier, segments have the following general syntax:</p><p><strong>Value:Size/TypeSpecifierList</strong></p><p>When matching <strong>Value</strong>, value must be either a variable or
+an integer, or a floating point literal. Expressions are not
+allowed.</p><p><strong>Size</strong> must be an integer literal, or a previously bound
+variable. The following is not allowed:</p><pre><code class="">
+foo(N, &lt;&lt;X:N,T/binary&gt;&gt;) -&gt;
+   {X,T}.</code></pre><p>The two occurrences of <strong>N</strong> are not related. The compiler
+will complain that the <strong>N</strong> in the size field is unbound.</p><p>The correct way to write this example is as follows:</p><pre><code class="">
+foo(N, Bin) -&gt;
+   &lt;&lt;X:N,T/binary&gt;&gt; = Bin,
+   {X,T}.</code></pre><h4>Getting the Rest of the Binary or Bitstring</h4><p>To match out the rest of a binary, specify a binary field
+without size:</p><pre><code class="">
+foo(&lt;&lt;A:8,Rest/binary&gt;&gt;) -&gt;</code></pre><p>The size of the tail must be evenly divisible by 8.</p><p>To match out the rest of a bitstring, specify a field
+without size:</p><pre><code class="">
+foo(&lt;&lt;A:8,Rest/bitstring&gt;&gt;) -&gt;</code></pre><p>There are no restrictions on the number of bits in the tail.</p><h4>Appending to a Binary</h4><p>Appending to a binary in an efficient way can be done as follows:</p><pre><code class="">
+triples_to_bin(T) -&gt;
+    triples_to_bin(T, &lt;&lt;&gt;&gt;).
+
+triples_to_bin([{X,Y,Z} | T], Acc) -&gt;
+    triples_to_bin(T, &lt;&lt;Acc/binary,X:32,Y:32,Z:32&gt;&gt;);
+triples_to_bin([], Acc) -&gt; 
+    Acc.</code></pre></body></html>

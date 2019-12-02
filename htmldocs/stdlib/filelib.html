@@ -1,0 +1,74 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>filelib</h1><h1>filelib</h1><p>File utilities, such as wildcard matching of filenames.
+</p><p>This module contains utilities on a higher level than the
+<a href="./file">kernel/file</a> module.This module does not support "raw" filenames (that is, files whose
+names do not comply with the expected encoding). Such files are ignored
+by the functions in this module.For more information about raw filenames, see the
+<a href="./file">kernel/file</a> module.</p><h1>Data Types</h1><span class="name">filename</span><span class="name">dirname</span><span class="name">dirname_all</span><span class="name">filename_all</span><span class="name">find_file_rule</span><span class="name">find_source_rule</span><h1>Functions</h1><h2>ensure_dir/1</h2><p>Ensure that all parent directories for a file or directory exist.</p><p>Ensures that all parent directories for the specified file or
+directory name <strong><span class="anno">Name</span></strong>
+exist, trying to create them if necessary.</p><p>Returns <strong>ok</strong> if all parent directories already exist
+or can be created. Returns <strong>{error, <span class="anno">Reason</span>}</strong> if
+some parent directory does not exist and cannot be created.</p><h2>file_size/1</h2><p>Return the size in bytes of a file.</p><p>Returns the size of the specified file.</p><h2>fold_files/5</h2><p>Fold over all files matching a regular expression.</p><p>Folds function <strong><span class="anno">Fun</span></strong> over all (regular) files
+<strong><span class="anno">F</span></strong> in directory <strong><span class="anno">Dir</span></strong> that match
+the regular expression <strong><span class="anno">RegExp</span></strong> (for a description
+of the allowed regular expressions,
+see the <a href="re">re</a> module).
+If <strong><span class="anno">Recursive</span></strong> is <strong>true</strong>, all subdirectories
+to <strong>Dir</strong>
+are processed. The regular expression matching is only done on
+the filename without the directory part.</p><p>If Unicode filename translation is in effect and the file
+system is transparent, filenames that cannot be
+interpreted as Unicode can be encountered, in which case the
+<strong>fun()</strong> must be prepared to handle raw filenames
+(that is, binaries). If the regular expression contains
+codepoints &gt; 255, it does not match filenames that do
+not conform to the expected character encoding (that is, are not
+encoded in valid UTF-8).</p><p>For more information about raw filenames, see the
+<a href="./file">kernel/file</a> module.</p><h2>is_dir/1</h2><p>Test whether <strong>Name</strong> refers to a directory.</p><p>Returns <strong>true</strong> if <strong><span class="anno">Name</span></strong>
+refers to a directory, otherwise <strong>false</strong>.</p><h2>is_file/1</h2><p>Test whether <strong>Name</strong> refers to a file or directory. </p><p>Returns <strong>true</strong> if <strong><span class="anno">Name</span></strong>
+refers to a file or a directory, otherwise <strong>false</strong>.</p><h2>is_regular/1</h2><p>Test whether <strong>Name</strong> refers to a (regular) file.</p><p>Returns <strong>true</strong> if <strong><span class="anno">Name</span></strong>
+refers to a (regular) file, otherwise <strong>false</strong>.</p><h2>last_modified/1</h2><p>Return the local date and time when a file was last modified. </p><p>Returns the date and time the specified file or directory was last
+modified, or <strong>0</strong> if the file does not exist.</p><h2>wildcard/1</h2><p>Match filenames using Unix-style wildcards.</p><p>Returns a list of all files that match Unix-style wildcard string
+<strong><span class="anno">Wildcard</span></strong>.</p><p>The wildcard string looks like an ordinary filename, except
+that the following "wildcard characters" are interpreted in a special
+way:</p><dl><dt>?</dt><dd> <p>Matches one character.</p> </dd><dt>*</dt><dd> <p>Matches any number of characters up to the end of
+the filename, the next dot, or the next slash.</p> </dd><dt>**</dt><dd> <p>Two adjacent <strong>*</strong> used as a single pattern match
+all files and zero or more directories and subdirectories.</p> </dd><dt>[Character1,Character2,...]</dt><dd> <p>Matches any of the characters listed. Two characters
+separated by a hyphen match a range of characters.
+Example: <strong>[A-Z]</strong> matches any uppercase letter.</p> </dd><dt>{Item,...}</dt><dd> <p>Alternation. Matches one of the alternatives.</p> </dd></dl><p>Other characters represent themselves. Only filenames that
+have exactly the same character in the same position match.
+Matching is case-sensitive, for example, "a" does not match "A".</p><p>Directory separators must always be written as <strong>/</strong>, even on
+Windows.</p><p>A character preceded by <strong>\</strong> loses its special meaning. Note
+that <strong>\</strong> must be written as <strong>\\</strong> in a string literal.
+For example, "\\?*" will match any filename starting with <strong>?</strong>.</p><p>Notice that multiple "*" characters are allowed
+(as in Unix wildcards, but opposed to Windows/DOS wildcards).</p><p><em>Examples:</em></p><p>The following examples assume that the current directory is the
+top of an Erlang/OTP installation.</p><p>To find all <strong>.beam</strong> files in all applications, use the
+following line:</p><pre><code class="">
+filelib:wildcard("lib/*/ebin/*.beam").</code></pre><p>To find <strong>.erl</strong> or <strong>.hrl</strong> in all applications <strong>src</strong>
+directories, use either of the following lines:</p><pre><code class="">
+filelib:wildcard("lib/*/src/*.?rl")</code></pre><pre><code class="">
+filelib:wildcard("lib/*/src/*.{erl,hrl}")</code></pre><p>To find all <strong>.hrl</strong> files in <strong>src</strong> or <strong>include</strong>
+directories:</p><pre><code class="">
+filelib:wildcard("lib/*/{src,include}/*.hrl").</code></pre><p>To find all <strong>.erl</strong> or <strong>.hrl</strong> files in either
+<strong>src</strong> or <strong>include</strong> directories:</p><pre><code class="">
+filelib:wildcard("lib/*/{src,include}/*.{erl,hrl}")</code></pre><p>To find all <strong>.erl</strong> or <strong>.hrl</strong> files in any subdirectory:</p><pre><code class="">
+filelib:wildcard("lib/**/*.{erl,hrl}")</code></pre><h2>wildcard/2</h2><p>Match filenames using Unix-style wildcards starting at a specified directory.</p><p>Same as <a href="#wildcard/1">wildcard/1</a>,
+except that <strong><span class="anno">Cwd</span></strong> is used instead of the working
+directory.</p><h2>find_file/2</h2><h2>find_file/3</h2><p>Find a file relative to a given directory.</p><p>Looks for a file of the given name by applying suffix rules to
+the given directory path. For example, a rule <strong>{"ebin", "src"}</strong>
+means that if the directory path ends with <strong>"ebin"</strong>, the
+corresponding path ending in <strong>"src"</strong> should be searched.</p><p>If <strong><span class="anno">Rules</span></strong> is left out or is an empty list, the
+default system rules are used. See also the Kernel application
+parameter <a href="../kernel/kernel_app#source_search_rules">kernel/kernel_app#source_search_rules</a>.</p><h2>find_source/1</h2><p>Find the source file for a given object file.</p><p>Equivalent to <strong>find_source(Base, Dir)</strong>, where <strong>Dir</strong> is
+<strong>filename:dirname(<span class="anno">FilePath</span>)</strong> and <strong>Base</strong> is
+<strong>filename:basename(<span class="anno">FilePath</span>)</strong>.</p><h2>find_source/2</h2><h2>find_source/3</h2><p>Find a source file relative to a given directory.</p><p>Applies file extension specific rules to find the source file for
+a given object file relative to the object directory. For example,
+for a file with the extension <strong>.beam</strong>, the default rule is to
+look for a file with a corresponding extension <strong>.erl</strong> by
+replacing the suffix <strong>"ebin"</strong> of the object directory path with
+<strong>"src"</strong> or <strong>"src/*"</strong>.
+The file search is done through <a href="#find_file/3">find_file/3</a>. The directory of
+the object file is always tried before any other directory specified
+by the rules.</p><p>If <strong><span class="anno">Rules</span></strong> is left out or is an empty list, the
+default system rules are used. See also the Kernel application
+parameter <a href="../kernel/kernel_app#source_search_rules">kernel/kernel_app#source_search_rules</a>.</p></body></html>

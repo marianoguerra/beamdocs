@@ -1,0 +1,79 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Microstate Accounting</h1><h1>msacc</h1><p>Convenience functions for microstate accounting</p><p>This module implements some convenience functions for analyzing
+microstate accounting data. For details about how to use the basic api and
+what the different states represent see
+<a href="../erts/erlang#statistics_microstate_accounting">erts/erlang#statistics_microstate_accounting</a>.<a name="msacc_print_example"></a><em>Basic Scenario</em><pre>1&gt; <span class="input">msacc:start(1000).</span>
+ok
+2&gt; <span class="input">msacc:print().</span>
+Average thread real-time    : 1000513 us
+Accumulated system run-time :    2213 us
+Average scheduler run-time  :    1076 us
+
+        Thread      aux check_io emulator       gc    other     port    sleep
+
+Stats per thread:
+     async( 0)    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%  100.00%
+     async( 1)    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%  100.00%
+       aux( 1)    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%   99.99%
+ scheduler( 1)    0.00%    0.03%    0.13%    0.00%    0.01%    0.00%   99.82%
+ scheduler( 2)    0.00%    0.00%    0.00%    0.00%    0.03%    0.00%   99.97%
+
+Stats per type:
+         async    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%  100.00%
+           aux    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%   99.99%
+     scheduler    0.00%    0.02%    0.06%    0.00%    0.02%    0.00%   99.89%
+ok
+</pre>This first command enables microstate accounting for 1000 milliseconds.
+See <a href="#start-0">start-0</a>,
+<a href="#stop-0">stop-0</a>,
+<a href="#reset-0">reset-0</a> and
+<a href="#start-1">start-1</a> for more details.
+The second command prints the statistics gathered during that time.
+First three general statistics are printed.<dl><dt>Average real-time</dt><dd>The average time spent collecting data in the threads. This should be close to the time which data was collected. </dd><dt>System run-time</dt><dd>The total run-time of all threads in the system. This is what you get if you call <strong>msacc:stats(total_runtime,Stats).</strong> </dd><dt>Average scheduler run-time</dt><dd>The average run-time for the schedulers. This is the average amount of time the schedulers did not sleep.</dd></dl>Then one column per state is printed with a the percentage of time this
+thread spent in the state out of it's own real-time. After the thread
+specific time, the accumulated time for each type of thread is printed in
+a similar format.Since we have the average real-time and the percentage spent in each
+state we can easily calculate the time spent in each state by multiplying
+<strong>Average thread real-time</strong> with <strong>Thread state %</strong>, i.e. to
+get the time Scheduler 1 spent in the emulator state we do
+<strong>1000513us * 0.13% = 1300us</strong>.</p><h1>Data Types</h1><span class="name">msacc_data</span><span class="name">msacc_data_thread</span><span class="name">msacc_data_counters</span><p>A map containing the different microstate accounting states and
+the number of microseconds spent in it.</p><span class="name">msacc_stats</span><span class="name">msacc_stats_thread</span><p>A map containing information about a specific thread. The
+percentages in the map can be either run-time or real-time depending
+on if <strong>runtime</strong> or <strong>realtime</strong> was requested from
+<a href="#stats-2">stats/2</a>. <strong>system</strong> is the
+percentage of total system time for this specific thread.</p><span class="name">msacc_stats_counters</span><p>A map containing the different microstate accounting states. Each
+value in the map contains another map with the percentage of time that
+this thread has spent in the specific state. Both the percentage of
+<strong>system</strong> time and the time for that specific <strong>thread</strong> is part of
+the map.</p><span class="name">msacc_type</span><span class="name">msacc_id</span><span class="name">msacc_state</span><p>The different states that a thread can be in. See
+<a href="../erts/erlang#statistics_microstate_accounting"> erlang:statistics(microstate_accounting)</a> for details.
+</p><span class="name">msacc_print_options</span><p>The different options that can be given to
+<a href="#print-2">print-2</a>.
+</p><h1>Functions</h1><h2>available/0</h2><p>Check if microstate accounting is available</p><p>This function checks whether microstate accounting
+is available or not.</p><h2>start/0</h2><p>Start microstate accounting.</p><p>Start microstate accounting. Returns whether it was
+previously enabled or disabled.</p><h2>start/1</h2><p>Start microstate accounting for a time.</p><p>Resets all counters and then starts microstate accounting
+for the given milliseconds.</p><h2>stop/0</h2><p>Stop microstate accounting.</p><p>Stop microstate accounting.
+Returns whether is was previously enabled or disabled.</p><h2>reset/0</h2><p>Reset microstate accounting counters</p><p>Reset microstate accounting counters.
+Returns whether is was enabled or disabled.</p><h2>print/0</h2><p>Print microstate statistics</p><p>
+Prints the current microstate accounting to standard out.
+Same as
+<a href="#print-1">print-1</a>
+</p><h2>print/1</h2><p>Print microstate statistics</p><p>Print the given microstate statistics values to stdout.
+Same as
+<a href="#print-1">print-1</a>
+</p><h2>print/2</h2><p>Print microstate statistics</p><p>Print the given microstate statistics values to standard out.
+With many states this can be quite verbose. See the top of this
+reference manual for a brief description of what the fields mean.</p><p>It is possible to print more specific types of statistics by
+first manipulating the <strong>DataOrStats</strong> using
+<a href="#stats-2">stats-2</a>.
+For instance if you want to print the percentage of run-time for each
+thread you can do:</p><pre><span class="input">msacc:print(msacc:stats(runtime,msacc:stats())).</span></pre><p>If you want to only print run-time per thread type you can do:</p><pre><span class="input">msacc:print(msacc:stats(type,msacc:stats(runtime,msacc:stats()))).</span></pre><p><em>Options</em></p><dl><dt><strong>system</strong></dt><dd>Print percentage of time spent in each state out of system time as well as thread time. Default: false.</dd></dl><h2>print/3</h2><p>Print microstate statistics</p><p>Print the given microstate statistics values to the given file
+or device. The other arguments behave the same way as for
+<a href="#print-2">print-2</a>.</p><h2>stats/0</h2><p>Returns a runtime system independent version of the microstate
+statistics data presented by
+<a href="../erts/erlang#statistics_microstate_accounting">erts/erlang#statistics_microstate_accounting</a>.
+All counters have been normalized to be in microsecond resolution.</p><h2>stats/2</h2><p>Returns the system time for the given microstate statistics values.
+System time is the accumulated time of all threads.</p><dl><dt><strong>realtime</strong></dt><dd>Returns all time recorded for all threads.</dd><dt><strong>runtime</strong></dt><dd>Returns all time spent doing work for all threads, i.e. all time not spent in the <strong>sleep</strong> state.</dd></dl><h2>stats/2</h2><p>Returns fractions of real-time or run-time spent in the various
+threads from the given microstate statistics values.</p><h2>stats/2</h2><p>Returns a list of microstate statistics values where the values
+for all threads of the same type has been merged.</p><h2>to_file/1</h2><p>Dumps the current microstate statistics counters to a file that can
+be parsed with <a href="../kernel/file#consult/1"> file:consult/1</a>.</p><h2>from_file/1</h2><p>Read a file dump produced by <a href="#to_file/1"> to_file(Filename)</a>.</p></body></html>

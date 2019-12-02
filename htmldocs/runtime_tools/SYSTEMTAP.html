@@ -1,0 +1,51 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>SystemTap and Erlang/OTP</h1><a name="Introduction"></a><h2>Introduction</h2><p>
+SystemTap is DTrace for Linux. In fact Erlang's SystemTap support
+is build using SystemTap's DTrace compatibility's layer. For an
+introduction to Erlang DTrace support read <a href="DTRACE">$ERL_TOP/HOWTO/DTRACE.md</a>.
+</p><a name="Requisites"></a><h2>Requisites</h2><ul><li> <p>Linux Kernel with UTRACE support
+</p> <p>check for UTRACE support in your current kernel:
+</p> <pre><code class="">
+# grep CONFIG_UTRACE /boot/config-`uname -r`
+CONFIG_UTRACE=y
+</code></pre> <p>Fedora 16 is known to contain UTRACE, for most other Linux distributions
+a custom build kernel will be required.
+Check Fedora's SystemTap documentation for additional required packages
+(e.g. Kernel Debug Symbols)
+</p> </li><li> <p>SystemTap &gt; 1.6
+</p> <p>A the time of writing this, the latest released version of SystemTap is
+version 1.6. Erlang's DTrace support requires a MACRO that was introduced
+after that release. So either get a newer release or build SystemTap from
+git yourself (see: http://sourceware.org/systemtap/getinvolved.html)
+</p> </li></ul><a name="Building-Erlang"></a><h2>Building Erlang</h2><p>
+Configure and build Erlang with SystemTap support:
+</p><pre><code class="">
+# ./configure --with-dynamic-trace=systemtap + whatever args you need
+# make
+</code></pre><a name="Testing"></a><h2>Testing</h2><p>
+SystemTap, unlike DTrace, needs to know what binary it is tracing and has to
+be able to read that binary before it starts tracing. Your probe script
+therefor has to reference the correct beam emulator and stap needs to be able
+to find that binary.
+The examples are written for "beam", but other versions such as "beam.smp" or
+"beam.debug.smp" might exist (depending on your configuration). Make sure you
+either specify the full the path of the binary in the probe or your "beam"
+binary is in the search path.
+</p><p>
+All available probes can be listed like this:
+</p><pre><code class="">
+# stap -L 'process("beam").mark("*")'
+</code></pre><p>
+or:
+</p><pre><code class="">
+# PATH=/path/to/beam:$PATH stap -L 'process("beam").mark("*")'
+</code></pre><p>
+Probes in the dtrace.so NIF library like this:
+</p><pre><code class="">
+# PATH=/path/to/dtrace/priv/lib:$PATH stap -L 'process("dtrace.so").mark("*")'
+</code></pre><a name="Running-SystemTap-scripts"></a><h2>Running SystemTap scripts</h2><p>
+Adjust the process("beam") reference to your beam version and attach the script
+to a running "beam" instance:
+</p><pre><code class="">
+# stap /path/to/probe/script/port1.systemtap -x &lt;pid of beam&gt;
+</code></pre></body></html>

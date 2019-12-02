@@ -1,0 +1,73 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>HiPE</h1><h2>HiPE</h2><p>The HiPE Application</p><p>
+The normal way to native-compile an Erlang module using HiPE is to include the atom native 
+in the Erlang compiler options, as in:<pre>
+      1&gt; <span class="input">c(my_module, [native]).</span></pre>Options to the HiPE compiler are then passed as follows:<pre>
+      1&gt; <span class="input">c(my_module, [native,{hipe,Options}]).</span></pre>For on-line help in the Erlang shell, call <strong>hipe:help()</strong>. 
+Details on HiPE compiler options are given by <strong>hipe:help_options()</strong>.</p><h3>Feature Limitations</h3><p>
+The HiPE compiler is in general compliant with the normal BEAM compiler,
+with respect to semantic behavior. There are however features in the BEAM compiler
+and the runtime system that have limited or no support for HiPE compiled modules.
+</p><dl><dt>Binary matching</dt><dd><p>The HiPE compiler will crash on modules containing binary
+matching.</p> </dd><dt>Stack traces</dt><dd><p>Stack traces returned from <a href="../erts/erlang#get_stacktrace/0">erts/erlang#get_stacktrace/0</a> or as part of <strong>'EXIT'</strong> terms
+can look incomplete if HiPE compiled functions are involved. Typically a stack trace
+will contain only BEAM compiled functions or only HiPE compiled functions, depending
+on where the exception was raised.</p> <p>Source code line numbers in stack traces are also not supported by HiPE compiled functions.</p> </dd><dt>Tracing</dt><dd><p>Erlang call trace is not supported by HiPE. Calling
+<a href="../erts/erlang#trace_pattern/3">erts/erlang#trace_pattern/3</a>
+does not have any effect on HiPE compiled modules.</p> </dd><dt>NIFs</dt><dd><p>Modules compiled with HiPE cannot call <a href="../erts/erlang#load_nif-2">erts/erlang#load_nif-2</a> to load NIFs.</p> </dd><dt>-on_load</dt><dd><p>Modules compiled with HiPE cannot use
+<a href="../doc/reference_manual/code_loading#on_load">doc/reference_manual/code_loading#on_load</a>
+directives.</p> </dd></dl><h3>Performance Limitations</h3><p>
+The HiPE compiler does in general produce faster code than the
+BEAM compiler. There are however some situation when HiPE
+compiled code will perform worse than BEAM code.
+</p><dl><dt>Mode switches</dt><dd><p>Every time a process changes from executing code in a
+HiPE compiled module to a BEAM compiled module (or vice versa),
+it will do a mode switch. This involves a certain amount of
+CPU overhead which can have a negative net impact if the
+process is switching back and forth without getting enough done in
+each mode.</p> </dd><dt>Optimization for <strong>receive</strong> with unique references</dt><dd> <p>
+The BEAM compiler can do an optimization when a receive
+statement is only waiting for messages containing a reference
+created before the receive. All messages that existed in the
+queue when the reference was created will be bypassed, as they
+cannot possibly contain the reference. HiPE currently has an
+optimization similar this, but it is not guaranteed to
+bypass all messages. In the worst case scenario, it cannot
+bypass any messages at all.
+</p> <p>
+An example of this is when <strong>gen_server:call()</strong> waits for
+the reply message.
+</p> </dd><dt>Garbage collection after BIFs</dt><dd> <p>
+The condition for determining whether a garbage collection
+is needed or not has changed in later releases. HiPE has not
+been updated regarding this which may cause premature garbage
+collections after BIF calls.
+</p> </dd></dl><h3>Stability Issues</h3><dl><dt>Not checking reduction count on function returns</dt><dd> <p>
+BEAM checks the reduction count and schedules out the executing
+process if needed both when calling a function and when returning
+from a function call that was not called using a tail call.
+HiPE only checks the reduction count when calling a function.
+</p> <p>
+The runtime system might need to schedule out a process
+in order to reclaim memory. If the process isn't scheduled
+out soon after the process has entered this state, memory
+consumption will quickly grow. Maintaining this state is also
+quite expensive performance wise.
+</p> <p>
+Processes executing code that performs large recursions and
+produce data after returning from recursive calls may have to
+be scheduled out when returning from a function call. Since
+HiPE does not check reductions on returns, processes executing
+such HiPE compiled code may cause huge peeks in memory
+consumption as well as severe performance degradation.
+</p> </dd><dt>Not bumping appropriate amount of reductions in <strong>receive</strong> statements</dt><dd> <p>
+The process signaling improvements made in ERTS version
+10.0 moved potentially significant amounts of work into the
+receive statement from other places. In order to account for
+this work, the reduction count should be bumped on the
+executing process. Reductions are not bumped when entering
+the <strong>receive</strong> statement from HiPE compiled code.
+</p> </dd></dl><h3>SEE ALSO</h3><p>
+<a href="./c">c(3)</a>, 
+<a href="./compile">compile(3)</a>
+</p></body></html>

@@ -1,0 +1,53 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>erl_format</h1><h1>erl_format</h1><p>Create and match Erlang terms.</p><p>This module contains two routines: one general function for
+creating Erlang terms and one for pattern matching Erlang terms.</p><h1>Functions</h1><h2>erl_format(FormatStr, ...):ETERM *</h2><p>Create an Erlang term.</p><ul><li><span class="v">char *FormatStr;</span></li></ul><p>A general function for creating Erlang terms using
+a format specifier and a corresponding set of arguments, much
+in the way <strong>printf()</strong> works.</p><p><strong>FormatStr</strong> is a format specification string.
+The valid format specifiers are as follows:</p><ul><li><strong>~i</strong> - Integer</li><li><strong>~f</strong> - Floating point</li><li><strong>~a</strong> - Atom</li><li><strong>~s</strong> - String</li><li><strong>~w</strong> - Arbitrary Erlang term</li></ul><p>For each format specifier included in <strong>FormatStr</strong>,
+there must be a corresponding argument following
+<strong>FormatStr</strong>. An Erlang term is built according to
+<strong>FormatStr</strong> with values and Erlang terms substituted
+from the corresponding arguments, and according to the individual
+format specifiers. For example:</p><pre><code class="">
+erl_format("[{name,~a},{age,~i},{data,~w}]",
+           "madonna",
+           21,
+           erl_format("[{adr,~s,~i}]","E-street",42));
+        </code></pre><p>This creates an <strong>(ETERM *)</strong> structure corresponding
+to the Erlang term
+<strong>[{name,madonna},{age,21},{data,[{adr,"E-street",42}]}]</strong></p><p>The function returns an Erlang term, or <strong>NULL</strong> if
+<strong>FormatStr</strong> does not describe a valid Erlang
+term.</p><h2>erl_match(Pattern, Term):int</h2><p>Perform pattern matching.</p><ul><li><span class="v">ETERM *Pattern,*Term;</span></li></ul><p>This function is used to perform pattern matching similar
+to that done in Erlang. For matching rules and more examples, see
+section <a href="./patterns"> Pattern Matching</a> in the Erlang Reference Manual.</p><ul><li><strong>Pattern</strong> is an Erlang term, possibly containing unbound variables.</li><li><strong>Term</strong> is an Erlang term that we wish to match against <strong>Pattern</strong>.</li></ul><p><strong>Term</strong> and <strong>Pattern</strong> are compared
+and any unbound variables in <strong>Pattern</strong> are bound to
+corresponding values in <strong>Term</strong>.</p><p>If <strong>Term</strong> and <strong>Pattern</strong> can be
+matched, the function returns a non-zero value and binds any unbound
+variables in <strong>Pattern</strong>. If <strong>Term</strong>
+and <strong>Pattern</strong> do
+not match, <strong>0</strong> is returned. For example:</p><pre><code class="">
+ETERM *term, *pattern, *pattern2;
+term1    = erl_format("{14,21}");
+term2    = erl_format("{19,19}");
+pattern1 = erl_format("{A,B}");
+pattern2 = erl_format("{F,F}");
+if (erl_match(pattern1, term1)) {
+  /* match succeeds:
+   * A gets bound to 14, 
+   * B gets bound to 21 
+   */
+  ...  
+}
+if (erl_match(pattern2, term1)) {
+  /* match fails because F cannot be 
+   * bound to two separate values, 14 and 21
+   */
+  ...
+}
+if (erl_match(pattern2, term2)) {
+  /* match succeeds and F gets bound to 19 */
+  ...
+}
+        </code></pre><p><strong>erl_var_content()</strong> can be used to retrieve the
+content of any variables bound as a result of a call to
+<strong>erl_match()</strong>.</p></body></html>

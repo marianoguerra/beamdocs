@@ -1,0 +1,579 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>SSH User's Guide</h1><p>The Erlang Secure Shell (SSH) application, <strong>ssh</strong>, implements the SSH Transport Layer Protocol and
+provides SSH File Transfer Protocol (SFTP) clients and servers.
+</p><p>SSH is a protocol for secure remote logon and
+other secure network services over an insecure network.</p><h3>Scope and Purpose</h3><p>SSH provides a single, full-duplex, and byte-oriented connection between
+client and server. The protocol also provides privacy, integrity,
+server authentication, and man-in-the-middle protection.</p><p>The <strong>ssh</strong> application is an implementation of the SSH Transport, Connection and Authentication
+Layer Protocols in Erlang. It provides the following:</p><ul><li>API functions to write customized SSH clients and servers applications</li><li>The Erlang shell available over SSH</li><li>An SFTP client (<a href="ssh_sftp">ssh_sftp</a>) and server (<a href="ssh_sftp">ssh_sftpd</a>)</li></ul><h3>Prerequisites</h3><p>It is assumed that the reader is familiar with the Erlang programming language,
+concepts of <em>OTP</em>, and has a basic understanding of <em>public keys</em>.</p><h3>SSH Protocol Overview</h3><p>Conceptually, the SSH protocol can be partitioned into four
+layers:</p><img src="SSH_protocols.png" title="SSH Protocol Architecture"></img><h3>Transport Protocol</h3><p>The SSH Transport Protocol is a secure, low-level transport.
+It provides strong encryption, cryptographic host
+authentication, and integrity protection. A minimum of
+Message Authentication Code (MAC) and encryption
+algorithms are supported. For details, see the
+<a href="ssh">ssh(3)</a> manual page in <strong>ssh</strong>.</p><h3>Authentication Protocol</h3><p>The SSH Authentication Protocol is a general-purpose user
+authentication protocol run over the SSH Transport Layer
+Protocol. The <strong>ssh</strong> application supports user authentication as follows:
+</p><ul><li> Using public key technology. RSA and DSA, X509-certificates are not supported. </li><li> Using keyboard-interactive authentication. This is suitable for interactive authentication methods that do not need any special software support on the client side. Instead, all authentication data is entered from the keyboard. </li><li> Using a pure password-based authentication scheme. Here, the plain text password is encrypted before sent over the network. </li></ul><p>Several configuration options for
+authentication handling are available in
+<a href="./ssh#connect-3">ssh:connect/[3,4]</a>
+and <a href="./ssh#daemon-2">ssh:daemon/[2,3]</a>.</p><p>
+The public key handling can be customized by implementing
+the following behaviours from <strong>ssh</strong>:</p><ul><li>Module <a href="ssh_client_key_api">ssh_client_key_api</a>. </li><li>Module <a href="ssh_server_key_api">ssh_server_key_api</a>. </li></ul><h3>Connection Protocol</h3><p>The SSH Connection Protocol provides application-support
+services over the transport pipe, for example, channel multiplexing,
+flow control, remote program execution, signal propagation, and
+connection forwarding. Functions for handling the SSH
+Connection Protocol can be found in the module <a href="ssh_connection">ssh_connection</a> in <strong>ssh</strong>.
+</p><h3>Channels</h3><p>All terminal sessions, forwarded connections, and so on, are
+channels. Multiple channels are multiplexed into a single
+connection. All channels are flow-controlled. This means that no
+data is sent to a channel peer until a message is received to
+indicate that window space is available.
+The <em>initial window size</em> specifies how many bytes of channel
+data that can be sent to the channel peer without adjusting the
+window. Typically, an SSH client opens a channel, sends data (commands),
+receives data (control information), and then closes the channel.
+The <a href="ssh_client_channel">ssh_client_channel</a> behaviour
+handles generic parts of SSH channel management. This makes it easy
+to write your own SSH client/server processes that use flow-control
+and thus opens for more focus on the application logic.
+</p><p>Channels come in the following three flavors:</p><ul><li><em>Subsystem</em> - Named services that can be run as part of an SSH server, such as SFTP <a href="ssh_sftpd">(ssh_sftpd)</a>, that is built into the SSH daemon (server) by default, but it can be disabled. The Erlang <strong>ssh</strong> daemon can be configured to run any Erlang- implemented SSH subsystem. </li><li><em>Shell</em> - Interactive shell. By default the Erlang daemon runs the Erlang shell. The shell can be customized by providing your own read-eval-print loop. You can also provide your own Command-Line Interface (CLI) implementation, but that is much more work. </li><li><em>Exec</em> - One-time remote execution of commands. See function <a href="./ssh_connection#exec-4">ssh_connection:exec/4</a> for more information.</li></ul><h3>Where to Find More Information</h3><p>
+For detailed information about the SSH protocol, refer to the
+following Request for Comments(RFCs):
+</p><ul><li><a href="http://www.ietf.org/rfc/rfc4250.txt">RFC 4250</a> - Protocol Assigned Numbers</li><li><a href="http://www.ietf.org/rfc/rfc4251.txt">RFC 4251</a> - Protocol Architecture</li><li><a href="http://www.ietf.org/rfc/rfc4252.txt">RFC 4252</a> - Authentication Protocol</li><li><a href="http://www.ietf.org/rfc/rfc4253.txt">RFC 4253</a> - Transport Layer Protocol</li><li><a href="http://www.ietf.org/rfc/rfc4254.txt">RFC 4254</a> - Connection Protocol</li><li><a href="http://www.ietf.org/rfc/rfc4344.txt">RFC 4344</a> - Transport Layer Encryption Modes</li><li><a href="http://www.ietf.org/rfc/rfc4716.txt">RFC 4716</a> - Public Key File Format</li></ul><h3>General Information</h3><p>The following examples use the utility function
+<a href="./ssh#start-0"> ssh:start/0</a> to start
+all needed applications (<strong>crypto</strong>, <strong>public_key</strong>, and <strong>ssh</strong>).
+All examples are run in an Erlang shell, or in a bash shell, using <em>openssh</em>
+to illustrate how the <strong>ssh</strong> application can be used. The
+examples are run as the user <strong>otptest</strong> on a local network where the
+user is authorized to log in over <strong>ssh</strong> to the host <em>tarlop</em>.
+</p><p>If nothing else is stated, it is presumed that the <strong>otptest</strong> user
+has an entry in the <em>authorized_keys</em> file of <em>tarlop</em>
+(allowed to log in over <strong>ssh</strong> without entering a password).
+Also, <em>tarlop</em> is a known host in the <strong>known_hosts</strong>
+file of the user <strong>otptest</strong>. This means that host-verification
+can be done without user-interaction.
+</p><h3>Using the Erlang ssh Terminal Client</h3><p>The user <strong>otptest</strong>, which has bash as default shell, uses the
+<strong>ssh:shell/1</strong> client to connect to the <em>openssh</em> daemon running on a
+host called <em>tarlop</em>:</p><pre><code class="erl">
+      1&gt;  ssh:start().
+      ok
+      2&gt; {ok, S} = ssh:shell("tarlop").
+      otptest@tarlop:&gt; pwd
+      /home/otptest
+      otptest@tarlop:&gt; exit
+      logout
+      3&gt;
+    </code></pre><a name="Running an Erlang ssh Daemon"></a><h3>Running an Erlang ssh Daemon</h3><p>The
+<a href="./ssh_file#type-system_dir_daemon_option">ssh_file#type-system_dir_daemon_option</a>
+option must be a directory containing a host key file and it defaults to <strong>/etc/ssh</strong>.
+For details, see Section Configuration Files in <a href="SSH_app">ssh(6)</a>.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Normally, the <strong>/etc/ssh</strong> directory is only readable by root.</p></div><p>The option <a href="./ssh_file#type-user_dir_common_option">ssh_file#type-user_dir_common_option</a>
+defaults to directory <strong>users ~/.ssh</strong>.</p><p><em>Step 1.</em> To run the example without root privileges,
+generate new keys and host keys:</p><pre><code class="">
+      $bash&gt; ssh-keygen -t rsa -f /tmp/ssh_daemon/ssh_host_rsa_key
+      [...]
+      $bash&gt; ssh-keygen -t rsa -f /tmp/otptest_user/.ssh/id_rsa
+      [...]
+    </code></pre><p><em>Step 2.</em> Create the file <strong>/tmp/otptest_user/.ssh/authorized_keys</strong>
+and add the content of <strong>/tmp/otptest_user/.ssh/id_rsa.pub</strong>.</p><p><em>Step 3.</em> Start the Erlang <strong>ssh</strong> daemon:</p><pre><code class="erl">
+      1&gt; ssh:start().
+      ok
+      2&gt; {ok, Sshd} = ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
+                                        {user_dir, "/tmp/otptest_user/.ssh"}]).
+      {ok,&lt;0.54.0&gt;}
+      3&gt;
+    </code></pre><p><em>Step 4.</em> Use the <em>openssh</em> client from a shell to connect
+to the Erlang <strong>ssh</strong> daemon:</p><pre><code class="">
+      $bash&gt; ssh tarlop -p 8989  -i /tmp/otptest_user/.ssh/id_rsa\
+             -o UserKnownHostsFile=/tmp/otptest_user/.ssh/known_hosts
+      The authenticity of host 'tarlop' can't be established.
+      RSA key fingerprint is 14:81:80:50:b1:1f:57:dd:93:a8:2d:2f:dd:90:ae:a8.
+      Are you sure you want to continue connecting (yes/no)? yes
+      Warning: Permanently added 'tarlop' (RSA) to the list of known hosts.
+      Eshell V5.10  (abort with ^G)
+      1&gt;
+    </code></pre><p>There are two ways of shutting down an <strong>ssh</strong> daemon,
+see <em>Step 5a</em> and <em>Step 5b</em>.</p><p><em>Step 5a.</em> Shut down the Erlang <strong>ssh</strong> daemon so that it
+stops the listener but leaves existing connections, started by the listener,
+operational:</p><pre><code class="erl">
+      3&gt; ssh:stop_listener(Sshd).
+      ok
+      4&gt;
+    </code></pre><p><em>Step 5b.</em> Shut down the Erlang <strong>ssh</strong> daemon so that it
+stops the listener and all connections started by the listener:</p><pre><code class="erl">
+      3&gt; ssh:stop_daemon(Sshd)
+      ok
+      4&gt;
+    </code></pre><h3>One-Time Execution</h3><p>In the following example, the Erlang shell is the client process
+that receives the channel replies.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The number of received messages in this example depends on which OS
+and which shell that is used on the machine running the <strong>ssh</strong> daemon.
+See also <a href="./ssh_connection#exec-4">ssh_connection:exec/4</a>.
+</p></div><p>Do a one-time execution of a remote command over <strong>ssh</strong>:</p><pre><code class="erl">
+      1&gt;  ssh:start().
+      ok
+      2&gt; {ok, ConnectionRef} = ssh:connect("tarlop", 22, []).
+      {ok,&lt;0.57.0&gt;}
+      3&gt;{ok, ChannelId} =  ssh_connection:session_channel(ConnectionRef, infinity).
+      {ok,0}
+      4&gt; success = ssh_connection:exec(ConnectionRef, ChannelId, "pwd", infinity).
+      5&gt;  flush().
+      Shell got {ssh_cm,&lt;0.57.0&gt;,{data,0,0,&lt;&lt;"/home/otptest\n"&gt;&gt;}}
+      Shell got {ssh_cm,&lt;0.57.0&gt;,{eof,0}}
+      Shell got {ssh_cm,&lt;0.57.0&gt;,{exit_status,0,0}}
+      Shell got {ssh_cm,&lt;0.57.0&gt;,{closed,0}}
+      ok
+      6&gt;
+    </code></pre><p>Notice that only the channel is closed. The connection is still up and can
+handle other channels:</p><pre><code class="erl">
+      6&gt; {ok, NewChannelId} =  ssh_connection:session_channel(ConnectionRef, infinity).
+        {ok,1}
+	...
+    </code></pre><h3>SFTP Server</h3><p>Start the Erlang <strong>ssh</strong> daemon with the SFTP subsystem:</p><pre><code class="erl">
+      1&gt; ssh:start().
+      ok
+      2&gt; ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
+                           {user_dir, "/tmp/otptest_user/.ssh"},
+                           {subsystems, [ssh_sftpd:subsystem_spec([{cwd, "/tmp/sftp/example"}])
+                                        ]}]).
+      {ok,&lt;0.54.0&gt;}
+      3&gt;
+    </code></pre><p>Run the OpenSSH SFTP client:</p><pre><code class="erl">
+      $bash&gt; sftp -oPort=8989 -o IdentityFile=/tmp/otptest_user/.ssh/id_rsa\
+             -o UserKnownHostsFile=/tmp/otptest_user/.ssh/known_hosts tarlop
+      Connecting to tarlop...
+      sftp&gt; pwd
+      Remote working directory: /tmp/sftp/example
+      sftp&gt;
+    </code></pre><h3>SFTP Client</h3><p>Fetch a file with the Erlang SFTP client:</p><pre><code class="erl">
+      1&gt; ssh:start().
+      ok
+      2&gt; {ok, ChannelPid, Connection} = ssh_sftp:start_channel("tarlop", []).
+      {ok,&lt;0.57.0&gt;,&lt;0.51.0&gt;}
+      3&gt;  ssh_sftp:read_file(ChannelPid, "/home/otptest/test.txt").
+      {ok,&lt;&lt;"This is a test file\n"&gt;&gt;}
+    </code></pre><h3>SFTP Client with TAR Compression and Encryption</h3><p>Example of writing and then reading a tar file follows:</p><pre><code class="erl">
+      {ok,HandleWrite} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [write]),
+      ok = erl_tar:add(HandleWrite, .... ),
+      ok = erl_tar:add(HandleWrite, .... ),
+      ...
+      ok = erl_tar:add(HandleWrite, .... ),
+      ok = erl_tar:close(HandleWrite),
+
+      %% And for reading
+      {ok,HandleRead} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [read]),
+      {ok,NameValueList} = erl_tar:extract(HandleRead,[memory]),
+      ok = erl_tar:close(HandleRead),
+    </code></pre><p>The previous write and read example can be extended with encryption and decryption as follows:</p><pre><code class="erl">
+%% First three parameters depending on which crypto type we select:
+Key = &lt;&lt;"This is a 256 bit key. abcdefghi"&gt;&gt;,
+Ivec0 = crypto:strong_rand_bytes(16),
+DataSize = 1024,  % DataSize rem 16 = 0 for aes_cbc
+
+%% Initialization of the CryptoState, in this case it is the Ivector.
+InitFun = fun() -&gt; {ok, Ivec0, DataSize} end,
+
+%% How to encrypt:
+EncryptFun =
+    fun(PlainBin,Ivec) -&gt;
+        EncryptedBin = crypto:block_encrypt(aes_cbc256, Key, Ivec, PlainBin),
+        {ok, EncryptedBin, crypto:next_iv(aes_cbc,EncryptedBin)}
+    end,
+
+%% What to do with the very last block:
+CloseFun =
+    fun(PlainBin, Ivec) -&gt;
+        EncryptedBin = crypto:block_encrypt(aes_cbc256, Key, Ivec,
+                                            pad(16,PlainBin) %% Last chunk
+                                           ),
+       {ok, EncryptedBin}
+    end,
+
+Cw = {InitFun,EncryptFun,CloseFun},
+{ok,HandleWrite} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [write,{crypto,Cw}]),
+ok = erl_tar:add(HandleWrite, .... ),
+ok = erl_tar:add(HandleWrite, .... ),
+...
+ok = erl_tar:add(HandleWrite, .... ),
+ok = erl_tar:close(HandleWrite),
+
+%% And for decryption (in this crypto example we could use the same InitFun
+%% as for encryption):
+DecryptFun =
+    fun(EncryptedBin,Ivec) -&gt;
+        PlainBin = crypto:block_decrypt(aes_cbc256, Key, Ivec, EncryptedBin),
+       {ok, PlainBin, crypto:next_iv(aes_cbc,EncryptedBin)}
+    end,
+
+Cr = {InitFun,DecryptFun},
+{ok,HandleRead} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [read,{crypto,Cw}]),
+{ok,NameValueList} = erl_tar:extract(HandleRead,[memory]),
+ok = erl_tar:close(HandleRead),
+    </code></pre><a name="usersguide_creating_a_subsystem"></a><h3>Creating a Subsystem</h3><p>A small <strong>ssh</strong> subsystem that echoes N bytes can be implemented as shown
+in the following example:</p><pre><code class="erl">
+-module(ssh_echo_server).
+-behaviour(ssh_server_channel). % replaces ssh_daemon_channel
+-record(state, {
+	  n,
+	  id,
+	  cm
+	 }).
+-export([init/1, handle_msg/2, handle_ssh_msg/2, terminate/2]).
+
+init([N]) -&gt;
+    {ok, #state{n = N}}.
+
+handle_msg({ssh_channel_up, ChannelId, ConnectionManager}, State) -&gt;
+    {ok, State#state{id = ChannelId,
+		     cm = ConnectionManager}}.
+
+handle_ssh_msg({ssh_cm, CM, {data, ChannelId, 0, Data}}, #state{n = N} = State) -&gt;
+    M = N - size(Data),
+    case M &gt; 0 of
+	true -&gt;
+	   ssh_connection:send(CM, ChannelId, Data),
+	   {ok, State#state{n = M}};
+	false -&gt;
+	   &lt;&lt;SendData:N/binary, _/binary&gt;&gt; = Data,
+           ssh_connection:send(CM, ChannelId, SendData),
+           ssh_connection:send_eof(CM, ChannelId),
+	   {stop, ChannelId, State}
+    end;
+handle_ssh_msg({ssh_cm, _ConnectionManager,
+		{data, _ChannelId, 1, Data}}, State) -&gt;
+    error_logger:format(standard_error, " ~p~n", [binary_to_list(Data)]),
+    {ok, State};
+
+handle_ssh_msg({ssh_cm, _ConnectionManager, {eof, _ChannelId}}, State) -&gt;
+    {ok, State};
+
+handle_ssh_msg({ssh_cm, _, {signal, _, _}}, State) -&gt;
+    %% Ignore signals according to RFC 4254 section 6.9.
+    {ok, State};
+
+handle_ssh_msg({ssh_cm, _, {exit_signal, ChannelId, _, _Error, _}},
+	       State) -&gt;
+    {stop, ChannelId,  State};
+
+handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, _Status}}, State) -&gt;
+    {stop, ChannelId, State}.
+
+terminate(_Reason, _State) -&gt;
+    ok.
+ </code></pre><p>The subsystem can be run on the host <em>tarlop</em> with the generated keys,
+as described in Section <a href="#Running an Erlang ssh Daemon"> Running an Erlang ssh Daemon</a>:</p><pre><code class="erl">
+   1&gt; ssh:start().
+   ok
+   2&gt; ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
+                        {user_dir, "/tmp/otptest_user/.ssh"}
+                        {subsystems, [{"echo_n", {ssh_echo_server, [10]}}]}]).
+   {ok,&lt;0.54.0&gt;}
+   3&gt;
+ </code></pre><pre><code class="erl">
+   1&gt; ssh:start().
+   ok
+   2&gt;{ok, ConnectionRef} = ssh:connect("tarlop", 8989, [{user_dir, "/tmp/otptest_user/.ssh"}]).
+    {ok,&lt;0.57.0&gt;}
+   3&gt;{ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).
+   4&gt; success = ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", infinity).
+   5&gt; ok = ssh_connection:send(ConnectionRef, ChannelId, "0123456789", infinity).
+   6&gt; flush().
+   {ssh_msg, &lt;0.57.0&gt;, {data, 0, 1, "0123456789"}}
+   {ssh_msg, &lt;0.57.0&gt;, {eof, 0}}
+   {ssh_msg, &lt;0.57.0&gt;, {closed, 0}}
+   7&gt; {error, closed} = ssh_connection:send(ConnectionRef, ChannelId, "10", infinity).
+ </code></pre><p>See also <a href="ssh_client_channel">ssh_client_channel(3)</a> (replaces ssh_channel(3)).</p><h3>General Information</h3><p>In the following terms that may cause confusion are explained.
+</p><h3>The term "user"</h3><p>A "user" is a term that everyone understands intuitively. However, the understandings may differ which can
+cause confusion.
+</p><p>The term is used differently in <a href="http://www.openssh.com">OpenSSH</a> and SSH in Erlang/OTP.
+The reason is the different environments and use cases that are not immediatly obvious.
+</p><p>This chapter aims at explaining the differences and giving a rationale for why Erlang/OTP handles "user" as
+it does.
+</p><h3>In OpenSSH</h3><p>Many have been in contact with the command 'ssh' on a Linux machine (or similar) to remotly log in on
+another machine. One types 
+</p><pre><code class="">ssh host</code></pre><p>to log in on the machine named <strong>host</strong>. The command prompts for your password on the remote <strong>host</strong> and
+then you can read, write and execute as your <em>user name</em> has rights on the remote <strong>host</strong>. There are
+stronger variants with pre-distributed keys or certificates, but that are for now just details in the
+authentication process.
+</p><p>You could log in as the user <strong>anotheruser</strong> with
+</p><pre><code class="">ssh anotheruser@host</code></pre><p>and you will then be enabled to act as <strong>anotheruser</strong> on the <strong>host</strong> if authorized correctly.
+</p><p>So what does <em>"your user name has rights"</em> mean? In a UNIX/Linux/etc context it is exactly as that context:
+The <em>user</em> could read, write and execute programs according to the OS rules.
+In addition, the user has a home directory (<strong>$HOME</strong>) and there is a <strong>$HOME/.ssh/</strong> directory
+with ssh-specific files.
+</p><h3>SSH password authentication</h3><p>When SSH tries to log in to a host, the ssh protocol communicates the user name (as a string) and a password.
+The remote ssh server checks that there is such a user defined and that the provided password is acceptable.
+</p><p>If so, the user is authorized.
+</p><h3>SSH public key authentication</h3><p>This is a stronger method where the ssh protocol brings the user name, the user's public key and some
+cryptographic information which we could ignore here.
+</p><p>The ssh server on the remote host checks:
+</p><ul><li>That the <em>user</em> has a home directory,</li><li>that home directory contains a .ssh/ directory and</li><li>the .ssh/ directory contains the public key just received in the <strong>authorized_keys</strong> file</li></ul><p>if so, the user is authorized.
+</p><h3>The SSH server on UNIX/Linux/etc after a succesful authentication</h3><p>After a succesful incoming authentication, a new process runs as the just authenticated user.</p><p>Next step is to start a service according to the ssh request. In case of a request of a shell, 
+a new one is started which handles the OS-commands that arrives from the client (that's "you").
+</p><p>In case of a sftp request, an sftp server is started in with the user's rights. So it could read, write or delete
+files if allowed for that user.
+</p><h3>In Erlang/OTP SSH</h3><p>For the Erlang/OTP SSH server the situation is different. The server executes in an Erlang process
+in the Erlang emulator which in turn executes in an OS process. The emulator does not try to change its
+user when authenticated over the SSH protocol.
+So the remote user name is only for authentication purposes in the Erlang/OTP SSH application.
+</p><h3>Password authentication in Erlang SSH</h3><p>The Erlang/OTP SSH server checks the user name and password in the following order:
+</p><ul><li>If a  <a href="../ssh/ssh#option-pwdfun">ssh/ssh#option-pwdfun</a> is defined, that one is called and the returned boolean is the authentication result. </li><li>Else, if the  <a href="../ssh/ssh#option-user_passwords">ssh/ssh#option-user_passwords</a> option is defined and the username and the password matches, the authentication is a success. </li><li>Else, if the option  <a href="../ssh/ssh#option-password">ssh/ssh#option-password</a> is defined and matches the password the authentication is a success. Note that the use of this option is not recommended in non-test code. </li></ul><h3>Public key authentication in Erlang SSH</h3><p>The user name, public key and cryptographic data (a signature) that is sent by the client, are used as follows
+(some steps left out for clearity):
+</p><ul><li>A callback module is selected using the options  <a href="../ssh/ssh#type-key_cb_common_option">ssh/ssh#type-key_cb_common_option</a>. </li><li>The callback module is used to check that the provided public key is one of the user's pre-stored. In case of the default callback module, the files <strong>authorized_keys</strong> and <strong>authorized_keys2</strong> are searched in a directory found in the following order: <ul><li>If the option <a href="../ssh/ssh_file#type-user_dir_fun_common_option">ssh/ssh_file#type-user_dir_fun_common_option</a> is defined, that fun is called and the returned directory is used, </li><li>Else, If the option  <a href="../ssh/ssh_file#type-user_dir_common_option">ssh/ssh_file#type-user_dir_common_option</a> is defined, that directory is used, </li><li>Else the subdirectory <strong>.ssh</strong> in the home directory of the user executing the OS process of the Erlang emulator is used. </li></ul> If the provided public key is not found, the authentication fails. </li><li>Finally, if the provided public key is found, the signature provided by the client is checked with the public key. </li></ul><h3>The Erlang/OTP SSH server after a succesful authentication</h3><p>After a successful authentication an <em>Erlang process</em> is handling the service request from the remote
+ssh client. The rights of that process are those of the user of the OS process running the Erlang emulator.
+</p><p>If a shell service request arrives to the server, an <em>Erlang shell</em> is opened in the server's emulator.
+The rights in that shell is independent of the just authenticated user.
+</p><p>In case of an sftp request, an sftp server is started with the rights of the user of the Erlang emulator's OS
+process. So with sftp the authenticated user does not influence the rights.
+</p><p>So after an authentication, the user name is not used anymore and has no influence.
+</p><a name="introduction"></a><h3>Introduction</h3><p>To fully understand how to configure the algorithms, it is essential to have a basic understanding of the SSH protocol
+and how OTP SSH app handles the corresponding items</p><p>The first subsection will give a short background of the SSH protocol while later sections describes
+the implementation and provides some examples</p><h3>Basics of the ssh protocol's algorithms handling</h3><p>SSH uses different sets of algorithms in different phases of a session. Which
+algorithms to use is negotiated by the client and the server at the beginning of a session.
+See <a href="https://tools.ietf.org/html/rfc4253">RFC 4253</a>,
+"The Secure Shell (SSH) Transport Layer Protocol" for details.
+</p><p>The negotiation is simple: both peers sends their list of supported alghorithms to the other part.
+The first algorithm on the client's list that also in on the server's list is selected. So it is the
+client's orderering of the list that gives the priority for the algorithms.</p><p>There are five lists exchanged in the connection setup. Three of them are also divided in two
+directions, to and from the server.</p><p>The lists are (named as in the SSH application's options):</p><dl><dt><strong>kex</strong></dt><dd> <p>Key exchange.</p> <p>An algorithm is selected for computing a secret encryption key. Among examples are:
+the old nowadays week <strong>'diffie-hellman-group-exchange-sha1'</strong> and the very strong and modern
+<strong>'ecdh-sha2-nistp512'</strong>.</p> </dd><dt><strong>public_key</strong></dt><dd> <p>Server host key</p> <p>The asymetric encryption algorithm used in the server's private-public host key pair.
+Examples include the well-known RSA <strong>'ssh-rsa'</strong> and elliptic curve <strong>'ecdsa-sha2-nistp521'</strong>.
+</p> </dd><dt><strong>cipher</strong></dt><dd> <p>Symetric cipher algorithm used for the payload encryption. This algorithm will use the key calculated
+in the kex phase (together with other info) to genereate the actual key used. Examples are 
+tripple-DES <strong>'3des-cbc'</strong> and one of many AES variants <strong>'aes192-ctr'</strong>.
+</p> <p>This list is actually two - one for each direction server-to-client and client-to-server. Therefore it
+is possible but rare to have different algorithms in the two directions in one connection.</p> </dd><dt><strong>mac</strong></dt><dd> <p>Message authentication code</p> <p>"Check sum" of each message sent between the peers. Examples are SHA <strong>'hmac-sha1'</strong> and
+SHA2 <strong>'hmac-sha2-512'</strong>.</p> <p>This list is also divided into two for the both directions</p> </dd><dt><strong>compression</strong></dt><dd> <p>If and how to compress the message. Examples are <strong>none</strong>, that is, no compression and
+<strong>zlib</strong>.</p> <p>This list is also divided into two for the both directions</p> </dd></dl><h3>The SSH app's mechanism</h3><p>The set of algorithms that the SSH app uses by default depends on the algoritms supported by the:</p><ul><li><p><a href="./crypto">crypto</a> app,</p> </li><li><p>The cryptolib OTP is linked with, usally the one the OS uses, probably OpenSSL,</p> </li><li><p>and finaly what the SSH app implements</p> </li></ul><p>Due to this, it impossible to list in documentation what algorithms that are available in a certain installation.</p><p>There is an important command to list the actual algorithms and their ordering:
+<a href="./ssh#default_algorithms-0">ssh:default_algorithms/0</a>.</p><a name="example_default_algorithms"></a><pre><code class="erl">
+0&gt; ssh:default_algorithms().
+[{kex,['ecdh-sha2-nistp384','ecdh-sha2-nistp521',
+       'ecdh-sha2-nistp256','diffie-hellman-group-exchange-sha256',
+       'diffie-hellman-group16-sha512',
+       'diffie-hellman-group18-sha512',
+       'diffie-hellman-group14-sha256',
+       'diffie-hellman-group14-sha1',
+       'diffie-hellman-group-exchange-sha1']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+              'ecdsa-sha2-nistp256','ssh-rsa','rsa-sha2-256',
+              'rsa-sha2-512','ssh-dss']},
+ {cipher,[{client2server,['aes256-gcm@openssh.com',
+                          'aes256-ctr','aes192-ctr','aes128-gcm@openssh.com',
+                          'aes128-ctr','aes128-cbc','3des-cbc']},
+          {server2client,['aes256-gcm@openssh.com','aes256-ctr',
+                          'aes192-ctr','aes128-gcm@openssh.com','aes128-ctr',
+                          'aes128-cbc','3des-cbc']}]},
+ {mac,[{client2server,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']},
+       {server2client,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']}]},
+ {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
+               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+
+      </code></pre><p>To change the algorithm list, there are two options which can be used in 
+<a href="./ssh#connect-3">ssh:connect/2,3,4</a>
+and
+<a href="./ssh#daemon-2">ssh:daemon/2,3</a>. The options could of course
+be used in all other functions that initiates connections.</p><p>The options are <strong>preferred_algorithms</strong> and <strong>modify_algorithms</strong>. The first one
+replaces the default set, while the latter modifies the default set.</p><h3>Replacing the default set: preferred_algorithms</h3><p>See the <a href="./ssh#type-preferred_algorithms_common_option">Reference Manual</a> for details</p><p>Here follows a series of examples ranging from simple to more complex.</p><p>To forsee the effect of an option there is an experimental function <strong>ssh:chk_algos_opts(Opts)</strong>.
+It mangles the options <strong>preferred_algorithms</strong>
+and <strong>modify_algorithms</strong> in the same way as <strong>ssh:dameon</strong>, <strong>ssh:connect</strong> and their friends does.</p><h3>Example 1</h3><p>Replace the kex algorithms list with the single algorithm <strong>'diffie-hellman-group14-sha256'</strong>:</p><pre><code class="">
+1&gt; ssh:chk_algos_opts(
+               [{preferred_algorithms,
+                     [{kex, ['diffie-hellman-group14-sha256']}
+                     ]
+                }
+              ]).
+[{kex,['diffie-hellman-group14-sha256']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+              'ecdsa-sha2-nistp256','ssh-rsa','rsa-sha2-256',
+              'rsa-sha2-512','ssh-dss']},
+ {cipher,[{client2server,['aes256-gcm@openssh.com',
+                          'aes256-ctr','aes192-ctr','aes128-gcm@openssh.com',
+                          'aes128-ctr','aes128-cbc','3des-cbc']},
+          {server2client,['aes256-gcm@openssh.com','aes256-ctr',
+                          'aes192-ctr','aes128-gcm@openssh.com','aes128-ctr',
+                          'aes128-cbc','3des-cbc']}]},
+ {mac,[{client2server,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']},
+       {server2client,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']}]},
+ {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
+               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+      </code></pre><p>Note that the unmentioned lists (<strong>public_key</strong>, <strong>cipher</strong>, <strong>mac</strong> and <strong>compression</strong>)
+are un-changed.</p><h3>Example 2</h3><p>In the lists that are divided in two for the two directions (c.f <strong>cipher</strong>) it is possible
+to change both directions at once:</p><pre><code class="">
+2&gt; ssh:chk_algos_opts(
+               [{preferred_algorithms,
+                     [{cipher,['aes128-ctr']}
+                     ]
+                }
+              ]).
+[{kex,['ecdh-sha2-nistp384','ecdh-sha2-nistp521',
+       'ecdh-sha2-nistp256','diffie-hellman-group-exchange-sha256',
+       'diffie-hellman-group16-sha512',
+       'diffie-hellman-group18-sha512',
+       'diffie-hellman-group14-sha256',
+       'diffie-hellman-group14-sha1',
+       'diffie-hellman-group-exchange-sha1']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+              'ecdsa-sha2-nistp256','ssh-rsa','rsa-sha2-256',
+              'rsa-sha2-512','ssh-dss']},
+ {cipher,[{client2server,['aes128-ctr']},
+          {server2client,['aes128-ctr']}]},
+ {mac,[{client2server,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']},
+       {server2client,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']}]},
+ {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
+               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+      </code></pre><p>Note that both lists in <strong>cipher</strong> has been changed to the provided value (<strong>'aes128-ctr'</strong>).</p><h3>Example 3</h3><p>In the lists that are divided in two for the two directions (c.f <strong>cipher</strong>) it is possible
+to change only one of the directions:</p><pre><code class="">
+3&gt; ssh:chk_algos_opts(
+               [{preferred_algorithms,
+                     [{cipher,[{client2server,['aes128-ctr']}]}
+                     ]
+                }
+              ]).
+[{kex,['ecdh-sha2-nistp384','ecdh-sha2-nistp521',
+       'ecdh-sha2-nistp256','diffie-hellman-group-exchange-sha256',
+       'diffie-hellman-group16-sha512',
+       'diffie-hellman-group18-sha512',
+       'diffie-hellman-group14-sha256',
+       'diffie-hellman-group14-sha1',
+       'diffie-hellman-group-exchange-sha1']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+              'ecdsa-sha2-nistp256','ssh-rsa','rsa-sha2-256',
+              'rsa-sha2-512','ssh-dss']},
+ {cipher,[{client2server,['aes128-ctr']},
+          {server2client,['aes256-gcm@openssh.com','aes256-ctr',
+                          'aes192-ctr','aes128-gcm@openssh.com','aes128-ctr',
+                          'aes128-cbc','3des-cbc']}]},
+ {mac,[{client2server,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']},
+       {server2client,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']}]},
+ {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
+               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+      </code></pre><h3>Example 4</h3><p>It is of course possible to change more than one list:</p><pre><code class="">
+4&gt; ssh:chk_algos_opts(
+               [{preferred_algorithms,
+                     [{cipher,['aes128-ctr']},
+		      {mac,['hmac-sha2-256']},
+                      {kex,['ecdh-sha2-nistp384']},
+		      {public_key,['ssh-rsa']},
+		      {compression,[{server2client,[none]},
+		                    {client2server,[zlib]}]}
+                     ]
+                }
+              ]).
+[{kex,['ecdh-sha2-nistp384']},
+ {public_key,['ssh-rsa']},
+ {cipher,[{client2server,['aes128-ctr']},
+          {server2client,['aes128-ctr']}]},
+ {mac,[{client2server,['hmac-sha2-256']},
+       {server2client,['hmac-sha2-256']}]},
+ {compression,[{client2server,[zlib]},
+               {server2client,[none]}]}]
+
+      </code></pre><p>Note that the ordering of the tuples in the lists didn't matter.</p><h3>Modifying the default set: modify_algorithms</h3><p>A situation where it might be useful to add an algorithm is when one need to use a supported but disabled one.
+An example is the <strong>'diffie-hellman-group1-sha1'</strong> which nowadays is very unsecure and therefore disabled. It is 
+however still supported and might be used.</p><p>The option <strong>preferred_algorithms</strong> may be complicated to use for adding or removing single algorithms.
+First one has to list them with <strong>ssh:default_algorithms()</strong> and then do changes in the lists.</p><p>To facilitate addition or removal of algorithms the option <strong>modify_algorithms</strong> is available.
+See the <a href="./ssh#type-modify_algorithms_common_option">Reference Manual</a> for details.</p><p>The option takes a list with instructions to append, prepend or remove algorithms:</p><pre><code class="erl">
+{modify_algorithms, [{append,  ...},
+                     {prepend, ...},
+		     {rm,      ...}
+		    ]}
+    </code></pre><p>Each of the <strong>...</strong> can be a <strong>algs_list()</strong> as the argument to the  <strong>preferred_algorithms</strong> option.</p><h3>Example 5</h3><p>As an example let's add the Diffie-Hellman Group1 first in the kex list. It is supported according to 
+<a href="./SSH_app#supported_algos">Supported algoritms</a>.</p><pre><code class="erl">
+5&gt; ssh:chk_algos_opts(
+         [{modify_algorithms,
+	       [{prepend,
+	           [{kex,['diffie-hellman-group1-sha1']}]
+		   }
+	       ]
+          }
+        ]).
+[{kex,['diffie-hellman-group1-sha1','ecdh-sha2-nistp384',
+       'ecdh-sha2-nistp521','ecdh-sha2-nistp256',
+       'diffie-hellman-group-exchange-sha256',
+       'diffie-hellman-group16-sha512',
+       'diffie-hellman-group18-sha512',
+       'diffie-hellman-group14-sha256',
+       'diffie-hellman-group14-sha1',
+       'diffie-hellman-group-exchange-sha1']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+              'ecdsa-sha2-nistp256','ssh-rsa','rsa-sha2-256',
+              'rsa-sha2-512','ssh-dss']},
+ {cipher,[{client2server,['aes256-gcm@openssh.com',
+                          'aes256-ctr','aes192-ctr','aes128-gcm@openssh.com',
+                          'aes128-ctr','aes128-cbc','3des-cbc']},
+          {server2client,['aes256-gcm@openssh.com','aes256-ctr',
+                          'aes192-ctr','aes128-gcm@openssh.com','aes128-ctr',
+                          'aes128-cbc','3des-cbc']}]},
+ {mac,[{client2server,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']},
+       {server2client,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']}]},
+ {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
+               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+
+      </code></pre><p>And the result shows that the Diffie-Hellman Group1 is added at the head of the kex list</p><h3>Example 6</h3><p>In this example, we in put the 'diffie-hellman-group1-sha1' first and also move the
+<strong>'ecdh-sha2-nistp521'</strong> to the end in the kex list, that is, <strong>append</strong> it.</p><pre><code class="erl">
+6&gt; ssh:chk_algos_opts(
+         [{modify_algorithms,
+	       [{prepend,
+	           [{kex, ['diffie-hellman-group1-sha1']}
+		   ]},
+		{append,
+                   [{kex, ['ecdh-sha2-nistp521']}
+                   ]}
+	       ]
+          }
+        ]).
+[{kex,['diffie-hellman-group1-sha1','ecdh-sha2-nistp384',
+       'ecdh-sha2-nistp256','diffie-hellman-group-exchange-sha256',
+       'diffie-hellman-group16-sha512',
+       'diffie-hellman-group18-sha512',
+       'diffie-hellman-group14-sha256',
+       'diffie-hellman-group14-sha1',
+       'diffie-hellman-group-exchange-sha1','ecdh-sha2-nistp521']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+   .....
+] 
+      </code></pre><p>Note that the appended algorithm is removed from its original place and then appended to the same list.</p><h3>Example 7</h3><p>In this example, we use both options (<strong>preferred_algorithms</strong> and <strong>modify_algorithms</strong>) and
+also try to prepend an unsupported algorithm.   Any unsupported algorithm is quietly removed.</p><pre><code class="erl">
+7&gt; ssh:chk_algos_opts(
+         [{preferred_algorithms,
+               [{cipher,['aes128-ctr']},
+	        {mac,['hmac-sha2-256']},
+                {kex,['ecdh-sha2-nistp384']},
+		{public_key,['ssh-rsa']},
+		{compression,[{server2client,[none]},
+		              {client2server,[zlib]}]}
+               ]
+           },
+          {modify_algorithms,
+	       [{prepend,
+	           [{kex, ['some unsupported algorithm']}
+		   ]},
+		{append,
+                   [{kex, ['diffie-hellman-group1-sha1']}
+                   ]}
+	       ]
+          }
+        ]).
+[{kex,['ecdh-sha2-nistp384','diffie-hellman-group1-sha1']},
+ {public_key,['ssh-rsa']},
+ {cipher,[{client2server,['aes128-ctr']},
+          {server2client,['aes128-ctr']}]},
+ {mac,[{client2server,['hmac-sha2-256']},
+       {server2client,['hmac-sha2-256']}]},
+ {compression,[{client2server,[zlib]},
+               {server2client,[none]}]}]
+
+      </code></pre><p>It is of course questionable why anyone would like to use the both these options together,
+but it is possible if an unforeseen need should arise.</p></body></html>

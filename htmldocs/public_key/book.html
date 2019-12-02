@@ -1,0 +1,1002 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>public_key</h1><h1>public_key</h1><p>This application provides an API to public-key infrastructure
+from <a href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280</a> (X.509 certificates) and public-key formats defined by
+the <a href="http://en.wikipedia.org/wiki/PKCS"> PKCS</a> standard.</p><h4>Purpose</h4><p>The Public Key application deals with public-key related file 
+formats, digital signatures, and <a href="http://www.ietf.org/rfc/rfc5280.txt"> X-509 certificates</a>. It is a library application that
+provides encode/decode, sign/verify, encrypt/decrypt, and similar
+functionality. It does not read or write files, it expects or returns
+file contents or partial file contents as binaries.
+</p><h4>Prerequisites</h4><p>It is assumed that the reader is familiar with the Erlang programming 
+language and has a basic understanding of the concepts of using public-keys 
+and digital certificates.</p><h4>Performance Tips</h4><p>The Public Key decode- and encode-functions try to use the NIFs
+in the ASN.1 compilers runtime modules, if they can be found.
+Thus, to have the ASN1 application in the
+path of your system gives the best performance.</p><p>This chapter briefly describes Erlang records derived from ASN.1
+specifications used to handle public key infrastructure.
+The scope is to describe the data types of each component,
+not the semantics. For information on the
+semantics, refer to the relevant standards and RFCs linked in the sections below.</p><p>Use the following include directive to get access to the
+records and constant macros described in the following sections:</p><pre><code class=""> -include_lib("public_key/include/public_key.hrl"). </code></pre><h4>Data Types</h4><p>Common non-standard Erlang
+data types used to describe the record fields in the
+following sections and which are not defined in the Public Key <a href="public_key">Reference Manual</a>
+follows here:</p><dl><dt><strong>time() =</strong></dt><dd><p><strong>utc_time() | general_time()</strong></p></dd><dt><strong>utc_time() =</strong></dt><dd><p><strong>{utcTime, "YYMMDDHHMMSSZ"}</strong></p></dd><dt><strong>general_time() =</strong></dt><dd><p><strong>{generalTime, "YYYYMMDDHHMMSSZ"}</strong></p></dd><dt><strong>general_name() =</strong></dt><dd><p><strong>{rfc822Name, string()}</strong></p> <p><strong>| {dNSName, string()}</strong></p> <p><strong>| {x400Address, string()}</strong></p> <p><strong>| {directoryName, {rdnSequence, [#AttributeTypeAndValue'{}]}}</strong></p> <p><strong>| {ediPartyName, special_string()}</strong></p> <p><strong>| {ediPartyName, special_string(), special_string()}</strong></p> <p><strong>| {uniformResourceIdentifier, string()}</strong></p> <p><strong>| {iPAddress, string()}</strong></p> <p><strong>| {registeredId, oid()}</strong></p> <p><strong>| {otherName, term()}</strong></p> </dd><dt><strong>special_string() =</strong></dt><dd><p><strong>{teletexString, string()}</strong></p> <p><strong>| {printableString, string()}</strong></p> <p><strong>| {universalString, string()}</strong></p> <p><strong>| {utf8String, binary()}</strong></p> <p><strong>| {bmpString, string()}</strong></p> </dd><dt><strong>dist_reason() =</strong></dt><dd><p><strong>unused</strong></p> <p><strong>| keyCompromise</strong></p> <p><strong>| cACompromise</strong></p> <p><strong>| affiliationChanged</strong></p> <p><strong>| superseded</strong></p> <p><strong>| cessationOfOperation</strong></p> <p><strong>| certificateHold</strong></p> <p><strong>| privilegeWithdrawn</strong></p> <p><strong>| aACompromise</strong></p> </dd><dt><strong>OID_macro() =</strong></dt><dd><p><strong>?OID_name()</strong></p> </dd><dt><strong>OID_name() =</strong></dt><dd><p><strong>atom()</strong></p> </dd></dl><h4>RSA</h4><p>Erlang representation of <a href="http://www.ietf.org/rfc/rfc3447.txt">  Rivest-Shamir-Adleman cryptosystem (RSA)</a> keys follows:</p><pre><code class="">
+#'RSAPublicKey'{
+	  modulus,       % integer()
+	  publicExponent % integer()
+	  }.
+
+#'RSAPrivateKey'{
+          version,         % two-prime | multi
+	  modulus,         % integer()
+	  publicExponent,  % integer()
+	  privateExponent, % integer()
+	  prime1,          % integer() 
+	  prime2,          % integer()
+	  exponent1,       % integer()
+	  exponent2,       % integer()
+	  coefficient,     % integer()
+	  otherPrimeInfos  % [#OtherPrimeInfo{}] | asn1_NOVALUE
+	 }.
+
+#'OtherPrimeInfo'{
+	prime,           % integer()
+	exponent,        % integer()
+	coefficient      % integer()
+ 	 }.	 </code></pre><h4>DSA</h4><p>Erlang representation of <a href="http://www.ietf.org/rfc/rfc6979.txt">Digital Signature Algorithm (DSA)</a> keys</p><pre><code class="">	 
+#'DSAPrivateKey',{
+	  version,      % integer()
+	  p,            % integer()
+	  q,            % integer()
+	  g,            % integer()
+	  y,            % integer()
+	  x             % integer()
+	  }.
+
+#'Dss-Parms',{
+         p,         % integer()
+	 q,         % integer()
+	 g          % integer()
+	 }. </code></pre><h4>ECDSA</h4><p>Erlang representation of  <a href="http://www.ietf.org/rfc/rfc6979.txt">Elliptic Curve Digital Signature Algorithm (ECDSA)</a> keys follows:</p><pre><code class="">	 
+#'ECPrivateKey'{
+          version,       % integer()
+	  privateKey,    % binary()  
+          parameters,    % {ecParameters, #'ECParameters'{}} |
+                         % {namedCurve, Oid::tuple()} |
+                         % {implicitlyCA, 'NULL'}
+	  publicKey      % bitstring()
+	  }.
+	  
+#'ECParameters'{
+      version,    % integer()
+      fieldID,    % #'FieldID'{}
+      curve,      % #'Curve'{}
+      base,       % binary()       
+      order,      % integer()        
+      cofactor    % integer()
+      }.
+      
+#'Curve'{
+	a,        % binary()
+	b,        % binary() 
+	seed      % bitstring() - optional
+
+	}.
+
+#'FieldID'{
+	fieldType,    % oid()
+	parameters    % Depending on fieldType
+	}.
+
+#'ECPoint'{
+      point %  binary() - the public key
+      }.</code></pre><h4>PKIX Certificates</h4><p>Erlang representation of PKIX certificates derived from ASN.1 
+specifications see also <a href="http://www.ietf.org/rfc/rfc5280.txt">X509 certificates (RFC 5280)</a>, also referred to as <strong>plain</strong> type,  are as follows:</p><pre><code class="">
+#'Certificate'{
+		tbsCertificate,        % #'TBSCertificate'{}
+		signatureAlgorithm,    % #'AlgorithmIdentifier'{} 
+		signature              % bitstring()
+	       }.
+
+#'TBSCertificate'{
+	  version,              % v1 | v2 | v3 
+	  serialNumber,         % integer() 
+	  signature,            % #'AlgorithmIdentifier'{} 
+	  issuer,               % {rdnSequence, [#AttributeTypeAndValue'{}]} 
+	  validity,             % #'Validity'{}
+	  subject,              % {rdnSequence, [#AttributeTypeAndValue'{}]} 
+	  subjectPublicKeyInfo, % #'SubjectPublicKeyInfo'{}
+	  issuerUniqueID,       % binary() | asn1_novalue
+	  subjectUniqueID,      % binary() | asn1_novalue
+	  extensions            % [#'Extension'{}] 
+	 }.
+	  
+#'AlgorithmIdentifier'{
+	  algorithm,  % oid() 
+	  parameters  % der_encoded()
+	 }.</code></pre><p>Erlang alternate representation of PKIX certificate, also referred to as <strong>otp</strong> type</p><pre><code class="">
+#'OTPCertificate'{
+		tbsCertificate,        % #'OTPTBSCertificate'{}
+		signatureAlgorithm,    % #'SignatureAlgorithm'
+		signature              % bitstring()
+	       }.
+
+#'OTPTBSCertificate'{
+	  version,              % v1 | v2 | v3 
+	  serialNumber,         % integer() 
+	  signature,            % #'SignatureAlgorithm'
+	  issuer,               % {rdnSequence, [#AttributeTypeAndValue'{}]} 
+	  validity,             % #'Validity'{}
+	  subject,              % {rdnSequence, [#AttributeTypeAndValue'{}]} 
+	  subjectPublicKeyInfo, % #'OTPSubjectPublicKeyInfo'{}
+	  issuerUniqueID,       % binary() | asn1_novalue
+	  subjectUniqueID,      % binary() | asn1_novalue
+	  extensions            % [#'Extension'{}] 
+	 }.
+	  
+#'SignatureAlgorithm'{
+	  algorithm,  % id_signature_algorithm()
+	  parameters  % asn1_novalue | #'Dss-Parms'{}
+	 }.</code></pre><p><strong>id_signature_algorithm() = OID_macro()</strong></p><p>The available OID names are as follows:</p><table class="table table-bordered table-hover table-striped"><caption>Signature Algorithm OIDs</caption><tbody><tr><td><em>OID Name</em></td></tr><tr><td>id-dsa-with-sha1</td></tr><tr><td>id-dsaWithSHA1 (ISO or OID to above)</td></tr><tr><td>md2WithRSAEncryption</td></tr><tr><td>md5WithRSAEncryption</td></tr><tr><td>sha1WithRSAEncryption</td></tr><tr><td>sha-1WithRSAEncryption (ISO or OID to above)</td></tr><tr><td>sha224WithRSAEncryption</td></tr><tr><td>sha256WithRSAEncryption</td></tr><tr><td>sha512WithRSAEncryption</td></tr><tr><td>ecdsa-with-SHA1</td></tr></tbody></table><p>The data type <strong>'AttributeTypeAndValue'</strong>, is represented as
+the following erlang record:</p><pre><code class="">
+#'AttributeTypeAndValue'{
+	  type,   % id_attributes()
+	  value   % term() 
+	 }.</code></pre><p>The attribute OID name atoms and their corresponding value types
+are as follows:</p><table class="table table-bordered table-hover table-striped"><caption>Attribute OIDs</caption><tbody><tr><td><em>OID Name</em></td><td><em>Value Type</em></td></tr><tr><td>id-at-name</td><td>special_string()</td></tr><tr><td>id-at-surname</td><td>special_string()</td></tr><tr><td>id-at-givenName</td><td>special_string()</td></tr><tr><td>id-at-initials </td><td>special_string()</td></tr><tr><td>id-at-generationQualifier</td><td>special_string()</td></tr><tr><td>id-at-commonName</td><td>special_string()</td></tr><tr><td>id-at-localityName</td><td>special_string()</td></tr><tr><td>id-at-stateOrProvinceName</td><td>special_string()</td></tr><tr><td>id-at-organizationName</td><td>special_string()</td></tr><tr><td>id-at-title</td><td>special_string()</td></tr><tr><td>id-at-dnQualifier</td><td>{printableString, string()}</td></tr><tr><td>id-at-countryName</td><td>{printableString, string()}</td></tr><tr><td>id-at-serialNumber</td><td>{printableString, string()}</td></tr><tr><td>id-at-pseudonym</td><td>special_string()</td></tr></tbody></table><p>The data types <strong>'Validity'</strong>, <strong>'SubjectPublicKeyInfo'</strong>, and 
+<strong>'SubjectPublicKeyInfoAlgorithm'</strong> are represented as the following Erlang records:</p><pre><code class="">
+#'Validity'{ 
+	  notBefore, % time()
+	  notAfter   % time()
+	 }.
+	 
+#'SubjectPublicKeyInfo'{
+	  algorithm,       % #AlgorithmIdentifier{} 
+	  subjectPublicKey % binary() 
+	 }.
+
+#'SubjectPublicKeyInfoAlgorithm'{
+	  algorithm,  % id_public_key_algorithm()
+	  parameters  % public_key_params()
+	 }.</code></pre><p>The public-key algorithm OID name atoms are as follows:</p><table class="table table-bordered table-hover table-striped"><caption>Public-Key Algorithm OIDs</caption><tbody><tr><td><em>OID Name</em></td></tr><tr><td>rsaEncryption</td></tr><tr><td>id-dsa</td></tr><tr><td>dhpublicnumber</td></tr><tr><td>id-keyExchangeAlgorithm</td></tr><tr><td>id-ecPublicKey</td></tr></tbody></table><pre><code class="">
+#'Extension'{
+	  extnID,    % id_extensions() | oid() 
+	  critical,  % boolean()
+	  extnValue  % der_encoded()
+	 }.</code></pre><p><strong>id_extensions()</strong>  
+<a href="#StdCertExt">Standard Certificate Extensions</a>, 
+<a href="#PrivIntExt">Private Internet Extensions</a>,  
+<a href="#CRLCertExt">CRL Extensions</a> and 
+<a href="#CRLEntryExt">CRL Entry Extensions</a>.
+</p><a name="StdCertExt"></a><h4>Standard Certificate Extensions</h4><p>The standard certificate extensions OID name atoms and their 
+corresponding value types are as follows:</p><table class="table table-bordered table-hover table-striped"><caption>Standard Certificate Extensions</caption><tbody><tr><td><em>OID Name</em></td><td><em>Value Type</em></td></tr><tr><td>id-ce-authorityKeyIdentifier</td><td>#'AuthorityKeyIdentifier'{}</td></tr><tr><td>id-ce-subjectKeyIdentifier</td><td>oid()</td></tr><tr><td>id-ce-keyUsage</td><td>[key_usage()]</td></tr><tr><td>id-ce-privateKeyUsagePeriod</td><td>#'PrivateKeyUsagePeriod'{}</td></tr><tr><td>id-ce-certificatePolicies</td><td>#'PolicyInformation'{}</td></tr><tr><td>id-ce-policyMappings</td><td>#'PolicyMappings_SEQOF'{}</td></tr><tr><td>id-ce-subjectAltName</td><td>general_name()</td></tr><tr><td>id-ce-issuerAltName</td><td>general_name()</td></tr><tr><td>id-ce-subjectDirectoryAttributes</td><td> [#'Attribute'{}]</td></tr><tr><td>id-ce-basicConstraints</td><td>#'BasicConstraints'{}</td></tr><tr><td>id-ce-nameConstraints</td><td>#'NameConstraints'{}</td></tr><tr><td>id-ce-policyConstraints</td><td>#'PolicyConstraints'{}</td></tr><tr><td>id-ce-extKeyUsage</td><td>[id_key_purpose()]</td></tr><tr><td>id-ce-cRLDistributionPoints</td><td>[#'DistributionPoint'{}]</td></tr><tr><td>id-ce-inhibitAnyPolicy</td><td>integer()</td></tr><tr><td>id-ce-freshestCRL</td><td>[#'DistributionPoint'{}]</td></tr></tbody></table><p>Here:</p><dl><dt><strong>key_usage()</strong></dt><dd>= <p><strong>digitalSignature</strong></p> <p><strong>| nonRepudiation</strong></p> <p><strong>| keyEncipherment</strong></p> <p><strong>| dataEncipherment</strong></p> <p><strong>| keyAgreement</strong></p> <p><strong>| keyCertSign</strong></p> <p><strong>| cRLSign</strong></p> <p><strong>| encipherOnly</strong></p> <p><strong>| decipherOnly </strong></p> </dd></dl><p>And for <strong>id_key_purpose()</strong>:</p><table class="table table-bordered table-hover table-striped"><caption>Key Purpose OIDs</caption><tbody><tr><td><em>OID Name</em></td></tr><tr><td>id-kp-serverAuth</td></tr><tr><td>id-kp-clientAuth</td></tr><tr><td>id-kp-codeSigning</td></tr><tr><td>id-kp-emailProtection</td></tr><tr><td>id-kp-timeStamping</td></tr><tr><td>id-kp-OCSPSigning</td></tr></tbody></table><pre><code class="">
+#'AuthorityKeyIdentifier'{
+	  keyIdentifier,	    % oid()
+	  authorityCertIssuer,      % general_name()
+	  authorityCertSerialNumber % integer() 
+	 }.
+
+#'PrivateKeyUsagePeriod'{
+	  notBefore,   % general_time()
+	  notAfter     % general_time()
+	 }.
+
+#'PolicyInformation'{
+	  policyIdentifier,  % oid()
+	  policyQualifiers   % [#PolicyQualifierInfo{}]
+	 }.
+
+#'PolicyQualifierInfo'{
+	  policyQualifierId,   % oid()
+	  qualifier            % string() | #'UserNotice'{}
+	 }.
+
+#'UserNotice'{
+         noticeRef,   % #'NoticeReference'{}
+	 explicitText % string()
+	 }.
+
+#'NoticeReference'{
+         organization,    % string()
+	 noticeNumbers    % [integer()]
+	 }.
+
+#'PolicyMappings_SEQOF'{
+	  issuerDomainPolicy,  % oid()
+	  subjectDomainPolicy  % oid()
+	 }.
+
+#'Attribute'{
+          type,  % oid()
+	  values % [der_encoded()]
+	  }).
+
+#'BasicConstraints'{
+	  cA,		    % boolean()
+	  pathLenConstraint % integer()
+	 }).
+
+#'NameConstraints'{
+	  permittedSubtrees, % [#'GeneralSubtree'{}]
+	  excludedSubtrees   % [#'GeneralSubtree'{}]
+	 }).
+
+#'GeneralSubtree'{
+	  base,    % general_name()
+	  minimum, % integer()
+	  maximum  % integer()
+	 }).
+
+#'PolicyConstraints'{
+	  requireExplicitPolicy, % integer()
+	  inhibitPolicyMapping   % integer()
+	 }).
+
+#'DistributionPoint'{
+	  distributionPoint, % {fullName, [general_name()]} | {nameRelativeToCRLIssuer,
+	  [#AttributeTypeAndValue{}]}
+	  reasons,           % [dist_reason()]
+	  cRLIssuer          % [general_name()]
+	 }).</code></pre><a name="PrivIntExt"></a><h4>Private Internet Extensions</h4><p>The private internet extensions OID name atoms and their corresponding value 
+types are as follows:</p><table class="table table-bordered table-hover table-striped"><caption>Private Internet Extensions</caption><tbody><tr><td><em>OID Name</em></td><td><em>Value Type</em></td></tr><tr><td>id-pe-authorityInfoAccess</td><td>[#'AccessDescription'{}]</td></tr><tr><td>id-pe-subjectInfoAccess</td><td>[#'AccessDescription'{}]</td></tr></tbody></table><pre><code class="">
+#'AccessDescription'{
+           accessMethod,    % oid()
+	   accessLocation   % general_name()
+	 }).</code></pre><h4>CRL and CRL Extensions Profile</h4><p>Erlang representation of CRL and CRL extensions profile 
+derived from ASN.1 specifications and RFC 5280 are as follows:</p><pre><code class="">
+#'CertificateList'{
+          tbsCertList,        % #'TBSCertList{}
+          signatureAlgorithm, % #'AlgorithmIdentifier'{} 
+          signature           % bitstring()
+	  }).
+
+#'TBSCertList'{
+      version,             % v2 (if defined)
+      signature,           % #AlgorithmIdentifier{}
+      issuer,              % {rdnSequence, [#AttributeTypeAndValue'{}]} 
+      thisUpdate,          % time()
+      nextUpdate,          % time() 
+      revokedCertificates, % [#'TBSCertList_revokedCertificates_SEQOF'{}]
+      crlExtensions        % [#'Extension'{}]
+      }).
+
+#'TBSCertList_revokedCertificates_SEQOF'{
+         userCertificate,      % integer()
+ 	 revocationDate,       % timer()
+	 crlEntryExtensions    % [#'Extension'{}]
+	 }).</code></pre><a name="CRLCertExt"></a><h4>CRL Extensions</h4><p>The CRL extensions OID name atoms and their corresponding value types are as follows:</p><table class="table table-bordered table-hover table-striped"><caption>CRL Extensions</caption><tbody><tr><td><em>OID Name</em></td><td><em>Value Type</em></td></tr><tr><td>id-ce-authorityKeyIdentifier</td><td>#'AuthorityKeyIdentifier{}</td></tr><tr><td>id-ce-issuerAltName</td><td>{rdnSequence, [#AttributeTypeAndValue'{}]}</td></tr><tr><td>id-ce-cRLNumber</td><td>integer()</td></tr><tr><td>id-ce-deltaCRLIndicator</td><td>integer()</td></tr><tr><td>id-ce-issuingDistributionPoint</td><td>#'IssuingDistributionPoint'{}</td></tr><tr><td>id-ce-freshestCRL</td><td>[#'Distributionpoint'{}]</td></tr></tbody></table><p>Here, the data type <strong>'IssuingDistributionPoint'</strong> is represented as 
+the following Erlang record:</p><pre><code class="">
+#'IssuingDistributionPoint'{
+          distributionPoint,         % {fullName, [general_name()]} | {nameRelativeToCRLIssuer,
+	  [#AttributeTypeAndValue'{}]}
+	  onlyContainsUserCerts,     % boolean()
+	  onlyContainsCACerts,       % boolean()
+	  onlySomeReasons,           % [dist_reason()]
+	  indirectCRL,               % boolean()
+	  onlyContainsAttributeCerts % boolean()
+	  }).</code></pre><a name="CRLEntryExt"></a><h4>CRL Entry Extensions</h4><p>The CRL entry extensions OID name atoms and their corresponding value types are as follows:</p><table class="table table-bordered table-hover table-striped"><caption>CRL Entry Extensions</caption><tbody><tr><td><em>OID Name</em></td><td><em>Value Type</em></td></tr><tr><td>id-ce-cRLReason</td><td>crl_reason()</td></tr><tr><td>id-ce-holdInstructionCode</td><td>oid()</td></tr><tr><td>id-ce-invalidityDate</td><td>general_time()</td></tr><tr><td>id-ce-certificateIssuer</td><td>general_name()</td></tr></tbody></table><p>Here:</p><dl><dt><strong>crl_reason()</strong></dt><dd>= <p><strong>unspecified</strong></p> <p><strong>| keyCompromise</strong></p> <p><strong>| cACompromise</strong></p> <p><strong>| affiliationChanged</strong></p> <p><strong>| superseded</strong></p> <p><strong>| cessationOfOperation</strong></p> <p><strong>| certificateHold</strong></p> <p><strong>| removeFromCRL</strong></p> <p><strong>| privilegeWithdrawn</strong></p> <p><strong>| aACompromise</strong></p> </dd></dl><a name="PKCS10"></a><h4>PKCS#10 Certification Request</h4><p>Erlang representation of a PKCS#10 certification request 
+derived from ASN.1 specifications and RFC 5280 are as follows:</p><pre><code class="">
+#'CertificationRequest'{
+          certificationRequestInfo #'CertificationRequestInfo'{},
+	  signatureAlgorithm	   #'CertificationRequest_signatureAlgorithm'{}}.
+	  signature                bitstring()
+	  }
+
+#'CertificationRequestInfo'{
+	  version       atom(),
+	  subject       {rdnSequence, [#AttributeTypeAndValue'{}]} ,
+	  subjectPKInfo #'CertificationRequestInfo_subjectPKInfo'{},
+	  attributes    [#'AttributePKCS-10' {}]
+	  }
+
+#'CertificationRequestInfo_subjectPKInfo'{
+          algorithm		#'CertificationRequestInfo_subjectPKInfo_algorithm'{}
+	  subjectPublicKey 	  bitstring()
+	  }
+
+#'CertificationRequestInfo_subjectPKInfo_algorithm'{
+     algorithm = oid(),
+     parameters = der_encoded()
+}	  
+
+#'CertificationRequest_signatureAlgorithm'{
+     algorithm = oid(),
+     parameters = der_encoded()
+     }
+
+#'AttributePKCS-10'{
+    type = oid(),
+    values = [der_encoded()]
+}  </code></pre><p>This section describes examples of how to use the 
+Public Key API. Keys and certificates used in the following 
+sections are generated only for testing the Public Key 
+application.</p><p>Some shell printouts in the following examples
+are abbreviated for increased readability.</p><h4>PEM Files</h4><p>Public-key data (keys, certificates, and so on) can be stored in 
+Privacy Enhanced Mail (PEM) format. 
+The PEM files have the following structure:</p><pre><code class="">
+    &lt;text&gt;
+    -----BEGIN &lt;SOMETHING&gt;-----
+    &lt;Attribute&gt; : &lt;Value&gt;
+    &lt;Base64 encoded DER data&gt;
+    -----END &lt;SOMETHING&gt;-----
+    &lt;text&gt;</code></pre><p>A file can contain several <strong>BEGIN/END</strong> blocks. Text lines between
+blocks are ignored. Attributes, if present, are ignored except
+for <strong>Proc-Type</strong> and <strong>DEK-Info</strong>, which are used when <strong>DER</strong> 
+data is encrypted.</p><h4>DSA Private Key</h4><p>A DSA private key can look as follows:</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>File handling is not done by the Public Key application.</p></div><pre><code class="">1&gt; {ok, PemBin} = file:read_file("dsa.pem").
+{ok,&lt;&lt;"-----BEGIN DSA PRIVATE KEY-----\nMIIBuw"...&gt;&gt;}</code></pre><p>The following PEM file has only one entry, a private DSA key:</p><pre><code class="">2&gt; [DSAEntry] =  public_key:pem_decode(PemBin).
+[{'DSAPrivateKey',&lt;&lt;48,130,1,187,2,1,0,2,129,129,0,183,
+                    179,230,217,37,99,144,157,21,228,204,
+		    162,207,61,246,...&gt;&gt;,
+		    not_encrypted}]</code></pre><pre><code class="">3&gt; Key = public_key:pem_entry_decode(DSAEntry).
+#'DSAPrivateKey'{version = 0,
+                 p = 12900045185019966618...6593,
+                 q = 1216700114794736143432235288305776850295620488937,
+                 g = 10442040227452349332...47213,
+                 y = 87256807980030509074...403143,
+                 x = 510968529856012146351317363807366575075645839654}</code></pre><h4>RSA Private Key with Password</h4><p>An RSA private key encrypted with a password can look as follows:</p><pre><code class="">1&gt; {ok, PemBin} = file:read_file("rsa.pem").
+{ok,&lt;&lt;"Bag Attribut"...&gt;&gt;}</code></pre><p>The following PEM file has only one entry, a private RSA key:</p><pre><code class="">2&gt;[RSAEntry] = public_key:pem_decode(PemBin).
+[{'RSAPrivateKey',&lt;&lt;224,108,117,203,152,40,15,77,128,126,
+                    221,195,154,249,85,208,202,251,109,
+                    119,120,57,29,89,19,9,...&gt;&gt;,
+                  {"DES-EDE3-CBC",&lt;&lt;"kÃeÃ¸Â¼pÂµL"&gt;&gt;}}]</code></pre><p>In this following example, the password is <strong>"abcd1234"</strong>:</p><pre><code class="">3&gt; Key = public_key:pem_entry_decode(RSAEntry, "abcd1234").
+    #'RSAPrivateKey'{version = 'two-prime',
+                 modulus = 1112355156729921663373...2737107,
+                 publicExponent = 65537,
+                 privateExponent = 58064406231183...2239766033,
+                 prime1 = 11034766614656598484098...7326883017,
+                 prime2 = 10080459293561036618240...77738643771,
+                 exponent1 = 77928819327425934607...22152984217,
+                 exponent2 = 36287623121853605733...20588523793,
+                 coefficient = 924840412626098444...41820968343,
+                 otherPrimeInfos = asn1_NOVALUE}</code></pre><h4>X509 Certificates</h4><p>The following is an example of X509 certificates:</p><pre><code class="">1&gt; {ok, PemBin} = file:read_file("cacerts.pem").
+{ok,&lt;&lt;"-----BEGIN CERTIFICATE-----\nMIIC7jCCAl"...&gt;&gt;}</code></pre><p>The following file includes two certificates:</p><pre><code class="">2&gt; [CertEntry1, CertEntry2] = public_key:pem_decode(PemBin).
+[{'Certificate',&lt;&lt;48,130,2,238,48,130,2,87,160,3,2,1,2,2,
+                  9,0,230,145,97,214,191,2,120,150,48,13,
+                  ...&gt;&gt;,
+                not_encrypted},
+ {'Certificate',&lt;&lt;48,130,3,200,48,130,3,49,160,3,2,1,2,2,1,
+                  1,48,13,6,9,42,134,72,134,247,...&gt;&gt;,
+                not_encrypted}]</code></pre><p>Certificates can be decoded as usual:</p><pre><code class="">2&gt; Cert = public_key:pem_entry_decode(CertEntry1).
+#'Certificate'{
+    tbsCertificate =
+        #'TBSCertificate'{
+            version = v3,serialNumber = 16614168075301976214,
+            signature =
+                #'AlgorithmIdentifier'{
+                    algorithm = {1,2,840,113549,1,1,5},
+                    parameters = &lt;&lt;5,0&gt;&gt;},
+            issuer =
+                {rdnSequence,
+                    [[#'AttributeTypeAndValue'{
+                          type = {2,5,4,3},
+                          value = &lt;&lt;19,8,101,114,108,97,110,103,67,65&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,11},
+                          value = &lt;&lt;19,10,69,114,108,97,110,103,32,79,84,80&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,10},
+                          value = &lt;&lt;19,11,69,114,105,99,115,115,111,110,32,65,66&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,7},
+                          value = &lt;&lt;19,9,83,116,111,99,107,104,111,108,109&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,6},
+                          value = &lt;&lt;19,2,83,69&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {1,2,840,113549,1,9,1},
+                          value = &lt;&lt;22,22,112,101,116,101,114,64,101,114,...&gt;&gt;}]]},
+            validity =
+                #'Validity'{
+                    notBefore = {utcTime,"080109082929Z"},
+                    notAfter = {utcTime,"080208082929Z"}},
+            subject =
+                {rdnSequence,
+                    [[#'AttributeTypeAndValue'{
+                          type = {2,5,4,3},
+                          value = &lt;&lt;19,8,101,114,108,97,110,103,67,65&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,11},
+                          value = &lt;&lt;19,10,69,114,108,97,110,103,32,79,84,80&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,10},
+                          value = &lt;&lt;19,11,69,114,105,99,115,115,111,110,32,...&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,7},
+                          value = &lt;&lt;19,9,83,116,111,99,107,104,111,108,...&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,6},
+                          value = &lt;&lt;19,2,83,69&gt;&gt;}],
+                     [#'AttributeTypeAndValue'{
+                          type = {1,2,840,113549,1,9,1},
+                          value = &lt;&lt;22,22,112,101,116,101,114,64,...&gt;&gt;}]]},
+            subjectPublicKeyInfo =
+                #'SubjectPublicKeyInfo'{
+                    algorithm =
+                        #'AlgorithmIdentifier'{
+                            algorithm = {1,2,840,113549,1,1,1},
+                            parameters = &lt;&lt;5,0&gt;&gt;},
+                    subjectPublicKey =
+                        {0,&lt;&lt;48,129,137,2,129,129,0,203,209,187,77,73,231,90,...&gt;&gt;}},
+            issuerUniqueID = asn1_NOVALUE,
+            subjectUniqueID = asn1_NOVALUE,
+            extensions =
+                [#'Extension'{
+                     extnID = {2,5,29,19},
+                     critical = true,
+                     extnValue = [48,3,1,1,255]},
+                 #'Extension'{
+                     extnID = {2,5,29,15},
+                     critical = false,
+                     extnValue = [3,2,1,6]},
+                 #'Extension'{
+                     extnID = {2,5,29,14},
+                     critical = false,
+                     extnValue = [4,20,27,217,65,152,6,30,142|...]},
+                 #'Extension'{
+                     extnID = {2,5,29,17},
+                     critical = false,
+                     extnValue = [48,24,129,22,112,101,116,101|...]}]},
+    signatureAlgorithm =
+        #'AlgorithmIdentifier'{
+            algorithm = {1,2,840,113549,1,1,5},
+            parameters = &lt;&lt;5,0&gt;&gt;},
+    signature =
+    &lt;&lt;163,186,7,163,216,152,63,47,154,234,139,73,154,96,120,
+    165,2,52,196,195,109,167,192,...&gt;&gt;}</code></pre><p>Parts of certificates can be decoded with
+<strong>public_key:der_decode/2</strong>, using the ASN.1 type of that part.
+However, an application-specific certificate extension requires 
+application-specific ASN.1 decode/encode-functions.
+In the recent example, the first value of <strong>rdnSequence</strong> is 
+of ASN.1 type <strong>'X520CommonName'. ({2,5,4,3} = ?id-at-commonName)</strong>:</p><pre><code class="">public_key:der_decode('X520CommonName', &lt;&lt;19,8,101,114,108,97,110,103,67,65&gt;&gt;).
+{printableString,"erlangCA"}</code></pre><p>However, certificates can also be decoded using <strong>pkix_decode_cert/2</strong>, 
+which can customize and recursively decode standard parts of a certificate:</p><pre><code class="">3&gt;{_, DerCert, _} = CertEntry1.</code></pre><pre><code class="">4&gt; public_key:pkix_decode_cert(DerCert, otp).
+#'OTPCertificate'{
+    tbsCertificate =
+        #'OTPTBSCertificate'{
+            version = v3,serialNumber = 16614168075301976214,
+            signature =
+                #'SignatureAlgorithm'{
+                    algorithm = {1,2,840,113549,1,1,5},
+                    parameters = 'NULL'},
+            issuer =
+                {rdnSequence,
+                    [[#'AttributeTypeAndValue'{
+                          type = {2,5,4,3},
+                          value = {printableString,"erlangCA"}}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,11},
+                          value = {printableString,"Erlang OTP"}}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,10},
+                          value = {printableString,"Ericsson AB"}}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,7},
+                          value = {printableString,"Stockholm"}}],
+                     [#'AttributeTypeAndValue'{type = {2,5,4,6},value = "SE"}],
+                     [#'AttributeTypeAndValue'{
+                          type = {1,2,840,113549,1,9,1},
+                          value = "peter@erix.ericsson.se"}]]},
+            validity =
+                #'Validity'{
+                    notBefore = {utcTime,"080109082929Z"},
+                    notAfter = {utcTime,"080208082929Z"}},
+            subject =
+                {rdnSequence,
+                    [[#'AttributeTypeAndValue'{
+                          type = {2,5,4,3},
+                          value = {printableString,"erlangCA"}}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,11},
+                          value = {printableString,"Erlang OTP"}}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,10},
+                          value = {printableString,"Ericsson AB"}}],
+                     [#'AttributeTypeAndValue'{
+                          type = {2,5,4,7},
+                          value = {printableString,"Stockholm"}}],
+                     [#'AttributeTypeAndValue'{type = {2,5,4,6},value = "SE"}],
+                     [#'AttributeTypeAndValue'{
+                          type = {1,2,840,113549,1,9,1},
+                          value = "peter@erix.ericsson.se"}]]},
+            subjectPublicKeyInfo =
+                #'OTPSubjectPublicKeyInfo'{
+                    algorithm =
+                        #'PublicKeyAlgorithm'{
+                            algorithm = {1,2,840,113549,1,1,1},
+                            parameters = 'NULL'},
+                    subjectPublicKey =
+                        #'RSAPublicKey'{
+                            modulus =
+                                1431267547247997...37419,
+                            publicExponent = 65537}},
+            issuerUniqueID = asn1_NOVALUE,
+            subjectUniqueID = asn1_NOVALUE,
+            extensions =
+                [#'Extension'{
+                     extnID = {2,5,29,19},
+                     critical = true,
+                     extnValue =
+                         #'BasicConstraints'{
+                             cA = true,pathLenConstraint = asn1_NOVALUE}},
+                 #'Extension'{
+                     extnID = {2,5,29,15},
+                     critical = false,
+                     extnValue = [keyCertSign,cRLSign]},
+                 #'Extension'{
+                     extnID = {2,5,29,14},
+                     critical = false,
+                     extnValue = [27,217,65,152,6,30,142,132,245|...]},
+                 #'Extension'{
+                     extnID = {2,5,29,17},
+                     critical = false,
+                     extnValue = [{rfc822Name,"peter@erix.ericsson.se"}]}]},
+    signatureAlgorithm =
+        #'SignatureAlgorithm'{
+            algorithm = {1,2,840,113549,1,1,5},
+            parameters = 'NULL'},
+    signature =
+         &lt;&lt;163,186,7,163,216,152,63,47,154,234,139,73,154,96,120,
+           165,2,52,196,195,109,167,192,...&gt;&gt;}</code></pre><p>This call is equivalent to <strong>public_key:pem_entry_decode(CertEntry1)</strong>:</p><pre><code class="">5&gt; public_key:pkix_decode_cert(DerCert, plain).
+#'Certificate'{ ...}</code></pre><h4>Encoding Public-Key Data to PEM Format</h4><p>If you have public-key data and want to create a PEM file
+this can be done by calling functions
+<strong>public_key:pem_entry_encode/2</strong> and <strong>pem_encode/1</strong> and 
+saving the result to a file. For example, assume that you have 
+<strong>PubKey = 'RSAPublicKey'{}</strong>. Then you can create a PEM-"RSA PUBLIC KEY" 
+file (ASN.1 type <strong>'RSAPublicKey'</strong>) or a PEM-"PUBLIC KEY" file
+(<strong>'SubjectPublicKeyInfo'</strong> ASN.1 type).</p><p>The second element of the PEM-entry is the ASN.1 <strong>DER</strong> encoded
+key data:</p><pre><code class="">1&gt; PemEntry = public_key:pem_entry_encode('RSAPublicKey', RSAPubKey).
+{'RSAPublicKey', &lt;&lt;48,72,...&gt;&gt;, not_encrypted}
+
+2&gt; PemBin = public_key:pem_encode([PemEntry]).
+&lt;&lt;"-----BEGIN RSA PUBLIC KEY-----\nMEgC...&gt;&gt;
+
+3&gt; file:write_file("rsa_pub_key.pem", PemBin).
+ok</code></pre><p>or:</p><pre><code class="">1&gt; PemEntry = public_key:pem_entry_encode('SubjectPublicKeyInfo', RSAPubKey).
+{'SubjectPublicKeyInfo', &lt;&lt;48,92...&gt;&gt;, not_encrypted}
+
+2&gt; PemBin = public_key:pem_encode([PemEntry]).
+&lt;&lt;"-----BEGIN PUBLIC KEY-----\nMFw...&gt;&gt;
+
+3&gt; file:write_file("pub_key.pem", PemBin).
+ok</code></pre><h4>RSA Public-Key Cryptography</h4><p>Suppose you have the following private key and a corresponding public key:</p><ul><li><strong>PrivateKey = #'RSAPrivateKey{}'</strong> and  the plaintext <strong>Msg = binary()</strong></li><li><strong>PublicKey = #'RSAPublicKey'{}</strong> </li></ul><p>Then you can proceed as follows:</p><p>Encrypt with the private key:</p><pre><code class="">RsaEncrypted = public_key:encrypt_private(Msg, PrivateKey),
+Msg = public_key:decrypt_public(RsaEncrypted, PublicKey),</code></pre><p>Encrypt with the public key:</p><pre><code class="">RsaEncrypted = public_key:encrypt_public(Msg, PublicKey),
+Msg = public_key:decrypt_private(RsaEncrypted, PrivateKey),</code></pre><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>You normally do only one of the encrypt or decrypt operations, 
+and the peer does the other. This normaly used in legacy applications
+as a primitive digital signature.
+</p></div><h4>Digital Signatures</h4><p>Suppose you have the following private key and a corresponding public key:</p><ul><li><strong>PrivateKey = #'RSAPrivateKey{}'</strong> or <strong>#'DSAPrivateKey'{}</strong> and the plaintext <strong>Msg = binary()</strong></li><li><strong>PublicKey = #'RSAPublicKey'{}</strong> or <strong>{integer(), #'DssParams'{}}</strong></li></ul><p>Then you can proceed as follows:</p><pre><code class="">Signature = public_key:sign(Msg, sha, PrivateKey),
+true = public_key:verify(Msg, sha, Signature, PublicKey),</code></pre><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>You normally do only one of the sign or verify operations,
+and the peer does the other.</p></div><p>It can be appropriate to calculate the message digest before
+calling <strong>sign</strong> or <strong>verify</strong>, and then use <strong>none</strong> as 
+second argument:</p><pre><code class="">Digest = crypto:sha(Msg),
+Signature = public_key:sign(Digest, none, PrivateKey),
+true = public_key:verify(Digest, none, Signature, PublicKey),</code></pre><a name="verify_hostname"></a><h4>Verifying a certificate hostname</h4><h4>Background</h4><p>When a client checks a server certificate there are a number of checks available like
+checks that the certificate is not revoked, not forged or not out-of-date.
+</p><p>There are however attacks that are not detected by those checks. Suppose a bad guy has
+succeded with a DNS infection. Then the client could belive it is connecting to one host but
+ends up at another but evil one. Though it is evil, it could have a perfectly legal
+certificate! The certificate has a valid signature, it is not revoked, the certificate chain
+is not faked and has a trusted root and so on.
+</p><p>To detect that the server is not the intended one, the client must additionaly perform
+a <em>hostname verification</em>. This procedure is described in
+<a href="https://tools.ietf.org/html/rfc6125">RFC 6125</a>. The idea is that the certificate
+lists the hostnames it could be fetched from. This is checked by the certificate issuer when
+the certificate is signed. So if the certificate is issued by a trusted root the client 
+could trust the host names signed in it.
+</p><p>There is a default hostname matching procedure defined in
+<a href="https://tools.ietf.org/html/rfc6125#section-6">RFC 6125, section 6</a>
+as well as protocol dependent variations defined in
+<a href="https://tools.ietf.org/html/rfc6125#appendix-B">RFC 6125 appendix B</a>.
+The default procedure is implemented in
+<a href="../public_key/public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2,3</a>.
+It is possible for a client to hook in modified rules using the options list.
+</p><p>Some terminology is needed: the certificate presents hostname(s) on which it is valid.
+Those are called <em>Presented IDs</em>. The hostname(s) the client belives it connects to
+are called <em>Reference IDs</em>. The matching rules aims to verify that there is at least
+one of the Reference IDs that matches one of the Presented IDs. If not, the verification fails.
+</p><p>The IDs contains normal fully qualified domain names like e.g <strong>foo.example.com</strong>,
+but IP addresses are not recommended. The rfc describes why this is not recommended as well
+as security considerations about how to aquire the Reference IDs.
+</p><p>Internationalized domain names are not supported.
+</p><h4>The verification process</h4><p>Traditionally the Presented IDs were found in the <strong>Subject</strong> certificate field as <strong>CN</strong>
+names. This is still quite common. When printing a certificate they show up as:
+</p><pre><code class="">
+ $ openssl x509 -text &lt; cert.pem
+ ...
+ Subject: C=SE, CN=example.com, CN=*.example.com, O=erlang.org
+ ...
+     </code></pre><p>The example <strong>Subject</strong> field has one C, two CN and one O part. It is only the
+CN (Common Name) that is used by hostname verification. The two other (C and O) is not used
+here even when they contain a domain name like the O part. The C and O parts are defined
+elsewhere and meaningful only for other functions.
+</p><p>In the example the Presented IDs are <strong>example.com</strong> as well as hostnames matching
+<strong>*.example.com</strong>. For example <strong>foo.example.com</strong> and <strong>bar.example.com</strong> both
+matches but not <strong>foo.bar.example.com</strong>. The name <strong>erlang.org</strong> matches neither
+since it is not a CN.
+</p><p>In case where the Presented IDs are fetched from the <strong>Subject</strong> certificate field, the
+names may contain wildcard characters. The function handles this as defined in
+<a href="https://tools.ietf.org/html/rfc6125#section-6.4.3">chapter 6.4.3 in RFC 6125</a>.
+</p><p>There may only be one wildcard character and that is in the first label, for example:
+<strong>*.example.com</strong>. This matches <strong>foo.example.com</strong> but neither <strong>example.com</strong> nor
+<strong>foo.bar.example.com</strong>.
+</p><p>There may be label characters before or/and after the wildcard. For example:
+<strong>a*d.example.com</strong> matches <strong>abcd.example.com</strong> and <strong>ad.example.com</strong>,
+but not <strong>ab.cd.example.com</strong>.
+</p><p>In the previous example there is no indication of which protocols are expected. So a client
+has no indication of whether it is a web server, an ldap server or maybe a sip server it is
+connected to.
+There are fields in the certificate that can indicate this. To be more exact, the rfc
+introduces the usage of the <strong>X509v3 Subject Alternative Name</strong> in the <strong>X509v3 extensions</strong>
+field:
+</p><pre><code class="">
+ $ openssl x509 -text &lt; cert.pem
+ ...
+ X509v3 extensions:
+     X509v3 Subject Alternative Name:
+         DNS:kb.example.org, URI:https://www.example.org
+ ...
+     </code></pre><p>Here <strong>kb.example.org</strong> serves any protocol while <strong>www.example.org</strong> presents a secure
+web server.
+</p><p>The next example has both <strong>Subject</strong> and <strong>Subject Alternate Name</strong> present:</p><pre><code class="">
+ $ openssl x509 -text &lt; cert.pem
+ ...
+ Subject: C=SE, CN=example.com, CN=*.example.com, O=erlang.org
+ ...
+ X509v3 extensions:
+     X509v3 Subject Alternative Name:
+         DNS:kb.example.org, URI:https://www.example.org
+ ...
+     </code></pre><p>The RFC states that if a certificate defines Reference IDs in a <strong>Subject Alternate Name</strong>
+field, the <strong>Subject</strong> field MUST NOT be used for host name checking, even if it contains
+valid CN names.
+Therefore only <strong>kb.example.org</strong> and <strong>https://www.example.org</strong> matches. The match fails
+both for <strong>example.com</strong> and <strong>foo.example.com</strong> becuase they are in the <strong>Subject</strong>
+field which is not checked because the <strong>Subject Alternate Name</strong> field is present.
+</p><a name="verify_hostname_examples"></a><h4>Function call examples</h4><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Other applications like ssl/tls or https might have options that are passed
+down to the <strong>public_key:pkix_verify_hostname</strong>. You will probably not
+have to call it directly</p></div><p>Suppose our client expects to connect to the web server https://www.example.net. This
+URI is therefore the Reference IDs of the client.
+The call will be:
+</p><pre><code class="">
+ public_key:pkix_verify_hostname(CertFromHost,
+                                 [{uri_id, "https://www.example.net"}
+                                 ]).
+     </code></pre><p>The call will return <strong>true</strong> or <strong>false</strong> depending on the check. The caller
+do not need to handle the matching rules in the rfc. The matching will proceed as:
+</p><ul><li>If there is a <strong>Subject Alternate Name</strong> field, the <strong>{uri_id,string()}</strong> in the function call will be compared to any <strong>{uniformResourceIdentifier,string()}</strong> in the Certificate field. If the two <strong>strings()</strong> are equal (case insensitive), there is a match. The same applies for any <strong>{dns_id,string()}</strong> in the call which is compared with all <strong>{dNSName,string()}</strong> in the Certificate field. </li><li>If there is NO <strong>Subject Alternate Name</strong> field, the <strong>Subject</strong> field will be checked. All <strong>CN</strong> names will be compared to all hostnames <em>extracted</em> from  <strong>{uri_id,string()}</strong> and from <strong>{dns_id,string()}</strong>. </li></ul><h4>Extending the search mechanism</h4><p>The caller can use own extraction and matching rules. This is done with the two options
+<strong>fqdn_fun</strong> and <strong>match_fun</strong>.
+</p><a name="hostname_extraction"></a><h4>Hostname extraction</h4><p>The <strong>fqdn_fun</strong> extracts hostnames (Fully Qualified Domain Names) from uri_id
+or other ReferenceIDs that are not pre-defined in the public_key function.
+Suppose you have some URI with a very special protocol-part:
+<strong>myspecial://example.com"</strong>. Since this a non-standard URI there will be no hostname 
+extracted for matching CN-names in the <strong>Subject</strong>.</p><p>To "teach" the function how to extract, you can give a fun which replaces the default
+extraction function.
+The  <strong>fqdn_fun</strong> takes one argument and returns
+either a <strong>string()</strong> to be matched to each CN-name or the atom <strong>default</strong> which will invoke
+the default fqdn extraction function. The return value <strong>undefined</strong> removes the current
+URI from the fqdn extraction.
+</p><pre><code class="">
+ ...
+ Extract = fun({uri_id, "myspecial://"++HostName}) -&gt; HostName;
+              (_Else) -&gt; default
+           end,
+ ...	 
+ public_key:pkix_verify_hostname(CertFromHost, RefIDs,
+                                 [{fqdn_fun, Extract}])
+ ...
+       </code></pre><a name="redefining_match_op"></a><h4>Re-defining the match operation</h4><p>The default matching handles dns_id and uri_id. In an uri_id the value is tested for
+equality with a value from the <strong>Subject Alternate Name</strong>. If som other kind of matching
+is needed, use the  <strong>match_fun</strong> option.
+</p><p>The  <strong>match_fun</strong> takes two arguments and returns either <strong>true</strong>,
+<strong>false</strong> or <strong>default</strong>. The value  <strong>default</strong> will invoke the default
+match function.
+</p><pre><code class="">
+ ...
+ Match = fun({uri_id,"myspecial://"++A},
+             {uniformResourceIdentifier,"myspecial://"++B}) -&gt;
+                                                    my_match(A,B);
+            (_RefID, _PresentedID) -&gt;
+                                default
+         end,
+ ...
+ public_key:pkix_verify_hostname(CertFromHost, RefIDs,
+                                 [{match_fun, Match}]),
+ ...
+       </code></pre><p>In case of a match operation between a ReferenceID and a CN value from the <strong>Subject</strong>
+field, the first argument to the fun is the extracted hostname from the ReferenceID, and the
+second argument is the tuple <strong>{cn, string()}</strong> taken from the <strong>Subject</strong> field. That
+makes it possible to have separate matching rules for Presented IDs from the  <strong>Subject</strong>
+field and from the <strong>Subject Alternate Name</strong> field.
+</p><p>The default matching transformes the ascii values in strings to lowercase before comparing.
+The  <strong>match_fun</strong> is however called without any transfomation applied to the strings.  The
+reason is to enable the user to do unforseen handling of the strings where the original format
+is needed.
+</p><h4>"Pinning" a Certificate</h4><p>The <a href="https://tools.ietf.org/html/rfc6125">RFC 6125</a> defines <em>pinning</em>
+as:</p><p>"The act of establishing a cached name association between
+the application service's certificate and one of the client's
+reference identifiers, despite the fact that none of the presented
+identifiers matches the given reference identifier. ..."
+</p><p>The purpose is to have a mechanism for a human to accept an otherwise faulty Certificate.
+In for example a web browser, you could get a question like </p><p>Warning: you wanted to visit the site www.example.com,
+but the certificate is for shop.example.com. Accept anyway (yes/no)?"
+</p><p>This could be accomplished with the option <strong>fail_callback</strong> which will
+be called if the hostname verification fails:
+</p><pre><code class="">
+ -include_lib("public_key/include/public_key.hrl"). % Record def
+ ...
+ Fail = fun(#'OTPCertificate'{}=C) -&gt;
+              case in_my_cache(C) orelse my_accept(C) of
+                  true -&gt;
+                       enter_my_cache(C),
+                       true;
+                  false -&gt;
+                       false
+         end,
+ ...
+ public_key:pkix_verify_hostname(CertFromHost, RefIDs,
+                                 [{fail_callback, Fail}]),
+ ...
+     </code></pre><h4>SSH Files</h4><p>SSH typically uses PEM files for private keys but has its
+own file format for storing public keys. The <strong>public_key</strong>
+application can be used to parse the content of SSH public-key files.</p><h4>RFC 4716 SSH Public-Key Files</h4><p>RFC 4716 SSH files looks confusingly like PEM files,
+but there are some differences:</p><pre><code class="">1&gt; {ok, SshBin} = file:read_file("ssh2_rsa_pub").
+{ok, &lt;&lt;"---- BEGIN SSH2 PUBLIC KEY ----\nAAAA"...&gt;&gt;}</code></pre><p>This is equivalent to calling <strong>public_key:ssh_decode(SshBin, rfc4716_public_key)</strong>:
+</p><pre><code class="">2&gt; public_key:ssh_decode(SshBin, public_key).
+[{#'RSAPublicKey'{modulus = 794430685...91663,
+                  publicExponent = 35}, []}]</code></pre><h4>OpenSSH Public-Key Format</h4><p>OpenSSH public-key format looks as follows:</p><pre><code class="">1&gt; {ok, SshBin} = file:read_file("openssh_dsa_pub").
+{ok,&lt;&lt;"ssh-dss AAAAB3Nza"...&gt;&gt;}</code></pre><p>This is equivalent to calling <strong>public_key:ssh_decode(SshBin, openssh_public_key)</strong>:
+</p><pre><code class="">2&gt;  public_key:ssh_decode(SshBin, public_key).
+[{{15642692...694280725,
+   #'Dss-Parms'{p = 17291273936...696123221,
+                q = 1255626590179665817295475654204371833735706001853,
+                g = 10454211196...480338645}},
+  [{comment,"dhopson@VMUbuntu-DSH"}]}]</code></pre><h4>Known Hosts - OpenSSH Format</h4><p>Known hosts - OpenSSH format looks as follows:</p><pre><code class="">1&gt; {ok, SshBin} = file:read_file("known_hosts").
+{ok,&lt;&lt;"hostname.domain.com,192.168.0.1 ssh-rsa AAAAB...&gt;&gt;}</code></pre><p>Returns a list of public keys and their related attributes.
+Each pair of key and attribute corresponds to one entry in
+the known hosts file:</p><pre><code class="">2&gt;  public_key:ssh_decode(SshBin, known_hosts).
+[{#'RSAPublicKey'{modulus = 1498979460408...72721699,
+                  publicExponent = 35},
+  [{hostnames,["hostname.domain.com","192.168.0.1"]}]},
+ {#'RSAPublicKey'{modulus = 14989794604088...2721699,
+                  publicExponent = 35},
+  [{comment,"foo@bar.com"},
+   {hostnames,["|1|BWO5qDxk/cFH0wa05JLdHn+j6xQ=|rXQvIxh5cDD3C43k5DPDamawVNA="]}]}]</code></pre><h4>Authorized Keys - OpenSSH Format</h4><p>Authorized keys - OpenSSH format looks as follows:</p><pre><code class="">1&gt; {ok, SshBin} = file:read_file("auth_keys").
+{ok, &lt;&lt;"command=\"dump /home\",no-pty,no-port-forwarding ssh-rsa AAA...&gt;&gt;}</code></pre><p>Returns a list of public keys and their related attributes.
+Each pair of key and attribute corresponds to one entry in
+the authorized key file:</p><pre><code class="">2&gt; public_key:ssh_decode(SshBin, auth_keys).
+[{#'RSAPublicKey'{modulus = 794430685...691663,
+                  publicExponent = 35},
+  [{comment,"dhopson@VMUbuntu-DSH"},
+   {options,["command=\"dump/home\"","no-pty",
+             "no-port-forwarding"]}]},
+ {{1564269258491...607694280725,
+   #'Dss-Parms'{p = 17291273936185...763696123221,
+                q = 1255626590179665817295475654204371833735706001853,
+                g = 10454211195705...60511039590076780999046480338645}},
+  [{comment,"dhopson@VMUbuntu-DSH"}]}]</code></pre><h4>Creating an SSH File from Public-Key Data</h4><p>If you got a public key <strong>PubKey</strong> and a related list of
+attributes <strong>Attributes</strong> as returned
+by <strong>ssh_decode/2</strong>, you can create a new SSH file, for example:</p><pre><code class="">N&gt; SshBin = public_key:ssh_encode([{PubKey, Attributes}], openssh_public_key),
+&lt;&lt;"ssh-rsa "...&gt;&gt;
+N+1&gt; file:write_file("id_rsa.pub", SshBin).
+ok</code></pre><p>The <strong>public_key</strong> application provides functions to handle public-key infrastructure
+from RFC 3280 (X.509 certificates) and parts of the PKCS standard.
+</p><h3>public_key</h3><p>Provides functions to handle public-key infrastructure.</p><p> Provides encode/decode of different file formats (PEM, OpenSSH),
+digital signature and verification functions, 
+validation of certificate paths and certificate revocation lists (CRLs) and
+other functions for handling of certificates, keys and CRLs.<ul><li>Supports <a href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280 </a> - Internet X.509 Public-Key Infrastructure Certificate and Certificate Revocation List  (CRL) Profile. Certificate policies are currently not supported. </li><li>Supports <a href="http://www.ietf.org/rfc/rfc3447.txt"> PKCS-1 </a> -  RSA Cryptography Standard </li><li>Supports <a href="http://csrc.nist.gov/publications/fips/fips186-3/fips_186-3.pdf"> DSS</a> -  Digital Signature Standard (DSA - Digital Signature Algorithm)</li><li>Supports  <a href="http://www.emc.com/emc-plus/rsa-labs/standards-initiatives/pkcs-3-diffie-hellman-key-agreement-standar.htm"> PKCS-3 </a> -  Diffie-Hellman Key Agreement Standard </li><li>Supports <a href="http://www.ietf.org/rfc/rfc2898.txt"> PKCS-5</a> -  Password-Based Cryptography Standard </li><li>Supports <a href="http://www.ietf.org/rfc/rfc5208.txt"> PKCS-8</a> -  Private-Key Information Syntax Standard</li><li>Supports <a href="http://www.ietf.org/rfc/rfc5967.txt"> PKCS-10</a> -  Certification Request Syntax Standard</li></ul></p><h4>DEPENDENCIES</h4><p>The <strong>public_key</strong> application uses the 
+Crypto application to perform cryptographic operations and the
+ASN-1 application to handle PKIX-ASN-1 specifications, hence
+these applications must be loaded for the <strong>public_key</strong> application to work. 
+In an embedded environment this means they must be started with
+<strong>application:start/[1,2]</strong> before the <strong>public_key</strong> application is 
+started.</p><h4>ERROR LOGGER AND EVENT HANDLERS</h4><p> The <strong>public_key</strong> application is a library application
+and does not use the error logger. The functions will either succeed
+or fail with a runtime error.
+</p><h4>SEE ALSO</h4><p><a href="./application">application(3)</a></p><h3>public_key</h3><p>API module for public-key infrastructure.</p><p>Provides functions to handle public-key infrastructure,
+for details see
+<a href="public_key_app">public_key(6)</a>.
+</p><h4>Common Records and ASN.1 Types</h4><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>All records used in this Reference Manual 
+are generated from ASN.1 specifications
+and are documented in the User's Guide. See <a href="public_key_records">Public-key Records</a>.
+</p></div><p>Use the following include directive to get access to the 
+records and constant macros described here and in the User's Guide:</p><pre><code class=""> -include_lib("public_key/include/public_key.hrl").</code></pre><h3>Data Types</h3><span class="name">oid</span><p>Object identifier, a tuple of integers as generated by the <strong>ASN.1</strong> compiler.</p><span class="name">der_encoded</span><span class="name">pki_asn1_type</span><span class="name">asn1_type</span><p>ASN.1 type present in the Public Key applications ASN.1 specifications.</p><span class="name">pem_entry</span><span class="name">der_or_encrypted_der</span><span class="name">cipher_info</span><span class="name">cipher</span><span class="name">salt</span><span class="name">cipher_info_params</span><pre><code class="">Cipher = "RC2-CBC" | "DES-CBC" | "DES-EDE3-CBC"</code></pre><p><strong>Salt</strong> could be generated with
+<a href="../crypto/crypto#strong_rand_bytes-1">crypto/crypto#strong_rand_bytes-1</a>.</p><span class="name">public_key</span><span class="name">rsa_public_key</span><span class="name">dsa_public_key</span><span class="name">ec_public_key</span><span class="name">ecpk_parameters</span><span class="name">ecpk_parameters_api</span><span class="name">ed_public_key</span><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>This format of the EdDSA curves is temporary and may change without prior notice!</p></div><span class="name">private_key</span><span class="name">rsa_private_key</span><span class="name">dsa_private_key</span><span class="name">ec_private_key</span><span class="name">ed_private_key</span><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>This format of the EdDSA curves is temporary and may change without prior notice!</p></div><span class="name">key_params</span><span class="name">digest_type</span><span class="name">crl_reason</span><span class="name">issuer_id</span><span class="name">issuer_name</span><span class="name">ssh_file</span><h3>Functions</h3><h4>compute_key/2</h4><p>Computes shared secret.</p><p>Computes shared secret.</p><h4>compute_key/3</h4><p>Computes shared secret.</p><p>Computes shared secret.</p><h4>decrypt_private/2</h4><h4>decrypt_private/3</h4><p>Public-key decryption.</p><p>Public-key decryption using the private key. See also <a href="../crypto/crypto#private_decrypt/4">crypto:private_decrypt/4</a></p><h4>decrypt_public/2</h4><h4>decrypt_public/3</h4><p>Public-key decryption.</p><p>Public-key decryption using the public key. See also <a href="../crypto/crypto#public_decrypt/4">crypto:public_decrypt/4</a></p><h4>der_decode/2</h4><p>Decodes a public-key ASN.1 DER encoded entity.</p><p>Decodes a public-key ASN.1 DER encoded entity.</p><h4>der_encode/2</h4><p>Encodes a public-key entity with ASN.1 DER encoding.</p><p>Encodes a public-key entity with ASN.1 DER encoding.</p><h4>dh_gex_group/4</h4><p>Selects a group for Diffie-Hellman key exchange</p><p>Selects a group for Diffie-Hellman key exchange with the key size in the range <strong>MinSize...MaxSize</strong>
+and as close to <strong>SuggestedSize</strong> as possible. If <strong>Groups == undefined</strong> a default set will be
+used, otherwise the group is selected from <strong>Groups</strong>.</p><p>First a size, as close as possible to SuggestedSize, is selected. Then one group with that key size
+is randomly selected from the specified set of groups. If no size within the limits of <strong>MinSize</strong>
+and <strong>MaxSize</strong> is available, <strong>{error,no_group_found}</strong> is returned.</p><p>The default set of groups is listed in <strong>lib/public_key/priv/moduli</strong>. This file may be regenerated like this:</p><pre>
+	$&gt; cd $ERL_TOP/lib/public_key/priv/
+	$&gt; generate
+         ---- wait until all background jobs has finished. It may take several days !
+	$&gt; cat moduli-* &gt; moduli
+	$&gt; cd ..; make 
+      </pre><h4>encrypt_private/2</h4><h4>encrypt_private/3</h4><p>Public-key encryption using the private key.</p><p>Public-key encryption using the private key.
+See also <a href="../crypto/crypto#private_encrypt/4">crypto:private_encrypt/4</a>.</p><h4>encrypt_public/2</h4><h4>encrypt_public/3</h4><p>Public-key encryption using the public key.</p><p>Public-key encryption using the public key. See also <a href="../crypto/crypto#public_encrypt/4">crypto:public_encrypt/4</a>.</p><h4>generate_key/1</h4><p>Generates a new keypair.</p><p>Generates a new keypair. Note that except for Diffie-Hellman
+the public key is included in the private key structure. See also
+<a href="../crypto/crypto#generate_key/2">crypto:generate_key/2</a>
+</p><h4>pem_decode/1</h4><p>Decodes PEM binary data and returns entries as ASN.1 DER encoded entities.</p><p>Decodes PEM binary data and returns entries as ASN.1 DER encoded entities.</p><p>Example <strong>{ok, PemBin} = file:read_file("cert.pem"). PemEntries = public_key:pem_decode(PemBin).     </strong></p><h4>pem_encode/1</h4><p>Creates a PEM binary.</p><p>Creates a PEM binary.</p><h4>pem_entry_decode/1</h4><h4>pem_entry_decode/2</h4><p>Decodes a PEM entry.</p><p>Decodes a PEM entry. <strong>pem_decode/1</strong> returns a list of PEM
+entries. Notice that if the PEM entry is of type
+'SubjectPublickeyInfo', it is further decoded to an
+<strong>rsa_public_key()</strong> or <strong>dsa_public_key()</strong>.</p><h4>pem_entry_encode/2</h4><h4>pem_entry_encode/3</h4><p>Creates a PEM entry that can be fed to <strong>pem_encode/1</strong>.</p><p>Creates a PEM entry that can be feed to <strong>pem_encode/1</strong>.</p><p>If <strong>Asn1Type</strong> is <strong>'SubjectPublicKeyInfo'</strong>,
+<strong>Entity</strong> must be either an <strong>rsa_public_key()</strong>, 
+<strong>dsa_public_key()</strong> or an <strong>ec_public_key()</strong>
+and this function creates the appropriate
+<strong>'SubjectPublicKeyInfo'</strong> entry.
+</p><h4>pkix_decode_cert/2</h4><p>Decodes an ASN.1 DER-encoded PKIX x509 certificate.</p><p>Decodes an ASN.1 DER-encoded PKIX certificate. Option <strong>otp</strong>
+uses the customized ASN.1 specification OTP-PKIX.asn1 for
+decoding and also recursively decode most of the standard
+parts.</p><h4>pkix_encode/3</h4><p>DER encodes a PKIX x509 certificate or part of such a certificate.</p><p>DER encodes a PKIX x509 certificate or part of such a
+certificate. This function must be used for encoding certificates or parts of certificates
+that are decoded/created in the <strong>otp</strong> format, whereas for the plain format this
+function directly calls <strong>der_encode/2</strong>.</p><h4>pkix_is_issuer/2</h4><p>Checks if <strong>IssuerCert</strong> issued <strong>Cert</strong>.</p><p>Checks if <strong>IssuerCert</strong> issued <strong>Cert</strong>.</p><h4>pkix_is_fixed_dh_cert/1</h4><p>Checks if a certificate is a fixed Diffie-Hellman certificate.</p><p>Checks if a certificate is a fixed Diffie-Hellman certificate.</p><h4>pkix_is_self_signed/1</h4><p>Checks if a certificate is self-signed.</p><p>Checks if a certificate is self-signed.</p><h4>pkix_issuer_id/2</h4><p>Returns the issuer id.</p><p>Returns the issuer id.</p><h4>pkix_normalize_name/1</h4><p>Normalizes an issuer name so that it can be easily compared to another issuer name.</p><p>Normalizes an issuer name so that it can be easily
+compared to another issuer name.</p><h4>pkix_path_validation(TrustedCert, CertChain, Options) -&gt; {ok, {PublicKeyInfo, PolicyTree}} | {error, {bad_cert, Reason}}</h4><p>Performs a basic path validation according to RFC 5280.</p><ul><li><span class="v">TrustedCert =  #'OTPCertificate'{} | der_encoded() | atom()</span></li><li><span class="d">Normally a trusted certificate, but it can also be a path-validation error that can be discovered while constructing the input to this function and that is to be run through the verify_fun. Examples are unknown_ca and selfsigned_peer. </span></li><li><span class="v">CertChain = [der_encoded()]</span></li><li><span class="d">A list of DER-encoded certificates in trust order ending with the peer certificate.</span></li><li><span class="v">Options = proplists:proplist()</span></li><li><span class="v">PublicKeyInfo = {?'rsaEncryption' | ?'id-dsa', rsa_public_key() | integer(), 'NULL' | 'Dss-Parms'{}}</span></li><li><span class="v">PolicyTree = term()</span></li><li><span class="d">At the moment this is always an empty list as policies are not currently supported.</span></li><li><span class="v">Reason = cert_expired | invalid_issuer | invalid_signature | name_not_permitted | missing_basic_constraint | invalid_key_usage | {revoked, crl_reason()} | atom() </span></li></ul><p>
+Performs a basic path validation according to
+<a href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280.</a>
+However, CRL validation is done separately by <a href="#pkix_crls_validate-3">pkix_crls_validate/3 </a> and is to be called
+from the supplied <strong>verify_fun</strong>.
+</p><p>Available options:</p><dl><dt>{verify_fun, {fun(), InitialUserState::term()}</dt><dd> <p>The fun must be defined as:</p> <pre><code class="">
+fun(OtpCert :: #'OTPCertificate'{},
+    Event :: {bad_cert, Reason :: atom() | {revoked, atom()}} |
+             {extension, #'Extension'{}},
+    InitialUserState :: term()) -&gt;
+	{valid, UserState :: term()} |
+	{valid_peer, UserState :: term()} |
+	{fail, Reason :: term()} |
+	{unknown, UserState :: term()}.
+	  </code></pre> <p>If the verify callback fun returns <strong>{fail, Reason}</strong>, the
+verification process is immediately stopped. If the verify
+callback fun returns <strong>{valid, UserState}</strong>, the verification
+process is continued. This can be used to accept specific path
+validation errors, such as <strong>selfsigned_peer</strong>, as well as
+verifying application-specific extensions. If called with an
+extension unknown to the user application, the return value
+<strong>{unknown, UserState}</strong> is to be used.</p> </dd><dt>{max_path_length, integer()}</dt><dd> The <strong>max_path_length</strong> is the maximum number of non-self-issued intermediate certificates that can follow the peer certificate in a valid certification path. So, if <strong>max_path_length</strong> is 0, the PEER must be signed by the trusted ROOT-CA directly, if it is 1, the path can be PEER, CA, ROOT-CA, if it is 2, the path can be PEER, CA, CA, ROOT-CA, and so on. </dd></dl><p>Possible reasons for a bad certificate: </p><dl><dt>cert_expired</dt><dd><p>Certificate is no longer valid as its expiration date has passed.</p></dd><dt>invalid_issuer</dt><dd><p>Certificate issuer name does not match the name of the issuer certificate in the chain.</p></dd><dt>invalid_signature</dt><dd><p>Certificate was not signed by its issuer certificate in the chain.</p></dd><dt>name_not_permitted</dt><dd><p>Invalid Subject Alternative Name extension.</p></dd><dt>missing_basic_constraint</dt><dd><p>Certificate, required to have the basic constraints extension, does not have
+a basic constraints extension.</p></dd><dt>invalid_key_usage</dt><dd><p>Certificate key is used in an invalid way according to the key-usage extension.</p></dd><dt>{revoked, crl_reason()}</dt><dd><p>Certificate has been revoked.</p></dd><dt>atom()</dt><dd><p>Application-specific error reason that is to be checked by the <strong>verify_fun</strong>.</p></dd></dl><h4>pkix_crl_issuer/1</h4><p>Returns the issuer of the <strong>CRL</strong>.</p><p>Returns the issuer of the <strong>CRL</strong>.</p><h4>pkix_crls_validate/3</h4><p>Performs CRL validation.</p><p>Performs CRL validation. It is intended to be called from
+the verify fun of  <a href="#pkix_path_validation-3"> pkix_path_validation/3 </a>.</p><p>Available options:</p><dl><dt>{update_crl, fun()}</dt><dd> <p>The fun has the following type specification:</p> <pre><code class=""> fun(#'DistributionPoint'{}, #'CertificateList'{}) -&gt;
+        #'CertificateList'{}</code></pre> <p>The fun uses the information in the distribution point to access
+the latest possible version of the CRL. If this fun is not specified,
+Public Key uses the default implementation:
+</p> <pre><code class=""> fun(_DP, CRL) -&gt; CRL end</code></pre> </dd><dt>{issuer_fun, fun()}</dt><dd> <p>The fun has the following type specification:</p> <pre><code class="">
+fun(#'DistributionPoint'{}, #'CertificateList'{},
+    {rdnSequence,[#'AttributeTypeAndValue'{}]}, term()) -&gt;
+	{ok, #'OTPCertificate'{}, [der_encoded]}</code></pre> <p>The fun returns the root certificate and certificate chain
+that has signed the CRL. 
+</p> <pre><code class=""> fun(DP, CRL, Issuer, UserState) -&gt; {ok, RootCert, CertChain}</code></pre> </dd><dt>{undetermined_details, boolean()}</dt><dd> <p>Defaults to false. When revocation status cannot be
+determined, and this option is set to true, details of why no
+CRLs where accepted are included in the return value.</p> </dd></dl><h4>pkix_crl_verify/2</h4><p> Verify that  <strong>Cert</strong>  is the <strong> CRL</strong>  signer. </p><p>Verify that <strong>Cert</strong> is the <strong>CRL</strong> signer.</p><h4>pkix_dist_point/1</h4><p>Creates a distribution point for CRLs issued by the same issuer as <strong>Cert</strong>.</p><p>Creates a distribution point for CRLs issued by the same issuer as <strong>Cert</strong>.
+Can be used as input to <a href="#pkix_crls_validate-3">pkix_crls_validate/3 </a>
+</p><h4>pkix_dist_points/1</h4><p> Extracts distribution points from the certificates extensions.</p><p> Extracts distribution points from the certificates extensions.</p><h4>pkix_match_dist_point/2</h4><p>Checks whether the given distribution point matches the Issuing Distribution Point of the CRL.</p><p>Checks whether the given distribution point matches the
+Issuing Distribution Point of the CRL, as described in RFC 5280.
+If the CRL doesn't have an Issuing Distribution Point extension,
+the distribution point always matches.</p><h4>pkix_sign/2</h4><p>Signs certificate.</p><p>Signs an 'OTPTBSCertificate'. Returns the corresponding
+DER-encoded certificate.</p><h4>pkix_sign_types/1</h4><p>Translates signature algorithm OID to Erlang digest and signature algorithm types.</p><p>Translates signature algorithm OID to Erlang digest and signature types.
+</p><p>The <strong>AlgorithmId</strong> is the signature OID from a certificate or a certificate revocation list.</p><h4>pkix_test_data(Options) -&gt; Config</h4><h4>pkix_test_data([chain_opts()]) -&gt; [conf_opt()]</h4><p>Creates certificate test data.</p><ul><li><span class="v">Options = #{chain_type() := chain_opts()} </span></li><li><span class="d">Options for ROOT, Intermediate and Peer certs</span></li><li><span class="v">chain_type() = server_chain | client_chain </span></li><li><span class="v">chain_opts() = #{root := [cert_opt()] | root_cert(), peer := [cert_opt()], intermediates =&gt; [[cert_opt()]]}</span></li><li><span class="d"> A valid chain must have at least a ROOT and a peer cert. The root cert can be given either as a cert pre-generated by , or as root cert generation options. </span></li><li><span class="v">root_cert() = #{cert := der_encoded(), key := Key}</span></li><li><span class="d"> A root certificate generated by . </span></li><li><span class="v">cert_opt() = {Key, Value}</span></li><li><span class="d">For available options see  below.</span></li><li><span class="v">Config = #{server_config := [conf_opt()], client_config := [conf_opt()]}</span></li><li><span class="v">conf_opt() = {cert, der_encoded()} | {key, PrivateKey} |{cacerts, [der_encoded()]}</span></li><li><span class="d"> This is a subset of the type . PrivateKey is what  returns. </span></li></ul><p>
+Creates certificate configuration(s) consisting of certificate
+and its private key plus CA certificate bundle, for a client
+and a server, intended to facilitate automated testing
+of applications using X509-certificates,
+often through SSL/TLS. The test data can be used
+when you have control over both the client and the server
+in a test scenario.
+</p><p>
+When this function is called with a map containing
+client and server chain specifications;
+it generates both a client and a server certificate chain
+where the <strong>cacerts</strong>
+returned for the server contains the root cert the server
+should trust and the intermediate certificates the server
+should present to connecting clients.
+The root cert the server should trust is the one used
+as root of the client certificate chain.
+Vice versa applies to the <strong>cacerts</strong> returned for the client.
+The root cert(s) can either be pre-generated with
+<a href="#pkix_test_root_cert-2"> pkix_test_root_cert/2 </a>, or if options are specified; it is (they are)
+generated.
+</p><p>
+When this function is called with a list of certificate options;
+it generates a configuration with just one node certificate
+where <strong>cacerts</strong> contains the root cert
+and the intermediate certs that should be presented to a peer.
+In this case the same root cert must be used for all peers.
+This is useful in for example an Erlang distributed cluster
+where any node,	towards another node, acts either
+as a server or as a client depending on who connects to whom.
+The generated certificate contains a subject altname,
+which is not needed in a client certificate,
+but makes the certificate useful for both roles.
+</p><p>
+The <a name="cert_opt"></a><strong>cert_opt()</strong>
+type consists of the following options:
+</p><dl><dt> {digest, digest_type()}</dt><dd><p>Hash algorithm to be used for
+signing the certificate together with the key option. Defaults to sha that is sha1.
+</p></dd><dt> {key, key_params() | private_key()}</dt><dd><p>Parameters to be used to call public_key:generate_key/1, to generate a key, or an existing
+key. Defaults to generating an ECDSA key. Note this could fail if Erlang/OTP is compiled with a very old
+cryptolib.</p></dd><dt> {validity, {From::erlang:timestamp(), To::erlang:timestamp()}} </dt><dd><p>The validity period of the certificate.</p></dd><dt> {extensions, [#'Extension'{}]}</dt><dd><p> Extensions to include in the certificate.</p> <p>Default extensions included in CA certificates if not
+otherwise specified are: </p> <pre><code class="">[#'Extension'{extnID = ?'id-ce-keyUsage',
+              extnValue = [keyCertSign, cRLSign],
+              critical = false},
+#'Extension'{extnID = ?'id-ce-basicConstraints',
+             extnValue = #'BasicConstraints'{cA = true},
+             critical = true}]
+	  </code></pre> <p>Default extensions included in the server peer cert if not
+otherwise specified are: </p> <pre><code class="">[#'Extension'{extnID = ?'id-ce-keyUsage',
+              extnValue = [digitalSignature, keyAgreement],
+              critical = false},
+#'Extension'{extnID = ?'id-ce-subjectAltName',
+             extnValue = [{dNSName, Hostname}],
+             critical = false}]
+	  </code></pre> <p>Hostname is the result of calling net_adm:localhost() in the Erlang node
+where this funcion is called.
+</p></dd></dl><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+Note that the generated certificates and keys does not provide a formally correct PKIX-trust-chain 
+and they cannot be used to achieve real security. This function is provided for testing purposes only.
+</p></div><h4>pkix_test_root_cert(Name, Options) -&gt; RootCert</h4><p>Generates a test data root cert.</p><ul><li><span class="v">Name = string()</span></li><li><span class="d">The root certificate name.</span></li><li><span class="v">Options = [cert_opt()]</span></li><li><span class="d"> For available options see  under . </span></li><li><span class="v">RootCert = #{cert := der_encoded(), key := Key}</span></li><li><span class="d"> A root certificate and key.  The Key is generated by . </span></li></ul><p>
+Generates a root certificate that can be used
+in multiple calls to
+<a href="#pkix_test_data-1">pkix_test_data/1</a>
+when you want the same root certificate for
+several generated certificates.
+</p><h4>pkix_verify/2</h4><p>Verifies PKIX x.509 certificate signature.</p><p>Verifies PKIX x.509 certificate signature.</p><h4>pkix_verify_hostname(Cert, ReferenceIDs) -&gt; boolean()</h4><h4>pkix_verify_hostname(Cert, ReferenceIDs, Opts) -&gt; boolean()</h4><p>Verifies that a PKIX x.509 certificate <em>presented identifier</em> (e.g hostname) is an expected one.</p><ul><li><span class="v">Cert = der_encoded() | #'OTPCertificate'{} </span></li><li><span class="v">ReferenceIDs = [ RefID ]</span></li><li><span class="v">RefID = {dns_id,string()} | {srv_id,string()} | {uri_id,string()} | {ip,inet:ip_address()|string()} | {OtherRefID,term()}}</span></li><li><span class="v">OtherRefID = atom()</span></li><li><span class="v">Opts = [ PvhOpt() ]</span></li><li><span class="v">PvhOpt = [MatchOpt | FailCallBackOpt | FqdnExtractOpt]</span></li><li><span class="v">MatchOpt = {match_fun, fun(RefId | FQDN::string(), PresentedID) -&gt; boolean() | default}</span></li><li><span class="v">PresentedID = {dNSName,string()} | {uniformResourceIdentifier,string() | {iPAddress,list(byte())} | {OtherPresId,term()}}</span></li><li><span class="v">OtherPresID = atom()</span></li><li><span class="v">FailCallBackOpt = {fail_callback, fun(#'OTPCertificate'{}) -&gt; boolean()}</span></li><li><span class="v">FqdnExtractOpt = {fqdn_fun, fun(RefID) -&gt; FQDN::string() | default | undefined}</span></li></ul><p>This function checks that the <em>Presented Identifier</em> (e.g hostname) in a peer certificate
+is in agreement with at least one of the <em>Reference Identifier</em> that the client expects to be connected to.
+The function is intended to be added as an extra client check of the peer certificate when performing
+<a href="../public_key/public_key#pkix_path_validation-3">public_key:pkix_path_validation/3</a>
+</p><p>See <a href="https://tools.ietf.org/html/rfc6125">RFC 6125</a>
+for detailed information about hostname verification.
+The <a href="./using_public_key#verify_hostname">User's Guide</a>
+and
+<a href="./using_public_key#verify_hostname_examples">code examples</a>
+describes this function more detailed.
+</p><p>The <strong>{OtherRefId,term()}</strong> is defined by the user and is passed to the <strong>match_fun</strong>, if defined.
+If the term in <strong>OtherRefId</strong> is a binary, it will be converted to a string.
+</p><p>The <strong>ip</strong> Reference ID takes an
+<a href="../kernel/inet#type-ip_address">inet:ip_address()</a>
+or an ip address in string format (E.g "10.0.1.1" or "1234::5678:9012") as second element.
+</p><p>The options are:</p><dl><dt><strong>match_fun</strong></dt><dd> The <strong>fun/2</strong> in this option replaces the default host name matching rules. The fun should return a boolean to tell if the Reference ID and Presented ID matches or not. The fun can also return a third  value, the atom <strong>default</strong>, if the default matching rules shall apply. This makes it possible to augment the tests with a special case: <pre><code class="">
+fun(....) -&gt; true;   % My special case
+   (_, _) -&gt; default % all others falls back to the inherit tests
+end
+	  </code></pre> <br/>See <a href="#pkix_verify_hostname_match_fun-1">pkix_verify_hostname_match_fun/1</a> for a function that takes a protocol name as argument and returns a <strong>fun/2</strong> suitable for this option and <a href="./using_public_key#redefining_match_op">Re-defining the match operation</a> in the User's Guide for an example. </dd><dt><strong>fail_callback</strong></dt><dd>If a matching fails, there could be circumstances when the certificate should be accepted anyway. Think for example of a web browser where you choose to accept an outdated certificate. This option enables implementation of such a function. This <strong>fun/1</strong> is called when no <strong>ReferenceID</strong> matches. The return value of the fun (a <strong>boolean()</strong>) decides the outcome. If <strong>true</strong> the the certificate is accepted otherwise it is rejected. See <a href="./using_public_key#-pinning--a-certificate">"Pinning" a Certificate</a> in the User's Guide. </dd><dt><strong>fqdn_fun</strong></dt><dd>This option augments the host name extraction from URIs and other Reference IDs. It could for example be a very special URI that is not standardised. The fun takes a Reference ID as argument and returns one of: <ul><li>the hostname</li><li>the atom <strong>default</strong>: the default host name extract function will be used</li><li>the atom <strong>undefined</strong>: a host name could not be extracted. The pkix_verify_hostname/3 will return <strong>false</strong>.</li></ul> <br/>For an example, see <a href="./using_public_key#hostname_extraction">Hostname extraction</a> in the User's Guide. </dd></dl><h4>pkix_verify_hostname_match_fun(Protcol) -&gt;  fun(RefId | FQDN::string(), PresentedID) -&gt; boolean() | default</h4><p>Returns a fun that is intendended as argument to the match_fun option in pkix_verify_hostname/3. </p><ul><li><span class="v">Protocol = https</span></li><li><span class="d">The algorithm for wich the fun should implement the special matching rules</span></li><li><span class="v">RefId</span></li><li><span class="d">See .</span></li><li><span class="v">FQDN</span></li><li><span class="d">See .</span></li><li><span class="v">PresentedID</span></li><li><span class="d">See .</span></li></ul><p>The return value of calling this function is intended to be used in the <strong>match_fun</strong> option in
+<a href="#pkix_verify_hostname-3">pkix_verify_hostname/3</a>.
+</p><p>The returned fun augments the verify hostname matching according to the specific rules for
+the protocol in the argument.
+</p><h4>sign/3</h4><h4>sign/4</h4><p>Creates a digital signature.</p><p>Creates a digital signature.</p><p>The <strong>Msg</strong> is either the binary "plain text" data to be
+signed or it is the hashed value of "plain text", that is, the
+digest.</p><h4>ssh_decode/2</h4><p>Decodes an SSH file-binary.</p><p>Decodes an SSH file-binary. In the case of <strong>known_hosts</strong> or
+<strong>auth_keys</strong>, the binary can include one or more lines of the
+file. Returns a list of public keys and their attributes, possible
+attribute values depends on the file type represented by the
+binary.
+</p><p>If the <strong>Type</strong> is <strong>ssh2_pubkey</strong>, the result will be
+<strong>Decoded_ssh2_pubkey</strong>. Otherwise it will be <strong>Decoded_OtherType</strong>.
+</p><dl><dt>RFC4716 attributes - see RFC 4716.</dt><dd><p>{headers, [{string(), utf8_string()}]}</p></dd><dt>auth_key attributes - see manual page for sshd.</dt><dd>{comment, string()}</dd><dt></dt><dd>{options, [string()]}</dd><dt></dt><dd><p>{bits, integer()} - In SSH version 1 files.</p></dd><dt>known_host attributes - see manual page for sshd.</dt><dd>{hostnames, [string()]}</dd><dt></dt><dd>{comment, string()}</dd><dt></dt><dd><p>{bits, integer()} - In SSH version 1 files.</p></dd></dl><p>Example: <strong>{ok, SshBin} = file:read_file("known_hosts")</strong>.
+</p><p>If <strong>Type</strong> is <strong>public_key</strong> the binary can be either
+an RFC4716 public key or an OpenSSH public key.</p><h4>ssh_encode/2</h4><p>Encodes a list of SSH file entries to a binary.</p><p>Encodes a list of SSH file entries (public keys and attributes) to a binary. Possible
+attributes depend on the file type, see
+<a href="#ssh_decode-2"> ssh_decode/2 </a>.
+</p><p>If the <strong>Type</strong> is <strong>ssh2_pubkey</strong>, the <strong>InData</strong> shall be
+<strong>InData_ssh2_pubkey</strong>. Otherwise it shall be <strong>OtherInData</strong>.
+</p><h4>ssh_hostkey_fingerprint(HostKey) -&gt; string()</h4><h4>ssh_hostkey_fingerprint(DigestType, HostKey) -&gt; string()</h4><h4>ssh_hostkey_fingerprint([DigestType], HostKey) -&gt; [string()]</h4><p>Calculates a ssh fingerprint for a hostkey.</p><ul><li><span class="v">HostKey = </span></li><li><span class="v">DigestType = </span></li></ul><p>Calculates a ssh fingerprint from a public host key as openssh does.</p><p>The algorithm in <strong>ssh_hostkey_fingerprint/1</strong> is md5 to be compatible with older
+ssh-keygen commands. The string from the second variant is prepended by the algorithm name
+in uppercase as in newer ssh-keygen commands.</p><p>Examples:</p><pre><code class="">
+ 2&gt; public_key:ssh_hostkey_fingerprint(Key).    
+ "f5:64:a6:c1:5a:cb:9f:0a:10:46:a2:5c:3e:2f:57:84"
+
+ 3&gt; public_key:ssh_hostkey_fingerprint(md5,Key).
+ "MD5:f5:64:a6:c1:5a:cb:9f:0a:10:46:a2:5c:3e:2f:57:84"
+
+ 4&gt; public_key:ssh_hostkey_fingerprint(sha,Key).
+ "SHA1:bSLY/C4QXLDL/Iwmhyg0PGW9UbY"
+
+ 5&gt; public_key:ssh_hostkey_fingerprint(sha256,Key).
+ "SHA256:aZGXhabfbf4oxglxltItWeHU7ub3Dc31NcNw2cMJePQ"
+
+ 6&gt; public_key:ssh_hostkey_fingerprint([sha,sha256],Key).
+ ["SHA1:bSLY/C4QXLDL/Iwmhyg0PGW9UbY",
+  "SHA256:aZGXhabfbf4oxglxltItWeHU7ub3Dc31NcNw2cMJePQ"]
+    </code></pre><h4>verify/4</h4><h4>verify/5</h4><p>Verifies a digital signature.</p><p>Verifies a digital signature.</p><p>The <strong>Msg</strong> is either the binary "plain text" data 
+or it is the hashed value of "plain text", that is, the digest.</p><h4>short_name_hash/1</h4><p>Generates a short hash of an issuer name.</p><p>Generates a short hash of an issuer name.  The hash is
+returned as a string containing eight hexadecimal digits.</p><p>The return value of this function is the same as the result
+of the commands <strong>openssl crl -hash</strong> and
+<strong>openssl x509 -issuer_hash</strong>, when passed the issuer name of
+a CRL or a certificate, respectively.  This hash is used by the
+<strong>c_rehash</strong> tool to maintain a directory of symlinks to CRL
+files, in order to facilitate looking up a CRL by its issuer
+name.</p></body></html>

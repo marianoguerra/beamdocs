@@ -1,0 +1,167 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Overview</h1><a name="otp design principles"></a><p>The <em>OTP design principles</em> define how to
+structure Erlang code in terms of processes, modules,
+and directories.</p><h2>Supervision Trees</h2><p>A basic concept in Erlang/OTP is the <em>supervision tree</em>.
+This is a process structuring model based on the idea of
+<em>workers</em> and <em>supervisors</em>:</p><ul><li>Workers are processes that perform computations, that is, they do the actual work.</li><li>Supervisors are processes that monitor the behaviour of workers. A supervisor can restart a worker if something goes wrong.</li><li>The supervision tree is a hierarchical arrangement of code into supervisors and workers, which makes it possible to design and program fault-tolerant software.</li></ul><p>In the following figure, square boxes represents supervisors and
+circles represent workers:</p><a name="sup6"></a><img src="../design_principles/sup6.gif" title="Supervision Tree"></img><h2>Behaviours</h2><p>In a supervision tree, many of the processes have similar
+structures, they follow similar patterns. For example,
+the supervisors are similar in structure. The only difference
+between them is which child processes they supervise. Many
+of the workers are servers in a server-client relation,
+finite-state machines, or event handlers.</p><p><em>Behaviours</em> are formalizations of these common patterns.
+The idea is to divide the code for a process in a generic part
+(a behaviour module) and a specific part (a
+<em>callback module</em>).</p><p>The behaviour module is part of Erlang/OTP. To implement a
+process such as a supervisor, the user only has to implement
+the callback module which is to export a pre-defined set of
+functions, the <em>callback functions</em>.</p><p>The following example illustrate how code can be divided into a
+generic and a specific part. Consider the following code (written in
+plain Erlang) for a simple server, which keeps track of a number
+of "channels". Other processes can allocate and free the channels
+by calling the functions <strong>alloc/0</strong> and <strong>free/1</strong>,
+respectively.</p><a name="ch1"></a><pre><code class="">
+-module(ch1).
+-export([start/0]).
+-export([alloc/0, free/1]).
+-export([init/0]).
+
+start() -&gt;
+    spawn(ch1, init, []).
+
+alloc() -&gt;
+    ch1 ! {self(), alloc},
+    receive
+        {ch1, Res} -&gt;
+            Res
+    end.
+
+free(Ch) -&gt;
+    ch1 ! {free, Ch},
+    ok.
+
+init() -&gt;
+    register(ch1, self()),
+    Chs = channels(),
+    loop(Chs).
+
+loop(Chs) -&gt;
+    receive
+        {From, alloc} -&gt;
+            {Ch, Chs2} = alloc(Chs),
+            From ! {ch1, Ch},
+            loop(Chs2);
+        {free, Ch} -&gt;
+            Chs2 = free(Ch, Chs),
+            loop(Chs2)
+    end.</code></pre><p>The code for the server can be rewritten into a generic part
+<strong>server.erl</strong>:</p><pre><code class="">
+-module(server).
+-export([start/1]).
+-export([call/2, cast/2]).
+-export([init/1]).
+
+start(Mod) -&gt;
+    spawn(server, init, [Mod]).
+
+call(Name, Req) -&gt;
+    Name ! {call, self(), Req},
+    receive
+        {Name, Res} -&gt;
+            Res
+    end.
+
+cast(Name, Req) -&gt;
+    Name ! {cast, Req},
+    ok.
+
+init(Mod) -&gt;
+    register(Mod, self()),
+    State = Mod:init(),
+    loop(Mod, State).
+
+loop(Mod, State) -&gt;
+    receive
+        {call, From, Req} -&gt;
+            {Res, State2} = Mod:handle_call(Req, State),
+            From ! {Mod, Res},
+            loop(Mod, State2);
+        {cast, Req} -&gt;
+            State2 = Mod:handle_cast(Req, State),
+            loop(Mod, State2)
+    end.</code></pre><p>And a callback module <strong>ch2.erl</strong>:</p><pre><code class="">
+-module(ch2).
+-export([start/0]).
+-export([alloc/0, free/1]).
+-export([init/0, handle_call/2, handle_cast/2]).
+
+start() -&gt;
+    server:start(ch2).
+
+alloc() -&gt;
+    server:call(ch2, alloc).
+
+free(Ch) -&gt;
+    server:cast(ch2, {free, Ch}).
+
+init() -&gt;
+    channels().
+
+handle_call(alloc, Chs) -&gt;
+    alloc(Chs). % =&gt; {Ch,Chs2}
+
+handle_cast({free, Ch}, Chs) -&gt;
+    free(Ch, Chs). % =&gt; Chs2</code></pre><p>Notice the following:</p><ul><li>The code in <strong>server</strong> can be reused to build many different servers.</li><li>The server name, in this example the atom <strong>ch2</strong>, is hidden from the users of the client functions. This means that the name can be changed without affecting them.</li><li>The protocol (messages sent to and received from the server) is also hidden. This is good programming practice and allows one to change the protocol without changing the code using the interface functions.</li><li>The functionality of <strong>server</strong> can be extended without having to change <strong>ch2</strong> or any other callback module.</li></ul><p>In <strong>ch1.erl</strong> and <strong>ch2.erl</strong> above, the implementation
+of <strong>channels/0</strong>, <strong>alloc/1</strong>, and <strong>free/2</strong> has been
+intentionally left out, as it is not relevant to the example.
+For completeness, one way to write these functions are given
+below. This is an example only, a realistic
+implementation must be able to handle situations like running out
+of channels to allocate, and so on.</p><pre><code class="">
+channels() -&gt;
+   {_Allocated = [], _Free = lists:seq(1,100)}.
+
+alloc({Allocated, [H|T] = _Free}) -&gt;
+   {H, {[H|Allocated], T}}.
+
+free(Ch, {Alloc, Free} = Channels) -&gt;
+   case lists:member(Ch, Alloc) of
+      true -&gt;
+         {lists:delete(Ch, Alloc), [Ch|Free]};
+      false -&gt;
+         Channels
+   end.        </code></pre><p>Code written without using behaviours can be more
+efficient, but the increased efficiency is at the expense of
+generality. The ability to manage all applications in the system
+in a consistent manner is important.</p><p>Using behaviours also makes it easier to read and understand
+code written by other programmers. Improvised programming structures,
+while possibly more efficient, are always more difficult to
+understand.</p><p>The <strong>server</strong> module corresponds, greatly simplified,
+to the Erlang/OTP behaviour <strong>gen_server</strong>.</p><p>The standard Erlang/OTP behaviours are:</p><ul><li><p><a href="gen_server_concepts">gen_server</a></p> <p>For implementing the server of a client-server relation</p></li><li><p><a href="statem">gen_statem</a></p> <p>For implementing state machines</p></li><li><p><a href="events">gen_event</a></p> <p>For implementing event handling functionality</p></li><li><p><a href="sup_princ">supervisor</a></p> <p>For implementing a supervisor in a supervision tree</p></li></ul><p>The compiler understands the module attribute
+<strong>-behaviour(Behaviour)</strong> and issues warnings about
+missing callback functions, for example:</p><pre><code class="">
+-module(chs3).
+-behaviour(gen_server).
+...
+
+3&gt; c(chs3).
+./chs3.erl:10: Warning: undefined call-back function handle_call/3
+{ok,chs3}</code></pre><h2>Applications</h2><p>Erlang/OTP comes with a number of components, each implementing
+some specific functionality. Components are with Erlang/OTP
+terminology called <em>applications</em>. Examples of Erlang/OTP
+applications are Mnesia, which has everything needed for
+programming database services, and Debugger, which is used
+to debug Erlang programs. The minimal system based on Erlang/OTP
+consists of the following two applications:</p><ul><li>Kernel - Functionality necessary to run Erlang</li><li>STDLIB - Erlang standard libraries</li></ul><p>The application concept applies both to program structure
+(processes) and directory structure (modules).</p><p>The simplest applications do not have any processes,
+but consist of a collection of functional modules. Such an
+application is called a <em>library application</em>. An example
+of a library application is STDLIB.</p><p>An application with processes is easiest implemented as a
+supervision tree using the standard behaviours.</p><p>How to program applications is described in
+<a href="applications">Applications</a>.</p><h2>Releases</h2><p>A <em>release</em> is a complete system made out from a subset of
+Erlang/OTP applications and a set of user-specific applications.</p><p>How to program releases is described in
+<a href="release_structure">Releases</a>.</p><p>How to install a release in a target environment is described
+in the section about target systems in Section 2 System Principles.</p><h2>Release Handling</h2><p><em>Release handling</em> is upgrading and downgrading between
+different versions of a release, in a (possibly) running system.
+How to do this is described in
+<a href="release_handling">Release Handling</a>.</p></body></html>

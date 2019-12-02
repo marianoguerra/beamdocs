@@ -1,0 +1,141 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Preprocessor</h1><h2>File Inclusion</h2><p>A file can be included as follows:</p><pre>
+-include(File).
+-include_lib(File).</pre><p><strong>File</strong>, a string, is to point out a file. The contents of
+this file are included as is, at the position of the directive.</p><p>Include files are typically used for record and macro
+definitions that are shared by several modules. It is
+recommended to use the file name extension <strong>.hrl</strong> for
+include files.</p><p><strong>File</strong> can start with a path component <strong>$VAR</strong>, for
+some string <strong>VAR</strong>. If that is the case, the value of
+the environment variable <strong>VAR</strong> as returned by
+<strong>os:getenv(VAR)</strong> is substituted for <strong>$VAR</strong>. If
+<strong>os:getenv(VAR)</strong> returns <strong>false</strong>, <strong>$VAR</strong> is left
+as is.</p><p>If the filename <strong>File</strong> is absolute (possibly after
+variable substitution), the include file with that name is
+included. Otherwise, the specified file is searched for
+in the following directories, and in this order:</p><ul><li>The current working directory</li><li>The directory where the module is being compiled</li><li>The directories given by the <strong>include</strong> option</li></ul><p>For details, see the
+<a href="./erlc">erlc(1)</a> manual page
+in ERTS and
+<a href="./compile">compile(3)</a>
+manual page in Compiler.</p><p><em>Examples:</em></p><pre>
+-include("my_records.hrl").
+-include("incdir/my_records.hrl").
+-include("/home/user/proj/my_records.hrl").
+-include("$PROJ_ROOT/my_records.hrl").</pre><p><strong>include_lib</strong> is similar to <strong>include</strong>, but is not to
+point out an absolute file. Instead, the first path component
+(possibly after variable substitution) is assumed to be
+the name of an application.</p><p><em>Example:</em></p><pre>
+-include_lib("kernel/include/file.hrl").</pre><p>The code server uses <strong>code:lib_dir(kernel)</strong> to find
+the directory of the current (latest) version of Kernel, and
+then the subdirectory <strong>include</strong> is searched for the file
+<strong>file.hrl</strong>.</p><h2>Defining and Using Macros</h2><p>A macro is defined as follows:</p><pre><code class="">
+-define(Const, Replacement).
+-define(Func(Var1,...,VarN), Replacement).</code></pre><p>A macro definition can be placed anywhere among the attributes
+and function declarations of a module, but the definition must
+come before any usage of the macro.</p><p>If a macro is used in several modules, it is recommended that
+the macro definition is placed in an include file.</p><p>A macro is used as follows:</p><pre><code class="">
+?Const
+?Func(Arg1,...,ArgN)</code></pre><p>Macros are expanded during compilation. A simple macro
+<strong>?Const</strong> is replaced with <strong>Replacement</strong>.</p><p><em>Example:</em></p><pre><code class="">
+-define(TIMEOUT, 200).
+...
+call(Request) -&gt;
+    server:call(refserver, Request, ?TIMEOUT).</code></pre><p>This is expanded to:</p><pre><code class="">
+call(Request) -&gt;
+    server:call(refserver, Request, 200).</code></pre><p>A macro <strong>?Func(Arg1,...,ArgN)</strong> is replaced with
+<strong>Replacement</strong>, where all occurrences of a variable <strong>Var</strong>
+from the macro definition are replaced with the corresponding
+argument <strong>Arg</strong>.</p><p><em>Example:</em></p><pre><code class="">
+-define(MACRO1(X, Y), {a, X, b, Y}).
+...
+bar(X) -&gt;
+    ?MACRO1(a, b),
+    ?MACRO1(X, 123)</code></pre><p>This is expanded to:</p><pre><code class="">
+bar(X) -&gt;
+    {a,a,b,b},
+    {a,X,b,123}.</code></pre><p>It is good programming practice, but not mandatory, to ensure
+that a macro definition is a valid Erlang syntactic form.</p><p>To view the result of macro expansion, a module can be compiled
+with the <strong>'P'</strong> option. <strong>compile:file(File, ['P'])</strong>.
+This produces a listing of the parsed code after preprocessing
+and parse transforms, in the file <strong>File.P</strong>.</p><h2>Predefined Macros</h2><p>The following macros are predefined:</p><dl><dt><strong>?MODULE</strong></dt><dd>The name of the current module.</dd><dt><strong>?MODULE_STRING</strong>.</dt><dd>The name of the current module, as a string.</dd><dt><strong>?FILE</strong>.</dt><dd>The file name of the current module.</dd><dt><strong>?LINE</strong>.</dt><dd>The current line number.</dd><dt><strong>?MACHINE</strong>.</dt><dd>The machine name, <strong>'BEAM'</strong>.</dd><dt><strong>?FUNCTION_NAME</strong></dt><dd>The name of the current function.</dd><dt><strong>?FUNCTION_ARITY</strong></dt><dd>The arity (number of arguments) for the current function.</dd><dt><strong>?OTP_RELEASE</strong></dt><dd>The OTP release that the currently executing ERTS application is part of, as an integer. For details, see <a href="../erts/erlang#system_info/1">erts/erlang#system_info/1</a>. This macro was introduced in OTP release 21.</dd></dl><h2>Macros Overloading</h2><p>It is possible to overload macros, except for predefined
+macros. An overloaded macro has more than one definition,
+each with a different number of arguments.</p><p>The feature was added in Erlang 5.7.5/OTP R13B04.</p><p>A macro <strong>?Func(Arg1,...,ArgN)</strong> with a (possibly empty)
+list of arguments results in an error message if there is at
+least one definition of <strong>Func</strong> with arguments, but none
+with N arguments.</p><p>Assuming these definitions:</p><pre><code class="">
+-define(F0(), c).
+-define(F1(A), A).
+-define(C, m:f).</code></pre><p>the following does not work:</p><pre><code class="">
+f0() -&gt;
+    ?F0. % No, an empty list of arguments expected.
+
+f1(A) -&gt;
+    ?F1(A, A). % No, exactly one argument expected.</code></pre><p>On the other hand,</p><pre><code class="">
+f() -&gt;
+    ?C().</code></pre><p>is expanded to</p><pre><code class="">
+f() -&gt;
+    m:f().</code></pre><h2>Flow Control in Macros</h2><p>The following macro directives are supplied:</p><dl><dt><strong>-undef(Macro).</strong></dt><dd>Causes the macro to behave as if it had never been defined.</dd><dt><strong>-ifdef(Macro).</strong></dt><dd>Evaluate the following lines only if <strong>Macro</strong> is defined.</dd><dt><strong>-ifndef(Macro).</strong></dt><dd>Evaluate the following lines only if <strong>Macro</strong> is not defined.</dd><dt><strong>-else.</strong></dt><dd>Only allowed after an <strong>ifdef</strong> or <strong>ifndef</strong> directive. If that condition is false, the lines following <strong>else</strong> are evaluated instead.</dd><dt><strong>-endif.</strong></dt><dd>Specifies the end of an <strong>ifdef</strong>, an <strong>ifndef</strong> directive, or the end of an <strong>if</strong> or <strong>elif</strong> directive.</dd><dt><strong>-if(Condition).</strong></dt><dd>Evaluates the following lines only if <strong>Condition</strong> evaluates to true.</dd><dt><strong>-elif(Condition).</strong></dt><dd>Only allowed after an <strong>if</strong> or another <strong>elif</strong> directive. If the preceding <strong>if</strong> or <strong>elif</strong> directives do not evaluate to true, and the <strong>Condition</strong> evaluates to true, the lines following the <strong>elif</strong> are evaluated instead.</dd></dl><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The macro directives cannot be used inside functions.</p></div><p><em>Example:</em></p><pre><code class="">
+-module(m).
+...
+
+-ifdef(debug).
+-define(LOG(X), io:format("{~p,~p}: ~p~n", [?MODULE,?LINE,X])).
+-else.
+-define(LOG(X), true).
+-endif.
+
+...</code></pre><p>When trace output is desired, <strong>debug</strong> is to be defined
+when the module <strong>m</strong> is compiled:</p><pre>
+% <span class="input">erlc -Ddebug m.erl</span>
+
+or
+
+1&gt; <span class="input">c(m, {d, debug}).</span>
+{ok,m}</pre><p><strong>?LOG(Arg)</strong> is then expanded to a call to <strong>io:format/2</strong>
+and provide the user with some simple trace output.</p><p><em>Example:</em></p><pre><code class="">
+-module(m)
+...
+-ifdef(OTP_RELEASE).
+  %% OTP 21 or higher
+  -if(?OTP_RELEASE &gt;= 22).
+    %% Code that will work in OTP 22 or higher
+  -elif(?OTP_RELEASE &gt;= 21).
+    %% Code that will work in OTP 21 or higher
+  -endif.
+-else.
+  %% OTP 20 or lower.
+-endif.
+...</code></pre><p>The code uses the <strong>OTP_RELEASE</strong> macro to conditionally
+select code depending on release.</p><h2>-error() and -warning() directives</h2><p>The directive <strong>-error(Term)</strong> causes a compilation error.</p><p><em>Example:</em></p><pre><code class="">
+-module(t).
+-export([version/0]).
+
+-ifdef(VERSION).
+version() -&gt; ?VERSION.
+-else.
+-error("Macro VERSION must be defined.").
+version() -&gt; "".
+-endif.</code></pre><p>The error message will look like this:</p><pre>
+% <span class="input">erlc t.erl</span>
+t.erl:7: -error("Macro VERSION must be defined.").</pre><p>The directive <strong>-warning(Term)</strong> causes a compilation warning.</p><p><em>Example:</em></p><pre><code class="">
+-module(t).
+-export([version/0]).
+
+-ifndef(VERSION).
+-warning("Macro VERSION not defined -- using default version.").
+-define(VERSION, "0").
+-endif.
+version() -&gt; ?VERSION.</code></pre><p>The warning message will look like this:</p><pre>
+% <span class="input">erlc t.erl</span>
+t.erl:5: Warning: -warning("Macro VERSION not defined -- using default version.").</pre><p>The <strong>-error()</strong> and <strong>-warning()</strong> directives were added
+in OTP 19.</p><h2>Stringifying Macro Arguments</h2><p>The construction <strong>??Arg</strong>, where <strong>Arg</strong> is a macro
+argument, is expanded to a string containing the tokens of
+the argument. This is similar to the <strong>#arg</strong> stringifying
+construction in C.</p><p><em>Example:</em></p><pre><code class="">
+-define(TESTCALL(Call), io:format("Call ~s: ~w~n", [??Call, Call])).
+
+?TESTCALL(myfunction(1,2)),
+?TESTCALL(you:function(2,1)).</code></pre><p>results in</p><pre><code class="">
+io:format("Call ~s: ~w~n",["myfunction ( 1 , 2 )",myfunction(1,2)]),
+io:format("Call ~s: ~w~n",["you : function ( 2 , 1 )",you:function(2,1)]).</code></pre><p>That is, a trace output, with both the function called and
+the resulting value.</p></body></html>

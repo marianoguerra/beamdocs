@@ -1,0 +1,1632 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>The beam_makeops script</h1><p>
+This document describes the <span class="strong">beam_makeops</span> script.
+</p><a name="Introduction"></a><h2>Introduction</h2><p>
+The <span class="strong">beam_makeops</span> Perl script is used at build-time by both the
+compiler and runtime system.  Given a number of input files (all with
+the extension <strong>.tab</strong>), it will generate source files used by the
+Erlang compiler and by the runtime system to load and execute BEAM
+instructions.
+</p><p>
+Essentially those <strong>.tab</strong> files define:
+</p><ul><li> <p>External generic BEAM instructions.  They are the instructions that
+are known to both the compiler and the runtime system.  Generic
+instructions are stable between releases.  New generic instructions
+with high numbers than previous instructions can be added in major
+releases.  The OTP 20 release has 159 external generic instructions.
+</p> </li><li> <p>Internal generic instructions.  They are known only to the runtime
+system and can be changed at any time without compatibility issues.
+They are created by transformation rules (described next).
+</p> </li><li> <p>Rules for transforming one or more generic instructions to other
+generic instructions.  The transformation rules allow combining,
+splitting, and removal of instructions, as well as shuffling operands.
+Because of the transformation rules, the runtime can have many
+internal generic instructions that are only known to runtime system.
+</p> </li><li> <p>Specific BEAM instructions.  The specific instructions are the
+instructions that are actually executed by the runtime system.  They
+can be changed at any time without causing compatibility issues.
+The loader translates generic instructions to specific instructions.
+In general, for each generic instruction, there exists a family of
+specific instructions.  The OTP 20 release has 389 specific
+instructions.
+</p> </li><li> <p>The implementation of specific instructions.
+</p> </li></ul><p>
+Generic instructions have typed operands. Here are a few examples of
+operands for <strong>move/2</strong>:
+</p><pre><code class="">
+{move,{atom,id},{x,5}}.
+{move,{x,3},{x,0}}.
+{move,{x,2},{y,1}}.
+</code></pre><p>
+When those instructions are loaded, the loader rewrites them
+to specific instructions:
+</p><pre><code class="">
+move_cx id 5
+move_xx 3 0
+move_xy 2 1
+</code></pre><p>
+Corresponding to each generic instruction, there is a family of
+specific instructions.  The types that an instance of a specific
+instruction can handle are encoded in the instruction names.  For
+example, <strong>move_xy</strong> takes an X register number as the first operand and
+a Y register number as the second operand.  <strong>move_cx</strong> takes a tagged
+Erlang term as the first operand and an X register number as the
+second operand.
+</p><a name="An-example-the-move-instruction"></a><h2>An example: the move instruction</h2><p>
+Using the <strong>move</strong> instruction as an example, we will give a quick
+tour to show the main features of <span class="strong">beam_makeops</span>.
+</p><p>
+In the <strong>compiler</strong> application, in the file <strong>genop.tab</strong>, there is the
+following line:
+</p><pre><code class="">
+64: move/2
+</code></pre><p>
+This is a definition of an external generic BEAM instruction. Most
+importantly it specifices that the opcode is 64.  It also defines that
+it has two operands.  The BEAM assembler will use the opcode when
+creating <strong>.beam</strong> files.  The compiler does not really need the arity,
+but it will use it as an internal sanity check when assembling the
+BEAM code.
+</p><p>
+Let's have a look at <strong>ops.tab</strong> in <strong>erts/emulator/beam</strong>, where the
+specific <strong>move</strong> instructions are defined.  Here are a few of them:
+</p><pre><code class="">
+move x x
+move x y
+move c x
+</code></pre><p>
+Each specific instructions is defined by following the name of the
+instruction with the types for each operand.  An operand type is a
+single letter.  For example, <strong>x</strong> means an X register, <strong>y</strong>
+means a Y register, and <strong>c</strong> is a "constant" (a tagged term such as
+an integer, an atom, or a literal).
+</p><p>
+Now let's look at the implementation of the <strong>move</strong> instruction.  There
+are multiple files containing implementations of instructions in the
+<strong>erts/emulator/beam</strong> directory.  The <strong>move</strong> instruction is defined in
+<strong>instrs.tab</strong>.  It looks like this:
+</p><pre><code class="">
+move(Src, Dst) {
+    $Dst = $Src;
+}
+</code></pre><p>
+The implementation for an instruction largely follows the C syntax,
+except that the variables in the function head don't have any types.
+The <strong>$</strong> before an identifier denotes a macro expansion.  Thus,
+<strong>$Src</strong> will expand to the code to pick up the source operand for
+the instruction and <strong>$Dst</strong> to the code for the destination register.
+</p><p>
+We will look at the code for each specific instruction in turn.  To
+make the code easier to understand, let's first look at the memory
+layout for the instruction <strong>{move,{atom,id},{x,5}}</strong>:
+</p><pre><code class="">
+     +--------------------+--------------------+
+I -&gt; |                 40 |       &amp;&amp;lb_move_cx |
+     +--------------------+--------------------+
+     |                        Tagged atom 'id' |
+     +--------------------+--------------------+
+</code></pre><p>
+This example and all other examples in the document assumes a 64-bit
+archictecture, and furthermore that pointers to C code fit in 32 bits.
+</p><p>
+<strong>I</strong> in the BEAM virtual machine is the instruction pointer.  When BEAM
+executes an instruction, <strong>I</strong> points to the first word of the
+instruction.
+</p><p>
+<strong>&amp;&amp;lb_move_cx</strong> is the address to C code that implements <strong>move_cx</strong>.  It
+is stored in the lower 32 bits of the word.  In the upper 32 bits is
+the byte offset to the X register; the register number 5 has been
+multiplied by the word size size 8.
+</p><p>
+In the next word the tagged atom <strong>id</strong> is stored.
+</p><p>
+With that background, we can look at the generated code for <strong>move_cx</strong>
+in <strong>beam_hot.h</strong>:
+</p><pre><code class="">
+OpCase(move_cx):
+{
+  BeamInstr next_pf = BeamCodeAddr(I[2]);
+  xb(BeamExtraData(I[0])) = I[1];
+  I += 2;
+  ASSERT(VALID_INSTR(next_pf));
+  GotoPF(next_pf);
+}
+</code></pre><p>
+We will go through each line in turn.
+</p><ul><li> <p><strong>OpCase(move_cx):</strong> defines a label for the instruction.  The
+<strong>OpCase()</strong> macro is defined in <strong>beam_emu.c</strong>.  It will expand this line
+to <strong>lb_move_cx:</strong>.
+</p> </li><li> <p><strong>BeamInstr next_pf = BeamCodeAddr(I[2]);</strong> fetches the pointer to
+code for the next instruction to be executed.  The <strong>BeamCodeAddr()</strong>
+macro extracts the pointer from the lower 32 bits of the instruction
+word.
+</p> </li><li> <p><strong>xb(BeamExtraData(I[0])) = I[1];</strong> is the expansion of <strong>$Dst = $Src</strong>.
+<strong>BeamExtraData()</strong> is a macro that will extract the upper 32 bits from
+the instruction word.  In this example, it will return 40 which is the
+byte offset for X register 5.  The <strong>xb()</strong> macro will cast a byte
+pointer to an <strong>Eterm</strong> pointer and dereference it.  The <strong>I[1]</strong> on
+the right side of the <strong>=</strong> fetches an Erlang term (the atom <strong>id</strong> in
+this case).
+</p> </li><li> <p><strong>I += 2</strong> advances the instruction pointer to the next
+instruction.
+</p> </li><li> <p>In a debug-compiled emulator, <strong>ASSERT(VALID_INSTR(next_pf));</strong> makes
+sure that <strong>next_pf</strong> is a valid instruction (that is, that it points
+within the <strong>process_main()</strong> function in <strong>beam_emu.c</strong>).
+</p> </li><li> <p><strong>GotoPF(next_pf);</strong> transfers control to the next instruction.
+</p> </li></ul><p>
+Now let's look at the implementation of <strong>move_xx</strong>:
+</p><pre><code class="">
+OpCase(move_xx):
+{
+  Eterm tmp_packed1 = BeamExtraData(I[0]);
+  BeamInstr next_pf = BeamCodeAddr(I[1]);
+  xb((tmp_packed1&gt;&gt;BEAM_TIGHT_SHIFT)) = xb(tmp_packed1&amp;BEAM_TIGHT_MASK);
+  I += 1;
+  ASSERT(VALID_INSTR(next_pf));
+  GotoPF(next_pf);
+}
+</code></pre><p>
+We will go through the lines that are new or have changed compared to
+<strong>move_cx</strong>.
+</p><ul><li> <p><strong>Eterm tmp_packed1 = BeamExtraData(I[0]);</strong> picks up both X register
+numbers packed into the upper 32 bits of the instruction word.
+</p> </li><li> <p><strong>BeamInstr next_pf = BeamCodeAddr(I[1]);</strong> pre-fetches the address of
+the next instruction. Note that because both X registers operands fits
+into the instruction word, the next instruction is in the very next
+word.
+</p> </li><li> <p><strong>xb((tmp_packed1&gt;&gt;BEAM_TIGHT_SHIFT)) = xb(tmp_packed1&amp;BEAM_TIGHT_MASK);</strong>
+copies the source to the destination.  (For a 64-bit architecture,
+<strong>BEAM_TIGHT_SHIFT</strong> is 16 and <strong>BEAM_TIGHT_MASK</strong> is <strong>0xFFFF</strong>.)
+</p> </li><li> <p><strong>I += 1;</strong> advances the instruction pointer to the next instruction.
+</p> </li></ul><p>
+<strong>move_xy</strong> is almost identical to <strong>move_xx</strong>.  The only difference is
+the use of the <strong>yb()</strong> macro instead of <strong>xb()</strong> to reference the
+destination register:
+</p><pre><code class="">
+OpCase(move_xy):
+{
+  Eterm tmp_packed1 = BeamExtraData(I[0]);
+  BeamInstr next_pf = BeamCodeAddr(I[1]);
+  yb((tmp_packed1&gt;&gt;BEAM_TIGHT_SHIFT)) = xb(tmp_packed1&amp;BEAM_TIGHT_MASK);
+  I += 1;
+  ASSERT(VALID_INSTR(next_pf));
+  GotoPF(next_pf);
+}
+</code></pre><a name="An-example-the-move-instruction_Transformation-rules"></a><h2>Transformation rules</h2><p>
+Next let's look at how we can do some optimizations using transformation
+rules.  For simple instructions such as <strong>move/2</strong>, the instruction dispatch
+overhead can be substantial.  A simple optimization is to combine common
+instructions sequences to a single instruction.  One such common sequence
+is multiple <strong>move</strong> instructions moving X registers to Y registers.
+</p><p>
+Using the following rule we can combine two <strong>move</strong> instructions
+to a <strong>move2</strong> instruction:
+</p><pre><code class="">
+move X1=x Y1=y | move X2=x Y2=y =&gt; move2 X1 Y1 X2 Y2
+</code></pre><p>
+The left side of the arrow (<strong>=&gt;</strong>) is a pattern.  If the pattern
+matches, the matching instructions will be replaced by the
+instructions on the right side.  Variables in a pattern must start
+with an uppercase letter just as in Erlang.  A pattern variable may be
+followed <strong>=</strong> and one or more type letters to constrain the match to
+one of those types.  The variables that are bound on the left side can
+be used on the right side.
+</p><p>
+We will also need to define a specific instruction and an implementation:
+</p><pre><code class="">
+# In ops.tab
+move2 x y x y
+
+// In instrs.tab
+move2(S1, D1, S2, D2) {
+    Eterm V1, V2;
+    V1 = $S1;
+    V2 = $S2;
+    $D1 = V1;
+    $D2 = V2;
+}
+</code></pre><p>
+When the loader has found a match and replaced the matched instructions,
+it will match the new instructions against the transformation rules.
+Because of that, we can define the rule for a <strong>move3/6</strong> instruction
+as follows:
+</p><pre><code class="">
+move2 X1=x Y1=y X2=x Y2=y | move X3=x Y3=y =&gt; \
+      move3 X1 Y1 X2 Y2 X3 Y3
+</code></pre><p>
+(A <strong>\</strong> before a newline can be used to break a long line for readability.)
+</p><p>
+It would also be possible to define it like this:
+</p><pre><code class="">
+move X1=x Y1=y | move X2=x Y2=y | move X3=x Y3=y =&gt; \
+     move3 X1 Y1 X2 Y2 X3 Y3
+</code></pre><p>
+but in that case it must be defined before the rule for <strong>move2/4</strong>
+because the first matching rule will be applied.
+</p><p>
+One must be careful not to create infinite loops.  For example, if we
+for some reason would want to reverse the operand order for the <strong>move</strong>
+instruction, we must not do like this:
+</p><pre><code class="">
+move Src Dst =&gt; move Dst Src
+</code></pre><p>
+The loader would swap the operands forever.  To avoid the loop, we must
+rename the instruction.  For example:
+</p><pre><code class="">
+move Src Dst =&gt; assign Dst Src
+</code></pre><p>
+This concludes the quick tour of the features of <span class="strong">beam_makeops</span>.
+</p><a name="Short-overview-of-instruction-loading"></a><h2>Short overview of instruction loading</h2><p>
+To give some background to the rest of this document, here follows a
+quick overview of how instructions are loaded.
+</p><ul><li> <p>The loader reads and decodes one instruction at a time from the BEAM
+code and creates a generic instruction.  Many transformation rules
+must look at multiple instructions, so the loader will
+keep multiple generic instructions in a linked list.
+</p> </li><li> <p>The loader tries to apply transformation rules against the
+generic instructions in the linked list.  If a rule matches, the
+matched instructions will be removed and replaced with new
+generic instructions constructed from the right side of the
+transformation.
+</p> </li><li> <p>If a transformation rule matched, the loader applies the
+transformation rules again.
+</p> </li><li> <p>If no transformation rule match, the loader will begin rewriting
+the first of generic instructions to a specific instruction.
+</p> </li><li> <p>First the loader will search for a specific operation where the
+types for all operands match the type for the generic instruction.
+The first matching instruction will be selected.  <span class="strong">beam_makeops</span>
+has ordered the specific instructions so that instructions with more
+specific operands comes before instructions with less specific
+operands.  For example, <strong>move_nx</strong> is more specific than <strong>move_cx</strong>.  If
+the first operand is <strong>[]</strong> (NIL), <strong>move_nx</strong> will be selected.
+</p> </li><li> <p>Given the opcode for the selected specific instruction, the loader
+looks up the pointer to the C code for the instruction and stores
+in the code area for the module being loaded.
+</p> </li><li> <p>The loader translates each operand to a machine word and stores it
+in the code area.  The operand type for the selected specific
+instruction guides the translation.  For example, if the type is <strong>e</strong>,
+the value of the operand is an index into an arry of external
+functions and will be translated to a pointer to the export entry for
+the function to call.  If the type is <strong>x</strong>, the number of the X
+register will be multiplied by the word size to produce a byte offset.
+</p> </li><li> <p>The loader runs the packing engine to pack multiple operands into a
+single word.  The packing engine is controlled by a small program,
+which is a string where each character is an instruction.  For
+example, the code to pack the operands for <strong>move_xy</strong> is <strong>"22#"</strong> (on a
+64-bit machine).  That program will pack the byte offsets for both
+registers into the same word as the pointer to C code.
+</p> </li></ul><a name="Running-beammakeops"></a><h2>Running beam_makeops</h2><p>
+<span class="strong">beam_makeops</span> is found in <strong>$ERL_TOP/erts/emulator/utils</strong>.  Options
+start with a hyphen (<strong>-</strong>).  The options are followed by the name of
+the input files.  By convention, all input files have the extension
+<strong>.tab</strong>, but is not enforced by <span class="strong">beam_makeops</span>.
+</p><a name="Running-beammakeops_The-outdir-option"></a><h2>The -outdir option</h2><p>
+The option <strong>-outdir Directory</strong> specifies the output directory for
+the generated files.  Default is the current working directory.
+</p><a name="Running-beammakeops_Running-beammakeops-for-the-compiler"></a><h2>Running beam_makeops for the compiler</h2><p>
+Give the option <strong>-compiler</strong> to produce output files for the compiler.
+The following files will be written to the output directory:
+</p><ul><li> <p><strong>beam_opcodes.erl</strong> - Used primarily by <strong>beam_asm</strong> and <strong>beam_diasm</strong>.
+</p> </li><li> <p><strong>beam_opcode.hrl</strong> - Used by <strong>beam_asm</strong>.  It contains tag definitions
+used for encoding instruction operands.
+</p> </li></ul><p>
+The input file should only contain the definition of BEAM<em>FORMAT</em>NUMBER
+and external generic instructions.  (Everything else would be ignored.)
+</p><a name="Running-beammakeops_Running-beammakeops-for-the-emulator"></a><h2>Running beam_makeops for the emulator</h2><p>
+Give the option <strong>-emulator</strong> to produce output files for the emulator.
+The following output files will be generated in the output directory.
+</p><ul><li> <p><strong>beam_hot.h</strong>, <strong>beam_warm.h</strong>, <strong>beam_cold.</strong>h - Implementation of
+instructions.  Included inside the <strong>process_main()</strong> function in
+<strong>beam_emu.c</strong>.
+</p> </li><li> <p><strong>beam_opcodes.c</strong> - Defines static data used by the loader
+(<strong>beam_load.c</strong>).  Data about generic instructions, specific
+instructions (including how to pack their operands), and
+transformation rules are all part of this file.
+</p> </li><li> <p><strong>beam_opcodes.h</strong> - Miscellanous preprocessor definitions, mainly
+used by <strong>beam_load.c</strong> but also by <strong>beam_{hot,warm,cold}.h</strong>.
+</p> </li><li> <p><strong>beam_pred_funcs.h</strong> - Included by <strong>beam_load.c</strong>.  Contains defines
+needed to call guard constraints in transformation rules.
+</p> </li><li> <p><strong>beam_tr_funcs.h</strong> - Included by <strong>beam_load.c</strong>.  Contains defines
+needed to call a C function to the right of a transformation rule.
+</p> </li></ul><p>
+The following options can be given:
+</p><ul><li> <p><strong>wordsize 32|64</strong> - Defines the word size.  Default is 32.
+</p> </li><li> <p><strong>code-model Model</strong> - The code model as given to <strong>-mcmodel</strong> option
+for GCC.  Default is <strong>unknown</strong>.  If the code model is <strong>small</strong> (and
+the word size is 64 bits), <span class="strong">beam_makeops</span> will pack operands
+into the upper 32 bits of the instruction word.
+</p> </li><li> <p><strong>DSymbol=0|1</strong> - Defines the value for a symbol.  The symbol can be
+used in <strong>%if</strong> and <strong>%unless</strong> directives.
+</p> </li></ul><a name="Syntax-of-tab-files"></a><h2>Syntax of .tab files</h2><a name="Syntax-of-tab-files_Comments"></a><h2>Comments</h2><p>
+Any line starting with <strong>#</strong> is a comment and is ignored.
+</p><p>
+A line with <strong>//</strong> is also a comment.  It is recommended to only
+use this style of comments in files that define implementations of
+instructions.
+</p><p>
+A long line can be broken into shorter lines by a placing a <strong>\</strong> before
+the newline.
+</p><a name="Syntax-of-tab-files_Variable-definitions"></a><h2>Variable definitions</h2><p>
+A variable definition binds a variable to a Perl variable.  It is only
+meaningful to add a new definition if <span class="strong">beam_makeops</span> is updated
+at the same time to use the variable.  A variable definition looks this:
+</p><p>
+<em>name</em>=<em>value</em>[;]
+</p><p>
+where <em>name</em> is the name of a Perl variable in <span class="strong">beam_makeops</span>,
+and <em>value</em> is the value to be given to the variable.  The line
+can optionally end with a <strong>;</strong> (to avoid messing up the
+C indentation mode in Emacs).
+</p><p>
+Here follows a description of the variables that are defined.
+</p><a name="Syntax-of-tab-files_Variable-definitions_BEAMFORMATNUMBER"></a><h2>BEAM_FORMAT_NUMBER</h2><p>
+<strong>genop.tab</strong> has the following definition:
+</p><pre><code class="">
+BEAM_FORMAT_NUMBER=0
+</code></pre><p>
+It defines the version of the instruction set (which will be
+included in the code header in the BEAM code).  Theoretically,
+the version could be bumped, and all instructions changed.
+In practice, we would have two support two instruction sets
+in the runtime system for at least two releases, so it will
+probably never happen in practice.
+</p><a name="Syntax-of-tab-files_Variable-definitions_GCREGEXP"></a><h2>GC_REGEXP</h2><p>
+In <strong>macros.tab</strong>, there is a definition of <strong>GC_REGEXP</strong>.
+It will be described in <a href="#Syntax-of-tab-files_Defining-the-implementation_Macros-in-the-macrostab-file_The-GCREGEXP-definition">a later section</a>.
+</p><a name="Syntax-of-tab-files_Directives"></a><h2>Directives</h2><p>
+There are directives to classify specific instructions depending
+on how frequently used they are:
+</p><ul><li> <p><strong>%hot</strong> - Implementation will be placed in <strong>beam_hot.h</strong>. Frequently
+executed instructions.
+</p> </li><li> <p><strong>%warm</strong> - Implementation will be placed in <strong>beam_warm.h</strong>.  Binary
+syntax instructions.
+</p> </li><li> <p><strong>%cold</strong> - Implementation will be placed in <strong>beam_cold.h</strong>. Trace
+instructions and infrequently used instructions.
+</p> </li></ul><p>
+Default is <strong>%hot</strong>.  The directives will be applied to declarations
+of the specific instruction that follow.  Here is an example:
+</p><pre><code class="">
+%cold
+is_number f? xy
+%hot
+</code></pre><a name="Syntax-of-tab-files_Directives_Conditional-compilation-directives"></a><h2>Conditional compilation directives</h2><p>
+The <strong>%if</strong> directive includes a range of lines if a condition is
+true.  For example:
+</p><pre><code class="">
+%if ARCH_64
+i_bs_get_integer_32 x f? x
+%endif
+</code></pre><p>
+The specific instruction <strong>i_bs_get_integer_32</strong> will only be defined
+on a 64-bit machine.
+</p><p>
+The condition can be inverted by using <strong>%unless</strong> instead of <strong>%if</strong>:
+</p><pre><code class="">
+%unless NO_FPE_SIGNALS
+fcheckerror p =&gt; i_fcheckerror
+i_fcheckerror
+fclearerror
+%endif
+</code></pre><p>
+It is also possible to add an <strong>%else</strong> clause:
+</p><pre><code class="">
+%if ARCH_64
+BS_SAFE_MUL(A, B, Fail, Dst) {
+    Uint64 res = ($A) * ($B);
+    if (res / $B != $A) {
+        $Fail;
+    }
+    $Dst = res;
+}
+%else
+BS_SAFE_MUL(A, B, Fail, Dst) {
+    Uint64 res = (Uint64)($A) * (Uint64)($B);
+    if ((res &gt;&gt; (8*sizeof(Uint))) != 0) {
+        $Fail;
+    }
+    $Dst = res;
+}
+%endif
+</code></pre><a name="Syntax-of-tab-files_Directives_Symbols-that-are-defined-in-directives"></a><h2>Symbols that are defined in directives</h2><p>
+The following symbols are always defined.
+</p><ul><li> <strong>ARCH_64</strong> - is 1 for a 64-bit machine, and 0 otherwise. </li><li> <strong>ARCH_32</strong> - is 1 for 32-bit machine, and 1 otherwise. </li></ul><p>
+The <strong>Makefile</strong> for building the emulator currently defines the
+following symbols by using the <strong>-D</strong> option on the command line for
+<span class="strong">beam_makeops</span>.
+</p><ul><li> <strong>NO_FPE_SIGNALS</strong> - 1 if FPE signals are not enable in runtime system, 0 otherwise. </li><li> <strong>USE_VM_PROBES</strong> - 1 if the runtime system is compiled to use VM probes (support for dtrace or systemtap), 0 otherwise. </li></ul><a name="Syntax-of-tab-files_Defining-external-generic-instructions"></a><h2>Defining external generic instructions</h2><p>
+External generic BEAM instructions are known to both the compiler and
+the runtime system.  They remain stable between releases.  A new major
+release may add more external generic instructions, but must not change
+the semantics for a previously defined instruction.
+</p><p>
+The syntax for an external generic instruction is as follows:
+</p><p>
+<em>opcode</em>: [-]<em>name</em>/<em>arity</em>
+</p><p>
+<em>opcode</em> is an integer greater than or equal to 1.
+</p><p>
+<em>name</em> is an identifier starting with a lowercase letter.  <em>arity</em> is
+an integer denoting the number of operands.
+</p><p>
+<em>name</em> can optionally be preceded by <strong>-</strong> to indicate that it has been
+obsoleted.  The compiler is not allowed to generate BEAM files that
+use obsolete instructions and the loader will refuse to load BEAM
+files that use obsolete instructions.
+</p><p>
+It only makes sense to define external generic instructions in the
+file <strong>genop.tab</strong> in <strong>lib/compiler/src</strong>, because the compiler must
+know about them in order to use them.
+</p><p>
+New instructions must be added at the end of the file, with higher
+numbers than the previous instructions.
+</p><a name="Syntax-of-tab-files_Defining-internal-generic-instructions"></a><h2>Defining internal generic instructions</h2><p>
+Internal generic instructions are known only to the runtime
+system and can be changed at any time without compatibility issues.
+</p><p>
+There are two ways to define internal generic instructions:
+</p><ul><li> <p>Implicitly when a specific instruction is defined.  This is by far
+the most common way.  Whenever a specific instruction is created,
+<span class="strong">beam_makeops</span> automatically creates an internal generic instruction
+if it does not previously exist.
+</p> </li><li> <p>Explicitly.  This is necessary only when a generic instruction does
+not have any corresponding specific instruction.
+</p> </li></ul><p>
+The syntax for an internal generic instruction is as follows:
+</p><p>
+<em>name</em>/<em>arity</em>
+</p><p>
+<em>name</em> is an identifier starting with a lowercase letter.  <em>arity</em> is
+an integer denoting the number of operands.
+</p><a name="Syntax-of-tab-files_About-generic-instructions-in-general"></a><h2>About generic instructions in general</h2><p>
+Each generic instruction has an opcode.  The opcode is an integer,
+greater than or equal to 1. For an external generic instruction, it
+must be explicitly given <strong>genop.tab</strong>, while internal generic
+instructions are automatically numbered by <span class="strong">beam_makeops</span>.
+</p><p>
+The identity of a generic instruction is its name combined with its
+arity.  That means that it is allowed to define two distinct generic
+instructions having the same name but with different arities.  For
+example:
+</p><pre><code class="">
+move_window/5
+move_window/6
+</code></pre><p>
+Each operand of a generic instruction is tagged with its type.  A generic
+instruction can have one of the following types:
+</p><ul><li> <p><strong>x</strong> - X register.
+</p> </li><li> <p><strong>y</strong> - Y register.
+</p> </li><li> <p><strong>l</strong> - Floating point register number.
+</p> </li><li> <p><strong>i</strong> - Tagged literal integer.
+</p> </li><li> <p><strong>a</strong> - Tagged literal atom.
+</p> </li><li> <p><strong>n</strong> - NIL (<strong>[]</strong>, the empty list).
+</p> </li><li> <p><strong>q</strong> - Literal that don't fit in a word, that is an object stored on
+the heap such as a list or tuple.  Any heap object type is supported,
+even types that don't have real literals such as external references.
+</p> </li><li> <p><strong>f</strong> - Non-zero failure label.
+</p> </li><li> <p><strong>p</strong> - Zero failure label.
+</p> </li><li> <p><strong>u</strong> - Untagged integer that fits in a machine word.  It is used for many
+different purposes, such as the number of live registers in <strong>test_heap/2</strong>,
+as a reference to the export for <strong>call_ext/2</strong>, and as the flags operand for
+binary syntax instructions.  When the generic instruction is translated to a
+specific instruction, the type for the operand in the specific operation will
+tell the loader how to treat the operand.
+</p> </li><li> <p><strong>o</strong> - Overflow.  If the value for an <strong>u</strong> operand does not fit in a machine
+word, the type of the operand will be changed to <strong>o</strong> (with no associated
+value).  Currently only used internally in the loader in the guard constraint
+function <strong>binary_too_big()</strong>.
+</p> </li><li> <p><strong>v</strong> - Arity value.  Only used internally in the loader.
+</p> </li></ul><a name="Syntax-of-tab-files_Defining-specific-instructions"></a><h2>Defining specific instructions</h2><p>
+The specific instructions are known only to the runtime system and
+are the instructions that are actually executed.  They can be changed
+at any time without causing compatibility issues.
+</p><p>
+A specific instruction can have at most 6 operands.
+</p><p>
+A specific instruction is defined by first giving its name followed by
+the types for each operand.  For example:
+</p><pre><code class="">
+ move x y
+</code></pre><p>
+Internally, for example in the generated code and in the output from
+the BEAM disassembler, the instruction <strong>move x y</strong> will be called <strong>move_xy</strong>.
+</p><p>
+The name for a specific instruction is an identifier starting with a
+lowercase letter.  A type is an lowercase or uppercase letter.
+</p><p>
+All specific instructions with a given name must have the same number
+of operands. That is, the following is <span class="strong">not</span> allowed:
+</p><pre><code class="">
+ move x x
+ move x y x y
+</code></pre><p>
+Here follows the type letters that more or less directly corresponds
+to the types for generic instructions.
+</p><ul><li> <p><strong>x</strong> - X register.  Will be loaded as a byte offset to the X register
+relative to the base of X register array.  (Can be packed with other
+operands.)
+</p> </li><li> <p><strong>y</strong> - Y register.  Will be loaded as a byte offset to the Y register
+relative to the stack frame. (Can be packed with other operands.)
+</p> </li><li> <p><strong>r</strong> - X register 0.  An implicit operand that will not be stored in
+the loaded code.
+</p> </li><li> <p><strong>l</strong> - Floating point register number.  (Can be packed with other
+operands.)
+</p> </li><li> <p><strong>i</strong> - Tagged literal integer (a SMALL that will fit in one word).
+</p> </li><li> <p><strong>a</strong> - Tagged atom.
+</p> </li><li> <p><strong>n</strong> - NIL or the empty list.  (Will not be stored in the loaded code.)
+</p> </li><li> <p><strong>q</strong> - Tagged CONS or BOXED pointer.  That is, a term such as a list
+or tuple.  Any heap object type is supported, even types that don't
+have real literals such as external references.
+</p> </li><li> <p><strong>f</strong> - Failure label (non-zero).  The target for a branch
+or call instruction.
+</p> </li><li> <p><strong>p</strong> - The 0 failure label, meaning that an exception should be raised
+if the instruction fails.  (Will not be stored in the loaded code.)
+</p> </li><li> <p><strong>c</strong> - Any literal term; that is, immediate literals such as SMALL,
+and CONS or BOXED pointers to literals.  (Can be used where the
+operand in the generic instruction has one of the types <strong>i</strong>, <strong>a</strong>, <strong>n</strong>,
+or <strong>q</strong>.)
+</p> </li></ul><p>
+The types that follow do a type test of the operand at runtime; thus,
+they are generally more expensive in terms of runtime than the types
+described earlier.  However, those operand types are needed to avoid a
+combinatorial explosion in the number of specific instructions and
+overall code size of <strong>process_main()</strong>.
+</p><ul><li> <p><strong>s</strong> - Tagged source: X register, Y register, or a literal term.  The
+tag will be tested at runtime to retrieve the value from an X
+register, a Y register, or simply use the value as a tagged Erlang
+term.  (Implementation note: An X register is tagged as a pid, and a Y
+register as a port.  Therefore the literal term must not contain a
+port or pid.)
+</p> </li><li> <p><strong>S</strong> - Tagged source register (X or Y).  The tag will be tested at
+runtime to retrieve the value from an X register or a Y register.  Slighly
+cheaper than <strong>s</strong>.
+</p> </li><li> <p><strong>d</strong> - Tagged destination register (X or Y).  The tag will be tested
+at runtime to set up a pointer to the destination register.  If the
+instrution performs a garbarge collection, it must use the
+<strong>$REFRESH_GEN_DEST()</strong> macro to refresh the pointer before storing to
+it (there are more details about that in a later section).
+</p> </li><li> <p><strong>j</strong> - A failure label (combination of <strong>f</strong> and <strong>p</strong>).  If the branch target 0,
+an exception will be raised if instruction fails, otherwise control will be
+transfered to the target address.
+</p> </li></ul><p>
+The types that follows are all applied to an operand that has the <strong>u</strong>
+type.
+</p><ul><li> <p><strong>t</strong> - An untagged integer that will fit in 12 bits (0-4096).  It can be
+packed with other operands in a word.  Most often used as the number
+of live registers in instructions such as <strong>test_heap</strong>.
+</p> </li><li> <p><strong>I</strong> - An untagged integer that will fit in 32 bits.  It can be
+packed with other operands in a word on a 64-bit system.
+</p> </li><li> <p><strong>W</strong> - Untagged integer or pointer.  Not possible to pack with other
+operands.
+</p> </li><li> <p><strong>e</strong> - Pointer to an export entry.  Use by call instructions that call
+other modules, such as <strong>call_ext</strong>.
+</p> </li><li> <p><strong>L</strong> - A label.  Only used by the <strong>label/1</strong> instruction.
+</p> </li><li> <p><strong>b</strong> - Pointer to BIF.  Used by instructions that BIFs, such as
+<strong>call_bif</strong>.
+</p> </li><li> <p><strong>A</strong> - A tagged arityvalue.  Used in instructions that test the arity
+of a tuple.
+</p> </li><li> <p><strong>P</strong> - A byte offset into a tuple.
+</p> </li><li> <p><strong>Q</strong> - A byte offset into the stack.  Used for updating the frame
+pointer register.  Can be packed with other operands.
+</p> </li></ul><p>
+When the loader translates a generic instruction a specific
+instruction, it will choose the most specific instruction that will
+fit the types.  Consider the following two instructions:
+</p><pre><code class="">
+move c x
+move n x
+</code></pre><p>
+The <strong>c</strong> operand can encode any literal value, including NIL.  The
+<strong>n</strong> operand only works for NIL.  If we have the generic instruction
+<strong>{move,nil,{x,1}}</strong>, the loader will translate it to <strong>move_nx 1</strong>
+because <strong>move n x</strong> is more specific.  <strong>move_nx</strong> could be slightly
+faster or smaller (depending on the architecture), because the <strong>[]</strong>
+is not stored explicitly as an operand.
+</p><a name="Syntax-of-tab-files_Defining-specific-instructions_Syntactic-sugar-for-specific-instructions"></a><h2>Syntactic sugar for specific instructions</h2><p>
+It is possible to specify more than one type letter for each operand.
+Here is an example:
+</p><pre><code class="">
+move cxy xy
+</code></pre><p>
+This is syntactic sugar for:
+</p><pre><code class="">
+move c x
+move c y
+move x x
+move x y
+move y x
+move y y
+</code></pre><p>
+Note the difference between <strong>move c xy</strong> and <strong>move c d</strong>.  Note that <strong>move c xy</strong>
+is equivalent to the following two definitions:
+</p><pre><code class="">
+move c x
+move c y
+</code></pre><p>
+On the other hand, <strong>move c d</strong> is a single instruction.  At runtime,
+the <strong>d</strong> operand will be tested to see whether it refers to an X
+register or a Y register, and a pointer to the register will be set
+up.
+</p><a name="Syntax-of-tab-files_Defining-specific-instructions_The--type-modifier"></a><h2>The '?' type modifier</h2><p>
+The character <strong>?</strong> can be added to the end of an operand to indicate
+that the operand will not be used every time the instruction is executed.
+For example:
+</p><pre><code class="">
+allocate_heap t I t?
+is_eq_exact f? x xy
+</code></pre><p>
+In <strong>allocate_heap</strong>, the last operand is the number of live registers.
+It will only be used if there is not enough heap space and a garbage
+collection must be performed.
+</p><p>
+In <strong>is_eq_exact</strong>, the failure address (the first operand) will only be
+used if the two register operands are not equal.
+</p><p>
+Knowing that an operand is not always used can improve how packing
+is done for some instructions.
+</p><p>
+For the <strong>allocate_heap</strong> instruction, without the <strong>?</strong> the packing would
+be done like this:
+</p><pre><code class="">
+     +--------------------+--------------------+
+I -&gt; |       Stack needed | &amp;&amp;lb_allocate_heap +
+     +--------------------+--------------------+
+     |        Heap needed | Live registers     +
+     +--------------------+--------------------+
+</code></pre><p>
+"Stack needed" and "Heap needed" are always used, but they are in
+different words.  Thus, at runtime the <strong>allocate_heap</strong> instruction
+must read both words from memory even though it will not always use
+"Live registers".
+</p><p>
+With the <strong>?</strong>, the operands will be packed like this:
+</p><pre><code class="">
+     +--------------------+--------------------+
+I -&gt; |     Live registers | &amp;&amp;lb_allocate_heap +
+     +--------------------+--------------------+
+     |        Heap needed |       Stack needed +
+     +--------------------+--------------------+
+</code></pre><p>
+Now "Stack needed" and "Heap needed" are in the same word.
+</p><a name="Syntax-of-tab-files_Defining-transformation-rules"></a><h2>Defining transformation rules</h2><p>
+Transformation rules are used to rewrite generic instructions to other
+generic instructions.  The transformations rules are applied
+repeatedly until no rule match.  At that point, the first instruction
+in the resulting instruction sequence will be converted to a specific
+instruction and added to the code for the module being loaded.  Then
+the transformation rules for the remaining instructions are run in the
+same way.
+</p><p>
+A rule is recognized by its right-pointer arrow: <strong>=&gt;</strong>.  To the left of
+the arrow is one or more instruction patterns, separated by <strong>|</strong>.  To
+the right of the arrow is zero or more instructions, separated by <strong>|</strong>.
+If the instructions from the BEAM code matches the instruction
+patterns on the left side, they will be replaced with instructions on
+the right side (or removed if there are no instructions on the right).
+</p><a name="Syntax-of-tab-files_Defining-transformation-rules_Defining-instruction-patterns"></a><h2>Defining instruction patterns</h2><p>
+We will start looking at the patterns on the left side of the arrow.
+</p><p>
+A pattern for an instruction consists of its name, followed by a pattern
+for each of its operands.  The operand patterns are separated by spaces.
+</p><p>
+The simplest possible pattern is a variable.  Just like in Erlang,
+a variable must begin with an uppercase letter.  If the same variable is
+used in multiple operands, the pattern will only match if the operands
+are equal.  For example:
+</p><pre><code class="">
+move Same Same =&gt;
+</code></pre><p>
+This pattern will match if the operands for <strong>move</strong> are the same.  If
+the pattern match, the instruction will be removed.  (That used to be an
+actual rule a long time ago when the compiler would occasionally produce
+instructions such as <strong>{move,{x,2},{x,2}}</strong>.)
+</p><p>
+Variables that have been bound on the left side can be used on the
+right side.  For example, this rule will rewrite all <strong>move</strong> instructions
+to <strong>assign</strong> instructions with the operands swapped:
+</p><pre><code class="">
+move Src Dst =&gt; assign Dst Src
+</code></pre><p>
+If we only want to match operands of a certain type, we can
+use a type constraint.  A type constraint consists of one or more
+lowercase letters, each specifying a type.  For example:
+</p><pre><code class="">
+is_integer Fail an =&gt; jump Fail
+</code></pre><p>
+The second operand pattern, <strong>an</strong>, will match if the second operand is
+either an atom or NIL (the empty list).  In case of a match, the
+<strong>is_integer/2</strong> instruction will be replaced with a <strong>jump/1</strong>
+instruction.
+</p><p>
+An operand pattern can bind a variable and constrain the type at the
+same time by following the variable with a <strong>=</strong> and the constraint.
+For example:
+</p><pre><code class="">
+is_eq_exact Fail=f R=xy C=q =&gt; i_is_eq_exact_literal Fail R C
+</code></pre><p>
+Here the <strong>is_eq_exact</strong> instruction is replaced with a specialized instruction
+that only compares literals, but only if the first operand is a register and
+the second operand is a literal.
+</p><a name="Syntax-of-tab-files_Defining-transformation-rules_Further-constraining-patterns"></a><h2>Further constraining patterns</h2><p>
+In addition to specifying a type letter, the actual value for the type can
+be specified.  For example:
+</p><pre><code class="">
+move C=c x==1 =&gt; move_x1 C
+</code></pre><p>
+Here the second operand of <strong>move</strong> is constrained to be X register 1.
+</p><p>
+When specifying an atom constraint, the atom is written as it would be
+in the C source code.  That is, it needs an <strong>am_</strong> prefix, and it must
+be listed in <strong>atom.names</strong>.  For example:
+</p><pre><code class="">
+is_boolean Fail=f a==am_true =&gt;
+is_boolean Fail=f a==am_false =&gt;
+</code></pre><p>
+There are several constraints available for testing whether a call is to a BIF
+or a function.
+</p><p>
+The constraint <strong>u$is_bif</strong> will test whether the given operand refers to a BIF.
+For example:
+</p><pre><code class="">
+call_ext u Bif=u$is_bif =&gt; call_bif Bif
+call_ext u Func         =&gt; i_call_ext Func
+</code></pre><p>
+The <strong>call_ext</strong> instruction can be used to call functions written in
+Erlang as well as BIFs (or more properly called SNIFs).  The
+<strong>u$is_bif</strong> constraint will match if the operand refers to a BIF (that
+is, if it is listed in the file <strong>bif.tab</strong>).  Note that <strong>u$is_bif</strong>
+should only be applied to operands that are known to contain an index
+to the import table chunk in the BEAM file (such operands have the
+type <strong>b</strong> or <strong>e</strong> in the corresponding specific instruction).  If
+applied to other <strong>u</strong> operands, it will at best return a nonsense
+result.
+</p><p>
+The <strong>u$is_not_bif</strong> constraint matches if the operand does not refer to
+a BIF (not listed in <strong>bif.tab</strong>).  For example:
+</p><pre><code class="">
+move S X0=x==0 | line Loc | call_ext_last Ar Func=u$is_not_bif D =&gt; \
+     move S X0 | call_ext_last Ar Func D
+</code></pre><p>
+The <strong>u$bif:Module:Name/Arity</strong> constraint tests whether the given
+operand refers to a specific BIF.  Note that <strong>Module:Name/Arity</strong>
+<span class="strong">must</span> be an existing BIF defined in <strong>bif.tab</strong>, or there will
+be a compilation error.  It is useful when a call to a specific BIF
+should be replaced with an instruction as in this example:
+</p><pre><code class="">
+gc_bif2 Fail Live u$bif:erlang:splus/2 S1 S2 Dst =&gt; \
+     gen_plus Fail Live S1 S2 Dst
+</code></pre><p>
+Here the call to the GC BIF <strong>'+'/2</strong> will be replaced with the instruction
+<strong>gen_plus/5</strong>.  Note that the same name as used in the C source code must be
+used for the BIF, which in this case is <strong>splus</strong>.  It is defined like this
+in <strong>bit.tab</strong>:
+</p><pre><code class="">
+ubif erlang:'+'/2 splus_2
+</code></pre><p>
+The <strong>u$func:Module:Name/Arity</strong> will test whether the given operand is a
+a specific function.  Here is an example:
+</p><pre><code class="">
+bif1 Fail u$func:erlang:is_constant/1 Src Dst =&gt; too_old_compiler
+</code></pre><p>
+<strong>is_constant/1</strong> used to be a BIF a long time ago.  The transformation
+replaces the call with the <strong>too_old_compiler</strong> instruction which will produce
+a nicer error message than the default error would be for a missing guard BIF.
+</p><a name="Syntax-of-tab-files_Defining-transformation-rules_Type-constraints-allowed-in-patterns"></a><h2>Type constraints allowed in patterns</h2><p>
+Here are all type letters that are allowed on the left side of a transformation
+rule.
+</p><ul><li> <p><strong>u</strong> - An untagged integer that fits in a machine word.
+</p> </li><li> <p><strong>x</strong> - X register.
+</p> </li><li> <p><strong>y</strong> - Y register.
+</p> </li><li> <p><strong>l</strong> - Floating point register number.
+</p> </li><li> <p><strong>i</strong> - Tagged literal integer.
+</p> </li><li> <p><strong>a</strong> - Tagged literal atom.
+</p> </li><li> <p><strong>n</strong> - NIL (<strong>[]</strong>, the empty list).
+</p> </li><li> <p><strong>q</strong> - Literals that don't fit in a word, such as list or tuples.
+</p> </li><li> <p><strong>f</strong> - Non-zero failure label.
+</p> </li><li> <p><strong>p</strong> - The zero failure label.
+</p> </li><li> <p><strong>j</strong> - Any label.  Equivalent to <strong>fp</strong>.
+</p> </li><li> <p><strong>c</strong> - Any literal term.  Equivalent to <strong>ainq</strong>.
+</p> </li><li> <p><strong>s</strong> - X register, Y register, or any literal term.  Equivalent to <strong>xyc</strong>.
+</p> </li><li> <p><strong>d</strong> - X or Y register.  Equivalent to <strong>xy</strong>.  (In a pattern <strong>d</strong> will
+match both source and destination registers.  As an operand in a specific
+instruction, it must only be used for a destination register.)
+</p> </li><li> <p><strong>o</strong> - Overflow.  An untagged integer that does not fit in a machine word.
+</p> </li></ul><a name="Syntax-of-tab-files_Defining-transformation-rules_Guard-constraints"></a><h2>Guard constraints</h2><p>
+If the constraints described so far is not enough, additional
+constraints can be written in C in <strong>beam_load.c</strong> and be called as a
+guard function on the left side of the transformation.  If the guard
+function returns a non-zero value, the matching of the rule will
+continue, otherwise the match will fail.  For example:
+</p><pre><code class="">
+ensure_map Lit=q | literal_is_map(Lit) =&gt;
+</code></pre><p>
+The guard test <strong>literal_is_map/1</strong> tests whether the given literal is a map.
+If the literal is a map, the instruction is unnecessary and can be removed.
+</p><p>
+It is outside the scope for this document to describe in detail how such
+guard functions are written, but for the curious here is the implementation
+of <strong>literal_is_map()</strong>:
+</p><pre><code class="">
+static int
+literal_is_map(LoaderState* stp, GenOpArg Lit)
+{
+    Eterm term;
+
+    ASSERT(Lit.type == TAG_q);
+    term = stp-&gt;literals[Lit.val].term;
+    return is_map(term);
+}
+</code></pre><a name="Syntax-of-tab-files_Defining-transformation-rules_Handling-instruction-with-variable-number-of-operands"></a><h2>Handling instruction with variable number of operands</h2><p>
+Some instructions, such as <strong>select_val/3</strong>, essentially has a variable
+number of operands.  Such instructions have a <strong>{list,[...]}</strong> operand
+as their last operand in the BEAM assembly code.  For example:
+</p><pre><code class="">
+{select_val,{x,0},
+            {f,1},
+            {list,[{atom,b},{f,4},{atom,a},{f,5}]}}.
+</code></pre><p>
+The loader will convert a <strong>{list,[...]}</strong> operand to an <strong>u</strong> operand whose
+value is the number of elements in the list, followed by each element in
+the list.  The instruction above would be translated to the following
+generic instruction:
+</p><pre><code class="">
+{select_val,{x,0},{f,1},{u,4},{atom,b},{f,4},{atom,a},{f,5}}
+</code></pre><p>
+To match a variable number of arguments we need to use the special
+operand type <strong>*</strong> like this:
+</p><pre><code class="">
+select_val Src=aiq Fail=f Size=u List=* =&gt; \
+    i_const_select_val Src Fail Size List
+</code></pre><p>
+This transformation renames a <strong>select_val/3</strong> instruction
+with a constant source operand to <strong>i_const_select_val/3</strong>.
+</p><a name="Syntax-of-tab-files_Defining-transformation-rules_Constructing-new-instructions-on-the-right-side"></a><h2>Constructing new instructions on the right side</h2><p>
+The most common operand on the right side is a variable that was bound while
+matching the left side.  For example:
+</p><pre><code class="">
+trim N Remaining =&gt; i_trim N
+</code></pre><p>
+An operand can also be a type letter to construct an operand of that type.
+Each type has a default value.  For example, the type <strong>x</strong> has the default
+value 1023, which is the highest X register.  That makes <strong>x</strong> on the right
+side a convenient shortcut for a temporary X register.  For example:
+</p><pre><code class="">
+is_number Fail Literal=q =&gt; move Literal x | is_number Fail x
+</code></pre><p>
+If the second operand for <strong>is_number/2</strong> is a literal, it will be moved to
+X register 1023.  Then <strong>is_number/2</strong> will test whether the value stored in
+X register 1023 is a number.
+</p><p>
+This kind of transformation is useful when it is rare that an operand can
+be anything else but a register.  In the case of <strong>is_number/2</strong>, the second
+operand is always a register unless the compiler optimizations have been
+disabled.
+</p><p>
+If the default value is not suitable, the type letter can be followed
+by <strong>=</strong> and a value.  Most types take an integer value.  The value for
+an atom is written the same way as in the C source code.  For example,
+the atom <strong>false</strong> is written as <strong>am_false</strong>.  The atom must be listed in
+<strong>atom.names</strong>.
+</p><p>
+Here is an example showing how values can be specified:
+</p><pre><code class="">
+bs_put_utf32 Fail=j Flags=u Src=s =&gt; \
+    i_bs_validate_unicode Fail Src | \
+    bs_put_integer Fail i=32 u=1 Flags Src
+</code></pre><a name="Syntax-of-tab-files_Defining-transformation-rules_Type-letters-on-the-right-side"></a><h2>Type letters on the right side</h2><p>
+Here follows all types that are allowed to be used in operands for
+instructions being constructed on the right side of a transformation
+rule.
+</p><ul><li> <p><strong>u</strong> - Construct an untagged integer.  The default value is 0.
+</p> </li><li> <p><strong>x</strong> - X register.  The default value is 1023.  That makes <strong>x</strong> convenient to
+use as a temporary X register.
+</p> </li><li> <p><strong>y</strong> - Y register.  The default value is 0.
+</p> </li><li> <p><strong>l</strong> - Foating point register number.  The default value is 0.
+</p> </li><li> <p><strong>i</strong> - Tagged literal integer.  The default value is 0.
+</p> </li><li> <p><strong>a</strong> - Tagged atom.  The default value is the empty atom (<strong>am_Empty</strong>).
+</p> </li><li> <p><strong>n</strong> - NIL (<strong>[]</strong>, the empty list).
+</p> </li></ul><a name="Syntax-of-tab-files_Defining-transformation-rules_Function-call-on-the-right-side"></a><h2>Function call on the right side</h2><p>
+Transformations that are not possible to describe with the rule
+language as described here can be written as a C function in
+<strong>beam_load.c</strong> and called from the right side of a transformation.  The
+left side of the transformation will perform the match and bind
+operands to variables.  The variables can then be passed to a
+generator function on the right side.  For example:
+</p><pre><code class="">
+bif2 Fail=j u$bif:erlang:element/2 Index=s Tuple=xy Dst=d =&gt; \
+    gen_element(Jump, Index, Tuple, Dst)
+</code></pre><p>
+This transformation rule matches a call to the BIF <strong>element/2</strong>.
+The operands will be captured and the function <strong>gen_element()</strong> will
+be called.
+</p><p>
+<strong>gen_element()</strong> will produce one of two instructions depending
+on <strong>Index</strong>.  If <strong>Index</strong> is an integer in the range from 1 up to
+the maximum tuple size, the instruction <strong>i_fast_element/2</strong> will
+be produced, otherwise the instruction <strong>i_element/4</strong> will be
+produced.  The corresponding specific instructions are:
+</p><pre><code class="">
+i_fast_element xy j? I d
+i_element xy j? s d
+</code></pre><p>
+The <strong>i_fast_element/2</strong> instruction is faster because the tuple is
+already an untagged integer.  It also knows that the index is at least
+1, so it does not have to test for that.  The <strong>i_element/4</strong>
+instruction will have to fetch the index from a register, test that it
+is an integer, and untag the integer.
+</p><p>
+It is outside the scope of this document to describe in detail how
+generator functions are written, but for the curious, here is the
+implementation of <strong>gen_element()</strong>:
+</p><pre><code class="">
+static GenOp*
+gen_element(LoaderState* stp, GenOpArg Fail,
+   GenOpArg Index, GenOpArg Tuple, GenOpArg Dst)
+{
+    GenOp* op;
+
+    NEW_GENOP(stp, op);
+    op-&gt;arity = 4;
+    op-&gt;next = NULL;
+
+    if (Index.type == TAG_i &amp;&amp; Index.val &gt; 0 &amp;&amp;
+       Index.val &lt;= ERTS_MAX_TUPLE_SIZE &amp;&amp;
+       (Tuple.type == TAG_x || Tuple.type == TAG_y)) {
+        op-&gt;op = genop_i_fast_element_4;
+        op-&gt;a[0] = Tuple;
+        op-&gt;a[1] = Fail;
+        op-&gt;a[2].type = TAG_u;
+        op-&gt;a[2].val = Index.val;
+        op-&gt;a[3] = Dst;
+    } else {
+        op-&gt;op = genop_i_element_4;
+        op-&gt;a[0] = Tuple;
+        op-&gt;a[1] = Fail;
+        op-&gt;a[2] = Index;
+        op-&gt;a[3] = Dst;
+    }
+
+    return op;
+}
+</code></pre><a name="Syntax-of-tab-files_Defining-the-implementation"></a><h2>Defining the implementation</h2><p>
+The actual implementation of instructions are also defined in <strong>.tab</strong>
+files processed by <span class="strong">beam_makeops</span>.  For practical reasons,
+instruction definitions are stored in several files, at the time of
+writing in the following files:
+</p><pre><code class="">
+bif_instrs.tab
+arith_instrs.tab
+bs_instrs.tab
+float_instrs.tab
+instrs.tab
+map_instrs.tab
+msg_instrs.tab
+select_instrs.tab
+trace_instrs.tab
+</code></pre><p>
+There is also a file that only contains macro definitions:
+</p><pre><code class="">
+macros.tab
+</code></pre><p>
+The syntax of each file is similar to C code.  In fact, most of
+the contents <em>is</em> C code, interspersed with macro invocations.
+</p><p>
+To allow Emacs to auto-indent the code, each file starts with the
+following line:
+</p><pre><code class="">
+// -*- c -*-
+</code></pre><p>
+To avoid messing up the indentation, all comments are written
+as C++ style comments (<strong>//</strong>) instead of <strong>#</strong>.  Note that a comment
+must start at the beginning of a line.
+</p><p>
+The meat of an instruction definition file are macro definitions.
+We have seen this macro definition before:
+</p><pre><code class="">
+move(Src, Dst) {
+    $Dst = $Src;
+}
+</code></pre><p>
+A macro definitions must start at the beginning of the line (no spaces
+allowed), the opening curly bracket must be on the same line, and the
+finishing curly bracket must be at the beginning of a line.  It is
+recommended that the macro body is properly indented.
+</p><p>
+As a convention, the macro arguments in the head all start with an
+uppercase letter.  In the body, the macro arguments can be expanded
+by preceding them with <strong>$</strong>.
+</p><p>
+A macro definition whose name and arity matches a family of
+specific instructions is assumed to be the implementation of that
+instruction.
+</p><p>
+A macro can also be invoked from within another macro.  For example,
+<strong>move_deallocate_return/2</strong> avoids repeating code by invoking
+<strong>$deallocate_return()</strong> as a macro:
+</p><pre><code class="">
+move_deallocate_return(Src, Deallocate) {
+    x(0) = $Src;
+    $deallocate_return($Deallocate);
+}
+</code></pre><p>
+Here is the definition of <strong>deallocate_return/1</strong>:
+</p><pre><code class="">
+deallocate_return(Deallocate) {
+    //| -no_next
+    int words_to_pop = $Deallocate;
+    SET_I((BeamInstr *) cp_val(*E));
+    E = ADD_BYTE_OFFSET(E, words_to_pop);
+    CHECK_TERM(x(0));
+    DispatchReturn;
+}
+</code></pre><p>
+The expanded code for <strong>move_deallocate_return</strong> will look this:
+</p><pre><code class="">
+OpCase(move_deallocate_return_cQ):
+{
+  x(0) = I[1];
+  do {
+    int words_to_pop = Qb(BeamExtraData(I[0]));
+    SET_I((BeamInstr *) cp_val(*E));
+    E = ADD_BYTE_OFFSET(E, words_to_pop);
+    CHECK_TERM(x(0));
+    DispatchReturn;
+  } while (0);
+}
+</code></pre><p>
+When expanding macros, <span class="strong">beam_makeops</span> wraps the expansion in a
+<strong>do</strong>/<strong>while</strong> wrapper unless <span class="strong">beam_makeops</span> can clearly see that no
+wrapper is needed.  In this case, the wrapper is needed.
+</p><p>
+Note that arguments for macros cannot be complex expressions, because
+the arguments are split on <strong>,</strong>.  For example, the following would
+not work because <span class="strong">beam_makeops</span> would split the expression into
+two arguments:
+</p><pre><code class="">
+$deallocate_return(get_deallocation(y, $Deallocate));
+</code></pre><a name="Syntax-of-tab-files_Defining-the-implementation_Code-generation-directives"></a><h2>Code generation directives</h2><p>
+Within macro definitions, <strong>//</strong> comments are in general not treated
+specially.  They will be copied to the file with the generated code
+along with the rest of code in the body.
+</p><p>
+However, there is an exception. Within a macro definition, a line that
+starts with whitespace followed by <strong>//|</strong> is treated specially.  The
+rest of the line is assumed to contain directives to control code
+generation.
+</p><p>
+Currently, two code generation directives are recognized:
+</p><ul><li> <strong>-no_prefetch</strong> </li><li> <strong>-no_next</strong> </li></ul><a name="Syntax-of-tab-files_Defining-the-implementation_Code-generation-directives_The-noprefetch-directive"></a><h2>The -no_prefetch directive</h2><p>
+To see what <strong>-no_prefetch</strong> does, let's first look at the default code
+generation.  Here is the code generated for <strong>move_cx</strong>:
+</p><pre><code class="">
+OpCase(move_cx):
+{
+  BeamInstr next_pf = BeamCodeAddr(I[2]);
+  xb(BeamExtraData(I[0])) = I[1];
+  I += 2;
+  ASSERT(VALID_INSTR(next_pf));
+  GotoPF(next_pf);
+}
+</code></pre><p>
+Note that the very first thing done is to fetch the address to the
+next instruction.  The reason is that it usually improves performance.
+</p><p>
+Just as a demonstration, we can add a <strong>-no_prefetch</strong> directive to
+the <strong>move/2</strong> instruction:
+</p><pre><code class="">
+move(Src, Dst) {
+    //| -no_prefetch
+    $Dst = $Src;
+}
+</code></pre><p>
+We can see that the prefetch is no longer done:
+</p><pre><code class="">
+OpCase(move_cx):
+{
+  xb(BeamExtraData(I[0])) = I[1];
+  I += 2;
+  ASSERT(VALID_INSTR(*I));
+  Goto(*I);
+}
+</code></pre><p>
+When would we want to turn off the prefetch in practice?
+</p><p>
+In instructions that will not always execute the next instruction.
+For example:
+</p><pre><code class="">
+is_atom(Fail, Src) {
+    if (is_not_atom($Src)) {
+        $FAIL($Fail);
+    }
+}
+
+// From macros.tab
+FAIL(Fail) {
+    //| -no_prefetch
+    $SET_I_REL($Fail);
+    Goto(*I);
+}
+</code></pre><p>
+<strong>is_atom/2</strong> may either execute the next instruction (if the second
+operand is an atom) or branch to the failure label.
+</p><p>
+The generated code looks like this:
+</p><pre><code class="">
+OpCase(is_atom_fx):
+{
+  if (is_not_atom(xb(I[1]))) {
+    ASSERT(VALID_INSTR(*(I + (fb(BeamExtraData(I[0]))) + 0)));
+    I += fb(BeamExtraData(I[0])) + 0;;
+    Goto(*I);;
+  }
+  I += 2;
+  ASSERT(VALID_INSTR(*I));
+  Goto(*I);
+}
+</code></pre><a name="Syntax-of-tab-files_Defining-the-implementation_Code-generation-directives_The-nonext-directive"></a><h2>The -no_next directive</h2><p>
+Next we will look at when the <strong>-no_next</strong> directive can be used.  Here
+is the <strong>jump/1</strong> instruction:
+</p><pre><code class="">
+jump(Fail) {
+    $JUMP($Fail);
+}
+
+// From macros.tab
+JUMP(Fail) {
+    //| -no_next
+    $SET_I_REL($Fail);
+    Goto(*I);
+}
+</code></pre><p>
+The generated code looks like this:
+</p><pre><code class="">
+OpCase(jump_f):
+{
+  ASSERT(VALID_INSTR(*(I + (fb(BeamExtraData(I[0]))) + 0)));
+  I += fb(BeamExtraData(I[0])) + 0;;
+  Goto(*I);;
+}
+</code></pre><p>
+If we remove the <strong>-no_next</strong> directive, the code would look like this:
+</p><pre><code class="">
+OpCase(jump_f):
+{
+  BeamInstr next_pf = BeamCodeAddr(I[1]);
+  ASSERT(VALID_INSTR(*(I + (fb(BeamExtraData(I[0]))) + 0)));
+  I += fb(BeamExtraData(I[0])) + 0;;
+  Goto(*I);;
+  I += 1;
+  ASSERT(VALID_INSTR(next_pf));
+  GotoPF(next_pf);
+}
+</code></pre><p>
+In the end, the C compiler will probably optimize this code to the
+same native code as the first version, but the first version is certainly
+much easier to read for human readers.
+</p><a name="Syntax-of-tab-files_Defining-the-implementation_Macros-in-the-macrostab-file"></a><h2>Macros in the macros.tab file</h2><p>
+The file <strong>macros.tab</strong> contains many useful macros.  When implementing
+new instructions it is good practice to look through <strong>macros.tab</strong> to
+see if any of existing macros can be used rather than re-inventing
+the wheel.
+</p><p>
+We will describe a few of the most useful macros here.
+</p><a name="Syntax-of-tab-files_Defining-the-implementation_Macros-in-the-macrostab-file_The-GCREGEXP-definition"></a><h2>The GC_REGEXP definition</h2><p>
+The following line defines a regular expression that will recognize
+a call to a function that does a garbage collection:
+</p><pre><code class="">
+ GC_REGEXP=erts_garbage_collect|erts_gc|GcBifFunction;
+</code></pre><p>
+The purpose is that <span class="strong">beam_makeops</span> can verify that an instruction
+that does a garbage collection and has an <strong>d</strong> operand uses the
+<strong>$REFRESH_GEN_DEST()</strong> macro.
+</p><p>
+If you need to define a new function that does garbage collection,
+you should give it the prefix <strong>erts_gc_</strong>.  If that is not possible
+you should update the regular expression so that it will match your
+new function.
+</p><a name="Syntax-of-tab-files_Defining-the-implementation_Macros-in-the-macrostab-file_FAILFail"></a><h2>FAIL(Fail)</h2><p>
+Branch to <strong>$Fail</strong>.  Will suppress prefetch (<strong>-no_prefetch</strong>).  Typical use:
+</p><pre><code class="">
+is_nonempty_list(Fail, Src) {
+    if (is_not_list($Src)) {
+        $FAIL($Fail);
+    }
+}
+</code></pre><a name="Syntax-of-tab-files_Defining-the-implementation_Macros-in-the-macrostab-file_JUMPFail"></a><h2>JUMP(Fail)</h2><p>
+Branch to <strong>$Fail</strong>.  Suppresses generation of dispatch of the next
+instruction (<strong>-no_next</strong>).  Typical use:
+</p><pre><code class="">
+jump(Fail) {
+    $JUMP($Fail);
+}
+</code></pre><a name="Syntax-of-tab-files_Defining-the-implementation_Macros-in-the-macrostab-file_GCTESTNeedStack-NeedHeap-Live"></a><h2>GC_TEST(NeedStack, NeedHeap, Live)</h2><p>
+<strong>$GC_TEST(NeedStack, NeedHeap, Live)</strong> tests that given amount of
+stack space and heap space is available.  If not it will do a
+garbage collection.  Typical use:
+</p><pre><code class="">
+test_heap(Nh, Live) {
+    $GC_TEST(0, $Nh, $Live);
+}
+</code></pre><a name="Syntax-of-tab-files_Defining-the-implementation_Macros-in-the-macrostab-file_AHNeedStack-NeedHeap-Live"></a><h2>AH(NeedStack, NeedHeap, Live)</h2><p>
+<strong>AH(NeedStack, NeedHeap, Live)</strong> allocates a stack frame and
+optionally additional heap space.
+</p><a name="Syntax-of-tab-files_Defining-the-implementation_Predefined-macros-and-variables"></a><h2>Pre-defined macros and variables</h2><p>
+<span class="strong">beam_makeops</span> defines several built-in macros and pre-bound variables.
+</p><a name="Syntax-of-tab-files_Defining-the-implementation_Predefined-macros-and-variables_The-NEXTINSTRUCTION-prebound-variable"></a><h2>The NEXT_INSTRUCTION pre-bound variable</h2><p>
+The NEXT_INSTRUCTION is a pre-bound variable that is available in
+all instructions.  It expands to the address of the next instruction.
+</p><p>
+Here is an example:
+</p><pre><code class="">
+i_call(CallDest) {
+    SET_CP(c_p, $NEXT_INSTRUCTION);
+    $DISPATCH_REL($CallDest);
+}
+</code></pre><p>
+When calling a function, the return address is first stored in <strong>c_p-&gt;cp</strong>
+(using the <strong>SET_CP()</strong> macro defined in <strong>beam_emu.c</strong>), and then control is
+transferred to the callee.  Here is the generated code:
+</p><pre><code class="">
+OpCase(i_call_f):
+{
+  SET_CP(c_p, I+1);
+  ASSERT(VALID_INSTR(*(I + (fb(BeamExtraData(I[0]))) + 0)));
+  I += fb(BeamExtraData(I[0])) + 0;;
+  DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
+  Dispatch();;
+}
+</code></pre><p>
+We can see that that <strong>$NEXT_INSTRUCTION</strong> has been expanded to <strong>I+1</strong>.
+That makes sense since the size of the <strong>i_call_f/1</strong> instruction is
+one word.
+</p><a name="Syntax-of-tab-files_Defining-the-implementation_Predefined-macros-and-variables_The-IPADJUSTMENT-prebound-variable"></a><h2>The IP_ADJUSTMENT pre-bound variable</h2><p>
+<strong>$IP_ADJUSTMENT</strong> is usually 0.  In a few combined instructions
+(described below) it can be non-zero.  It is used like this
+in <strong>macros.tab</strong>:
+</p><pre><code class="">
+SET_I_REL(Offset) {
+    ASSERT(VALID_INSTR(*(I + ($Offset) + $IP_ADJUSTMENT)));
+    I += $Offset + $IP_ADJUSTMENT;
+}
+</code></pre><p>
+Avoid using <strong>IP_ADJUSTMENT</strong> directly.  Use <strong>SET_I_REL()</strong> or
+one of the macros that invoke such as <strong>FAIL()</strong> or <strong>JUMP()</strong>
+defined in <strong>macros.tab</strong>.
+</p><a name="Syntax-of-tab-files_Defining-the-implementation_Predefined-macro-functions"></a><h2>Pre-defined macro functions</h2><a name="Syntax-of-tab-files_Defining-the-implementation_Predefined-macro-functions_The-IF-macro"></a><h2>The IF() macro</h2><p>
+<strong>$IF(Expr, IfTrue, IfFalse)</strong> evaluates <strong>Expr</strong>, which must be a valid
+Perl expression (which for simple numeric expressions have the same
+syntax as C).  If <strong>Expr</strong> evaluates to 0, the entire <strong>IF()</strong> expression will be
+replaced with <strong>IfFalse</strong>, otherwise it will be replaced with <strong>IfTrue</strong>.
+</p><p>
+See the description of <strong>OPERAND_POSITION()</strong> for an example.
+</p><a name="Syntax-of-tab-files_Defining-the-implementation_Predefined-macro-functions_The-OPERANDPOSITION-macro"></a><h2>The OPERAND_POSITION() macro</h2><p>
+<strong>$OPERAND_POSITION(Expr)</strong> returns the position for <strong>Expr</strong>, if
+<strong>Expr</strong> is an operand that is not packed.  The first operand is
+at position 1.
+</p><p>
+Returns 0 otherwise.
+</p><p>
+This macro could be used like this in order to share code:
+</p><pre><code class="">
+FAIL(Fail) {
+    //| -no_prefetch
+    $IF($OPERAND_POSITION($Fail) == 1 &amp;&amp; $IP_ADJUSTMENT == 0,
+        goto common_jump,
+        $DO_JUMP($Fail));
+}
+
+DO_JUMP(Fail) {
+    $SET_I_REL($Fail);
+    Goto(*I));
+}
+
+// In beam_emu.c:
+common_jump:
+   I += I[1];
+   Goto(*I));
+</code></pre><a name="Syntax-of-tab-files_Defining-the-implementation_The-REFRESHGENDEST-macro"></a><h2>The $REFRESH_GEN_DEST() macro</h2><p>
+When a specific instruction has a <strong>d</strong> operand, early during execution
+of the instruction, a pointer will be initialized to point to the X or
+Y register in question.
+</p><p>
+If there is a garbage collection before the result is stored,
+the stack will move and if the <strong>d</strong> operand refered to a Y
+register, the pointer will no longer be valid.  (Y registers are
+stored on the stack.)
+</p><p>
+In those circumstances, <strong>$REFRESH_GEN_DEST()</strong> must be invoked
+to set up the pointer again. <span class="strong">beam_makeops</span> will notice
+if there is a call to a function that does a garbage collection and
+<strong>$REFRESH_GEN_DEST()</strong> is not called.
+</p><p>
+Here is a complete example.  The <strong>new_map</strong> instruction is defined
+like this:
+</p><pre><code class="">
+new_map d t I
+</code></pre><p>
+It is implemented like this:
+</p><pre><code class="">
+new_map(Dst, Live, N) {
+    Eterm res;
+
+    HEAVY_SWAPOUT;
+    res = erts_gc_new_map(c_p, reg, $Live, $N, $NEXT_INSTRUCTION);
+    HEAVY_SWAPIN;
+    $REFRESH_GEN_DEST();
+    $Dst = res;
+    $NEXT($NEXT_INSTRUCTION+$N);
+}
+</code></pre><p>
+If we have forgotten the <strong>$REFRESH_GEN_DEST()</strong> there would be a message
+similar to this:
+</p><pre><code class="">
+pointer to destination register is invalid after GC -- use $REFRESH_GEN_DEST()
+... from the body of new_map at beam/map_instrs.tab(30)
+</code></pre><a name="Syntax-of-tab-files_Defining-the-implementation_Combined-instructions"></a><h2>Combined instructions</h2><p>
+<span class="strong">Problem</span>: For frequently executed instructions we want to use
+"fast" operands types such as <strong>x</strong> and <strong>y</strong>, as opposed to <strong>s</strong> or <strong>S</strong>.
+To avoid an explosion in code size, we want to share most of the
+implementation between the instructions.  Here are the specific
+instructions for <strong>i_increment/5</strong>:
+</p><pre><code class="">
+i_increment r W t d
+i_increment x W t d
+i_increment y W t d
+</code></pre><p>
+The <strong>i_increment</strong> instruction is implemented like this:
+</p><pre><code class="">
+i_increment(Source, IncrementVal, Live, Dst) {
+    Eterm increment_reg_source = $Source;
+    Eterm increment_val = $IncrementVal;
+    Uint live;
+    Eterm result;
+
+    if (ERTS_LIKELY(is_small(increment_reg_val))) {
+        Sint i = signed_val(increment_reg_val) + increment_val;
+        if (ERTS_LIKELY(IS_SSMALL(i))) {
+            $Dst = make_small(i);
+            $NEXT0();
+        }
+    }
+    live = $Live;
+    HEAVY_SWAPOUT;
+    reg[live] = increment_reg_val;
+    reg[live+1] = make_small(increment_val);
+    result = erts_gc_mixed_plus(c_p, reg, live);
+    HEAVY_SWAPIN;
+    ERTS_HOLE_CHECK(c_p);
+    if (ERTS_LIKELY(is_value(result))) {
+        $REFRESH_GEN_DEST();
+        $Dst = result;
+        $NEXT0();
+    }
+    ASSERT(c_p-&gt;freason != BADMATCH || is_value(c_p-&gt;fvalue));
+    goto find_func_info;
+}
+</code></pre><p>
+There will be three almost identical copies of the code.  Given the
+size of the code, that could be too high cost to pay.
+</p><p>
+To avoid the three copies of the code, we could use only one specific
+instruction:
+</p><pre><code class="">
+i_increment S W t d
+</code></pre><p>
+(The same implementation as above will work.)
+</p><p>
+That reduces the code size, but is slower because <strong>S</strong> means that
+there will be extra code to test whether the operand refers to an X
+register or a Y register.
+</p><p>
+<span class="strong">Solution</span>: We can use "combined instructions".  Combined
+instructions are combined from instruction fragments.  The
+bulk of the code can be shared.
+</p><p>
+Here we will show how <strong>i_increment</strong> can be implemented as a combined
+instruction.  We will show each individual fragment first, and then
+show how to connect them together.  First we will need a variable that
+we can store the value fetched from the register in:
+</p><pre><code class="">
+increment.head() {
+    Eterm increment_reg_val;
+}
+</code></pre><p>
+The name <strong>increment</strong> is the name of the group that the fragment
+belongs to.  Note that it does not need to have the same
+name as the instruction.  The group name is followed by <strong>.</strong> and
+the name of the fragment.  The name <strong>head</strong> is pre-defined.
+The code in it will be placed at the beginning of a block, so
+that all fragments in the group can access it.
+</p><p>
+Next we define the fragment that will pick up the value from the
+register from the first operand:
+</p><pre><code class="">
+increment.fetch(Src) {
+    increment_reg_val = $Src;
+}
+</code></pre><p>
+We call this fragment <strong>fetch</strong>.  This fragment will be duplicated three
+times, one for each value of the first operand (<strong>r</strong>, <strong>x</strong>, and <strong>y</strong>).
+</p><p>
+Next we define the main part of the code that do the actual incrementing.
+</p><pre><code class="">
+increment.execute(IncrementVal, Live, Dst) {
+    Eterm increment_val = $IncrementVal;
+    Uint live;
+    Eterm result;
+
+    if (ERTS_LIKELY(is_small(increment_reg_val))) {
+        Sint i = signed_val(increment_reg_val) + increment_val;
+        if (ERTS_LIKELY(IS_SSMALL(i))) {
+            $Dst = make_small(i);
+            $NEXT0();
+        }
+    }
+    live = $Live;
+    HEAVY_SWAPOUT;
+    reg[live] = increment_reg_val;
+    reg[live+1] = make_small(increment_val);
+    result = erts_gc_mixed_plus(c_p, reg, live);
+    HEAVY_SWAPIN;
+    ERTS_HOLE_CHECK(c_p);
+    if (ERTS_LIKELY(is_value(result))) {
+        $REFRESH_GEN_DEST();
+        $Dst = result;
+        $NEXT0();
+    }
+    ASSERT(c_p-&gt;freason != BADMATCH || is_value(c_p-&gt;fvalue));
+    goto find_func_info;
+}
+</code></pre><p>
+We call this fragment <strong>execute</strong>.  It will handle the three remaining
+operands (<strong>W t d</strong>).  There will only be one copy of this fragment.
+</p><p>
+Now that we have defined the fragments, we need to inform
+<span class="strong">beam_makeops</span> how they should be connected:
+</p><pre><code class="">
+i_increment := increment.fetch.execute;
+</code></pre><p>
+To the left of the <strong>:=</strong> is the name of the specific instruction that
+should be implemented by the fragments, in this case <strong>i_increment</strong>.
+To the right of <strong>:=</strong> is the name of the group with the fragments,
+followed by a <strong>.</strong>.  Then the name of the fragments in the group are
+listed in the order they should be executed.  Note that the <strong>head</strong>
+fragment is not listed.
+</p><p>
+The line ends in <strong>;</strong> (to avoid messing up the indentation in Emacs).
+</p><p>
+(Note that in practice the <strong>:=</strong> line is usually placed before the
+fragments.)
+</p><p>
+The generated code looks like this:
+</p><pre><code class="">
+{
+  Eterm increment_reg_val;
+  OpCase(i_increment_rWtd):
+  {
+    increment_reg_val = r(0);
+  }
+  goto increment__execute;
+
+  OpCase(i_increment_xWtd):
+  {
+    increment_reg_val = xb(BeamExtraData(I[0]));
+  }
+  goto increment__execute;
+
+  OpCase(i_increment_yWtd):
+  {
+    increment_reg_val = yb(BeamExtraData(I[0]));
+  }
+  goto increment__execute;
+
+  increment__execute:
+  {
+    // Here follows the code from increment.execute()
+    .
+    .
+    .
+}
+</code></pre><a name="Syntax-of-tab-files_Defining-the-implementation_Combined-instructions_Some-notes-about-combined-instructions"></a><h2>Some notes about combined instructions</h2><p>
+The operands that are different must be at
+the beginning of the instruction.  All operands in the last
+fragment must have the same operands in all variants of
+the specific instruction.
+</p><p>
+As an example, the following specific instructions cannot be
+implemented as a combined instruction:
+</p><pre><code class="">
+i_times j? t x x d
+i_times j? t x y d
+i_times j? t s s d
+</code></pre><p>
+We would have to change the order of the operands so that the
+two operands that are different are placed first:
+</p><pre><code class="">
+i_times x x j? t d
+i_times x y j? t d
+i_times s s j? t d
+</code></pre><p>
+We can then define:
+</p><pre><code class="">
+i_times := times.fetch.execute;
+
+times.head {
+    Eterm op1, op2;
+}
+
+times.fetch(Src1, Src2) {
+    op1 = $Src1;
+    op2 = $Src2;
+}
+
+times.execute(Fail, Live, Dst) {
+    // Multiply op1 and op2.
+    .
+    .
+    .
+}
+</code></pre><p>
+Several instructions can share a group.  As an example, the following
+instructions have different names, but in the end they all create a
+binary.  The last two operands are common for all of them:
+</p><pre><code class="">
+i_bs_init_fail       xy j? t? x
+i_bs_init_fail_heap s I j? t? x
+i_bs_init                W t? x
+i_bs_init_heap         W I t? x
+</code></pre><p>
+The instructions are defined like this (formatted with extra
+spaces for clarity):
+</p><pre><code class="">
+i_bs_init_fail_heap := bs_init . fail_heap . verify . execute;
+i_bs_init_fail      := bs_init . fail      . verify . execute;
+i_bs_init           := bs_init .           .  plain . execute;
+i_bs_init_heap      := bs_init .               heap . execute;
+</code></pre><p>
+Note that the first two instruction have three fragments, while the
+other two only have two fragments.  Here are the fragments:
+</p><pre><code class="">
+bs_init_bits.head() {
+    Eterm num_bits_term;
+    Uint num_bits;
+    Uint alloc;
+}
+
+bs_init_bits.plain(NumBits) {
+    num_bits = $NumBits;
+    alloc = 0;
+}
+
+bs_init_bits.heap(NumBits, Alloc) {
+    num_bits = $NumBits;
+    alloc = $Alloc;
+}
+
+bs_init_bits.fail(NumBitsTerm) {
+    num_bits_term = $NumBitsTerm;
+    alloc = 0;
+}
+
+bs_init_bits.fail_heap(NumBitsTerm, Alloc) {
+    num_bits_term = $NumBitsTerm;
+    alloc = $Alloc;
+}
+
+bs_init_bits.verify(Fail) {
+    // Verify the num_bits_term, fail using $FAIL
+    // if there is a problem.
+.
+.
+.
+}
+
+bs_init_bits.execute(Live, Dst) {
+   // Long complicated code to a create a binary.
+   .
+   .
+   .
+}
+</code></pre><p>
+The full definitions of those instructions can be found in <strong>bs_instrs.tab</strong>.
+The generated code can be found in <strong>beam_warm.h</strong>.
+</p></body></html>

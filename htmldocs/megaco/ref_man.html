@@ -1,0 +1,1015 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Megaco/H.248 Reference Manual</h1><p>The Megaco application is a framework for building
+applications on top of the Megaco/H.248 protocol. </p><h2>megaco</h2><p>Main API of the Megaco application</p><p>Interface module for the Megaco application</p><h3>DATA TYPES</h3><pre><code class="">
+megaco_mid() = ip4Address() | ip6Address() | 
+               domainName() | deviceName() | 
+               mtpAddress() 
+ip4Address() = #'IP4Address'{}
+ip6Address() = #'IP6Address'{}
+domainName() = #'DomainName'{}
+deviceName() = pathName() 
+pathName()   = ia5String(1..64)
+mtpAddress() = octetString(2..4)
+
+action_request() = #'ActionRequest'{}
+action_reply() = #'ActionReply'{}
+error_desc() = #'ErrorDescriptor'{}
+transaction_reply() = #'TransactionReply'{}
+segment_no() = integer()
+
+resend_indication() = flag | boolean()
+
+property_parm() = #'PropertyParm'{}
+property_group() = [property_parm()]
+property_groups() = [property_group()]
+
+sdp() = sdp_c() | sdp_o() | sdp_s() | sdp_i() | sdp_u() | 
+        sdp_e() | sdp_p() | sdp_b() | sdp_z() | sdp_k() | 
+        sdp_a() | sdp_a_rtpmap() | sdp_a_ptime() | 
+        sdp_t() | sdp_r() | sdp_m()
+sdp_v() = #megaco_sdp_v{} (Protocol version)
+sdp_o() = #megaco_sdp_o{} (Owner/creator and session identifier)
+sdp_s() = #megaco_sdp_s{} (Session name)
+sdp_i() = #megaco_sdp_i{} (Session information)
+sdp_u() = #megaco_sdp_u{} (URI of description)
+sdp_e() = #megaco_sdp_e{} (Email address)
+sdp_p() = #megaco_sdp_p{} (Phone number)
+sdp_c() = #megaco_sdp_c{} (Connection information)
+sdp_b() = #megaco_sdp_b{} (Bandwidth information)
+sdp_k() = #megaco_sdp_k{} (Encryption key)
+sdp_a() = #megaco_sdp_a{} (Session attribute)
+sdp_a_rtpmap() = #megaco_sdp_a_rtpmap{}
+sdp_a_ptime() = #megaco_sdp_a_ptime{}
+sdp_a_quality() = #megaco_sdp_a_quality{}
+sdp_a_fmtp() = #megaco_sdp_a_fmtp{}
+sdp_z() = #megaco_sdp_z{} (Time zone adjustment)
+sdp_t() = #megaco_sdp_t{} (Time the session is active)
+sdp_r() = #megaco_sdp_r{} (Repeat times)
+sdp_m() = #megaco_sdp_m{} (Media name and transport address)
+sdp_property_parm() = sdp() | property_parm()
+sdp_property_group() = [sdp_property_parm()]
+sdp_property_groups() = [sdp_property_group()]
+
+megaco_timer() = infinity | integer() &gt;= 0 | megaco_incr_timer()
+megaco_incr_timer() = #megaco_incr_timer{}
+    </code></pre><p>The record <strong>megaco_incr_timer</strong> contains the following fields: </p><dl><dt><strong>wait_for = integer() &gt;= 0</strong></dt><dd> <p>The actual timer time.</p> </dd><dt><strong>factor = integer() &gt;= 0</strong></dt><dd> <p>The factor when calculating the new timer time 
+(<strong>wait_for</strong>).</p> </dd><dt><strong>incr = integer()</strong></dt><dd> <p>The increment value when calculating the new timer time 
+(<strong>wait_for</strong>). Note that this value <em>can</em> be negative
+and that a timer restart can therefor lead to a <strong>wait_for</strong>
+value of zero! It is up to the user to be aware of the 
+consequences of a <strong>wait_for</strong> value of zero. </p> </dd><dt><strong>max_retries = infinity | infinity_restartable | integer() &gt;= 0</strong></dt><dd> <p>The maximum number of repetitions of the timer.</p> <p>There is a special case for this field. When the 
+<strong>max_retries</strong> has the value <strong>infinity_restartable</strong>, 
+it means that the timer is restartable as long as some 
+external event occurs (e.g. receipt of a pending 
+message for instance). But the timer will never be
+restarted "by itself", i.e. when the timer expires 
+(whatever the timeout time), so does the timer. 
+Whenever the timer is restarted, the timeout time will 
+be calculated in the usual way! Also, as mentioned 
+above, beware the consequences of setting the value to
+<strong>infinity</strong> if <em>incr</em> has been set to an 
+negative value.</p> </dd></dl><a name="start"></a><h2>Functions</h2><h3>start() -&gt; ok | {error, Reason}</h3><p>Starts the Megaco application</p><ul><li><span class="v">Reason = term()</span></li></ul><p>Starts the Megaco application</p><p>Users may either explicitly be registered with
+megaco:start_user/2 and/or be statically configured by
+setting the application environment variable 'users' to a
+list of {UserMid, Config} tuples. See the function
+megaco:start_user/2 for details.</p><a name="stop"></a><h3>stop() -&gt; ok | {error, Reason}</h3><p>Stops the Megaco application</p><ul><li><span class="v">Reason = term()</span></li></ul><p>Stops the Megaco application</p><a name="start_user"></a><h3>start_user(UserMid, Config) -&gt; ok | {error, Reason}</h3><p>Initial configuration of a user</p><ul><li><span class="v">UserMid = megaco_mid()</span></li><li><span class="v">Config  = [{user_info_item(), user_info_value()}]</span></li><li><span class="v">Reason  = term()</span></li></ul><p>Initial configuration of a user</p><p>Requires the megaco application to be started. A user is
+either a Media Gateway (MG) or a Media Gateway Controller
+(MGC). One Erlang node may host many users.</p><p>A user is identified by its UserMid, which must be a legal
+Megaco MID.</p><p>Config is a list of {Item, Value} tuples.  See
+megaco:user_info/2 about which items and values that are valid.</p><a name="stop_user"></a><h3>stop_user(UserMid) -&gt; ok | {error, Reason}</h3><p>Delete the configuration of a user</p><ul><li><span class="v">UserMid = megaco_mid()</span></li><li><span class="v">Reason  = term()</span></li></ul><p>Delete the configuration of a user</p><p>Requires that the user does not have any active connection.</p><a name="user_info"></a><h3>user_info(UserMid) -&gt; [{Item, Value}]</h3><h3>user_info(UserMid, Item) -&gt; Value | exit(Reason)</h3><p>Lookup user information</p><ul><li><span class="v">Handle  = user_info_handle()</span></li><li><span class="v">UserMid = megaco_mid() </span></li><li><span class="v">Item    = user_info_item()</span></li><li><span class="v">Value   = user_info_value()</span></li><li><span class="v">Reason  = term()</span></li></ul><p>Lookup user information</p><p>The following Item's are valid:</p><a name="ui_connections"></a><dl><dt><strong>connections</strong></dt><dd> <p>Lists all active connections for this user. Returns a
+list of megaco_conn_handle records.</p> <a name="ui_receive_handle"></a> </dd><dt><strong>receive_handle</strong></dt><dd> <p>Construct a megaco_receive_handle record from user config</p> <a name="ui_trans_id"></a> </dd><dt><strong>trans_id</strong></dt><dd> <p>Current transaction id. </p> <p>A positive integer or the atom 
+<strong>undefined_serial</strong> (in case no messages has been sent).</p> <a name="ui_min_trans_id"></a> </dd><dt><strong>min_trans_id</strong></dt><dd> <p>First trans id. </p> <p>A positive integer, defaults to 1.</p> <a name="ui_max_trans_id"></a> </dd><dt><strong>max_trans_id</strong></dt><dd> <p>Last trans id. </p> <p>A positive integer or <strong>infinity</strong>, 
+defaults to <strong>infinity</strong>.</p> <a name="ui_request_timer"></a> </dd><dt><strong>request_timer</strong></dt><dd> <p>Wait for reply. </p> <p>The timer is cancelled when a reply is received. </p> <p>When a pending message is received, the timer is 
+cancelled and the <strong>long_request_timer</strong> is started instead 
+(see below). No resends will be performed from this point 
+(since we now know that the other side has received the 
+request). </p> <p>When the timer reaches an intermediate expire, the request
+is resent and the timer is restarted. </p> <p>When the timer reaches the final expire, either the function 
+<strong>megaco:call</strong> will return with <strong>{error, timeout}</strong>
+or the callback function <strong>handle_trans_reply</strong> will be 
+called with <strong>UserReply = {error, timeout}</strong> (if 
+<strong>megaco:cast</strong> was used).</p> <p>A Megaco Timer (see explanation above), 
+defaults to <strong>#megaco_incr_timer{}</strong>.</p> <a name="ui_long_request_timer"></a> </dd><dt><strong>long_request_timer</strong></dt><dd> <p>Wait for reply after having received a pending message. </p> <p>When the timer reaches an intermediate expire, the timer 
+is restarted. </p> <p>When a pending message is received, and the 
+<strong>long_request_timer</strong>  
+is <em>not</em> "on its final leg", the timer will be 
+restarted, and, if <strong>long_request_resend = true</strong>, the
+request will be re-sent. </p> <p>A Megaco Timer (see explanation above), 
+defaults to <strong>60 seconds</strong>.</p> <a name="ui_long_request_resend"></a> </dd><dt><strong>long_request_resend</strong></dt><dd> <p>This option indicates weather the request should be 
+resent until the reply is received,
+<em>even</em> though a pending message has been received. </p> <p>Normally, after a pending message has been received, 
+the request is not resent 
+(since a pending message is an indication that the
+request has been received). But since the reply (to the 
+request) can be lost, this behaviour has its values.</p> <p>It is of course pointless to set this value to <em>true</em>
+unless the <strong>long_request_timer</strong> (see above) is also set
+to an incremental timer (<strong>#megaco_incr_timer{}</strong>). </p> <p>A <strong>boolean</strong>, 
+defaults to <strong>false</strong>.</p> <a name="ui_reply_timer"></a> </dd><dt><strong>reply_timer</strong></dt><dd> <p>Wait for an ack. </p> <p>When a request is received, some info
+related to the reply is store internally (e.g. the
+binary of the reply). This info will live until either
+an ack is received or this timer expires. For instance,
+if the same request is received again (e.g. a request
+with the same transaction id), the (stored) reply will
+be (re-) sent automatically by megaco.</p> <p>If the timer is of type <strong>#megaco_incr_timer{}</strong>, 
+then for each intermediate timout, the reply will be resent
+(this is valid until the ack is received or 
+the timer expires). </p> <p>A Megaco Timer (see explanation above), defaults to 30000.</p> <a name="ui_request_keep_alive_timeout"></a> </dd><dt><strong>request_keep_alive_timeout</strong></dt><dd> <p>Specifies the timeout time for the request-keep-alive timer. </p> <p>This timer is started when the <em>first</em> reply to an asynchronous
+request (issued using the 
+<a href="./megaco#cast">megaco:cast/3</a> function)
+arrives. As long as this timer is running, replies will 
+be delivered via the 
+<a href="./megaco_user#trans_reply">handle_trans_reply/4,5</a> 
+callback function, with their "arrival number" 
+(see <strong>UserReply</strong> of the 
+<a href="./megaco_user#trans_reply">handle_trans_reply/4,5</a> 
+callback function). </p> <p>Replies arriving after the timer has expired, will be 
+delivered using the 
+<a href="./megaco_user#unexpected_trans">handle_unexpected_trans/3,4</a> 
+callback function. </p> <p>The timeout time can have the values: 
+<strong>plain | integer() &gt;= 0</strong>. </p> <p>Defaults to <strong>plain</strong>.</p> <a name="ui_call_proxy_gc_timeout"></a> </dd><dt><strong>call_proxy_gc_timeout</strong></dt><dd> <p>Timeout time for the call proxy. </p> <p>When a request is sent using the 
+<a href="./megaco#call">call/3</a> function, 
+a proxy process is started to handle
+all replies. When the reply has been received and delivered 
+to the user, the proxy process continue to exist for as long
+as this option specifies. Any received messages, is passed on 
+to the user via the 
+<a href="./megaco_user#handle_unexpected_trans">handle_unexpected_trans</a> 
+callback function. </p> <p>The timeout time is in milliseconds. A value of 0 (zero) means
+that the proxy process will exit directly after the reply has 
+been delivered. </p> <p>An integer &gt;= 0, defaults to 5000 (= 5 seconds).</p> <a name="ui_auto_ack"></a> </dd><dt><strong>auto_ack</strong></dt><dd> <p>Automatic send transaction ack when the transaction
+reply has been received (see <strong>trans_ack</strong> below). </p> <p>This is used for <em>three-way-handshake</em>.</p> <p>A <strong>boolean</strong>, defaults to <strong>false</strong>.</p> <a name="ui_trans_ack"></a> </dd><dt><strong>trans_ack</strong></dt><dd> <p>Shall ack's be accumulated or not. </p> <p>This property is only valid if <strong>auto_ack</strong> is true.</p> <p>If <strong>auto_ack</strong> is true, then if <strong>trans_ack</strong> is
+<strong>false</strong>, ack's will be sent immediately. 
+If <strong>trans_ack</strong> is <strong>true</strong>, then 
+ack's will instead be sent to the transaction 
+sender process for accumulation and later sending 
+(see <strong>trans_ack_maxcount</strong>, <strong>trans_req_maxcount</strong>, 
+<strong>trans_req_maxsize</strong>, <strong>trans_ack_maxcount</strong> and 
+<strong>trans_timer</strong>). </p> <p>See also <a href="./megaco_run#transaction_sender">transaction sender</a> for more info.</p> <p>An <strong>boolean</strong>, defaults to <strong>false</strong>.</p> <a name="ui_trans_ack_maxcount"></a> </dd><dt><strong>trans_ack_maxcount</strong></dt><dd> <p>Maximum number of accumulated ack's. At most this many ack's
+will be accumulated by the transaction sender (if started and 
+configured to accumulate ack's).</p> <p>See also <a href="./megaco_run#transaction_sender">transaction sender</a> for more info. </p> <p>An <strong>integer</strong>, defaults to 10.</p> <a name="ui_trans_req"></a> </dd><dt><strong>trans_req</strong></dt><dd> <p>Shall requests be accumulated or not. </p> <p>If <strong>trans_req</strong> is <strong>false</strong>, then request(s)
+will be sent immediately (in its own message).</p> <p>If <strong>trans_req</strong> is true, then request(s) will 
+instead be sent to the transaction sender process for 
+accumulation and later sending 
+(see <strong>trans_ack_maxcount</strong>, <strong>trans_req_maxcount</strong>, 
+<strong>trans_req_maxsize</strong>, <strong>trans_ack_maxcount</strong> and 
+<strong>trans_timer</strong>). </p> <p>See also <a href="./megaco_run#transaction_sender">transaction sender</a> for more info. </p> <p>An <strong>boolean</strong>, defaults to <strong>false</strong>.</p> <a name="ui_trans_req_maxcount"></a> </dd><dt><strong>trans_req_maxcount</strong></dt><dd> <p>Maximum number of accumulated requests. At most this many 
+requests will be accumulated by the transaction sender 
+(if started and configured to accumulate requests). </p> <p>See also <a href="./megaco_run#transaction_sender">transaction sender</a> for more info.</p> <p>An <strong>integer</strong>, defaults to 10.</p> <a name="ui_trans_req_maxsize"></a> </dd><dt><strong>trans_req_maxsize</strong></dt><dd> <p>Maximum size of the accumulated requests. At most this much
+requests will be accumulated by the transaction sender 
+(if started and configured to accumulate requests).</p> <p>See also <a href="./megaco_run#transaction_sender">transaction sender</a> for more info.</p> <p>An <strong>integer</strong>, defaults to 2048.</p> <a name="ui_trans_timer"></a> </dd><dt><strong>trans_timer</strong></dt><dd> <p>Transaction sender timeout time. Has two functions. First, if 
+the value is 0, then transactions will not be accumulated 
+(e.g. the transaction sender process will not be started). 
+Second, if the value is greater then 0 and <strong>auto_ack</strong> 
+and <strong>trans_ack</strong> are both true or 
+if <strong>trans_req</strong> is true, 
+then transaction sender will be started and transactions 
+(which is depending on the values of <strong>auto_ack</strong>, 
+<strong>trans_ack</strong> and <strong>trans_req</strong>) will be accumulated,
+for later sending. </p> <p>See also <a href="./megaco_run#transaction_sender">transaction sender</a> for more info. </p> <p>An <strong>integer</strong>, defaults to 0.</p> <a name="ui_pending_timer"></a> </dd><dt><strong>pending_timer</strong></dt><dd> <p>Automatically send pending if the timer expires before a
+transaction reply has been sent. This timer is also called 
+provisional response timer. </p> <p>A Megaco Timer (see explanation above), defaults to 30000.</p> <a name="ui_sent_pending_limit"></a> </dd><dt><strong>sent_pending_limit</strong></dt><dd> <p>Sent pending limit (see the MGOriginatedPendingLimit
+and the MGCOriginatedPendingLimit of the megaco root package).
+This parameter specifies how many pending messages that can
+be sent (for a given received transaction request).
+When the limit is exceeded, the transaction is aborted
+(see <a href="./megaco_user#request_abort">handle_trans_request_abort</a>) and an error message 
+is sent to the other side. </p> <p>Note that this has no effect on the actual sending of
+pending transactions. This is either implicit (e.g. when 
+receiving a re-sent transaction request for a request which
+is being processed) or controlled by the pending_timer,
+see above. </p> <p>A positive integer or <strong>infinity</strong>, 
+defaults to <strong>infinity</strong>.</p> <a name="ui_recv_pending_limit"></a> </dd><dt><strong>recv_pending_limit</strong></dt><dd> <p>Receive pending limit (see the MGOriginatedPendingLimit
+and the MGCOriginatedPendingLimit of the megaco root package).
+This parameter specifies how many pending messages that can
+be received (for a sent transaction request).
+When the limit is exceeded, the transaction is considered
+lost, and an error returned to the user (through the call-back
+function <em>handle_trans_reply</em>). </p> <p>A positive integer or <strong>infinity</strong>, 
+defaults to <strong>infinity</strong>. </p> <a name="ui_send_mod"></a> </dd><dt><strong>send_mod</strong></dt><dd> <p>Send callback module which exports send_message/2. The
+function SendMod:send_message(SendHandle, Binary) is
+invoked when the bytes needs to be transmitted to the
+remote user. </p> <p>An <strong>atom</strong>, defaults to <strong>megaco_tcp</strong>.</p> <a name="ui_encoding_mod"></a> </dd><dt><strong>encoding_mod</strong></dt><dd> <p>Encoding callback module which exports encode_message/2
+and decode_message/2. The function
+EncodingMod:encode_message(EncodingConfig,
+MegacoMessage) is invoked whenever a 'MegacoMessage'
+record needs to be translated into an Erlang binary. The
+function EncodingMod:decode_message(EncodingConfig,
+Binary) is invoked whenever an Erlang binary needs to be
+translated into a 'MegacoMessage' record. </p> <p>An <strong>atom</strong>, defaults to <strong>megaco_pretty_text_encoder</strong>.</p> <a name="ui_encoding_config"></a> </dd><dt><strong>encoding_config</strong></dt><dd> <p>Encoding module config. </p> <p>A <strong>list</strong>, defaults to <strong>[]</strong>.</p> <a name="ui_protocol_version"></a> </dd><dt><strong>protocol_version</strong></dt><dd> <p>Actual protocol version. </p> <p>An <strong>integer</strong>, default is 1.</p> <a name="ui_strict_version"></a> </dd><dt><strong>strict_version</strong></dt><dd> <p>Strict version control, i.e. when a message is received,
+verify that the version is that which was negotiated. </p> <p>An <strong>boolean</strong>, default is true.</p> <a name="ui_reply_data"></a> </dd><dt><strong>reply_data</strong></dt><dd> <p>Default reply data. </p> <p>Any term, defaults to the atom <strong>undefined</strong>.</p> <a name="ui_user_mod"></a> </dd><dt><strong>user_mod</strong></dt><dd> <p>Name of the user callback module. See the the reference
+manual for megaco_user for more info.</p> <a name="ui_user_args"></a> </dd><dt><strong>user_args</strong></dt><dd> <p>List of extra arguments to the user callback
+functions. See the the reference manual for megaco_user
+for more info.</p> <a name="ui_threaded"></a> </dd><dt><strong>threaded</strong></dt><dd> <p>If a received message contains several transaction requests, 
+this option indicates whether the requests should be handled
+sequentially in the same process (<strong>false</strong>), or if each 
+request should be handled by its own process (<strong>true</strong>
+i.e. a separate process is spawned for each request). </p> <p>An <strong>boolean</strong>, defaults to <strong>false</strong>. </p> <a name="ui_resend_indication"></a> </dd><dt><strong>resend_indication</strong></dt><dd> <p>This option indicates weather the transport module
+should be told if a message send is a resend or not. </p> <p>If <em>false</em>, megaco messages are sent using the
+<a href="./megaco_transport#send_message">send_message</a> 
+function. </p> <p>If <em>true</em>, megaco message <em>re-sends</em> are made using the
+<a href="./megaco_transport#resend_message">resend_message</a> 
+function. The initial message send is still done using the
+<a href="./megaco_transport#send_message">send_message</a> 
+function. </p> <p>The special value <em>flag</em> instead indicates that the 
+function 
+<a href="./megaco_transport#send_message">send_message/3</a> 
+shall be used. </p> <p>A <strong>resend_indication()</strong>, 
+defaults to <strong>false</strong>.</p> <a name="ui_segment_reply_ind"></a> </dd><dt><strong>segment_reply_ind</strong></dt><dd> <p>This option specifies if the user shall be notified of received
+segment replies or not. </p> <p>See 
+<a href="./megaco_user#segment_reply">handle_segment_reply</a> 
+callback function for more information. </p> <p>A <strong>boolean</strong>, 
+defaults to <strong>false</strong>. </p> <a name="ui_segment_recv_timer"></a> </dd><dt><strong>segment_recv_timer</strong></dt><dd> <p>This timer is started when the segment indicated by the
+<strong>segmentation complete token</strong> is received, but all 
+segments has not yet been received.</p> <p>When the timer finally expires, a "megaco segments not
+received" (459) error message is sent to the other side
+and the user is notified with a <strong>segment timeout</strong> <strong>UserReply</strong> in either the
+<a href="./megaco_user#trans_reply">handle_trans_reply</a> callback function or 
+the return value of the 
+<a href="./megaco#call">call</a> function. </p> <p>A Megaco Timer (see explanation above),
+defaults to <strong>10000</strong>. </p> <a name="ui_segment_send"></a> </dd><dt><strong>segment_send</strong></dt><dd> <p>Shall outgoing messages be segmented or not: </p> <dl><dt><strong>none</strong></dt><dd> <p>Do not segment outgoing reply messages. This is useful when
+either it is known that messages are never to large or
+that the transport protocol can handle such things
+on its own (e.g. TCP or SCTP).</p> </dd><dt><strong>integer() &gt; 0</strong></dt><dd> <p>Outgoing reply messages will be segmented as needed 
+(see <strong>max_pdu_size</strong> below). This value, K, indicate 
+the outstanding window, i.e. how many segments can be 
+outstanding (not acknowledged) at any given time. </p> </dd><dt><strong>infinity</strong></dt><dd> <p>Outgoing reply messages will be segmented as needed 
+(see <strong>max_pdu_size</strong> below). Segment messages 
+are sent all at once (i.e. no acknowledgement awaited 
+before sending the next segment). </p> </dd></dl> <p>Defaults to <strong>none</strong>. </p> <a name="ui_max_pdu_size"></a> </dd><dt><strong>max_pdu_size</strong></dt><dd> <p>Max message size. If the encoded message (PDU) exceeds 
+this size, the message should be segmented, and then 
+encoded. </p> <p>A positive integer or <strong>infinity</strong>,
+defaults to <strong>infinity</strong>. </p> </dd></dl><a name="update_user_info"></a><h3>update_user_info(UserMid, Item, Value) -&gt; ok | {error, Reason}</h3><p>Update information about a user</p><ul><li><span class="v">UserMid = megaco_mid() </span></li><li><span class="v">Item    = user_info_item()</span></li><li><span class="v">Value   = user_info_value()</span></li><li><span class="v">Reason  = term()</span></li></ul><p>Update information about a user</p><p>Requires that the user is started. See megaco:user_info/2
+about which items and values that are valid.</p><a name="conn_info"></a><h3>conn_info(ConnHandle) -&gt; [{Item, Value}]</h3><h3>conn_info(ConnHandle, Item) -&gt; Value | exit(Reason)</h3><p>Lookup information about an active connection</p><ul><li><span class="v">ConnHandle = #megaco_conn_handle{}</span></li><li><span class="v">Item       = conn_info_item()</span></li><li><span class="v">Value      = conn_info_value()</span></li><li><span class="v">Reason     = {no_such_connection, ConnHandle} | term()</span></li></ul><p>Lookup information about an active connection</p><p>Requires that the connection is active.</p><a name="ci_control_pid"></a><dl><dt><strong>control_pid</strong></dt><dd> <p>The process identifier of the controlling process for a
+connection.</p> <a name="ci_send_handle"></a> </dd><dt><strong>send_handle</strong></dt><dd> <p>Opaque send handle whose contents is internal for the
+send module. May be any term.</p> <a name="ci_local_mid"></a> </dd><dt><strong>local_mid</strong></dt><dd> <p>The local mid (of the connection, i.e. the own mid). 
+<strong>megaco_mid()</strong>.</p> <a name="ci_remote_mid"></a> </dd><dt><strong>remote_mid</strong></dt><dd> <p>The remote mid (of the connection). 
+<strong>megaco_mid()</strong>.</p> <a name="ci_receive_handle"></a> </dd><dt><strong>receive_handle</strong></dt><dd> <p>Construct a megaco_receive_handle record.</p> <a name="ci_trans_id"></a> </dd><dt><strong>trans_id</strong></dt><dd> <p>Next transaction id. A positive integer or the atom 
+<strong>undefined_serial</strong> (only in case of error). </p> <p>Note that transaction id's are (currently) maintained 
+on a per user basis so there is no way to be sure that 
+the value returned will actually be used for a transaction 
+sent on this connection (in case a user has several 
+connections, which is not at all unlikely). </p> <a name="ci_max_trans_id"></a> </dd><dt><strong>max_trans_id</strong></dt><dd> <p>Last trans id. </p> <p>A positive integer or <strong>infinity</strong>, 
+defaults to <strong>infinity</strong>.</p> <a name="ci_request_time"></a> </dd><dt><strong>request_timer</strong></dt><dd> <p>Wait for reply. </p> <p>The timer is cancelled when a reply is received. </p> <p>When a pending message is received, the timer is 
+cancelled and the <strong>long_request_timer</strong> is started instead 
+(see below). No resends will be performed from this point 
+(since we now know that the other side has received the 
+request). </p> <p>When the timer reaches an intermediate expire, the request
+is resent and the timer is restarted. </p> <p>When the timer reaches the final expire, either the function 
+<strong>megaco:call</strong> will return with <strong>{error, timeout}</strong>
+or the callback function <strong>handle_trans_reply</strong> will be 
+called with <strong>UserReply = {error, timeout}</strong> (if 
+<strong>megaco:cast</strong> was used).</p> <p>A Megaco Timer (see explanation above), 
+defaults to #megaco_incr_timer{}.</p> <a name="ci_long_request_timer"></a> </dd><dt><strong>long_request_timer</strong></dt><dd> <p>Wait for reply after having received a pending message. </p> <p>When the timer reaches an intermediate expire, the timer 
+restarted. </p> <p>When a pending message is received, and the 
+<strong>long_request_timer</strong> 
+is <em>not</em> "on its final leg", the timer will be 
+restarted, and, if <strong>long_request_resend = true</strong>, the
+request will be re-sent. </p> <p>A Megaco Timer (see explanation above), 
+defaults to <strong>60 seconds</strong>.</p> <a name="ci_request_keep_alive_timeout"></a> </dd><dt><strong>request_keep_alive_timeout</strong></dt><dd> <p>Specifies the timeout time for the request-keep-alive timer. </p> <p>This timer is started when the <em>first</em> reply to an asynchronous
+request (issued using the 
+<a href="./megaco#cast">megaco:cast/3</a> function)
+arrives. As long as this timer is running, replies will 
+be delivered via the 
+<a href="./megaco_user#trans_reply">handle_trans_reply/4,5</a> 
+callback function, with their "arrival number" 
+(see <strong>UserReply</strong> of the 
+<a href="./megaco_user#trans_reply">handle_trans_reply/4,5</a> 
+callback function). </p> <p>Replies arriving after the timer has expired, will be 
+delivered using the 
+<a href="./megaco_user#unexpected_trans">handle_unexpected_trans/3,4</a> 
+callback function. </p> <p>The timeout time can have the values: 
+<strong>plain | integer() &gt;= 0</strong>. </p> <p>Defaults to <strong>plain</strong>.</p> <a name="ci_long_request_resend"></a> </dd><dt><strong>long_request_resend</strong></dt><dd> <p>This option indicates weather the request should be 
+resent until the reply is received,
+<em>even</em> though a pending message has been received. </p> <p>Normally, after a pending message has been received, 
+the request is not resent 
+(since a pending message is an indication that the
+request has been received). But since the reply (to the 
+request) can be
+lost, this behaviour has its values.</p> <p>It is of course pointless to set this value to <em>true</em>
+unless the <strong>long_request_timer</strong> (see above) is also set
+to an incremental timer (<strong>#megaco_incr_timer{}</strong>). </p> <p>A <strong>boolean</strong>, 
+defaults to <strong>false</strong>.</p> <a name="ci_reply_timer"></a> </dd><dt><strong>reply_timer</strong></dt><dd> <p>Wait for an ack. </p> <p>When a request is received, some info
+related to the reply is store internally (e.g. the
+binary of the reply). This info will live until either
+an ack is received or this timer expires. For instance,
+if the same request is received again (e.g. a request
+with the same transaction id), the (stored) reply will
+be (re-) sent automatically by megaco.</p> <p>If the timer is of type <strong>#megaco_incr_timer{}</strong>, 
+then for each intermediate timout, the reply will be resent
+(this is valid until the ack is received or 
+the timer expires). </p> <p>A Megaco Timer (see explanation above), defaults to 30000.</p> <a name="ci_call_proxy_gc_timeout"></a> </dd><dt><strong>call_proxy_gc_timeout</strong></dt><dd> <p>Timeout time for the call proxy. </p> <p>When a request is sent using the 
+<a href="./megaco#call">call/3</a> function, 
+a proxy process is started to handle
+all replies. When the reply has been received and delivered 
+to the user, the proxy process continue to exist for as long
+as this option specifies. Any received messages, is passed on 
+to the user via the 
+<a href="./megaco_user#handle_unexpected_trans">handle_unexpected_trans</a> 
+callback function. </p> <p>The timeout time is in milliseconds. A value of 0 (zero) means
+that the proxy process will exit directly after the reply has 
+been delivered. </p> <p>An integer &gt;= 0, defaults to 5000 (= 5 seconds).</p> <a name="ci_auto_ack"></a> </dd><dt><strong>auto_ack</strong></dt><dd> <p>Automatic send transaction ack when the transaction
+reply has been received (see <strong>trans_ack</strong> below). </p> <p>This is used for <em>three-way-handshake</em>. </p> <p>A <strong>boolean</strong>, defaults to <strong>false</strong>.</p> <a name="ci_trans_ack"></a> </dd><dt><strong>trans_ack</strong></dt><dd> <p>Shall ack's be accumulated or not. </p> <p>This property is only valid if <strong>auto_ack</strong> is true. </p> <p>If <strong>auto_ack</strong> is true, then if <strong>trans_ack</strong> is
+<strong>false</strong>, ack's will be sent immediately. 
+If <strong>trans_ack</strong> is
+<strong>true</strong>, then ack's will instead be sent to the transaction 
+sender process for accumulation and later sending 
+(see <strong>trans_ack_maxcount</strong>, <strong>trans_req_maxcount</strong>, 
+<strong>trans_req_maxsize</strong>, <strong>trans_ack_maxcount</strong> and 
+<strong>trans_timer</strong>). </p> <p>See also <a href="./megaco_run#transaction_sender">transaction sender</a> for more info. </p> <p>An <strong>boolean</strong>, defaults to <strong>false</strong>.</p> <a name="ci_trans_ack_maxcount"></a> </dd><dt><strong>trans_ack_maxcount</strong></dt><dd> <p>Maximum number of accumulated ack's. At most this many ack's
+will be accumulated by the transaction sender (if started and 
+configured to accumulate ack's).</p> <p>See also <a href="./megaco_run#transaction_sender">transaction sender</a> for more info.</p> <p>An integer, defaults to 10.</p> <a name="ci_trans_req"></a> </dd><dt><strong>trans_req</strong></dt><dd> <p>Shall requests be accumulated or not. </p> <p>If <strong>trans_req</strong> is <strong>false</strong>, then request(s)
+will be sent immediately (in its own message). </p> <p>If <strong>trans_req</strong> is true, then request(s) will 
+instead be sent to the transaction sender process for 
+accumulation and later sending 
+(see <strong>trans_ack_maxcount</strong>, <strong>trans_req_maxcount</strong>, 
+<strong>trans_req_maxsize</strong>, <strong>trans_ack_maxcount</strong> and 
+<strong>trans_timer</strong>). </p> <p>See also <a href="./megaco_run#transaction_sender">transaction sender</a> for more info. </p> <p>An <strong>boolean</strong>, defaults to <strong>false</strong>.</p> <a name="ci_trans_req_maxcount"></a> </dd><dt><strong>trans_req_maxcount</strong></dt><dd> <p>Maximum number of accumulated requests. At most this many 
+requests will be accumulated by the transaction sender 
+(if started and configured to accumulate requests). </p> <p>See also <a href="./megaco_run#transaction_sender">transaction sender</a> for more info. </p> <p>An <strong>integer</strong>, defaults to 10.</p> <a name="ci_trans_req_maxsize"></a> </dd><dt><strong>trans_req_maxsize</strong></dt><dd> <p>Maximum size of the accumulated requests. At most this much
+requests will be accumulated by the transaction sender 
+(if started and configured to accumulate requests). </p> <p>See also <a href="./megaco_run#transaction_sender">transaction sender</a> for more info. </p> <p>An <strong>integer</strong>, defaults to 2048.</p> <a name="ci_trans_timer"></a> </dd><dt><strong>trans_timer</strong></dt><dd> <p>Transaction sender timeout time. Has two functions. First, if 
+the value is 0, then transactions will not be accumulated 
+(e.g. the transaction sender process will not be started). 
+Second, if the value is greater then 0 and <strong>auto_ack</strong> 
+and <strong>trans_ack</strong> is true or if <strong>trans_req</strong> is true, 
+then transaction sender will be started and transactions 
+(which is depending on the values of <strong>auto_ack</strong>, 
+<strong>trans_ack</strong> and <strong>trans_req</strong>) will be accumulated,
+for later sending. </p> <p>See also <a href="./megaco_run#transaction_sender">transaction sender</a> for more info. </p> <p>An <strong>integer</strong>, defaults to 0.</p> <a name="ci_pending_timer"></a> </dd><dt><strong>pending_timer</strong></dt><dd> <p>Automatic send transaction pending if the timer expires
+before a transaction reply has been sent. This timer is
+also called provisional response timer. </p> <p>A Megaco Timer (see explanation above), defaults to 30000.</p> <a name="ci_sent_pending_limit"></a> </dd><dt><strong>sent_pending_limit</strong></dt><dd> <p>Sent pending limit (see the MGOriginatedPendingLimit
+and the MGCOriginatedPendingLimit of the megaco root package).
+This parameter specifies how many pending messages that can
+be sent (for a given received transaction request).
+When the limit is exceeded, the transaction is aborted
+(see <a href="./megaco_user#request_abort">handle_trans_request_abort</a>) and an error message 
+is sent to the other side. </p> <p>Note that this has no effect on the actual sending of
+pending transactions. This is either implicit (e.g. when 
+receiving a re-sent transaction request for a request which
+is being processed) or controlled by the pending_timer,
+see above. </p> <p>A positive integer or <strong>infinity</strong>, 
+defaults to <strong>infinity</strong>.</p> <a name="ci_recv_pending_limit"></a> </dd><dt><strong>recv_pending_limit</strong></dt><dd> <p>Receive pending limit (see the MGOriginatedPendingLimit
+and the MGCOriginatedPendingLimit of the megaco root package).
+This parameter specifies how many pending messages that can
+be received (for a sent transaction request).
+When the limit is exceeded, the transaction is considered
+lost, and an error returned to the user (through the call-back
+function <em>handle_trans_reply</em>). </p> <p>A positive integer or <strong>infinity</strong>, 
+defaults to <strong>infinity</strong>.</p> <a name="ci_send_mod"></a> </dd><dt><strong>send_mod</strong></dt><dd> <p>Send callback module which exports send_message/2. The
+function SendMod:send_message(SendHandle, Binary) is
+invoked when the bytes needs to be transmitted to
+the remote user. </p> <p>An <strong>atom</strong>, defaults to <strong>megaco_tcp</strong>.</p> <a name="ci_encoding_mod"></a> </dd><dt><strong>encoding_mod</strong></dt><dd> <p>Encoding callback module which exports encode_message/2
+and decode_message/2. The function
+EncodingMod:encode_message(EncodingConfig, MegacoMessage)
+is invoked whenever a 'MegacoMessage' record needs to be
+translated into an Erlang binary. The function
+EncodingMod:decode_message(EncodingConfig, Binary) is
+invoked whenever an Erlang binary needs to be translated
+into a 'MegacoMessage' record. </p> <p>An <strong>atom</strong>, 
+defaults to <strong>megaco_pretty_text_encoder</strong>.</p> <a name="ci_encoding_confi"></a> </dd><dt><strong>encoding_config</strong></dt><dd> <p>Encoding module config. </p> <p>A <strong>list</strong>, defaults to [].</p> <a name="ci_protocol_version"></a> </dd><dt><strong>protocol_version</strong></dt><dd> <p>Actual protocol version. </p> <p>An positive integer, Current default is 1.</p> <a name="ci_strict_version"></a> </dd><dt><strong>strict_version</strong></dt><dd> <p>Strict version control, i.e. when a message is received,
+verify that the version is that which was negotiated. </p> <p>An <strong>boolean</strong>, default is true.</p> <a name="ci_reply_data"></a> </dd><dt><strong>reply_data</strong></dt><dd> <p>Default reply data. </p> <p>Any term, defaults to the atom <strong>undefined</strong>.</p> <a name="ci_threaded"></a> </dd><dt><strong>threaded</strong></dt><dd> <p>If a received message contains several transaction requests, 
+this option indicates whether the requests should be handled
+sequentially in the same process (<strong>false</strong>), or if each 
+request should be handled by its own process (<strong>true</strong>
+i.e. a separate process is spawned for each request). </p> <p>An <strong>boolean</strong>, defaults to <strong>false</strong>. </p> <a name="ci_resend_indication"></a> </dd><dt><strong>resend_indication</strong></dt><dd> <p>This option indicates weather the transport module
+should be told if a message send is a resend or not. </p> <p>If <em>false</em>, megaco messages are sent using the
+<a href="./megaco_transport#send_message">send_message/2</a> 
+function. </p> <p>If <em>true</em>, megaco message <em>re-sends</em> are made using the
+<a href="./megaco_transport#resend_message">resend_message</a> 
+function. The initial message send is still done using the
+<a href="./megaco_transport#send_message">send_message</a> 
+function. </p> <p>The special value <em>flag</em> instead indicates that the 
+function 
+<a href="./megaco_transport#send_message">send_message/3</a> 
+shall be used. </p> <p>A <strong>resend_indication()</strong>, 
+defaults to <strong>false</strong>.</p> <a name="ci_segment_reply_ind"></a> </dd><dt><strong>segment_reply_ind</strong></dt><dd> <p>This option specifies if the user shall be notified of received
+segment replies or not. </p> <p>See 
+<a href="./megaco_user#segment_reply">handle_segment_reply</a> 
+callback function for more information. </p> <p>A <strong>boolean</strong>, 
+defaults to <strong>false</strong>. </p> <a name="ci_segment_recv_timer"></a> </dd><dt><strong>segment_recv_timer</strong></dt><dd> <p>This timer is started when the segment indicated by the
+<strong>segmentation complete token</strong> (e.g. the last of the segment
+which makes up the reply) is received, but all 
+segments has not yet been received.</p> <p>When the timer finally expires, a "megaco segments not
+received" (459) error message is sent to the other side
+and the user is notified with a 
+<strong>segment timeout</strong> <strong>UserReply</strong> in either the
+<a href="./megaco_user#trans_reply">handle_trans_reply</a> 
+callback function or 
+the return value of the 
+<a href="./megaco#call">call</a> function. </p> <p>A Megaco Timer (see explanation above),
+defaults to <strong>10000</strong>. </p> <a name="ci_segment_send"></a> </dd><dt><strong>segment_send</strong></dt><dd> <p>Shall outgoing messages be segmented or not: </p> <dl><dt><strong>none</strong></dt><dd> <p>Do not segment outgoing reply messages. This is useful when
+either it is known that messages are never to large or
+that the transport protocol can handle such things
+on its own (e.g. TCP or SCTP).</p> </dd><dt><strong>integer() &gt; 0</strong></dt><dd> <p>Outgoing reply messages will be segmented as needed 
+(see <strong>max_pdu_size</strong> below). This value, K, indicate 
+the outstanding window, i.e. how many segments can be 
+outstanding (not acknowledged) at any given time. </p> </dd><dt><strong>infinity</strong></dt><dd> <p>Outgoing reply messages will be segmented as needed 
+(see <strong>max_pdu_size</strong> below). Segment messages 
+are sent all at once (i.e. no acknowledgement awaited 
+before sending the next segment). </p> </dd></dl> <p>Defaults to <strong>none</strong>. </p> <a name="ci_max_pdu_size"></a> </dd><dt><strong>max_pdu_size</strong></dt><dd> <p>Max message size. If the encoded message (PDU) exceeds 
+this size, the message should be segmented, and then 
+encoded. </p> <p>A positive integer or <strong>infinity</strong>,
+defaults to <strong>infinity</strong>. </p> </dd></dl><a name="update_conn_info"></a><h3>update_conn_info(ConnHandle, Item, Value) -&gt; ok | {error, Reason}</h3><p>Update information about an active connection</p><ul><li><span class="v">ConnHandle = #megaco_conn_handle{}</span></li><li><span class="v">Item       = conn_info_item()</span></li><li><span class="v">Value      = conn_info_value()</span></li><li><span class="v">Reason     = term()</span></li></ul><p>Update information about an active connection</p><p>Requires that the connection is activated. See
+megaco:conn_info/2 about which items and values that are
+valid.</p><a name="system_info"></a><h3>system_info() -&gt; [{Item, Value}] | exit(Reason)</h3><h3>system_info(Item) -&gt; Value | exit(Reason)</h3><p>Lookup system information</p><ul><li><span class="v">Item = system_info_item()</span></li></ul><p>Lookup system information</p><p>The following items are valid:</p><dl><dt><strong>text_config</strong></dt><dd> <p>The text encoding config.</p> </dd><dt><strong>connections</strong></dt><dd> <p>Lists all active connections. Returns a list of
+megaco_conn_handle records.</p> </dd><dt><strong>users</strong></dt><dd> <p>Lists all active users. Returns a list of
+megaco_mid()'s.</p> </dd><dt><strong>n_active_requests</strong></dt><dd> <p>Returns an integer representing the number of requests
+that has originated from this Erlang node and still are
+active (and therefore consumes system resources).</p> </dd><dt><strong>n_active_replies</strong></dt><dd> <p>Returns an integer representing the number of replies
+that has originated from this Erlang node and still are
+active (and therefore consumes system resources).</p> </dd><dt><strong>n_active_connections</strong></dt><dd> <p>Returns an integer representing the number of active
+connections.</p> </dd></dl><a name="info"></a><h3>info() -&gt; Info</h3><p>All the information of the application</p><ul><li><span class="v">Info = [{Key, Value}]</span></li></ul><p>This function produces a list of information about the megaco 
+application. Such as users and their config, connections 
+and their config, statistics and so on.</p><p>This information can be produced by the functions 
+<a href="#user_info">user_info</a>, 
+<a href="#conn_info">conn_info</a>, 
+<a href="#system_info">system_info</a> and 
+<a href="#get_stats">get_stats</a> 
+but this is a simple way to get it all at once.</p><a name="connect"></a><h3>connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid) -&gt; {ok, ConnHandle} | {error, Reason}</h3><h3>connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid, Extra) -&gt; {ok, ConnHandle} | {error, Reason}</h3><p>Establish a "virtual" connection</p><ul><li><span class="v">ReceiveHandle = #megaco_receive_handle{}</span></li><li><span class="v">RemoteMid     = preliminary_mid | megaco_mid()</span></li><li><span class="v">SendHandle    = term()</span></li><li><span class="v">ControlPid    = pid()</span></li><li><span class="v">ConnHandle    = #megaco_conn_handle{}</span></li><li><span class="v">Reason        = connect_reason() | handle_connect_reason() | term()</span></li><li><span class="v">connect_reason() = {no_such_user, LocalMid} | {already_connected, ConnHandle} | term()</span></li><li><span class="v">handle_connect_error() = {connection_refused, ConnData, ErrorInfo} | term()</span></li><li><span class="v">LocalMid      = megaco_mid()</span></li><li><span class="v">ConnData      = term()</span></li><li><span class="v">ErrorInfo     = term()</span></li><li><span class="v">Extra         = term()</span></li></ul><p>Establish a "virtual" connection</p><p>Activates a connection to a remote user. When this is done
+the connection can be used to send messages (with
+SendMod:send_message/2). The ControlPid is the identifier
+of a process that controls the connection. That process will
+be supervised and if it dies, this will be detected and the
+UserMod:handle_disconnect/2 callback function will be
+invoked. See the megaco_user module for more info about the
+callback arguments. The connection may also explicitly be
+deactivated by invoking megaco:disconnect/2.</p><p>The ControlPid may be the identity of a process residing on
+another Erlang node. This is useful when you want to
+distribute a user over several Erlang nodes. In such a case
+one of the nodes has the physical connection. When a user
+residing on one of the other nodes needs to send a request
+(with megaco:call/3 or megaco:cast/3), the message will
+encoded on the originating Erlang node, and then be
+forwarded to the node with the physical connection. When the
+reply arrives, it will be forwarded back to the originator.
+The distributed connection may explicitly be deactivated by
+a local call to megaco:disconnect/2 or implicitly when
+the physical connection is deactivated (with megaco:disconnect/2,
+killing the controlling process, halting the other node, ...).</p><p>The call of this function will trigger the callback
+function UserMod:handle_connect/2 to be invoked. See the
+megaco_user module for more info about the callback
+arguments.</p><p>A connection may be established in several ways:</p><dl><dt><strong>provisioned MID</strong></dt><dd> <p>The MG may explicitly invoke megaco:connect/4 and use
+a provisioned MID of the MGC as the RemoteMid.</p> </dd><dt><strong>upgrade preliminary MID</strong></dt><dd> <p>The MG may explicitly invoke megaco:connect/4 with the
+atom 'preliminary_mid' as a temporary MID of the MGC,
+send an intial message, the Service Change Request, to
+the MGC and then wait for an initial message, the
+Service Change Reply. When the reply arrives, the Megaco
+application will pick the MID of the MGC from the
+message header and automatically upgrade the connection
+to be a "normal" connection. By using this method of
+establishing the connection, the callback function
+UserMod:handle_connect/2 to be invoked twice. First with
+a ConnHandle with the remote_mid-field set to
+preliminary_mid, and then when the connection upgrade is
+done with the remote_mid-field set to the actual MID of
+the MGC.</p> </dd><dt><strong>automatic</strong></dt><dd> <p>When the MGC receives its first message, the Service
+Change Request, the Megaco application will
+automatically establish the connection by using the MG
+MID found in the message header as remote mid.</p> </dd><dt><strong>distributed</strong></dt><dd> <p>When a user (MG/MGC) is distributed over several nodes,
+it is required that the node hosting the connection
+already has activated the connection and that it is
+in the "normal" state. The RemoteMid must be a real
+Megaco MID and not a preliminary_mid.</p> </dd></dl><p>An initial megaco_receive_handle record may be obtained
+with megaco:user_info(UserMid, receive_handle)</p><p>The send handle is provided by the preferred transport
+module, e.g. megaco_tcp, megaco_udp. Read the documentation
+about each transport module about the details.</p><p>The connect is done in two steps: first an internal 
+<strong>connection setup</strong> and then by calling the user 
+<a href="./megaco_user#connect">handle_connect</a> 
+callback function. The first step could result in 
+an error with <strong>Reason = connect_reason()</strong> and the second 
+an error with <strong>Reason = handle_connect_reason()</strong>: </p><dl><dt><strong>connect_reason()</strong></dt><dd> <p>An error with this reason is generated by the 
+megaco application itself.</p> </dd><dt><strong>handle_connect_reason()</strong></dt><dd> <p>An error with this reason is caused by the user 
+<a href="./megaco_user#connect">handle_connect</a> 
+callback function either returning an error 
+or an invalid value.</p> </dd></dl><p><strong>Extra</strong> can be any <strong>term()</strong> 
+except the atom <strong>ignore_extra</strong>. 
+It is passed (back) to the user via the callback function 
+<a href="./megaco_user#connect">handle_connect/3</a>. </p><a name="disconnect"></a><h3>disconnect(ConnHandle, DiscoReason) -&gt; ok | {error, ErrReason}</h3><p>Tear down a "virtual" connection</p><ul><li><span class="v">ConnHandle  = conn_handle()</span></li><li><span class="v">DiscoReason =  term()</span></li><li><span class="v">ErrReason   =  term()</span></li></ul><p>Tear down a "virtual" connection</p><p>Causes the UserMod:handle_disconnect/2 callback function to
+be invoked. See the megaco_user module for more info about
+the callback arguments.</p><a name="call"></a><h3>call(ConnHandle, Actions, Options) -&gt; {ProtocolVersion, UserReply}</h3><p>Sends one or more transaction request(s) and waits for the reply</p><ul><li><span class="v">ConnHandle     = conn_handle()</span></li><li><span class="v">Actions        = action_reqs() | [action_reqs()]</span></li><li><span class="v">action_reqs()  = binary() | [action_request()]</span></li><li><span class="v">Options        = [send_option()]</span></li><li><span class="v">send_option()  = {request_timer, megaco_timer()} | {long_request_timer, megaco_timer()} | {send_handle, term()} | {protocol_version, integer()} | {call_proxy_gc_timeout, call_proxy_gc_timeout()}</span></li><li><span class="v">ProtocolVersion = integer()</span></li><li><span class="v">UserReply       = user_reply() | [user_reply()]</span></li><li><span class="v">user_reply()    = success() | failure()</span></li><li><span class="v">success()       = {ok, result()} | {ok, result(), extra()}</span></li><li><span class="v">result()        = message_result() | segment_result()</span></li><li><span class="v">message_result() = action_reps()</span></li><li><span class="v">segment_result() = segments_ok()</span></li><li><span class="v">failure()        = {error, reason()} | {error, reason(), extra()}</span></li><li><span class="v">reason()         = message_reason() | segment_reason() | user_cancel_reason() | send_reason() | other_reason()</span></li><li><span class="v">message_reason() = error_desc()</span></li><li><span class="v">segment_reason() = {segment, segments_ok(), segments_err()} | {segment_timeout, missing_segments(), segments_ok(), segments_err()}</span></li><li><span class="v">segments_ok()   = [segment_ok()]</span></li><li><span class="v">segment_ok()    = {segment_no(), action_reps()}</span></li><li><span class="v">segments_err()  = [segment_err()]</span></li><li><span class="v">segment_err()   = {segment_no(), error_desc()}</span></li><li><span class="v">missing_segments() = [segment_no()]</span></li><li><span class="v">user_cancel_reason() = {user_cancel, reason_for_user_cancel()}</span></li><li><span class="v">reason_for_user_cancel() = term()</span></li><li><span class="v">send_reason() = send_cancelled_reason() | send_failed_reason()</span></li><li><span class="v">send_cancelled_reason() = {send_message_cancelled, reason_for_send_cancel()}</span></li><li><span class="v">reason_for_send_cancel() = term()</span></li><li><span class="v">send_failed_reason()    = {send_message_failed, reason_for_send_failure()}</span></li><li><span class="v">reason_for_send_failure() = term()</span></li><li><span class="v">other_reason()   = {wrong_mid, WrongMid, RightMid, TR} | term()</span></li><li><span class="v">WrongMid = mid()</span></li><li><span class="v">RightMid = mid()</span></li><li><span class="v">TR = transaction_reply()</span></li><li><span class="v">action_reps()    = [action_reply()]</span></li><li><span class="v">call_proxy_gc_timeout() = integer() &gt;= 0</span></li><li><span class="v">extra()          = term()</span></li></ul><p>Sends one or more transaction request(s) and waits for the 
+reply.</p><p>When sending one transaction in a message, <strong>Actions</strong> should be 
+<strong>action_reqs()</strong> (<strong>UserReply</strong> will then be 
+<strong>user_reply()</strong>). When sending several transactions in a message,
+<strong>Actions</strong> should be <strong>[action_reqs()]</strong> (<strong>UserReply</strong> 
+will then be <strong>[user_reply()]</strong>). Each element of the list is 
+part of one transaction.</p><p>For some of <em>our</em> codecs (not binary), it is also possible 
+to pre-encode the actions, in which case <strong>Actions</strong> will be 
+either a <strong>binary()</strong> or <strong>[binary()]</strong>.</p><p>The function returns when the reply arrives, when the
+request timer eventually times out or when the outstanding
+requests are explicitly cancelled.</p><p>The default values of the send options are obtained by
+<strong>megaco:conn_info(ConnHandle, Item)</strong>. But the send options 
+above, may explicitly be overridden.</p><p>The <strong>ProtocolVersion</strong> version is the version actually encoded
+in the reply message.</p><p>At <strong>success()</strong>, the <strong>UserReply</strong> contains a list of 
+'ActionReply' records possibly containing error indications.</p><p>A <strong>message_error()</strong>, indicates that the remote user has
+replied with an explicit transactionError.</p><p>A <strong>user_cancel_error()</strong>, indicates that the request has been
+canceled by the user. <strong>reason_for_user_cancel()</strong> is the reason
+given in the call to the <a href="#cancel">cancel</a>
+function. </p><p>A <strong>send_error()</strong>, indicates that the send function of the 
+megaco transport callback module failed to send the request. 
+There are two separate cases: <strong>send_cancelled_reason()</strong> and 
+<strong>send_failed_reason()</strong>. 
+The first is the result of the send function returning 
+<strong>{cancel, Reason}</strong> and the second is some other kind of 
+erroneous return value. See the 
+<a href="./megaco_transport#send_message">send_message</a>
+function for more info. </p><p>An <strong>other_error()</strong>, indicates some other error such as 
+timeout.</p><p>For more info about the <strong>extra()</strong> part of the 
+result, see the 
+<a href="./megaco_user#extra_argument">note</a>
+in the user callback module documentation. </p><a name="cast"></a><h3>cast(ConnHandle, Actions, Options) -&gt; ok | {error, Reason}</h3><p>Sends one or more transaction request(s) but does NOT wait for a reply</p><ul><li><span class="v">ConnHandle     = conn_handle()</span></li><li><span class="v">Actions        = action_reqs() | [action_reqs()]</span></li><li><span class="v">action_reqs()  = binary() | [action_request()]</span></li><li><span class="v">Options        = [send_option()]</span></li><li><span class="v">send_option()  = {request_keep_alive_timeout, request_keep_alive_timeout()} | {request_timer, megaco_timer()} | {long_request_timer, megaco_timer()} | {send_handle, term()} | {reply_data, reply_data()} | {protocol_version, integer()}</span></li><li><span class="v">request_keep_alive_timeout() = plain | integer() &gt;= 0</span></li><li><span class="v">Reason         =  term()</span></li></ul><p>Sends one or more transaction request(s) but does NOT wait for a reply</p><p>When sending one transaction in a message, <strong>Actions</strong> should be 
+<strong>action_reqs()</strong>. When sending several transactions in a message,
+<strong>Actions</strong> should be <strong>[action_reqs()]</strong>. Each element of the 
+list is part of one transaction.</p><p>For some of <em>our</em> codecs (not binary), it is also possible 
+to pre-encode the actions, in which case <strong>Actions</strong> will be 
+either a <strong>binary()</strong> or <strong>[binary()]</strong>.</p><p>The default values of the send options are obtained by
+megaco:conn_info(ConnHandle, Item). But the send options above,
+may explicitly be overridden.</p><p>The ProtocolVersion version is the version actually encoded
+in the reply message.</p><p>The callback function UserMod:handle_trans_reply/4 is invoked
+when the reply arrives, when the request timer eventually
+times out or when the outstanding requests are explicitly
+cancelled. See the megaco_user module for more info about
+the callback arguments.</p><p>Given as UserData argument to UserMod:handle_trans_reply/4.</p><a name="encode_actions"></a><h3>encode_actions(ConnHandle, Actions, Options) -&gt; {ok, BinOrBins} | {error, Reason}</h3><p>Encode action requests for one or more transaction request(s)</p><ul><li><span class="v">ConnHandle     = conn_handle()</span></li><li><span class="v">Actions        = action_reqs() | [action_reqs()]</span></li><li><span class="v">action_reqs()  = [#'ActionRequest'{}]</span></li><li><span class="v">Options        = [send_option()]</span></li><li><span class="v">send_option()  = {request_timer, megaco_timer()} | {long_request_timer, megaco_timer()} | {send_handle, term()} | {protocol_version, integer()}</span></li><li><span class="v">BinOrBins      = binary() | [binary()]</span></li><li><span class="v">Reason         = term()</span></li></ul><p>Encodes lists of action requests for one or more transaction 
+request(s).</p><p>When encoding action requests for one transaction, 
+<strong>Actions</strong> should be <strong>action_reqs()</strong>. 
+When encoding action requests for several transactions,
+<strong>Actions</strong> should be <strong>[action_reqs()]</strong>. Each element 
+of the list is part of one transaction.</p><a name="token_tag2string"></a><h3>token_tag2string(Tag) -&gt; Result</h3><h3>token_tag2string(Tag, EncoderMod) -&gt; Result</h3><h3>token_tag2string(Tag, EncoderMod, Version) -&gt; Result</h3><p>Convert a token tag to a string</p><ul><li><span class="v">Tag = atom()</span></li><li><span class="v">EncoderMod = pretty | compact | encoder_module()</span></li><li><span class="v">encoder_module() = megaco_pretty_text_encoder | megaco_compact_text_encoder | atom()</span></li><li><span class="v">Version = int_version() | atom_version()</span></li><li><span class="v">int_version() = 1 | 2 | 3</span></li><li><span class="v">atom_version() = v1 | v2 | v3 | prev3c | prev3b</span></li><li><span class="v">Result = string() | {error, Reason}</span></li><li><span class="v">Reason = term()</span></li></ul><p>Convert a token tag to a string</p><p>If no encoder module is given, the default is used 
+(which is pretty).</p><p>If no or an unknown version is given, 
+the <em>best</em> version is used (which is v3).</p><p>If no match is found for <strong>Tag</strong>, <strong>Result</strong> will be the 
+empty string (<strong>[]</strong>).</p><a name="cancel"></a><h3>cancel(ConnHandle, CancelReason) -&gt; ok | {error, ErrReason}</h3><p>Cancel all outstanding messages for this connection</p><ul><li><span class="v">ConnHandle   = conn_handle()</span></li><li><span class="v">CancelReason =  term()</span></li><li><span class="v">ErrReason    =  term()</span></li></ul><p>Cancel all outstanding messages for this connection</p><p>This causes outstanding megaco:call/3 requests to return.
+The callback functions UserMod:handle_reply/4 and
+UserMod:handle_trans_ack/4 are also invoked where it
+applies.  See the megaco_user module for more info about the
+callback arguments.</p><a name="process_received_message"></a><h3>process_received_message(ReceiveHandle, ControlPid, SendHandle, BinMsg) -&gt; ok</h3><h3>process_received_message(ReceiveHandle, ControlPid, SendHandle, BinMsg, Extra) -&gt; ok</h3><p>Process a received message</p><ul><li><span class="v">ReceiveHandle = #megaco_receive_handle{}</span></li><li><span class="v">ControlPid    = pid()</span></li><li><span class="v">SendHandle    = term()</span></li><li><span class="v">BinMsg        = binary()</span></li><li><span class="v">Extra         = term()</span></li></ul><p>Process a received message</p><p>This function is intended to be invoked by some
+transport modules when get an incoming message. Which
+transport that actually is used is up to the user to
+choose.</p><p>The message is delivered as an Erlang binary and is decoded
+by the encoding module stated in the receive handle together
+with its encoding config (also in the receive
+handle). Depending of the outcome of the decoding various
+callback functions will be invoked. See megaco_user for more
+info about the callback arguments.</p><p>The argument <strong>Extra</strong> is just an opaque data structure passed to the user 
+via the callback functions in the 
+<a href="megaco_user">user callback module</a>. 
+Note however that if <strong>Extra</strong> has the value 
+<strong>extra_undefined</strong> the argument will be ignored (same as if 
+<strong>process_received_message/4</strong> had been called). 
+See the documentation for the behaviour of the callback module,
+<a href="megaco_user">megaco_user</a>, for more info. </p><p>Note that all processing is done in the context of the calling 
+process. A transport module could call this function via one of the
+<strong>spawn</strong> functions (e.g. <strong>spawn_opt</strong>). See also 
+<strong>receive_message/4,5</strong>.
+</p><p>If the message cannot be decoded the following callback
+function will be invoked:</p><ul><li> <p>UserMod:handle_syntax_error/3</p> </li></ul><p>If the decoded message instead of transactions contains a
+message error, the following callback function will be
+invoked:</p><ul><li> <p>UserMod:handle_message_error/3</p> </li></ul><p>If the decoded message happens to be received before the
+connection is established, a new "virtual" connection is
+established. This is typically the case for the Media
+Gateway Controller (MGC) upon the first Service Change.
+When this occurs the following callback function will be
+invoked:</p><ul><li> <p>UserMod:handle_connect/2</p> </li></ul><p>For each transaction request in the decoded message the
+following callback function will be invoked:</p><ul><li> <p>UserMod:handle_trans_request/3</p> </li></ul><p>For each transaction reply in the decoded message the reply
+is returned to the user. Either the originating function
+megaco:call/3 will return.  Or in case the originating
+function was megaco:case/3 the following callback function
+will be invoked:</p><ul><li> <p>UserMod:handle_trans_reply/4</p> </li></ul><p>When a transaction acknowledgement is received it is
+possible that user has decided not to bother about the
+acknowledgement. But in case the return value from
+UserMod:handle_trans_request/3 indicates that the
+acknowledgement is important the following callback function
+will be invoked:</p><ul><li> <p>UserMod:handle_trans_ack/4</p> </li></ul><p>See the megaco_user module for more info about the callback
+arguments.</p><a name="receive_message"></a><h3>receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg) -&gt; ok</h3><h3>receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg, Extra) -&gt; ok</h3><p>Process a received message</p><ul><li><span class="v">ReceiveHandle = #megaco_receive_handle{}</span></li><li><span class="v">ControlPid    = pid()</span></li><li><span class="v">SendHandle    = term()</span></li><li><span class="v">BinMsg        = binary()</span></li><li><span class="v">Extra         = term()</span></li></ul><p>Process a received message</p><p>This is a callback function intended to be invoked by some
+transport modules when get an incoming message. Which
+transport that actually is used is up to the user to
+choose.</p><p>In principle, this function calls the 
+<strong>process_received_message/4</strong> function via a <strong>spawn</strong> to
+perform the actual processing.</p><p>For further information see the 
+<a href="#process_received_message">process_received_message/4</a> 
+function.</p><a name="parse_digit_map"></a><h3>parse_digit_map(DigitMapBody) -&gt; {ok, ParsedDigitMap} | {error, Reason}</h3><p>Parses a digit map body</p><ul><li><span class="v">DigitMapBody       = string()</span></li><li><span class="v">ParsedDigitMap     = parsed_digit_map()</span></li><li><span class="v">parsed_digit_map() = term()</span></li><li><span class="v">Reason             = term()</span></li></ul><p>Parses a digit map body</p><p>Parses a digit map body, represented as a list of
+characters, into a list of state transitions suited to
+be evaluated by megaco:eval_digit_map/1,2.</p><a name="eval_digit_map"></a><h3>eval_digit_map(DigitMap) -&gt; {ok, MatchResult} | {error, Reason}</h3><h3>eval_digit_map(DigitMap, Timers) -&gt; {ok, MatchResult} | {error, Reason}</h3><p>Collect digit map letters according to the digit map</p><ul><li><span class="v">DigitMap           = #'DigitMapValue'{} | parsed_digit_map()</span></li><li><span class="v">parsed_digit_map() = term()</span></li><li><span class="v">ParsedDigitMap     = term()</span></li><li><span class="v">Timers             = ignore() | reject()</span></li><li><span class="v">ignore()           = ignore | {ignore, digit_map_value()}</span></li><li><span class="v">reject()           = reject | {reject, digit_map_value()} | digit_map_value()</span></li><li><span class="v">MatchResult        = {Kind, Letters} | {Kind, Letters, Extra}</span></li><li><span class="v">Kind               = kind()</span></li><li><span class="v">kind()             = full | unambiguous</span></li><li><span class="v">Letters            = [letter()]</span></li><li><span class="v">letter()           = $0..$9 | $a .. $k</span></li><li><span class="v">Extra              = letter()</span></li><li><span class="v">Reason             = term()</span></li></ul><p>Collect digit map letters according to the digit map.</p><p>When evaluating a digit map, a state machine waits for
+timeouts and letters reported by
+megaco:report_digit_event/2. The length of the various
+timeouts are defined in the digit_map_value() record.</p><p>When a complete sequence of valid events has been received,
+the result is returned as a list of letters.</p><p>There are two options for handling syntax errors (that is
+when an unexpected event is received when the digit map
+evaluator is expecting some other event). The unexpected
+events may either be ignored or rejected. The latter means
+that the evaluation is aborted and an error is returned. </p><a name="report_digit_event"></a><h3>report_digit_event(DigitMapEvalPid, Events) -&gt; ok | {error, Reason}</h3><p>Send one or more events to the event collector process</p><ul><li><span class="v">DigitMapEvalPid = pid()</span></li><li><span class="v">Events          = Event | [Event]</span></li><li><span class="v">Event           = letter() | pause() | cancel()</span></li><li><span class="v">letter()        = $0..$9 | $a .. $k | $A .. $K</span></li><li><span class="v">pause()         = one_second() | ten_seconds()</span></li><li><span class="v">one_second()    = $s | $S</span></li><li><span class="v">ten_seconds()   = $l | $L</span></li><li><span class="v">cancel()        = $z | $Z | cancel</span></li><li><span class="v">Reason          = term()</span></li></ul><p>Send one or more events to the event collector process.</p><p>Send one or more events to a process that is evaluating a
+digit map, that is a process that is executing
+megaco:eval_digit_map/1,2.</p><p>Note that the events <strong>$s | $S</strong>, <strong>l | $L</strong> and
+<strong>$z | $Z</strong> has nothing to do with the timers using
+the same characters.</p><a name="test_digit_event"></a><h3>test_digit_event(DigitMap, Events) -&gt; {ok, Kind, Letters} | {error, Reason}</h3><p>Feed digit map collector with events and return the result</p><ul><li><span class="v">DigitMap           = #'DigitMapValue'{} | parsed_digit_map()</span></li><li><span class="v">parsed_digit_map() = term()</span></li><li><span class="v">ParsedDigitMap     = term()</span></li><li><span class="v">Timers             = ignore() | reject()</span></li><li><span class="v">ignore()           = ignore | {ignore, digit_map_value()}</span></li><li><span class="v">reject()           = reject | {reject, digit_map_value()} | digit_map_value()</span></li><li><span class="v">DigitMapEvalPid    = pid()</span></li><li><span class="v">Events             = Event | [Event]</span></li><li><span class="v">Event              = letter() | pause() | cancel()</span></li><li><span class="v">Kind               = kind()</span></li><li><span class="v">kind()             = full | unambiguous</span></li><li><span class="v">Letters            = [letter()]</span></li><li><span class="v">letter()           = $0..$9 | $a .. $k | $A .. $K</span></li><li><span class="v">pause()            = one_second() | ten_seconds()</span></li><li><span class="v">one_second()       = $s | $S</span></li><li><span class="v">ten_seconds()      = $l | $L</span></li><li><span class="v">cancel    ()       = $z | $Z | cancel</span></li><li><span class="v">Reason             = term()</span></li></ul><p>Feed digit map collector with events and return the result</p><p>This function starts the evaluation of a digit map with
+megaco:eval_digit_map/1 and sends a sequence of events to it
+megaco:report_digit_event/2 in order to simplify testing of
+digit maps.</p><a name="encode_sdp"></a><h3>encode_sdp(SDP) -&gt; {ok, PP} | {error, Reason}</h3><p>Encode an SDP construct</p><ul><li><span class="v">SDP = sdp_property_parm() | sdp_property_group() | sdp_property_groups() | asn1_NOVALUE</span></li><li><span class="v">PP = property_parm() | property_group() | property_groups() | asn1_NOVALUE</span></li><li><span class="v">Reason = term()</span></li></ul><p>Encode (generate) an SDP construct.</p><p>If a <strong>property_parm()</strong> is found as part of the input
+(<strong>SDP</strong>) then it is left unchanged.</p><p>This function performs the following transformation:</p><ul><li> <p>sdp()                 -&gt; property_parm()</p> </li><li> <p>sdp_property_group()  -&gt; property_group()</p> </li><li> <p>sdp_property_groups() -&gt; property_groups()</p> </li></ul><a name="decode_sdp"></a><h3>decode_sdp(PP) -&gt; {ok, SDP} | {error, Reason}</h3><p>Decode an property parameter construct</p><ul><li><span class="v">PP = property_parm() | property_group() | property_groups() | asn1_NOVALUE</span></li><li><span class="v">SDP = sdp() | decode_sdp_property_group() | decode_sdp_property_groups() | asn1_NOVALUE</span></li><li><span class="v">decode_sdp() = sdp() | {property_parm(), DecodeError}</span></li><li><span class="v">decode_sdp_property_group() = [decode_sdp()]</span></li><li><span class="v">decode_sdp_property_groups() = [decode_sdp_property_group()]</span></li><li><span class="v">DecodeError = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Decode (parse) a property parameter construct.</p><p>When decoding <strong>property_group()</strong> or 
+<strong>property_groups()</strong>, 
+those property parameter constructs that cannot be decoded
+(either because of decode error or because they are unknown),
+will be returned as a two-tuple. The first element of which 
+will be the (undecoded) property parameter and the other the 
+actual reason. 
+This means that the caller of this function has to expect not 
+only sdp-records, but also this two-tuple construct.</p><p>This function performs the following transformation:</p><ul><li> <p>property_parm()   -&gt; sdp()</p> </li><li> <p>property_group()  -&gt; sdp_property_group()</p> </li><li> <p>property_groups() -&gt; sdp_property_groups()</p> </li></ul><a name="get_sdp_record_from_PG"></a><h3>get_sdp_record_from_PropertGroup(Type, PG) -&gt; [sdp()]</h3><p>Get all sdp records of a certain type from a property group</p><ul><li><span class="v">Type = v | c | m | o | a | b | t | r | z | k | s | i | u | e | p</span></li><li><span class="v">PG = sdp_property_group()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Retreive all the sdp records of type <strong>Type</strong> from the
+property group <strong>PG</strong>.</p><a name="versions1"></a><a name="versions2"></a><h3>versions1() -&gt; {ok, VersionInfo} | {error, Reason}</h3><h3>versions2() -&gt; {ok, Info} | {error, Reason}</h3><p>Retreive various system and application info</p><ul><li><span class="v">VersionInfo = [version_info()]</span></li><li><span class="v">version_info() = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Utility functions used to retrieve some system and
+application info.</p><p>The difference between the two functions is in how they get
+the modules to check. <strong>versions1</strong> uses the 
+app-file and <strong>versions2</strong> uses the function 
+<strong>application:get_key</strong>.</p><a name="print_version_info"></a><h3>print_version_info() -&gt; void()</h3><h3>print_version_info(VersionInfo) -&gt; void()</h3><p>Formated print of result of the versions functions</p><ul><li><span class="v">VersionInfo = [version_info()]</span></li><li><span class="v">version_info() = term()</span></li></ul><p>Utility function to produce a formated printout of the versions 
+info generated by the <strong>versions1</strong> and <strong>versions2</strong> 
+functions.</p><p>The function print_version_info/0 uses the result of function
+version1/0 as <strong>VersionInfo</strong>.</p><p>Example: </p><pre>
+           {ok, V} = megaco:versions1(), megaco:format_versions(V). 
+        </pre><a name="enable_trace"></a><h3>enable_trace(Level, Destination) -&gt; void()</h3><p>Start megaco tracing</p><ul><li><span class="v">Level       = max | min | 0 &lt;= integer() &lt;= 100</span></li><li><span class="v">Destination = File | Port | HandlerSpec | io</span></li><li><span class="v">File        = string()</span></li><li><span class="v">Port        = integer()</span></li><li><span class="v">HandleSpec  = {HandlerFun, Data}</span></li><li><span class="v">HandleFun   = fun() (two arguments)</span></li><li><span class="v">Data        = term()</span></li></ul><p>This function is used to start megaco tracing at a given 
+<strong>Level</strong> and direct result to the given <strong>Destination</strong>.</p><p>It starts a tracer server and then sets the proper match spec 
+(according to <strong>Level</strong>).</p><p>In the case when <strong>Destination</strong> is <strong>File</strong>, the printable 
+megaco trace events will be printed to the file <strong>File</strong> using
+plain <strong>io:format/2</strong>. </p><p>In the case when <strong>Destination</strong> is <strong>io</strong>, the printable 
+megaco trace events will be printed on stdout using plain 
+<strong>io:format/2</strong>. </p><p>See <strong>dbg</strong> for further information.</p><a name="disable_trace"></a><h3>disable_trace() -&gt; void()</h3><p>Stop megaco tracing</p><p>This function is used to stop megaco tracing.</p><a name="set_trace"></a><h3>set_trace(Level) -&gt; void()</h3><p>Change megaco trace level</p><ul><li><span class="v">Level = max | min | 0 &lt;= integer() &lt;= 100</span></li></ul><p>This function is used to change the megaco trace level.</p><p>It is assumed that tracing has already been enabled (see 
+<strong>enable_trace</strong> above).</p><a name="stats"></a><a name="get_stats"></a><h3>get_stats() -&gt; {ok, TotalStats} | {error, Reason}</h3><h3>get_stats(GlobalCounter) -&gt; {ok, CounterStats} | {error, Reason}</h3><h3>get_stats(ConnHandle) -&gt; {ok, ConnHandleStats} | {error, Reason}</h3><h3>get_stats(ConnHandle, Counter) -&gt; {ok, integer()} | {error, Reason}</h3><ul><li><span class="v">TotalStats = [total_stats()]</span></li><li><span class="v">total_stats() = {conn_handle(), [stats()]} | {global_counter(), integer()}</span></li><li><span class="v">GlobalCounter = global_counter()</span></li><li><span class="v">GlobalCounterStats = integer()</span></li><li><span class="v">ConnHandle = conn_handle()</span></li><li><span class="v">ConnHandleStats = [stats()]</span></li><li><span class="v">stats() = {counter(), integer()}</span></li><li><span class="v">Counter = counter()</span></li><li><span class="v">counter() = medGwyGatewayNumTimerRecovery |  medGwyGatewayNumErrors</span></li><li><span class="v">global_counter() = medGwyGatewayNumErrors</span></li><li><span class="v">Reason = term()</span></li></ul><p>Retreive the (SNMP) statistic counters maintained by the 
+megaco application. The global
+counters handle events that cannot be attributed to 
+a single connection (e.g. protocol errors that occur 
+before the connection has been properly setup).</p><a name="reset_stats"></a><h3>reset_stats() -&gt; void()</h3><h3>reset_stats(ConnHandle) -&gt; void()</h3><ul><li><span class="v">ConnHandle = conn_handle()</span></li></ul><p>Reset all related (SNMP) statistics counters.</p><a name="test_request"></a><h3>test_request(ConnHandle, Version, EncodingMod, EncodingConfig, Actions) -&gt; {MegaMsg, EncodeRes}</h3><p>Tests if the Actions argument is correct</p><ul><li><span class="v">ConnHandle     = conn_handle()</span></li><li><span class="v">Version        = integer()</span></li><li><span class="v">EncodingMod    = atom()</span></li><li><span class="v">EncodingConfig = Encoding configuration</span></li><li><span class="v">Actions        = A list</span></li><li><span class="v">MegaMsg        = #'MegacoMessage'{}</span></li><li><span class="v">EncodeRes      = {ok, Bin} | {error, Reason}</span></li><li><span class="v">Bin            = binary()</span></li><li><span class="v">Reason         = term()</span></li></ul><p>Tests if the Actions argument is correctly composed.</p><p>This function is only intended for testing purposes. It's
+supposed to have a same kind of interface as the <a href="#call">call</a> or <a href="#cast">cast</a> functions (with the additions
+of the <strong>EncodingMod</strong> and <strong>EncodingConfig</strong>
+arguments). It composes a complete megaco message end
+attempts to encode it. The return value, will be a tuple of
+the composed megaco message and the encode result. </p><a name="test_reply"></a><h3>test_reply(ConnHandle, Version, EncodingMod, EncodingConfig, Reply) -&gt; {MegaMsg, EncodeRes}</h3><p>Tests if the Reply argument is correct</p><ul><li><span class="v">ConnHandle     = conn_handle()</span></li><li><span class="v">Version        = integer()</span></li><li><span class="v">EncodingMod    = atom()</span></li><li><span class="v">EncodingConfig = A list</span></li><li><span class="v">Reply          = actual_reply()</span></li><li><span class="v">MegaMsg        = #'MegacoMessage'{}</span></li><li><span class="v">EncodeRes      = {ok, Bin} | {error, Reason}</span></li><li><span class="v">Bin            = binary()</span></li><li><span class="v">Reason         = term()</span></li></ul><p>Tests if the Reply argument is correctly composed.</p><p>This function is only intended for testing purposes. It's
+supposed to test the <strong>actual_reply()</strong> return value of
+the callback functions 
+<a href="./megaco_user#trans_request">handle_trans_request</a>
+and 
+<a href="./megaco_user#trans_long_request">handle_trans_long_request</a>
+functions (with the additions of the <strong>EncodingMod</strong> and
+<strong>EncodingConfig</strong> arguments). It composes a complete
+megaco message end attempts to encode it. The return value,
+will be a tuple of the composed megaco message and the
+encode result.</p><h2>megaco_edist_compress</h2><p>Megaco erlang dist compress behaviour.</p><p>The following functions should be exported from a 
+<strong>megaco_edist_compress</strong> callback module:</p><h2>Functions</h2><h3>Module:encode(R, Version) -&gt; T</h3><p>Encode (compress) a megaco component.</p><ul><li><span class="v">R = megaco_message() | transaction() | action_reply() | action_request() | command_request()</span></li><li><span class="v">Version = integer()</span></li><li><span class="v">T = term()</span></li></ul><p>Compress a megaco component. The erlang dist encoder makes no 
+assumption on the how or even if the component is compressed. </p><h3>Module:decode(T, Version) -&gt; R</h3><p>Decode (decompress) a megaco component.</p><ul><li><span class="v">T = term()</span></li><li><span class="v">Version = integer()</span></li><li><span class="v">R = megaco_message() | transaction() | action_reply() | action_request() | command_request()</span></li></ul><p>Decompress a megaco component. </p><h2>megaco_encoder</h2><p>Megaco encoder behaviour.</p><p>The following functions should be exported from a 
+<strong>megaco_encoder</strong> callback module:</p><h3>DATA TYPES</h3><pre><code class="">
+megaco_message() = #'MegacoMessage{}'
+transaction() = {transactionRequest,     transaction_request()}      |
+                {transactionPending,     transaction_reply()}        |
+                {transactionReply,       transaction_pending()}      |
+                {transactionResponseAck, transaction_response_ack()} |
+                {segmentReply,           segment_reply()}
+transaction_request() = #'TransactionRequest'{}
+transaction_pending() = #'TransactionPending'{}
+transaction_reply() = #'TransactionReply'{}
+transaction_response_ack() = [transaction_ack()]
+transaction_ack() = #'TransactionAck'{}
+segment_reply() = #'SegmentReply'{}
+action_request() = #'ActionRequest'{}
+action_reply() = #'ActionReply'{}
+    </code></pre><a name="encode_message"></a><h2>Functions</h2><h3>Module:encode_message(EncodingConfig, Version, Message) -&gt; {ok, Bin} | Error</h3><p>Encode a megaco message.</p><ul><li><span class="v">EncodingConfig = list()</span></li><li><span class="v">Version = integer()</span></li><li><span class="v">Message = megaco_message()</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">Error = term()</span></li></ul><p>Encode a megaco message.</p><a name="decode_message"></a><h3>Module:decode_message(EncodingConfig, Version, Bin) -&gt; {ok, Message} | Error</h3><p>Decode a megaco message.</p><ul><li><span class="v">EncodingConfig = list()</span></li><li><span class="v">Version = integer() | dynamic</span></li><li><span class="v">Message = megaco_message()</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">Error = term()</span></li></ul><p>Decode a megaco message. </p><p>Note that if the Version argument is <strong>dynamic</strong>, the
+decoder should try to figure out the actual version from the
+message itself and then use the proper decoder, e.g. version 1.
+<br/>If on the other hand the Version argument is an integer, 
+it means that this is the expected version of the message and 
+the decoder for that version should be used.</p><a name="decode_mini_message"></a><h3>Module:decode_mini_message(EncodingConfig, Version, Bin) -&gt; {ok, Message} | Error</h3><p>Perform a minimal decode of a megaco message.</p><ul><li><span class="v">EncodingConfig = list()</span></li><li><span class="v">Version = integer() | dynamic</span></li><li><span class="v">Message = megaco_message()</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">Error = term()</span></li></ul><p>Perform a minimal decode of a megaco message. </p><p>The purpose of this function is to do a minimal decode of
+Megaco message. A successfull result is a <strong>'MegacoMessage'</strong> 
+in which only version and mid has been initiated. This function 
+is used by the megaco_messenger module when the 
+<strong>decode_message/3</strong> function fails to figure out the mid 
+(the actual sender) of the message.</p><p>Note again that a successfull decode only returns a
+partially initiated message.</p><a name="encode_transaction"></a><h3>Module:encode_transaction(EncodingConfig, Version, Transaction) -&gt; OK | Error</h3><p>Encode a megaco transaction.</p><ul><li><span class="v">EncodingConfig = list()</span></li><li><span class="v">Version = integer()</span></li><li><span class="v">Transaction = transaction()</span></li><li><span class="v">OK = {ok, Bin}</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">Error = {error, Reason}</span></li><li><span class="v">Reason = not_implemented | OtherReason</span></li><li><span class="v">OtherReason = term()</span></li></ul><p>Encode a megaco transaction. If this, for whatever reason, 
+is not supported, the function should return the error reason 
+<strong>not_implemented</strong>. </p><p>This functionality is used both when the transaction sender is 
+used and for segmentation. So, for either of those to work, this 
+function <em>must</em> be fully supported! </p><a name="encode_action_requests"></a><h3>Module:encode_action_requests(EncodingConfig, Version, ARs) -&gt; OK | Error</h3><p>Encode megaco action requests.</p><ul><li><span class="v">EncodingConfig = list()</span></li><li><span class="v">Version = integer()</span></li><li><span class="v">ARs = action_requests()</span></li><li><span class="v">action_requests() = [action_request()]</span></li><li><span class="v">OK = {ok, Bin}</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">Error = {error, Reason}</span></li><li><span class="v">Reason = not_implemented | OtherReason</span></li><li><span class="v">OtherReason = term()</span></li></ul><p>Encode megaco action requests. This function is called when 
+the user calls the function 
+<a href="./megaco#encode_actions">encode_actions/3</a>.
+If that function is never used or if the codec cannot support this
+(the encoding of individual actions), then return with error reason 
+<strong>not_implemented</strong>. </p><a name="encode_action_reply"></a><h3>Module:encode_action_reply(EncodingConfig, Version, AR) -&gt; OK | Error</h3><p>Encode a megaco action reply.</p><ul><li><span class="v">EncodingConfig = list()</span></li><li><span class="v">Version = integer()</span></li><li><span class="v">AR = action_reply()</span></li><li><span class="v">OK = {ok, Bin}</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">Error = {error, Reason}</span></li><li><span class="v">Reason = not_implemented | OtherReason</span></li><li><span class="v">OtherReason = term()</span></li></ul><p>Encode a megaco action reply. If this, for whatever reason, 
+is not supported, the function should return the error reason 
+<strong>not_implemented</strong>. </p><p>This function is used when segmentation has been configured. 
+So, for this to work, this function <em>must</em> be fully 
+supported! </p><h2>megaco_transport</h2><p>Megaco transport behaviour.</p><p>The following functions should be exported from a 
+<strong>megaco_transport</strong> callback module:<ul><li> <p><a href="#send_message">send_message/2</a> [<strong>mandatory</strong>]</p> </li><li> <p><a href="#send_message">send_message/3</a> [<strong>optional</strong>]</p>  </li><li> <p><a href="#resend_message">resend_message/2</a> [<strong>optional</strong>]</p> </li><li> </li></ul><a name="send_message"></a></p><h2>Functions</h2><h3>Module:send_message(Handle, Msg) -&gt; ok | {cancel, Reason} | Error</h3><h3>Module:send_message(Handle, Msg, Resend) -&gt; ok | {cancel, Reason} | Error</h3><p>Send a megaco message.</p><ul><li><span class="v">Handle = term()</span></li><li><span class="v">Msg = binary() | iolist()</span></li><li><span class="v">Resend = boolean()</span></li><li><span class="v">Reason = term()</span></li><li><span class="v">Error = term()</span></li></ul><p>Send a megaco message. </p><p>If the function returns <strong>{cancel, Reason}</strong>, 
+this means the transport module decided not to send the message. 
+This is <em>not</em> an error. No error messages will be issued 
+and no error counters incremented. 
+What actions this will result in depends on what kind of
+message was sent. 
+</p><p>In the case of requests, megaco will cancel the message in much 
+the same way as if <strong>megaco:cancel</strong> had been called 
+(after a successfull send). The information will be propagated
+back to the user differently depending on how the request(s) where
+issued: For requests issued using 
+<a href="./megaco#call">megaco:call</a>, the info
+will be delivered in the return value. For requests issued 
+using <strong>megaco:cast</strong> the info will be delivered 
+via a call to the callback function 
+<a href="./megaco_user#trans_reply">handle_trans_reply</a>. </p><p>In the case of reply, megaco will cancel the reply and information
+of this will be returned to the user via a call to the 
+callback function 
+<a href="./megaco_user#trans_ack">handle_trans_ack</a>. </p><p>The function <strong>send_message/3</strong> will only be called if the 
+<a href="./megaco#ui_resend_indication">resend_indication</a>
+config option has been set to the value <strong>flag</strong>. The third 
+argument, <strong>Resend</strong> then indicates if the message send is 
+a resend or not. </p><a name="resend_message"></a><h3>Module:resend_message(Handle, Msg) -&gt; ok | {cancel, Reason} | Error</h3><p>Re-send a megaco message.</p><ul><li><span class="v">Handle = term()</span></li><li><span class="v">Msg = binary() | iolist()</span></li><li><span class="v">Reason = term()</span></li><li><span class="v">Error = term()</span></li></ul><p>Re-send a megaco message. </p><p>Note that this function will only be called if the user has set the 
+<a href="./megaco#ui_resend_indication">resend_indication</a> 
+config option to <strong>true</strong><em>and</em> it is in fact a message 
+resend. If not <em>both</em> of these condition's are meet, 
+<strong>send_message</strong> will be called. </p><p>If the function returns <strong>{cancel, Reason}</strong>, this means the 
+transport module decided not to send the message. 
+This is <em>not</em> an error. No error messages will be issued 
+and no error counters incremented. 
+What actions this will result in depends on what kind of
+message was sent. </p><p>In the case of requests, megaco will cancel the message in much 
+the same way as if <strong>megaco:cancel</strong> had been called 
+(after a successfull send). The information will be propagated
+back to the user differently depending on how the request(s) where
+issued: For requests issued using 
+<a href="./megaco#call">megaco:call</a>, the info
+will be delivered in the return value. For requests issued 
+using <strong>megaco:cast</strong> the info will be delivered via a call
+to the callback function 
+<a href="./megaco_user#trans_reply">handle_trans_reply</a>. </p><p>In the case of reply, megaco will cancel the reply and information
+of this will be returned to the user via a call to the 
+callback function 
+<a href="./megaco_user#trans_ack">handle_trans_ack</a>. </p><h2>megaco_tcp</h2><p>Interface module to TPKT transport protocol for Megaco/H.248.</p><p>This module contains the public interface to the TPKT (TCP/IP) version
+transport protocol for Megaco/H.248.</p><h2>Functions</h2><h3>start_transport() -&gt; {ok, TransportRef}</h3><ul><li><span class="v">TransportRef = pid()</span></li></ul><p>This function is used for starting the TCP/IP transport service.
+Use exit(TransportRef, Reason) to stop the transport service.</p><h3>listen(TransportRef, ListenPortSpecList) -&gt; ok</h3><ul><li><span class="v">TransportRef = pid() | regname()</span></li><li><span class="v">OptionListPerPort = [Option]</span></li><li><span class="v">Option = {port, integer()} |{options, list()} |{receive_handle, term()}</span></li></ul><p>This function is used for starting new TPKT listening socket
+for TCP/IP.  The option list contains the socket
+definitions.</p><h3>connect(TransportRef, OptionList) -&gt; {ok, Handle, ControlPid} |  {error, Reason}</h3><ul><li><span class="v">TransportRef = pid() | regname()</span></li><li><span class="v">OptionList = [Option]</span></li><li><span class="v">Option = {host, Ipaddr} | {port, integer()}  |{options, list()} |{receive_handle, term()} |{module, atom()}</span></li><li><span class="v">Handle = socket_handle()</span></li><li><span class="v">ControlPid = pid()</span></li><li><span class="v">Reason = term()</span></li></ul><p>This function is used to open a TPKT connection.</p><p>The <strong>module</strong> option makes it possible for the user to provide
+their own callback module. The <strong>receive_message/4</strong> or
+<strong>process_received_message/4</strong> functions of this module is called 
+when a new message is received (which one depends on the size of the 
+message; small - receive_message, large - process_received_message). 
+Default value is <em>megaco</em>.</p><h3>close(Handle) -&gt; ok</h3><ul><li><span class="v">Handle = socket_handle()</span></li></ul><p>This function is used for closing an active TPKT connection.</p><h3>socket(Handle) -&gt; Socket</h3><ul><li><span class="v">Handle = socket_handle()</span></li><li><span class="v">Socket = inet_socket()</span></li></ul><p>This function is used to convert a socket_handle() to
+a inet_socket(). inet_socket() is a plain socket,
+see the inet module for more info.</p><h3>send_message(Handle, Message) -&gt; ok</h3><ul><li><span class="v">Handle = socket_handle()</span></li><li><span class="v">Message = binary() | iolist()</span></li></ul><p>Sends a message on a connection.</p><h3>block(Handle) -&gt; ok</h3><ul><li><span class="v">Handle = socket_handle()</span></li></ul><p>Stop receiving incoming messages on the socket.</p><h3>unblock(Handle) -&gt; ok</h3><ul><li><span class="v">Handle = socket_handle()</span></li></ul><p>Starting to receive incoming messages from the socket again.</p><a name="upgrade_receive_handle"></a><h3>upgrade_receive_handle(ControlPid) -&gt; ok</h3><ul><li><span class="v">ControlPid = pid()</span></li></ul><p>Update the receive handle of the control process (e.g. after
+having changed protocol version).</p><a name="stats"></a><h3>get_stats() -&gt; {ok, TotalStats} | {error, Reason}</h3><h3>get_stats(SendHandle) -&gt; {ok, SendHandleStats} | {error, Reason}</h3><h3>get_stats(SendHandle, Counter) -&gt; {ok, CounterStats} | {error, Reason}</h3><ul><li><span class="v">TotalStats = [send_handle_stats()]</span></li><li><span class="v">total_stats() = {send_handle(), [stats()]}</span></li><li><span class="v">SendHandle = send_handle()</span></li><li><span class="v">SendHandleStats = [stats()]</span></li><li><span class="v">Counter = tcp_stats_counter()</span></li><li><span class="v">CounterStats = integer()</span></li><li><span class="v">stats() = {tcp_stats_counter(), integer()}</span></li><li><span class="v">tcp_stats_counter() = medGwyGatewayNumInMessages |  medGwyGatewayNumInOctets | medGwyGatewayNumOutMessages | medGwyGatewayNumOutOctets | medGwyGatewayNumErrors</span></li><li><span class="v">Reason = term()</span></li></ul><p>Retreive the TCP related (SNMP) statistics counters.</p><h3>reset_stats() -&gt; void()</h3><h3>reset_stats(SendHandle) -&gt; void()</h3><ul><li><span class="v">SendHandle = send_handle()</span></li></ul><p>Reset all TCP related (SNMP) statistics counters.</p><h2>megaco_udp</h2><p>Interface module to UDP transport protocol for Megaco/H.248.</p><p>This module contains the public interface to the UDP/IP version
+transport protocol for Megaco/H.248.</p><h2>Functions</h2><h3>start_transport() -&gt; {ok, TransportRef}</h3><ul><li><span class="v">TransportRef = pid()</span></li></ul><p>This function is used for starting the UDP/IP transport service.
+Use exit(TransportRef, Reason) to stop the transport service.</p><h3>open(TransportRef, OptionList) -&gt;  {ok, Handle, ControlPid} |  {error, Reason}</h3><ul><li><span class="v">TransportRef = pid() | regname()</span></li><li><span class="v">OptionList = [option()]</span></li><li><span class="v">option() = {port, integer()} |{options, list()} |{receive_handle, receive_handle()} |{module, atom()}</span></li><li><span class="v">Handle = socket_handle()</span></li><li><span class="v">receive_handle() = term()</span></li><li><span class="v">ControlPid = pid()</span></li><li><span class="v">Reason = term()</span></li></ul><p>This function is used to open an UDP/IP socket.</p><p>The <strong>module</strong> option makes it possible for the user to provide
+their own callback module. The functions <strong>receive_message/4</strong> or
+<strong>process_received_message/4</strong> of this module is called when a new 
+message is received (which one depends on the size of the message; 
+small - receive_message, large - process_received_message). 
+Default value is <em>megaco</em>.</p><h3>close(Handle, Msg) -&gt; ok</h3><ul><li><span class="v">Handle = socket_handle()</span></li><li><span class="v">Msg</span></li></ul><p>This function is used for closing an active UDP socket.</p><h3>socket(Handle) -&gt; Socket</h3><ul><li><span class="v">Handle = socket_handle()</span></li><li><span class="v">Socket = inet_socket()</span></li></ul><p>This function is used to convert a socket_handle() to
+a inet_socket(). inet_socket() is a plain socket,
+see the inet module for more info.</p><h3>create_send_handle(Handle, Host, Port) -&gt; send_handle()</h3><ul><li><span class="v">Handle = socket_handle()</span></li><li><span class="v">Host = {A,B,C,D} | string()</span></li><li><span class="v">Port = integer()</span></li></ul><p>Creates a send handle from a transport handle.  The send
+handle is intended to be used by megaco_udp:send_message/2.</p><h3>send_message(SendHandle, Msg) -&gt; ok</h3><ul><li><span class="v">SendHandle = send_handle()</span></li><li><span class="v">Message = binary() | iolist()</span></li></ul><p>Sends a message on a socket. The send handle is obtained by
+megaco_udp:create_send_handle/3. Increments the NumOutMessages
+and NumOutOctets counters if message successfully sent. In case
+of a failure to send, the NumErrors counter is <em>not</em>
+incremented. This is done elsewhere in the megaco app.</p><h3>block(Handle) -&gt; ok</h3><ul><li><span class="v">Handle = socket_handle()</span></li></ul><p>Stop receiving incoming messages on the socket.</p><h3>unblock(Handle) -&gt; ok</h3><ul><li><span class="v">Handle = socket_handle()</span></li></ul><p>Starting to receive incoming messages from the socket again.</p><a name="upgrade_receive_handle"></a><h3>upgrade_receive_handle(ControlPid, NewHandle) -&gt; ok</h3><ul><li><span class="v">ControlPid = pid()</span></li><li><span class="v">NewHandle = receive_handle()</span></li><li><span class="v">receive_handle() = term()</span></li></ul><p>Update the receive handle of the control process (e.g. after
+having changed protocol version).</p><a name="stats"></a><h3>get_stats() -&gt; {ok, TotalStats} | {error, Reason}</h3><h3>get_stats(SendHandle) -&gt; {ok, SendHandleStats} | {error, Reason}</h3><h3>get_stats(SendHandle, Counter) -&gt; {ok, CounterStats} | {error, Reason}</h3><ul><li><span class="v">TotalStats = [total_stats()]</span></li><li><span class="v">total_stats() = {send_handle(), [stats()]}</span></li><li><span class="v">SendHandle = send_handle()</span></li><li><span class="v">SendHandleStats = [stats()]</span></li><li><span class="v">Counter = udp_stats_counter()</span></li><li><span class="v">CounterStats = integer()</span></li><li><span class="v">stats() = {udp_stats_counter(), integer()}</span></li><li><span class="v">tcp_stats_counter() = medGwyGatewayNumInMessages |  medGwyGatewayNumInOctets | medGwyGatewayNumOutMessages | medGwyGatewayNumOutOctets | medGwyGatewayNumErrors</span></li><li><span class="v">Reason = term()</span></li></ul><p>Retreive the UDP related (SNMP) statistics counters.</p><h3>reset_stats() -&gt; void()</h3><h3>reset_stats(SendHandle) -&gt; void()</h3><ul><li><span class="v">SendHandle = send_handle()</span></li></ul><p>Reset all TCP related (SNMP) statistics counters.</p><h2>megaco_user</h2><p>Callback module for users of the Megaco application</p><p>This module defines the callback behaviour of Megaco users.  A
+megaco_user compliant callback module must export the following
+functions: <ul><li> <p><a href="#connect">handle_connect/2,3</a></p> </li><li> <p><a href="#disconnect">handle_disconnect/3</a></p> </li><li> <p><a href="#syntax_error">handle_syntax_error/3,4</a></p> </li><li> <p><a href="#message_error">handle_message_error/3,4</a></p> </li><li> <p><a href="#trans_request">handle_trans_request/3,4</a></p> </li><li> <p><a href="#trans_long_request">handle_trans_long_request/3,4</a></p> </li><li> <p><a href="#trans_reply">handle_trans_reply/4,5</a></p> </li><li> <p><a href="#trans_ack">handle_trans_ack/4,5</a></p> </li><li> <p><a href="#unexpected_trans">handle_unexpected_trans/3,4</a></p> </li><li> <p><a href="#request_abort">handle_trans_request_abort/4,5</a></p> </li><li> <p><a href="#segment_reply">handle_segment_reply/5,6</a></p> </li></ul>The semantics of them and their exact signatures are explained 
+below. The <strong>user_args</strong> configuration parameter which may be used to
+extend the argument list of the callback functions. For example,
+the handle_connect function takes by default two arguments:<pre><code class="">
+        handle_connect(Handle, Version)
+    </code></pre>but if the <strong>user_args</strong> parameter is set to a longer
+list, such as <strong>[SomePid,SomeTableRef]</strong>, the callback
+function is expected to have these (in this case two) extra
+arguments last in the argument list:<pre><code class="">
+        handle_connect(Handle, Version, SomePid, SomeTableRef)
+    </code></pre><a name="extra_argument"></a></p><h3>DATA TYPES</h3><pre><code class="">
+action_request() = #'ActionRequest'{}
+action_reply() = #'ActionReply'{}
+error_desc() = #'ErrorDescriptor'{}
+segment_no() = integer()
+    </code></pre><pre><code class="">
+conn_handle() = #megaco_conn_handle{}    </code></pre><p>The record initially returned by <strong>megaco:connect/4,5</strong>. 
+It identifies a "virtual" connection and may be reused after a 
+reconnect (disconnect + connect).</p><pre><code class="">
+protocol_version() = integer()    </code></pre><p>Is the actual protocol version. In most cases the protocol
+version is retrieved from the processed message, but there
+are exceptions:</p><ul><li> <p>When <strong>handle_connect/2,3</strong> is triggered by an 
+explicit call to <strong>megaco:connect/4,5</strong>.</p> </li><li> <p><strong>handle_disconnect/3</strong></p> </li><li> <p><strong>handle_syntax_error/3</strong></p> </li></ul><p>In these cases, the ProtocolVersion default
+version is obtained from the static connection
+configuration:</p><ul><li> <p><strong>megaco:conn_info(ConnHandle, protocol_version)</strong>.</p> </li></ul><a name="connect"></a><h2>Functions</h2><h3>handle_connect(ConnHandle, ProtocolVersion) -&gt; ok | error | {error,ErrorDescr}</h3><h3>handle_connect(ConnHandle, ProtocolVersion, Extra]) -&gt; ok | error | {error,ErrorDescr}</h3><p>Invoked when a new connection is established</p><ul><li><span class="v">ConnHandle      = conn_handle()</span></li><li><span class="v">ProtocolVersion = protocol_version()</span></li><li><span class="v">ErrorDescr      = error_desc()</span></li><li><span class="v">Extra           = term()</span></li></ul><p>Invoked when a new connection is established</p><p>Connections may either be established by an explicit call to
+megaco:connect/4 or implicitly at the first invocation of
+megaco:receive_message/3.</p><p>Normally a Media Gateway (MG) connects explicitly while a Media
+Gateway Controller (MGC) connects implicitly.</p><p>At the Media Gateway Controller (MGC) side it is possible to reject
+a connection request (and send a message error reply to the gateway)
+by returning <strong>{error, ErrorDescr}</strong> or simply <strong>error</strong> which
+generates an error descriptor with code 402 (unauthorized) and 
+reason "Connection refused by user" (this is also the case for all 
+unknown results, such as exit signals or throw).</p><p>See <a href="#extra_argument">note</a> 
+above about the <strong>Extra</strong> argument in 
+<strong>handle_message_error/4</strong>. </p><p><strong>handle_connect/3</strong> (with <strong>Extra</strong>) 
+can also be called as a result of a call to the 
+<a href="./megaco#connect">megaco:connect/5</a> function
+(if that function is called with the 
+<strong>Extra</strong> argument different than <strong>ignore_extra</strong>. </p><a name="disconnect"></a><h3>handle_disconnect(ConnHandle, ProtocolVersion, Reason) -&gt; ok</h3><p>Invoked when a connection is teared down</p><ul><li><span class="v">ConnHandle      = conn_handle()</span></li><li><span class="v">ProtocolVersion = protocol_version()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Invoked when a connection is teared down</p><p>The disconnect may either be made explicitly by a call to
+megaco:disconnect/2 or implicitly when the control process
+of the connection dies.</p><a name="syntax_error"></a><h3>handle_syntax_error(ReceiveHandle, ProtocolVersion, DefaultED) -&gt; reply | {reply, ED} | no_reply | {no_reply, ED}</h3><h3>handle_syntax_error(ReceiveHandle, ProtocolVersion, DefaultED, Extra) -&gt; reply | {reply, ED} | no_reply | {no_reply, ED}</h3><p>Invoked when a received message had syntax errors</p><ul><li><span class="v">ReceiveHandle    = receive_handle()</span></li><li><span class="v">ProtocolVersion  = protocol_version()</span></li><li><span class="v">DefaultED        = error_desc()</span></li><li><span class="v">ED               = error_desc()</span></li><li><span class="v">Extra            = term()</span></li></ul><p>Invoked when a received message had syntax errors</p><p>Incoming messages is delivered by megaco:receive_message/4
+and normally decoded successfully. But if the decoding
+failed this function is called in order to decide if the
+originator should get a reply message (reply) or if the reply
+silently should be discarded (no_reply).</p><p>Syntax errors are detected locally on this side of the
+protocol and may have many causes, e.g. a malfunctioning
+transport layer, wrong encoder/decoder selected, bad
+configuration of the selected encoder/decoder etc.</p><p>The error descriptor defaults to <strong>DefaultED</strong>,
+but can be overridden with an alternate one by
+returning <strong>{reply,ED}</strong> or <strong>{no_reply,ED}</strong>
+instead of <strong>reply</strong> and <strong>no_reply</strong> respectively.
+</p><p>Any other return values (including exit signals or throw) and the
+<strong>DefaultED</strong> will be used. </p><p>See <a href="#extra_argument">note</a> 
+above about the <strong>Extra</strong> argument in 
+<strong>handle_syntax_error/4</strong>. </p><a name="message_error"></a><h3>handle_message_error(ConnHandle, ProtocolVersion, ErrorDescr) -&gt; ok</h3><h3>handle_message_error(ConnHandle, ProtocolVersion, ErrorDescr, Extra) -&gt; ok</h3><p>Invoked when a received message just contains an error</p><ul><li><span class="v">ConnHandle      = conn_handle()</span></li><li><span class="v">ProtocolVersion = protocol_version()</span></li><li><span class="v">ErrorDescr      = error_desc()</span></li><li><span class="v">Extra           = term()</span></li></ul><p>Invoked when a received message just contains an error
+instead of a list of transactions.</p><p>Incoming messages is delivered by megaco:receive_message/4
+and successfully decoded. Normally a message contains a list
+of transactions, but it may instead contain an
+ErrorDescriptor on top level of the message.</p><p>Message errors are detected remotely on the other side of
+the protocol. And you probably don't want to reply to it,
+but it may indicate that you have outstanding transactions
+that not will get any response (request -&gt; reply; reply -&gt;
+ack).</p><p>See <a href="#extra_argument">note</a> 
+above about the <strong>Extra</strong> argument in 
+<strong>handle_message_error/4</strong>. </p><a name="trans_request"></a><h3>handle_trans_request(ConnHandle, ProtocolVersion, ActionRequests) -&gt; pending() | reply() | ignore_trans_request</h3><h3>handle_trans_request(ConnHandle, ProtocolVersion, ActionRequests, Extra) -&gt; pending() | reply() | ignore_trans_request</h3><p>Invoked for each transaction request</p><ul><li><span class="v">ConnHandle      = conn_handle()</span></li><li><span class="v">ProtocolVersion = protocol_version()</span></li><li><span class="v">ActionRequests  = [action_request()]</span></li><li><span class="v">Extra           = term()</span></li><li><span class="v">pending()       = {pending, req_data()}</span></li><li><span class="v">req_data()      = term()</span></li><li><span class="v">reply()         = {ack_action(), actual_reply()} | {ack_action(), actual_reply(), send_options()} </span></li><li><span class="v">ack_action()    = discard_ack | {handle_ack, ack_data()} | {handle_pending_ack, ack_data()} | {handle_sloppy_ack, ack_data()}</span></li><li><span class="v">actual_reply()  = [action_reply()] | error_desc()</span></li><li><span class="v">ack_data()      = term()</span></li><li><span class="v">send_options()  = [send_option()]</span></li><li><span class="v">send_option()   = {reply_timer, megaco_timer()} | {send_handle, term()} | {protocol_version, integer()}</span></li><li><span class="v">Extra           = term()</span></li></ul><p>Invoked for each transaction request</p><p>Incoming messages is delivered by megaco:receive_message/4
+and successfully decoded. Normally a message contains a list
+of transactions and this function is invoked for each
+TransactionRequest in the message.</p><p>This function takes a list of 'ActionRequest' records and
+has three main options:</p><dl><dt><strong>Return ignore_trans_request</strong></dt><dd> <p>Decide that these action requests shall be ignored
+completely.</p> </dd><dt><strong>Return pending()</strong></dt><dd> <p>Decide that the processing of these action requests
+will take a long time and that the originator should get
+an immediate 'TransactionPending' reply as interim
+response. The actual processing of these action requests
+instead should be delegated to the the
+handle_trans_long_request/3 callback function with the
+req_data() as one of its arguments. </p> </dd><dt><strong>Return reply()</strong></dt><dd> <p>Process the action requests and either return an
+error_descr() indicating some fatal error or a list of
+action replies (wildcarded or not). </p> <p>If for some reason megaco is unable to deliver the reply,
+the reason for this will be passed to the user via a call
+to the callback function 
+<a href="#trans_ack">handle_trans_ack</a>,
+unless <strong>ack_action() = discard_ack</strong>. </p> <p>The ack_action() is  either:</p> <dl><dt><strong>discard_ack</strong></dt><dd> <p>Meaning that you don't care if the reply is
+acknowledged or not.</p> </dd><dt><strong>{handle_ack, ack_data()} | {handle_ack, ack_data(), send_options()}</strong></dt><dd> <p>Meaning that you want an immediate acknowledgement
+when the other part receives this transaction
+reply. When the acknowledgement eventually is
+received, the handle_trans_ack/4 callback function
+will be invoked with the ack_data() as one of its
+arguments. ack_data() may be any Erlang term.</p> </dd><dt><strong>{handle_pending_ack, ack_data()} | {handle_pending_ack, ack_data(), send_options()}</strong></dt><dd> <p>This has the same effect as the above, 
+<em>if and only if</em> megaco has sent at least one 
+pending message for this request (during the processing
+of the request). If no pending message has been sent, then 
+immediate acknowledgement will <em>not</em> be 
+requested. </p> <p>Note that this only works as specified if the 
+<strong>sent_pending_limit</strong> config option has been set to 
+an integer value. </p> </dd><dt><strong>{handle_sloppy_ack, ack_data()}| {handle_sloppy_ack, ack_data(), send_options()}</strong></dt><dd> <p>Meaning that you want an acknowledgement <em>sometime</em>.
+When the acknowledgement eventually is received, the 
+handle_trans_ack/4 callback function will be invoked with 
+the ack_data() as one of its arguments. ack_data() may be 
+any Erlang term.</p> </dd></dl> </dd></dl><p>Any other return values (including exit signals or throw) will 
+result in an error descriptor with code 500 (internal gateway error) 
+and the module name (of the callback module) as reason. </p><p>See <a href="#extra_argument">note</a> 
+above about the <strong>Extra</strong> argument in 
+<strong>handle_trans_request/4</strong>. </p><a name="trans_long_request"></a><h3>handle_trans_long_request(ConnHandle, ProtocolVersion, ReqData) -&gt; reply()</h3><h3>handle_trans_long_request(ConnHandle, ProtocolVersion, ReqData, Extra) -&gt; reply()</h3><p>Optionally invoked for a time consuming transaction request</p><ul><li><span class="v">ConnHandle      = conn_handle()</span></li><li><span class="v">ProtocolVersion = protocol_version()</span></li><li><span class="v">ReqData         = req_data()</span></li><li><span class="v">Extra           = term()</span></li><li><span class="v">req_data()      = term()</span></li><li><span class="v">reply()         = {ack_action(), actual_reply()} | {ack_action(), actual_reply(), send_options()}</span></li><li><span class="v">ack_action()    = discard_ack | {handle_ack, ack_data()} | {handle_sloppy_ack, ack_data()}</span></li><li><span class="v">actual_reply()  = [action_reply()] | error_desc()</span></li><li><span class="v">ack_data()      = term()</span></li><li><span class="v">send_options()  = [send_option()]</span></li><li><span class="v">send_option()   = {reply_timer, megaco_timer()} | {send_handle, term()} | {protocol_version, integer()}</span></li><li><span class="v">Extra           = term()</span></li></ul><p>Optionally invoked for a time consuming transaction request</p><p>If this function gets invoked or not is controlled by the
+reply from the preceding call to handle_trans_request/3.
+The handle_trans_request/3 function may decide to process
+the action requests itself or to delegate the processing to
+this function.</p><p>The req_data() argument to this function is the Erlang term
+returned by handle_trans_request/3.</p><p>Any other return values (including exit signals or throw) will 
+result in an error descriptor with code 500 (internal gateway error)
+and the module name (of the callback module) as reason. </p><p>See <a href="#extra_argument">note</a> 
+above about the <strong>Extra</strong> argument in 
+<strong>handle_trans_long_request/4</strong>. </p><a name="trans_reply"></a><h3>handle_trans_reply(ConnHandle, ProtocolVersion, UserReply, ReplyData) -&gt; ok</h3><h3>handle_trans_reply(ConnHandle, ProtocolVersion, UserReply, ReplyData, Extra) -&gt; ok</h3><p>Optionally invoked for a transaction reply</p><ul><li><span class="v">ConnHandle      = conn_handle()</span></li><li><span class="v">ProtocolVersion = protocol_version()</span></li><li><span class="v">UserReply       = success() | failure()</span></li><li><span class="v">success()       = {ok, result()} </span></li><li><span class="v">result()        = transaction_result() | segment_result()</span></li><li><span class="v">transaction_result() = action_reps()</span></li><li><span class="v">segment_result() = {segment_no(), last_segment(), action_reps()}</span></li><li><span class="v">action_reps()   = [action_reply()]</span></li><li><span class="v">failure()       = {error, reason()} | {error, ReplyNo, reason()}</span></li><li><span class="v">reason()  = transaction_reason() | segment_reason() | user_cancel_reason() | send_reason() | other_reason()</span></li><li><span class="v">transaction_reason() = error_desc()</span></li><li><span class="v">segment_reason() = {segment_no(), last_segment(), error_desc()}</span></li><li><span class="v">other_reason()   =  timeout | {segment_timeout, missing_segments()} | exceeded_recv_pending_limit | term()</span></li><li><span class="v">last_segment()  = bool()</span></li><li><span class="v">missing_segments() = [segment_no()]</span></li><li><span class="v">user_cancel_reason() = {user_cancel, reason_for_user_cancel()}</span></li><li><span class="v">reason_for_user_cancel() = term()</span></li><li><span class="v">send_reason() = send_cancelled_reason() | send_failed_reason()</span></li><li><span class="v">send_cancelled_reason() = {send_message_cancelled, reason_for_send_cancel()}</span></li><li><span class="v">reason_for_send_cancel() = term()</span></li><li><span class="v">send_failed_reason() = {send_message_failed, reason_for_send_failure()}</span></li><li><span class="v">reason_for_send_failure() = term()</span></li><li><span class="v">ReplyData       = reply_data()</span></li><li><span class="v">ReplyNo         = integer() &gt; 0</span></li><li><span class="v">reply_data()    = term()</span></li><li><span class="v">Extra           = term()</span></li></ul><p>Optionally invoked for a transaction reply</p><p>The sender of a transaction request has the option of
+deciding, whether the originating Erlang process should
+synchronously wait (<strong>megaco:call/3</strong>) for a reply or if the
+message should be sent asynchronously (<strong>megaco:cast/3</strong>) and
+the processing of the reply should be delegated this
+callback function.</p><p>Note that if the reply is segmented (split into several smaller 
+messages; segments), then some extra info, segment number and 
+an indication if all segments of a reply has been received or
+not, is also included in the <strong>UserReply</strong>. </p><p>The <strong>ReplyData</strong> defaults to 
+<strong>megaco:lookup(ConnHandle, reply_data)</strong>, 
+but may be explicitly overridden by a
+<strong>megaco:cast/3</strong> option in order to forward info about the
+calling context of the originating process.</p><p>At <strong>success()</strong>, the <strong>UserReply</strong> either contains:</p><ul><li> <p>A list of 'ActionReply' records possibly containing 
+error indications.</p> </li><li> <p>A tuple of size three containing: 
+the segment number, 
+the <strong>last segment indicator</strong> and finally 
+a list of 'ActionReply' records possibly containing error 
+indications. This is of course only possible if the 
+reply was segmented. </p> </li></ul><p><strong>failure()</strong> indicates an local or external error and
+can be one of the following: </p><ul><li> <p>A <strong>transaction_reason()</strong>, indicates that the remote 
+user has replied with an explicit transactionError.</p> </li><li> <p>A <strong>segment_reason()</strong>, indicates that the remote user 
+has replied with an explicit transactionError for this 
+segment. This is of course only possible if the reply was 
+segmented. </p> </li><li> <p>A <strong>user_cancel_reason()</strong>, indicates that the request 
+has been canceled by the user. <strong>reason_for_user_cancel()</strong> 
+is the reason given in the call to the 
+<a href="./megaco#cancel">cancel</a>
+function.</p> </li><li> <p>A <strong>send_reason()</strong>, indicates that the transport module
+<a href="./megaco_transport#send_message">send_message</a>
+function did not send the message. The reason for this can be: </p> <ul><li> <p><strong>send_cancelled_reason()</strong> - the message sending was 
+deliberately cancelled. <strong>reason_for_send_cancel()</strong> 
+is the reason given in the <strong>cancel</strong> return
+from the 
+<a href="./megaco_transport#send_message">send_message</a> 
+function. </p> </li><li> <p><strong>send_failed_reason()</strong> - an error occurred while attempting to 
+send the message. </p> </li></ul> </li><li> <p>An <strong>other_reason()</strong>, indicates some other error such 
+as: </p> <ul><li> <p><strong>timeout</strong> - the reply failed to arrive before the 
+request timer expired.</p> </li><li> <p><strong>{segment_timeout, missing_segments()}</strong> - 
+one or more segments
+was not delivered before the expire of the segment 
+timer.</p> </li><li> <p><strong>exceeded_recv_pending_limit</strong> - the pending
+limit was exceeded for this request.</p> </li></ul> </li></ul><p>See <a href="#extra_argument">note</a> 
+above about the <strong>Extra</strong> argument in 
+<strong>handle_trans_reply/5</strong>. </p><a name="trans_ack"></a><h3>handle_trans_ack(ConnHandle, ProtocolVersion, AckStatus, AckData) -&gt; ok</h3><h3>handle_trans_ack(ConnHandle, ProtocolVersion, AckStatus, AckData, Extra) -&gt; ok</h3><p>Optionally invoked for a transaction acknowledgement</p><ul><li><span class="v">ConnHandle      = conn_handle()</span></li><li><span class="v">ProtocolVersion = protocol_version()</span></li><li><span class="v">AckStatus       = ok | {error, reason()}</span></li><li><span class="v">reason() = user_cancel_reason() | send_reason() | other_reason()</span></li><li><span class="v">user_cancel_reason() = {user_cancel, reason_for_user_cancel()}</span></li><li><span class="v">send_reason()   = send_cancelled_reason() | send_failed_reason()</span></li><li><span class="v">send_cancelled_reason() = {send_message_cancelled, reason_for_send_cancel()}</span></li><li><span class="v">reason_for_send_cancel() = term()</span></li><li><span class="v">send_failed_reason() = {send_message_failed, reason_for_send_failure()}</span></li><li><span class="v">reason_for_send_failure() = term()</span></li><li><span class="v">other_reason()   = term()</span></li><li><span class="v">AckData          = ack_data()</span></li><li><span class="v">ack_data()       = term()</span></li><li><span class="v">Extra            = term()</span></li></ul><p>Optionally invoked for a transaction acknowledgement</p><p>If this function gets invoked or not, is controlled by the
+reply from the preceding call to handle_trans_request/3.
+The handle_trans_request/3 function may decide to return
+{handle_ack, ack_data()} or {handle_sloppy_ack, ack_data()} 
+meaning that you need an immediate acknowledgement of the 
+reply and that this function should be invoked to handle the 
+acknowledgement.</p><p>The ack_data() argument to this function is the Erlang term
+returned by handle_trans_request/3.</p><p>If the AckStatus is ok, it is indicating that this is a
+true acknowledgement of the transaction reply.</p><p>If the AckStatus is {error, Reason}, it is an indication that the
+acknowledgement or even the reply (for which this is an 
+acknowledgement) was not delivered, but there is no point in
+waiting any longer for it to arrive. This happens when: </p><dl><dt><strong>reply_timer</strong></dt><dd> <p>The <strong>reply_timer</strong> eventually times out.</p> </dd><dt>reply send failure</dt><dd> <p>When megaco fails to send the reply (see
+<a href="#trans_reply">handle_trans_reply</a>), 
+for whatever reason. </p> </dd><dt>cancel</dt><dd> <p>The user has explicitly cancelled the wait 
+(megaco:cancel/2).</p> </dd></dl><p>See <a href="#extra_argument">note</a> 
+above about the <strong>Extra</strong> argument in 
+<strong>handle_trans_ack/5</strong>. </p><a name="unexpected_trans"></a><a name="handle_unexpected_trans"></a><h3>handle_unexpected_trans(ConnHandle, ProtocolVersion, Trans) -&gt; ok</h3><h3>handle_unexpected_trans(ConnHandle, ProtocolVersion, Trans, Extra) -&gt; ok</h3><p>Invoked when an unexpected message is received</p><ul><li><span class="v">ConnHandle      = conn_handle()</span></li><li><span class="v">ProtocolVersion = protocol_version()</span></li><li><span class="v">Trans           = #'TransactionPending'{} | #'TransactionReply'{} | #'TransactionResponseAck'{}</span></li><li><span class="v">Extra           = term()</span></li></ul><p>Invoked when a unexpected message is received</p><p>If a reply to a request is not received in time, the
+megaco stack removes all info about the request from
+its tables. If a reply should arrive after this has been
+done the app has no way of knowing where to send this message.
+The message is delivered to the "user" by calling this
+function on the local node (the node which has the link).</p><p>See <a href="#extra_argument">note</a> 
+above about the <strong>Extra</strong> argument in 
+<strong>handle_unexpected_trans/4</strong>. </p><a name="request_abort"></a><h3>handle_trans_request_abort(ConnHandle, ProtocolVersion, TransNo, Pid) -&gt; ok</h3><h3>handle_trans_request_abort(ConnHandle, ProtocolVersion, TransNo, Pid, Extra) -&gt; ok</h3><p>Invoked when an transaction request has been aborted</p><ul><li><span class="v">ConnHandle      = conn_handle()</span></li><li><span class="v">ProtocolVersion = protocol_version()</span></li><li><span class="v">TransNo         = integer()</span></li><li><span class="v">Pid             = undefined | pid()</span></li><li><span class="v">Extra           = term()</span></li></ul><p>Invoked when a transaction request has been aborted</p><p>This function is invoked if the originating pending limit
+has been exceeded. This usually means that a request has taken 
+abnormally long time to complete.</p><p>See <a href="#extra_argument">note</a> 
+above about the <strong>Extra</strong> argument in 
+<strong>handle_trans_request_abort/5</strong>. </p><a name="segment_reply"></a><h3>handle_segment_reply(ConnHandle, ProtocolVersion, TransNo, SegNo, SegCompl) -&gt; ok</h3><h3>handle_segment_reply(ConnHandle, ProtocolVersion, TransNo, SegNo, SegCompl, Extra) -&gt; ok</h3><p>Segment Reply Indication</p><ul><li><span class="v">ConnHandle      = conn_handle()</span></li><li><span class="v">ProtocolVersion = protocol_version()</span></li><li><span class="v">TransNo         = integer()</span></li><li><span class="v">SegNo           = integer()</span></li><li><span class="v">SegCompl        = asn1_NOVALUE | 'NULL'</span></li><li><span class="v">Extra           = term()</span></li></ul><p>This function is called when a segment reply has been received
+if the 
+<a href="./megaco#conn_info">segment_reply_ind</a> 
+config option has been set to true.</p><p>This is in effect a progress report.</p><p>See <a href="#extra_argument">note</a> 
+above about the <strong>Extra</strong> argument in 
+<strong>handle_segment_reply/6</strong>. </p><h2>megaco_flex_scanner</h2><p>Interface module to the flex scanner linked in driver.</p><p>This module contains the public interface to the flex scanner 
+linked in driver. The flex scanner performs the scanning phase
+of text message decoding.The flex scanner is written using a tool called <em>flex</em>. 
+In order to be able to compile the flex scanner driver, this
+tool has to be available. By default the flex scanner reports line-number of an error.
+But it can be built without line-number reporting. Instead
+token number is used. This will speed up the scanning some
+5-10%. Use <strong>--disable-megaco-flex-scanner-lineno</strong> when
+configuring the application.The scanner will, by default, be built as a reentrant scanner <em>if</em> the 
+flex utility supports this (it depends on the version of flex). 
+It is possible to explicitly disable this even when flex support this.
+Use <strong>--disable-megaco-reentrant-flex-scanner</strong> when
+configuring the application.</p><h3>DATA TYPES</h3><pre><code class="">
+
+megaco_ports() = term()
+megaco_version() = integer() &gt;= 1
+ 
+    </code></pre><a name="start"></a><h2>Functions</h2><h3>start() -&gt; {ok, PortOrPorts} | {error, Reason}</h3><ul><li><span class="v">PortOrPorts = megaco_ports()</span></li><li><span class="v">Reason = term()</span></li></ul><p>This function is used to start the flex scanner. 
+It locates the library and loads the linked in driver.</p><p>On a single core system or if it's a non-reentrant scanner,
+a single port is created. On a multi-core system with a reentrant 
+scanner, several ports will be created (one for each scheduler). </p><p>Note that the process that calls this function <em>must</em> 
+be permanent. If it dies, the port(s) will exit and the driver unload.</p><a name="stop"></a><h3>stop(PortOrPorts) -&gt; stopped</h3><ul><li><span class="v">PortOrPorts = megaco_ports()</span></li></ul><p>This function is used to stop the flex scanner. It also
+unloads the driver.</p><a name="is_reentrant_enabled"></a><h3>is_reentrant_enabled() -&gt; Boolean</h3><ul><li><span class="v">Boolean = boolean()</span></li></ul><p>Is the flex scanner reentrant or not.</p><a name="is_scanner_port"></a><h3>is_scanner_port(Port, PortOrPorts) -&gt; Boolean</h3><ul><li><span class="v">Port = port()</span></li><li><span class="v">PortOrPorts = megaco_ports()</span></li><li><span class="v">Boolean = boolean()</span></li></ul><p>Checks if a port is a flex scanner port or not (useful when
+if a port exits). </p><a name="scan"></a><h3>scan(Binary, PortOrPorts) -&gt; {ok, Tokens, Version, LatestLine} | {error, Reason, LatestLine}</h3><ul><li><span class="v">Binary = binary()</span></li><li><span class="v">PortOrPorts = megaco_ports()</span></li><li><span class="v">Tokens = list()</span></li><li><span class="v">Version = megaco_version()</span></li><li><span class="v">LatestLine = integer()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Scans a megaco message and generates a token list to be passed on the parser. </p><h2>megaco_codec_meas</h2><p>This module implements a simple megaco codec measurement tool.</p><p>This module implements a simple megaco codec measurement tool.Results are written to file (excel compatible text files) and on stdout.<em>Note</em> that this module is <em>not</em> included in the runtime part of 
+the application.</p><h2>Functions</h2><h3>start() -&gt; void()</h3><h3>start(MessagePackage) -&gt; void()</h3><ul><li><span class="v">MessagePackageRaw = message_package()</span></li><li><span class="v">message_package() = atom()</span></li></ul><p>This function runs the measurement on all the <em>official</em> codecs;
+pretty, compact, ber, per and erlang.</p><h2>megaco_codec_mstone1</h2><p>This module implements a simple megaco codec-based performance tool.</p><p>This module implements the <em>mstone1</em> tool, 
+a simple megaco codec-based performance tool.The results, the mstone value(s), are written to stdout.<em>Note</em> that this module is <em>not</em> included in the runtime part of 
+the application.</p><h2>Functions</h2><h3>start() -&gt; void()</h3><h3>start(MessagePackage) -&gt; void()</h3><h3>start(MessagePackage, Factor) -&gt; void()</h3><ul><li><span class="v">MessagePackage = message_package()</span></li><li><span class="v">message_package() = atom()</span></li><li><span class="v">Factor() = integer() &gt; 0</span></li></ul><p>This function starts the <em>mstone1</em> performance test with all codec configs. 
+<strong>Factor</strong> (defaults to <strong>1</strong>) processes are started for every supported 
+codec config. </p><p>Each process encodes and decodes their messages. 
+The number of messages processed in total (for all processes) is the mstone value.</p><h3>start_flex() -&gt; void()</h3><h3>start_flex(MessagePackage) -&gt; void()</h3><h3>start_flex(MessagePackage, Factor) -&gt; void()</h3><ul><li><span class="v">MessagePackage = message_package()</span></li><li><span class="v">message_package() = atom()</span></li><li><span class="v">Factor() = integer() &gt; 0</span></li></ul><p>This function starts the <em>mstone1</em> performance test with only the
+flex codec configs (i.e. <strong>pretty</strong> and <strong>compact</strong> with <strong>flex</strong>). 
+The same number of processes are started as when running the standard
+test (using the <strong>start/0,1</strong> function).
+Each process encodes and decodes their messages. 
+The number of messages processed in total (for all processes) is the mstone value.</p><h3>start_only_drv() -&gt; void()</h3><h3>start_only_drv(MessagePackage) -&gt; void()</h3><h3>start_only_drv(MessagePackage, Factor) -&gt; void()</h3><ul><li><span class="v">MessagePackage = message_package()</span></li><li><span class="v">message_package() = atom()</span></li><li><span class="v">Factor() = integer() &gt; 0</span></li></ul><p>This function starts the <em>mstone1</em> performance test with only the
+driver using codec configs (i.e. <strong>pretty</strong> and <strong>compact</strong> 
+with <strong>flex</strong>, and <strong>ber</strong> and <strong>per</strong> with <strong>driver</strong> 
+and <strong>erlang</strong> with <strong>compressed</strong>). 
+The same number of processes are started as when running the standard
+test (using the <strong>start/0,1</strong> function).
+Each process encodes and decodes their messages. 
+The number of messages processed in total (for all processes) is the mstone value.</p><h3>start_no_drv() -&gt; void()</h3><h3>start_no_drv(MessagePackage) -&gt; void()</h3><h3>start_no_drv(MessagePackage, Factor) -&gt; void()</h3><ul><li><span class="v">MessagePackage = message_package()</span></li><li><span class="v">message_package() = atom()</span></li><li><span class="v">Factor() = integer() &gt; 0</span></li></ul><p>This function starts the <em>mstone1</em> performance test with codec configs
+not using any drivers (i.e. <strong>pretty</strong> and <strong>compact</strong> without 
+<strong>flex</strong>, <strong>ber</strong> and <strong>per</strong> without <strong>driver</strong> and 
+<strong>erlang</strong> without <strong>compressed</strong>). 
+The same number of processes are started as when running the standard
+test (using the <strong>start/0,1</strong> function).
+Each process encodes and decodes their messages. 
+The number of messages processed in total (for all processes) is the mstone value.</p><h2>megaco_codec_mstone2</h2><p>This module implements a simple megaco codec-based performance tool.</p><p>This module implements the <em>mstone2</em> tool, 
+a simple megaco codec-based performance tool.The results, the mstone value(s), are written to stdout.<em>Note</em> that this module is <em>not</em> included in the runtime part of 
+the application.</p><h2>Functions</h2><h3>start() -&gt; void()</h3><h3>start(MessagePackage) -&gt; void()</h3><ul><li><span class="v">MessagePackage = message_package()</span></li><li><span class="v">message_package() = atom()</span></li></ul><p>This function starts the <em>mstone2</em> performance test with all codec configs. 
+Processes are created dynamically. Each process make <em>one</em> run
+through their messages (decoding and encoding messages) and then exits. 
+When one process exits, a new is created with the same codec config and set 
+of messages. </p><p>The number of messages processed in total (for all processes) is the mstone value.</p><h2>megaco_codec_transform</h2><p>Megaco message transformation utility.</p><p>This module implements a simple megaco message transformation utility.<em>Note</em> that this module is <em>not</em> included in the
+runtime part of the application.<a name="export_messages"></a></p><h2>Functions</h2><h3>export_messages() -&gt; void()</h3><h3>export_messages(MessagePackage) -&gt; void()</h3><ul><li><span class="v">MessagePackage = atom()</span></li></ul><p>Export the messages in the <strong>MessagePackage</strong> (default 
+is <strong>time_test</strong>). </p><p>The output produced by this function is a directory structure 
+with the following structure: </p><pre><code class="">
+&lt;message package&gt;/pretty/&lt;message-files&gt;
+                  compact/&lt;message-files&gt;
+                  per/&lt;message-files&gt;
+                  ber/&lt;message-files&gt;
+                  erlang/&lt;message-files&gt;
+        </code></pre></body></html>

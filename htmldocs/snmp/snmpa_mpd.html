@@ -1,0 +1,42 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>snmpa_mpd</h1><h1>snmpa_mpd</h1><p>Message Processing and Dispatch module for the SNMP agent</p><p>The module <strong>snmpa_mpd</strong> implements the version independent
+Message Processing and Dispatch functionality in SNMP for the agent. 
+It is supposed to be used from a Network Interface process 
+(<a href="snmp_agent_netif">Definition of Agent Net if</a>).
+<a name="init"></a></p><h2>DATA TYPES</h2><p>See the <a href="./snmpa_conf#types"> data types in </a>.</p><h1>Functions</h1><h2>init(Vsns) -&gt; mpd_state()</h2><p>Initialize the MPD module</p><ul><li><span class="v">Vsns = [Vsn]</span></li><li><span class="v">Vsn = v1 | v2 | v3</span></li></ul><p>This function can be called from the net_if process at start-up.
+The options list defines which versions to use.
+</p><p>It also initializes some SNMP counters.
+</p><a name="process_packet"></a><h2>process_packet(Packet, From, State, NoteStore, Log) -&gt; {ok, Vsn, Pdu, PduMS, ACMData} | {discarded, Reason} | {discovery, DiscoPacket}</h2><h2>process_packet(Packet, From, LocalEngineID, State, NoteStore, Log) -&gt; {ok, Vsn, Pdu, PduMS, ACMData} | {discarded, Reason} | {discovery, DiscoPacket}</h2><p>Process a packet received from the network</p><ul><li><span class="v">Packet = binary()</span></li><li><span class="v">From = {TDomain, TAddr}</span></li><li><span class="v">TDomain = transportDomainUdpIpv4 | transportDomainUdpIpv6</span></li><li><span class="v">TAddr = {IpAddr, IpPort}</span></li><li><span class="v">LocalEngineID = string()</span></li><li><span class="v">IpAddr = </span></li><li><span class="v">IpPort = inet:port_number()</span></li><li><span class="v">State = mpd_state()</span></li><li><span class="v">NoteStore = pid()</span></li><li><span class="v">Log = snmp_log()</span></li><li><span class="v">Vsn = 'version-1' | 'version-2' | 'version-3'</span></li><li><span class="v">Pdu = #pdu</span></li><li><span class="v">PduMs = integer()</span></li><li><span class="v">ACMData = acm_data()</span></li><li><span class="v">Reason = term()</span></li><li><span class="v">DiscoPacket = binary()</span></li></ul><p>Processes an incoming packet.  Performs authentication and 
+decryption as necessary.  The return values should be passed to the
+agent.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Note that the use of the LocalEngineID argument is only intended 
+for special cases, if the agent is to "emulate" multiple EngineIDs!
+By default, the agent uses the value of <strong>SnmpEngineID</strong> 
+(see SNMP-FRAMEWORK-MIB). </p></div><a name="generate_response_msg"></a><h2>generate_response_msg(Vsn, RePdu, Type, ACMData, Log) -&gt; {ok, Packet} | {discarded, Reason}</h2><h2>generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log) -&gt; {ok, Packet} | {discarded, Reason}</h2><p>Generate a response packet to be sent to the network</p><ul><li><span class="v">Vsn = 'version-1' | 'version-2' | 'version-3'</span></li><li><span class="v">RePdu = #pdu</span></li><li><span class="v">Type = atom()</span></li><li><span class="v">ACMData = acm_data()</span></li><li><span class="v">LocalEngineID = string()</span></li><li><span class="v">Packet = binary()</span></li></ul><p>Generates a possibly encrypted response packet to be sent to the
+network. <strong>Type</strong> is the <strong>#pdu.type</strong> of the original
+request.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Note that the use of the LocalEngineID argument is only intended 
+for special cases, if the agent is to "emulate" multiple EngineIDs!
+By default, the agent uses the value of <strong>SnmpEngineID</strong> 
+(see SNMP-FRAMEWORK-MIB). </p></div><a name="generate_msg"></a><h2>generate_msg(Vsn, NoteStore, Pdu, MsgData, To) -&gt; {ok, PacketsAndAddresses} | {discarded, Reason}</h2><h2>generate_msg(Vsn, NoteStore, Pdu, MsgData, LocalEngineID, To) -&gt; {ok, PacketsAndAddresses} | {discarded, Reason}</h2><p>Generate a request message to be sent to the network</p><ul><li><span class="v">Vsn = 'version-1' | 'version-2' | 'version-3'</span></li><li><span class="v">NoteStore = pid()</span></li><li><span class="v">Pdu = #pdu</span></li><li><span class="v">MsgData = msg_data()</span></li><li><span class="v">LocalEngineID = string()</span></li><li><span class="v">To = [dest_addrs()]</span></li><li><span class="v">PacketsAndAddresses = [{TDomain, TAddress, Packet}]</span></li><li><span class="v">TDomain = snmpUDPDomain</span></li><li><span class="v">TAddress = {Ip, Udp}</span></li><li><span class="v">Ip = {integer(), integer(), integer(), integer()}</span></li><li><span class="v">Udp = integer()</span></li><li><span class="v">Packet = binary()</span></li></ul><p>Generates a possibly encrypted request packet to be sent to the
+network.
+</p><p><strong>MsgData</strong> is the message specific data used in
+the SNMP message.  This value is received in a
+<a href="./snmp_agent_netif#im_send_pdu">snmp_agent_netif#im_send_pdu</a>
+or
+<a href="./snmp_agent_netif#im_send_pdu_req">snmp_agent_netif#im_send_pdu_req</a>
+message from the agent.  In SNMPv1 and
+SNMPv2c, this message data is the community string.  In
+SNMPv3, it is the context information.</p><p>
+<strong>To</strong> is a list of destination addresses and
+their corresponding security parameters.  This value is
+received in the same message from the agent and then transformed
+trough <a href="#process_taddrs">process_taddrs</a>
+before passed to this function.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Note that the use of the LocalEngineID argument is only intended 
+for special cases, if the agent is to "emulate" multiple EngineIDs!
+By default, the agent uses the value of <strong>SnmpEngineID</strong> 
+(see SNMP-FRAMEWORK-MIB). </p></div><a name="process_taddrs"></a><h2>process_taddrs(TDests) -&gt; Dests</h2><p>Transform addresses from internal MIB format to a less internal </p><ul><li><span class="v">TDests = [TDest]</span></li><li><span class="v">TDest = {{TDomain, TAddr}, SecData} | {TDomain, TAddr}</span></li><li><span class="v">TDomain = term()  % Not at tuple</span></li><li><span class="v">TAddr = term()</span></li><li><span class="v">SecData = term()</span></li><li><span class="v">Dests = [Dest]</span></li><li><span class="v">Dest = {{Domain, Addr}, SecData} | {Domain, Addr}</span></li><li><span class="v">Domain = transportDomain()</span></li><li><span class="v">Addr = transportAddress()  % Depends on Domain</span></li></ul><p>Transforms addresses from internal MIB format to one
+more useful to <a href="snmp_agent_netif">Agent Net if</a>.
+</p><p>See also <a href="#generate_msg">.</a>
+</p><a name="discarded_pdu"></a><h2>discarded_pdu(Variable) -&gt; void()</h2><p>Increment the variable associated with a discarded pdu</p><ul><li><span class="v">Variable = atom()</span></li></ul><p>Increments the variable associated with a discarded pdu.
+This function can be used when the net_if process receives a
+<strong>discarded_pdu</strong> message from the agent.
+</p></body></html>

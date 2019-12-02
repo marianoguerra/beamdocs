@@ -1,0 +1,1393 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>System Architecture Support Libraries (SASL)</h1><h1>System Architecture Support Libraries (SASL)</h1><p>The System Architecture Support Libraries SASL application
+provides support for alarm handling, release handling, and
+related functions.</p><h4>Scope</h4><p>The SASL application provides support for:</p><ul><li>Error logging</li><li>Alarm handling</li><li>Release handling</li><li>Report browsing</li></ul><p>Section
+<a href="error_logging">SASL Error Logging</a> 
+describes the error
+handler that produces the supervisor, progress, and crash
+reports, which can be written to screen or to a specified file.
+It also describes the Report Browser (RB).</p><p>The sections about release structure and release handling have
+been moved to section
+<a href="./users_guide">OTP Design Principles</a>
+in <em>System Documentation</em>.</p><h4>Prerequisites</h4><p>It is assumed that the reader is familiar with the Erlang
+programming language.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The SASL error logging concept described in this section is
+deprecated since Erlang/OTP 21.0, when the
+new <a href="./logger_chapter">logging API</a> was introduced.</p><p>The new default behaviour is that the SASL application no
+longer affects which log events that are logged.
+<a href="#supervisor_report">Supervisor reports</a> and <a href="#crash_report">crash reports</a> are logged via the default logger handler
+which is setup by
+Kernel. <a href="#progress_report">Progress reports</a> are by default not logged, but can be enabled
+by setting the primary log level to <strong>info</strong>, for example by
+using the Kernel configuration
+parameter <a href="../kernel/kernel_app#logger_level">kernel/kernel_app#logger_level</a>.</p><p>The old SASL error logging behaviour can be re-enabled by setting the
+Kernel configuration
+parameter <a href="../kernel/kernel_app#logger_sasl_compatible">kernel/kernel_app#logger_sasl_compatible</a> to <strong>true</strong>.</p><p>The mechanism
+for <a href="#multi_file_logging">multi-file error report logging</a> as described in this section is also kept for
+backwards compatibility. However, the new logging API also
+introduces <a href="./logger_disk_log_h">kernel/logger_disk_log_h</a>, which is a logger
+handler that can print to multiple files
+using <a href="./disk_log">kernel/disk_log</a>.</p></div><h4>SASL reports</h4><p>The SASL application introduces three types of reports:</p><ul><li>Supervisor report</li><li>Progress report</li><li>Crash report</li></ul><p>When the SASL application is started, it adds a Logger handler
+that formats and writes these reports, as specified in
+the <a href="./sasl_app#deprecated_error_logger_config">configuration parameters for SASL</a>.</p><a name="supervisor_report"></a><h4>Supervisor Report</h4><p>A supervisor report is issued when a supervised child terminates
+unexpectedly. A supervisor report contains the following
+items:</p><dl><dt><strong>Supervisor</strong></dt><dd><p>Name of the reporting supervisor.</p></dd><dt><strong>Context</strong></dt><dd><p>Indicates in which phase the child terminated
+from the supervisor's point of view. This can be
+<strong>start_error</strong>, <strong>child_terminated</strong>, or
+<strong>shutdown_error</strong>.</p></dd><dt><strong>Reason</strong></dt><dd><p>Termination reason.</p></dd><dt><strong>Offender</strong></dt><dd><p>Start specification for the child.</p></dd></dl><a name="progress_report"></a><h4>Progress Report</h4><p>A progress report is issued when a supervisor starts or
+restarts a child. A progress report contains the following items:</p><dl><dt><strong>Supervisor</strong></dt><dd><p>Name of the reporting supervisor.</p></dd><dt><strong>Started</strong></dt><dd><p>Start specification for the successfully
+started child.</p></dd></dl><a name="CRASH"></a><a name="crash_report"></a><h4>Crash Report</h4><p>Processes started with functions 
+<a href="../stdlib/proc_lib#spawn/1">stdlib/proc_lib#spawn/1</a> or
+<a href="../stdlib/proc_lib#spawn_link/1">stdlib/proc_lib#spawn_link/1</a> 
+are wrapped within a <strong>catch</strong>. A crash report is issued when such 
+a process terminates with an unexpected reason, which is any reason 
+other than <strong>normal</strong>, <strong>shutdown</strong>, or <strong>{shutdown,Term}</strong>.
+Processes using behaviors
+<a href="./gen_server">stdlib/gen_server</a>,
+<a href="./gen_fsm">stdlib/gen_fsm</a> or
+<a href="./gen_statem">stdlib/gen_statem</a>
+are examples of such processes. A crash report contains the following items:</p><dl><dt><strong>Crasher</strong></dt><dd><p>Information about the crashing process, such
+as initial function call, exit reason, and message queue.</p></dd><dt><strong>Neighbours</strong></dt><dd><p>Information about processes that are linked to the crashing
+process and do not trap exits. These processes are the
+neighbours that terminate because of this process
+crash. The information gathered is the same as the information
+for Crasher, described in the previous item.</p></dd></dl><h4>Example</h4><p>The following example shows the reports generated
+when a process crashes. The example process is a
+<strong>permanent</strong> process supervised by the <strong>test_sup</strong>
+supervisor. A division by zero is executed and the error is
+first reported by the faulty process. A crash report is
+generated, as the process was started using function
+<a href="../stdlib/proc_lib#spawn/3">stdlib/proc_lib#spawn/3</a>. 
+The supervisor generates a
+supervisor report showing the crashed process. A
+progress report is generated when the process is finally
+restarted.</p><pre>
+        =ERROR REPORT==== 27-May-1996::13:38:56 ===
+        &lt;0.63.0&gt;: Divide by zero !
+        
+        =CRASH REPORT==== 27-May-1996::13:38:56 ===
+        crasher:
+        pid: &lt;0.63.0&gt;
+        registered_name: []
+        error_info: {badarith,{test,s,[]}}
+        initial_call: {test,s,[]}
+        ancestors: [test_sup,&lt;0.46.0&gt;]
+        messages: []
+        links: [&lt;0.47.0&gt;]
+        dictionary: []
+        trap_exit: false
+        status: running
+        heap_size: 128
+        stack_size: 128
+        reductions: 348
+        neighbours:
+        
+        =SUPERVISOR REPORT==== 27-May-1996::13:38:56 ===
+        Supervisor: {local,test_sup}
+        Context:    child_terminated
+        Reason:     {badarith,{test,s,[]}}
+        Offender:   [{pid,&lt;0.63.0&gt;},
+        {name,test},
+        {mfa,{test,t,[]}},
+        {restart_type,permanent},
+        {shutdown,200},
+        {child_type,worker}]
+        
+        =PROGRESS REPORT==== 27-May-1996::13:38:56 ===
+        Supervisor: {local,test_sup}
+        Started:  [{pid,&lt;0.64.0&gt;},
+        {name,test},
+        {mfa,{test,t,[]}},
+        {restart_type,permanent},
+        {shutdown,200},
+        {child_type,worker}]</pre><a name="multi_file_logging"></a><h4>Multi-File Error Report Logging</h4><p>Multi-file error report logging is used to store error messages
+received by <strong>error_logger</strong>. The error messages
+are stored in several files and each file is smaller than a
+specified number of kilobytes. No more than a specified number
+of files exist at the same time. The logging is very fast, as
+each error message is written as a binary term.</p><p>For more details, see the
+<a href="./sasl_app#deprecated_error_logger_config">sasl_app#deprecated_error_logger_config</a>
+application in the Reference Manual.</p><h4>Report Browser</h4><p>The report browser is used to browse and format error reports
+written by the error logger handler 
+<a href="./log_mf_h">stdlib/log_mf_h</a> 
+defined in STDLIB.</p><p>The <strong>log_mf_h</strong> handler writes all reports to a
+report logging directory, which is specified when
+configuring the SASL application.</p><p>If the report browser is
+used offline, the reports can be copied to another directory
+specified when starting the browser. If no such directory
+is specified, the browser reads reports from the SASL
+<strong>error_logger_mf_dir</strong>.</p><h4>Starting Report Browser</h4><p>Start the <strong>rb_server</strong> with function
+<a href="./rb#start/1">rb#start/1</a> 
+as shown in the following example:</p><pre>
+        5&gt; <span class="input">rb:start([{max, 20}]).</span>
+        rb: reading report...done.
+        rb: reading report...done.
+        rb: reading report...done.
+        rb: reading report...done.
+        {ok,&lt;0.199.0&gt;}</pre><h4>Online Help</h4><p>Enter command 
+<a href="./rb#help/0">rb#help/0</a> 
+to access the report browser online help system.</p><h4>List Reports in Server</h4><p>Use function 
+<a href="./rb#list/0">rb#list/0</a> 
+to list all loaded reports:</p><pre>
+        4&gt; <span class="input">rb:list().</span>
+        No                Type          Process       Date     Time
+        ==                ====          =======       ====     ====
+        20            progress         &lt;0.17.0&gt; 1996-10-16 16:14:54
+        19            progress         &lt;0.14.0&gt; 1996-10-16 16:14:55
+        18               error         &lt;0.15.0&gt; 1996-10-16 16:15:02
+        17            progress         &lt;0.14.0&gt; 1996-10-16 16:15:06
+        16            progress         &lt;0.38.0&gt; 1996-10-16 16:15:12
+        15            progress         &lt;0.17.0&gt; 1996-10-16 16:16:14
+        14            progress         &lt;0.17.0&gt; 1996-10-16 16:16:14
+        13            progress         &lt;0.17.0&gt; 1996-10-16 16:16:14
+        12            progress         &lt;0.14.0&gt; 1996-10-16 16:16:14
+        11               error         &lt;0.17.0&gt; 1996-10-16 16:16:21
+        10               error         &lt;0.17.0&gt; 1996-10-16 16:16:21
+        9        crash_report  release_handler 1996-10-16 16:16:21
+        8   supervisor_report         &lt;0.17.0&gt; 1996-10-16 16:16:21
+        7            progress         &lt;0.17.0&gt; 1996-10-16 16:16:21
+        6            progress         &lt;0.17.0&gt; 1996-10-16 16:16:36
+        5            progress         &lt;0.17.0&gt; 1996-10-16 16:16:36
+        4            progress         &lt;0.17.0&gt; 1996-10-16 16:16:36
+        3            progress         &lt;0.14.0&gt; 1996-10-16 16:16:36
+        2               error         &lt;0.15.0&gt; 1996-10-16 16:17:04
+        1            progress         &lt;0.14.0&gt; 1996-10-16 16:17:09
+        ok</pre><h4>Show Reports</h4><p>Use function 
+<a href="./rb#show/1">rb#show/1</a> 
+to show details of a specific report:</p><pre>
+7&gt; <span class="input">rb:show(4).</span>
+        
+PROGRESS REPORT  &lt;0.20.0&gt;                                   1996-10-16 16:16:36
+===============================================================================
+supervisor                                                     {local,sasl_sup}
+started
+[{pid,&lt;0.24.0&gt;},
+{name,release_handler},
+{mfa,{release_handler,start_link,[]}},
+{restart_type,permanent},
+{shutdown,2000},
+{child_type,worker}]
+        
+ok
+8&gt; <span class="input">rb:show(9).</span>
+        
+CRASH REPORT  &lt;0.24.0&gt;                                      1996-10-16 16:16:21
+===============================================================================
+Crashing process                                                               
+pid                                                                 &lt;0.24.0&gt;
+registered_name                                              release_handler
+error_info                             {undef,{release_handler,mbj_func,[]}}
+initial_call
+{gen,init_it,
+[gen_server,
+&lt;0.20.0&gt;,
+&lt;0.20.0&gt;,
+{erlang,register},
+release_handler,
+release_handler,
+[],
+[]]}
+ancestors                                                [sasl_sup,&lt;0.18.0&gt;]
+messages                                                                  []
+links                                                    [&lt;0.23.0&gt;,&lt;0.20.0&gt;]
+dictionary                                                                []
+trap_exit                                                              false
+status                                                               running
+heap_size                                                                610
+stack_size                                                               142
+reductions                                                                54
+
+ok</pre><h4>Search Reports</h4><p>All reports containing a common pattern can be shown.
+Suppose a process crashes because it tries to call a
+non-existing function <strong>release_handler:mbj_func/1</strong>.
+The reports can then be shown as follows:</p><pre>
+12&gt; <span class="input">rb:grep("mbj_func").</span>
+Found match in report number 11
+        
+ERROR REPORT  &lt;0.24.0&gt;                                      1996-10-16 16:16:21
+===============================================================================
+        
+** undefined function: release_handler:mbj_func[] **
+Found match in report number 10
+
+ERROR REPORT  &lt;0.24.0&gt;                                      1996-10-16 16:16:21
+===============================================================================
+        
+** Generic server release_handler terminating 
+** Last message in was {unpack_release,hej}
+** When Server state == {state,[],
+"/home/dup/otp2/otp_beam_sunos5_p1g_7",
+[{release,
+"OTP  APN 181 01",
+"P1G",
+undefined,
+[],
+permanent}],
+undefined}
+** Reason for termination == 
+** {undef,{release_handler,mbj_func,[]}}
+Found match in report number 9
+        
+CRASH REPORT  &lt;0.24.0&gt;                                      1996-10-16 16:16:21
+===============================================================================
+Crashing process                                                               
+pid                                                                 &lt;0.24.0&gt;
+registered_name                                              release_handler
+error_info                             {undef,{release_handler,mbj_func,[]}}
+initial_call
+{gen,init_it,
+[gen_server,
+&lt;0.20.0&gt;,
+&lt;0.20.0&gt;,
+{erlang,register},
+release_handler,
+release_handler,
+[],
+[]]}
+ancestors                                                [sasl_sup,&lt;0.18.0&gt;]
+messages                                                                  []
+links                                                    [&lt;0.23.0&gt;,&lt;0.20.0&gt;]
+dictionary                                                                []
+trap_exit                                                              false
+status                                                               running
+heap_size                                                                610
+stack_size                                                               142
+reductions                                                                54
+        
+Found match in report number 8
+        
+SUPERVISOR REPORT  &lt;0.20.0&gt;                                 1996-10-16 16:16:21
+===============================================================================
+Reporting supervisor                                           {local,sasl_sup}
+        
+Child process                                                                  
+errorContext                                                child_terminated
+reason                                 {undef,{release_handler,mbj_func,[]}}
+pid                                                                 &lt;0.24.0&gt;
+name                                                         release_handler
+start_function                               {release_handler,start_link,[]}
+restart_type                                                       permanent
+shutdown                                                                2000
+child_type                                                            worker
+        
+ok</pre><h4>Stop Server</h4><p>Use function 
+<a href="./rb#stop/0">rb#stop/0</a> 
+to stop the <strong>rb_server</strong>:</p><pre>
+13&gt; <span class="input">rb:stop().</span>
+ok</pre><p>The SASL application provides support for alarm handling,
+release handling, and related functions.</p><h3>sasl</h3><p>The SASL application</p><p>The SASL application provides the following services:<ul><li><strong>alarm_handler</strong></li><li><strong>release_handler</strong></li><li><strong>systools</strong></li></ul></p><h4>Configuration</h4><p>The following configuration parameters are defined for the SASL
+application. For more information about configuration parameters, see
+<a href="./app">kernel/app</a> in Kernel.</p><p>All configuration parameters are optional.</p><dl><dt><strong>start_prg = string() </strong></dt><dd> <p>Specifies the program to be used when restarting the system
+during release installation. Default is
+<strong>$OTP_ROOT/bin/start</strong>.</p> </dd><dt><strong>masters = [atom()] </strong></dt><dd> <p>Specifies the nodes used by this node to read/write release
+information. This parameter is ignored if parameter
+<strong>client_directory</strong> is not set.</p> </dd><dt><strong>client_directory = string() </strong></dt><dd> <p>This parameter specifies the client directory at the master
+nodes. For details, see
+<a href="./release_handling">Release Handling</a>
+in <em>OTP Design Principles</em>. This parameter is
+ignored if parameter <strong>masters</strong> is not set.</p> </dd><dt><strong>static_emulator = true | false </strong></dt><dd> <p>Indicates if the Erlang emulator is statically installed. A
+node with a static emulator cannot switch dynamically to a
+new emulator, as the executable files are written into memory
+statically. This parameter is ignored if parameters <strong>masters</strong>
+and <strong>client_directory</strong> are not set.</p> </dd><dt><strong>releases_dir = string() </strong></dt><dd> <p>Indicates where the <strong>releases</strong> directory is located.
+The release handler writes all its files to this directory.
+If this parameter is not set, the OS environment parameter
+<strong>RELDIR</strong> is used. By default, this is
+<strong>$OTP_ROOT/releases</strong>.</p> </dd></dl><a name="deprecated_error_logger_config"></a><h4>Deprecated Error Logger Event Handlers and Configuration</h4><p>In Erlang/OTP 21.0, a new API for logging was added. The
+old <strong>error_logger</strong> event manager, and event handlers
+running on this manager, still work, but they are not used
+by default.</p><p>The error logger event handlers <strong>sasl_report_tty_h</strong>
+and <strong>sasl_report_file_h</strong>, were earlier used for printing
+the so called SASL reports, i.e. <em>supervisor reports</em>, <em>crash reports</em>, and <em>progress reports</em>. These reports are now also printed by the default
+logger handler started by the Kernel application. Progress
+reports are by default stopped by the primary log level, but can
+be enabled by setting this level to <strong>info</strong>, for example by
+using the Kernel configuration
+parameter <a href="../kernel/kernel_app#logger_level">kernel/kernel_app#logger_level</a>.</p><p>If the old error logger event handlers are still desired, they
+must be added by
+calling <strong>error_logger:add_report_handler/1,2</strong>.</p><dl><dt><strong>sasl_report_tty_h</strong></dt><dd> <p>Formats and writes <em>supervisor reports</em>, <em>crash reports</em>, and <em>progress reports</em> to <strong>stdio</strong>.
+This error logger event handler uses
+<a href="../kernel/kernel_app#deprecated-configuration-parameters">kernel/kernel_app#deprecated-configuration-parameters</a>
+in the Kernel application to limit how much detail is printed
+in crash and supervisor reports.</p> </dd><dt><strong>sasl_report_file_h</strong></dt><dd> <p>Formats and writes <em>supervisor reports</em>, <em>crash report</em>, and <em>progress report</em> to a single file.
+This error logger event handler uses
+<a href="../kernel/kernel_app#deprecated-configuration-parameters">kernel/kernel_app#deprecated-configuration-parameters</a>
+in the Kernel application to limit the details printed in
+crash and supervisor reports.</p> </dd></dl><p>A similar behaviour, but still using the new logger API, can be
+obtained by setting the Kernel application environment
+variable <a href="../kernel/kernel_app#logger_sasl_compatible">kernel/kernel_app#logger_sasl_compatible</a> to <strong>true</strong>. This
+adds a second instance of the standard Logger handler,
+named <strong>sasl</strong>, which only prints the SASL reports. No SASL
+reports are then printed by the Kernel logger handler.</p><p>The <strong>sasl</strong> handler is configured according to the values
+of the following SASL application environment variables.</p><dl><dt><strong>sasl_error_logger = Value </strong></dt><dd> <p><strong>Value</strong> is one of the following:</p> <dl><dt><strong>tty</strong></dt><dd><p>Installs <strong>sasl_report_tty_h</strong> in the error logger.
+This is the default option.</p></dd><dt><strong>{file,FileName}</strong></dt><dd><p>Installs <strong>sasl_report_file_h</strong> in the error logger.
+All reports go to file <strong>FileName</strong>, which is a
+string. The file is opened in <strong>write</strong> mode with encoding
+<strong>utf8</strong>.</p></dd><dt><strong>{file,FileName,Modes}</strong></dt><dd><p>Same as <strong>{file,FileName}</strong>, except that <strong>Modes</strong>
+allows you to specify the modes used for opening the <strong>FileName</strong>
+given to the <a href="../kernel/file#open/2">file:open/2</a>
+call. By default, the file is opened in <strong>write</strong> mode
+with encoding <strong>utf8</strong>. Use <strong>[append]</strong> to have
+the <strong>FileName</strong> open in append mode. A different
+encoding can also be specified.
+<strong>FileName</strong> is a string.</p></dd><dt><strong>false</strong></dt><dd><p>No SASL error logger handler is installed.</p></dd></dl> </dd><dt><strong>errlog_type = error | progress | all </strong></dt><dd> <p>Restricts the error logging performed by the specified
+<strong>sasl_error_logger</strong> to error reports or progress reports,
+or both. Default is <strong>all</strong>.</p> </dd><dt><a name="utc_log"></a><strong>utc_log = true | false </strong></dt><dd> <p>If set to <strong>true</strong>, all dates in textual log outputs are
+displayed in Universal Coordinated Time with the string
+<strong>UTC</strong> appended.</p> </dd></dl><p>The error logger event handler <strong>log_mf_h</strong> can also still
+be used. This event handler writes <em>all</em> events sent to
+the error logger to disk. Multiple files and log rotation are
+used. For efficiency reasons, each event is written as a
+binary. For more information about this handler,
+see <a href="./log_mf_h">the STDLIB Reference Manual</a>.</p><p>To activate this event handler, three SASL configuration
+parameters must be
+set:</p><dl><dt><strong>error_logger_mf_dir = string() | false </strong></dt><dd> <p>Specifies in which directory <strong>log_mf_h</strong> is to store
+its files. If this parameter is undefined or <strong>false</strong>,
+the <strong>log_mf_h</strong> handler is not installed.</p> </dd><dt><strong>error_logger_mf_maxbytes = integer() </strong></dt><dd> <p>Specifies the maximum size of each individual file written
+by <strong>log_mf_h</strong>. If this parameter is undefined,
+the <strong>log_mf_h</strong> handler is not installed.</p> </dd><dt><strong>error_logger_mf_maxfiles = 0&lt;integer()&lt;256 </strong></dt><dd> <p>Specifies the number of files used by <strong>log_mf_h</strong>. If
+this parameter is undefined, the <strong>log_mf_h</strong> handler is
+not installed.</p> </dd></dl><p>The new <a href="./logger_disk_log_h">kernel/logger_disk_log_h</a> might be an alternative
+to <strong>log_mf_h</strong> if log rotation is desired. This does,
+however, write the log events in clear text and not as binaries.</p><h4>See Also</h4><p><a href="alarm_handler">alarm_handler</a>,
+<a href="./error_logger">kernel/error_logger</a>,
+<a href="./logger">kernel/logger</a>,
+<a href="./log_mf_h">stdlib/log_mf_h</a>,
+<a href="rb">rb</a>,
+<a href="release_handler">release_handler</a>,
+<a href="systools">systools</a></p><h3>alarm_handler</h3><p>An Alarm Handling Process</p><p>The alarm handler process is a 
+<a href="./gen_event">stdlib/gen_event</a> 
+event manager process that receives alarms in the system. 
+This process is not intended to be a complete alarm handler. 
+It defines a place to which alarms can be sent. One simple event 
+handler is installed in the alarm handler at startup, but users 
+are encouraged to write and install their own handlers.The simple event handler sends all alarms as info reports to
+the error logger, and saves all in a list. This list can be
+passed to a user-defined event handler, which can be installed
+later. The list can grow large if many alarms are generated.
+This is a good reason to install a better user-defined
+handler.Functions are provided to set and clear alarms. The alarm
+format is defined by the user. For example, an event handler
+for SNMP can be defined, together with an alarm Management
+Information Base (MIB).The alarm handler is part of the SASL application.When writing new event handlers for the alarm handler, the
+following events must be handled:<dl><dt><strong>{set_alarm, {AlarmId, AlarmDescr}}</strong></dt><dd> <p>This event is generated by
+<strong>alarm_handler:set_alarm({AlarmId, AlarmDecsr})</strong>.</p> </dd><dt><strong>{clear_alarm, AlarmId}</strong></dt><dd> <p>This event is
+generated by <strong>alarm_handler:clear_alarm(AlarmId)</strong>.</p> </dd></dl>The default simple handler is called <strong>alarm_handler</strong> and
+it can be exchanged by calling 
+<a href="../stdlib/gen_event#swap_handler/3">stdlib/gen_event#swap_handler/3</a>
+as <strong>gen_event:swap_handler(alarm_handler, {alarm_handler, swap}, {NewHandler, Args})</strong>. <strong>NewHandler:init({Args, {alarm_handler, Alarms}})</strong> is called. For more details, see
+<a href="./gen_event">stdlib/gen_event</a>
+in STDLIB.</p><h3>Functions</h3><h4>clear_alarm(AlarmId) -&gt; void()</h4><p>Clears the specified alarms.</p><ul><li><span class="v">AlarmId = term()</span></li></ul><p>Sends event <strong>clear_alarm</strong> to all event handlers.</p><p>When receiving this event, the default simple handler
+clears the latest received alarm with id <strong>AlarmId</strong>.</p><h4>get_alarms() -&gt; [alarm()]</h4><p>Gets all active alarms.</p><p>Returns a list of all active alarms. This function can only
+be used when the simple handler is installed.</p><h4>set_alarm(alarm())</h4><p>Sets an alarm with an id.</p><ul><li><span class="v">alarm() = {AlarmId, AlarmDescription}</span></li><li><span class="v">AlarmId = term()</span></li><li><span class="v">AlarmDescription = term()</span></li></ul><p>Sends event <strong>set_alarm</strong> to all event handlers.</p><p>When receiving this event, the default simple handler
+stores the alarm. <strong>AlarmId</strong> identifies the alarm
+and is used when the alarm is cleared.</p><h4>See Also</h4><p><a href="./error_logger">kernel/error_logger</a>,
+<a href="./gen_event">stdlib/gen_event</a></p><h3>rb</h3><p>The Report Browser Tool</p><p>The Report Browser (RB) tool is used to browse and
+format error reports written by the error logger handler
+<a href="./log_mf_h">stdlib/log_mf_h</a>
+in STDLIB.</p><h3>Functions</h3><h4>filter(Filters)</h4><h4>filter(Filters, Dates)</h4><p>Filters reports and displays them on the screen.</p><ul><li><span class="v">Filters = [filter()]</span></li><li><span class="v">filter() = {Key, Value} | {Key, Value, no} | {Key, RegExp, re} | {Key, RegExp, re, no}</span></li><li><span class="v">Key = term()</span></li><li><span class="v">Value = term()</span></li><li><span class="v">RegExp = string() | {string(), Options} | re:mp() | {re:mp(), Options}</span></li><li><span class="v">Dates = {DateFrom, DateTo} | {DateFrom, from} | {DateTo, to}</span></li><li><span class="v">DateFrom = DateTo = calendar:datetime()</span></li></ul><p>Displays the reports that match the provided filters.</p><p>When a filter includes the <strong>no</strong> atom, it excludes the
+reports that match that filter.</p><p>The reports are matched using the
+<a href="./proplists">stdlib/proplists</a>
+module in STDLIB. The report must be a proplist
+to be matched against any of the filters.</p><p>If the filter has the form <strong>{Key, RegExp, re}</strong>, the
+report must contain an element with key equal to <strong>Key</strong> and
+the value must match the regular expression <strong>RegExp</strong>.</p><p>If parameter <strong>Dates</strong> is specified, the reports are filtered
+according to the date when they occurred. If <strong>Dates</strong> has
+the form <strong>{DateFrom, from}</strong>, reports that occurred after
+<strong>DateFrom</strong> are displayed.</p><p>If <strong>Dates</strong> has the form <strong>{DateTo, to}</strong>, reports that
+occurred before <strong>DateTo</strong> are displayed.</p><p>If two <strong>Dates</strong> are specified, reports that occurred between
+those dates are returned.</p><p>To filter only by dates, specify the empty list as the <strong>Filters</strong>
+parameter.</p><p>For details about parameter <strong>RegExp</strong>, see <strong>rb:grep/1</strong>.</p><p>For details about data type <strong>mp()</strong>, see 
+<a href="../stdlib/re#type-mp">stdlib/re#type-mp</a>.</p><p>For details about data type <strong>datetime()</strong>, see 
+<a href="../stdlib/calendar#type-datetime">stdlib/calendar#type-datetime</a>.</p><h4>grep(RegExp)</h4><p>Searches the reports for a regular expression.</p><ul><li><span class="v">RegExp = string() | {string(), Options} | re:mp() | {re:mp(), Options}</span></li></ul><p>All reports matching the regular expression <strong>RegExp</strong>
+are displayed. <strong>RegExp</strong> can be any of the following:</p><ul><li>A string containing the regular expression</li><li>A tuple with the string and the options for compilation</li><li>A compiled regular expression</li><li>A compiled regular expression and the options for running it</li></ul><p>For a definition of valid regular expressions and options, see
+the <a href="./re">stdlib/re</a> module in
+STDLIB and in particular function <strong>re:run/3</strong>.</p><p>For details about data type <strong>mp()</strong>, see 
+<a href="../stdlib/re#type-mp">stdlib/re#type-mp</a>.</p><h4>h()</h4><h4>help()</h4><p>Displays help information.</p><p>Displays online help information.</p><h4>list()</h4><h4>list(Type)</h4><p>Lists all reports.</p><ul><li><span class="v">Type = type()</span></li><li><span class="v">type() = error | error_report | info_msg | info_report | warning_msg | warning_report | crash_report | supervisor_report | progress</span></li></ul><p>Lists all reports loaded in
+<strong>rb_server</strong>. Each report is given a unique number that
+can be used as a reference to the report in function
+<a href="#show/1">show/1</a>.</p><p>If no <strong>Type</strong> is specified, all reports are listed.</p><h4>log_list()</h4><h4>log_list(Type)</h4><p>Logs report lists.</p><ul><li><span class="v">Type = type()</span></li><li><span class="v">type() = error | error_report | info_msg | info_report | warning_msg | warning_report | crash_report | supervisor_report | progress</span></li></ul><p>Same as functions 
+<a href="#list/0">list/0</a> or 
+<a href="#list/1">list/1</a>,
+but the result is printed to a log file, if set; otherwise
+to <strong>standard_io</strong>.</p><p>If no <strong>Type</strong> is specified, all reports are listed.</p><h4>rescan()</h4><h4>rescan(Options)</h4><p>Rescans the report directory.</p><ul><li><span class="v">Options = [opt()]</span></li></ul><p>Rescans the report directory. <strong>Options</strong> is the same as
+for function 
+<a href="#start/1">start/1</a>.</p><h4>show()</h4><h4>show(Report)</h4><p>Displays reports.</p><ul><li><span class="v">Report = integer() | type()</span></li></ul><p>If argument <strong>type</strong> is specified, all loaded reports of this
+type are displayed. If an integer argument is specified, the
+report with this reference number is displayed. If no argument
+is specified, all reports are displayed.</p><h4>start()</h4><h4>start(Options)</h4><p>Starts the <strong>rb_server</strong>.</p><ul><li><span class="v">Options = [opt()]</span></li><li><span class="v">opt() = {start_log, FileName} | {max, MaxNoOfReports} | {report_dir, DirString} | {type, ReportType} | {abort_on_error, Bool}</span></li><li><span class="v">FileName = string() | atom() | pid()</span></li><li><span class="v">MaxNoOfReports = integer() | all</span></li><li><span class="v">DirString = string()</span></li><li><span class="v">ReportType = type() | [type()] | all</span></li><li><span class="v">Bool = boolean()</span></li></ul><p>Function <strong>start/1</strong> starts <strong>rb_server</strong> with the
+specified options, whereas function <strong>start/0</strong> starts with
+default options. <strong>rb_server</strong> must be started before
+reports can be browsed. When <strong>rb_server</strong> is
+started, the files in the specified directory are
+scanned. The other functions assume that the server has
+started.</p><p><em>Options:</em></p><dl><dt><strong>{start_log, FileName}</strong></dt><dd><p>Starts logging to file,
+registered name, or <strong>io_device</strong>. All reports are printed
+to the specified destination. Default is <strong>standard_io</strong>.
+Option <strong>{start_log, standard_error}</strong> is not allowed and
+will be replaced by default <strong>standard_io</strong>.</p></dd><dt><strong>{max, MaxNoOfReports}</strong></dt><dd><p>Controls how many reports
+<strong>rb_server</strong> is to read at startup. This option is
+useful, as the directory can contain a large amount of reports. If this
+option is specified, the <strong>MaxNoOfReports</strong> latest reports
+are read. Default is <strong>all</strong>.</p></dd><dt><strong>{report_dir, DirString}</strong></dt><dd><p>Defines the directory where
+the error log files are located. Default is
+the directory specified by application environment
+variable <strong>error_logger_mf_dir</strong>,
+see <a href="sasl_app">sasl(6)</a>.</p></dd><dt><strong>{type, ReportType}</strong></dt><dd><p>Controls what kind of reports
+<strong>rb_server</strong> is to read at startup. <strong>ReportType</strong>
+is a supported type, <strong>all</strong>, or a list of supported
+types. Default is <strong>all</strong>.</p></dd><dt><strong>{abort_on_error, Bool}</strong></dt><dd><p>Specifies if
+logging is to be ended if <strong>rb</strong> encounters an unprintable
+report. (You can get a report with an incorrect form if function
+<strong>error_logger</strong>, <strong>error_msg</strong>, or
+<strong>info_msg</strong> has been called with an invalid format string)</p> <ul><li>If <strong>Bool</strong> is <strong>true</strong>, <strong>rb</strong> stops logging (and prints an error message to <strong>stdout</strong>) if it encounters a badly formatted report. If logging to file is enabled, an error message is appended to the log file as well.</li><li>If <strong>Bool</strong> is <strong>false</strong> (the default value), <strong>rb</strong>  prints an error message to <strong>stdout</strong> for every bad report it encounters, but the logging process is never ended. All printable  reports are written. If logging to file is enabled, <strong>rb</strong> prints  <strong>* UNPRINTABLE REPORT *</strong> in the log file at the location of an unprintable report.</li></ul></dd></dl><h4>start_log(FileName)</h4><p>Redirects all output to <strong>FileName</strong>.</p><ul><li><span class="v">FileName = string() | atom() | pid()</span></li></ul><p>Redirects all report output from the RB tool to the
+specified file, registered name, or <strong>io_device</strong>.</p><h4>stop()</h4><p>Stops the <strong>rb_server</strong>.</p><p>Stops <strong>rb_server</strong>.</p><h4>stop_log()</h4><p>Stops logging to file.</p><p>Closes the log file. The output from the RB tool is
+directed to <strong>standard_io</strong>.</p><h3>release_handler</h3><p>Unpacking and Installation of Release Packages</p><p>The <em>release handler</em> process belongs to the SASL
+application, which is responsible for <em>release handling</em>,
+that is, unpacking, installation, and removal of release packages.An introduction to release handling and an example is provided in
+<a href="./release_handling">OTP Design Principles</a> in <em>System Documentation</em>.A <em>release package</em> is a compressed tar file containing
+code for a certain version of a release, created by calling
+<a href="./systools#make_tar/1">systools#make_tar/1</a>.
+The release package is to be located in the <strong>$ROOT/releases</strong>
+directory of the previous version of the release, where
+<strong>$ROOT</strong> is the installation root directory,
+<a href="../kernel/code#root_dir/0">kernel/code#root_dir/0</a>.
+Another <strong>releases</strong> directory can be specified using the SASL
+configuration parameter <strong>releases_dir</strong> or the OS environment
+variable <strong>RELDIR</strong>. The release handler must have write access
+to this directory to install the new release.
+The persistent state of the release handler is stored there in a
+file called <strong>RELEASES</strong>.A release package is always to contain:<ul><li>A release resource file, <strong>Name.rel</strong></li><li>A boot script, <strong>Name.boot</strong></li></ul>The <strong>.rel</strong> file contains information about the release: its name,
+version, and which ERTS and application versions it uses.A release package can also contain:<ul><li>A release upgrade file, <strong>relup</strong></li><li>A system configuration file, <strong>sys.config</strong></li><li>A system configuration source file, <strong>sys.config.src</strong></li></ul>The <strong>relup</strong> file contains instructions for how to upgrade
+to, or downgrade from, this version of the release.The release package can be <em>unpacked</em>, which extracts
+the files. An unpacked release can be <em>installed</em>.
+The currently used version of the release is then upgraded or
+downgraded to the specified version by evaluating the instructions
+in the <strong>relup</strong> file. An installed release can be made
+<em>permanent</em>. Only one permanent release can exist in
+the system, and this release is used if the system
+is restarted. An installed release, except the permanent one,
+can be <em>removed</em>. When a release is removed, all files
+belonging to that release only are deleted.Each release version has a status, which can be
+<strong>unpacked</strong>, <strong>current</strong>, <strong>permanent</strong>, or <strong>old</strong>.
+There is always one latest release, which either has status
+<strong>permanent</strong> (normal case) or <strong>current</strong> (installed, but
+not yet made permanent). The meaning of the status values are
+illustrated in the following table:<pre>
+        Status     Action                NextStatus
+        -------------------------------------------
+        -          unpack                unpacked
+        unpacked   install               current
+                   remove                -
+        current    make_permanent        permanent
+                   install other         old
+                   remove                -
+        permanent  make other permanent  old
+                   install               permanent
+        old        reboot_old            permanent
+                   install               current
+                   remove                -</pre>The release handler process is a locally registered process on
+each node. When a release is installed in a distributed system,
+the release handler on each node must be called. The release
+installation can be synchronized between nodes. From an operator
+view, it can be unsatisfactory to specify each node. The aim is
+to install one release package in the system, no matter how many
+nodes there are. It is recommended that
+software management functions are written that take care of
+this problem. Such a function can have knowledge of the system
+architecture, so it can contact each individual release handler
+to install the package.For release handling to work properly, the runtime system must
+know which release it is running. It
+must also be able to change (in runtime) which boot script and
+system configuration file are to be used if the system is
+restarted. This is taken care of automatically if Erlang is
+started as an embedded system. Read about this in
+<a href="./users_guide">Embedded System</a> in
+<em>System Documentation</em>. In this case, the system
+configuration file <strong>sys.config</strong> is mandatory.The installation of a new release can restart the system. Which
+program to use is specified by the SASL configuration
+parameter <strong>start_prg</strong>, which defaults
+to <strong>$ROOT/bin/start</strong>.The emulator restart on Windows NT expects that the system is
+started using the <strong>erlsrv</strong> program (as a service).
+Furthermore, the release handler expects that the service is named
+<strong>NodeName</strong>_<strong>Release</strong>, where <strong>NodeName</strong> is
+the first part of the Erlang node name (up to, but not including
+the "@") and <strong>Release</strong> is the current release version.
+The release handler furthermore expects that a
+program like <strong>start_erl.exe</strong> is specified as "machine" to
+<strong>erlsrv</strong>. During upgrading with restart, a new service
+is registered and started. The new service is set to
+automatic and the old service is removed when the new release
+is made permanent.The release handler at a node running on a diskless machine,
+or with a read-only file system, must be configured accordingly
+using the following SASL configuration parameters (for
+details, see <a href="sasl_app">sasl(6)</a>):<dl><dt><strong>masters</strong></dt><dd> <p>This node uses some master nodes to store
+and fetch release information. All master nodes must be
+operational whenever release information is written by this
+node.</p> </dd><dt><strong>client_directory</strong></dt><dd> <p>The <strong>client_directory</strong> in the directory structure of
+the master nodes must be specified.</p> </dd><dt><strong>static_emulator</strong></dt><dd> <p>This parameter specifies if the Erlang emulator is
+statically installed at the client node. A node with a static
+emulator cannot dynamically switch to a new emulator, as
+the executable files are statically written into memory.</p> </dd></dl>The release handler can also be used to unpack and
+install release packages when not running Erlang as an embedded
+system. However, in this case the user must somehow ensure that
+correct boot scripts and configuration files are used if
+the system must be restarted.Functions are provided for using another file structure
+than the structure defined in OTP. These functions can be used
+to test a release upgrade locally.</p><h3>Functions</h3><h4>check_install_release(Vsn) -&gt; {ok, OtherVsn, Descr} | {error, Reason}</h4><h4>check_install_release(Vsn,Opts) -&gt; {ok, OtherVsn, Descr} | {error, Reason}</h4><p>Checks installation of a release in the system.</p><ul><li><span class="v">Vsn = OtherVsn = string()</span></li><li><span class="v">Opts = [Opt]</span></li><li><span class="v">Opt = purge</span></li><li><span class="v">Descr = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Checks if the specified version <strong>Vsn</strong> of the release
+can be installed. The release must not have status
+<strong>current</strong>. Issues warnings if <strong>relup</strong> file or
+<strong>sys.config</strong> is not present. If <strong>relup</strong> file is present,
+its contents are checked and <strong>{error,Reason}</strong> is
+returned if an error is found. Also checks that all required
+applications are present and that all new code can be loaded;
+<strong>{error,Reason}</strong> is returned if an error is found.</p><p>Evaluates all instructions that occur before
+the <strong>point_of_no_return</strong> instruction in the release
+upgrade script.</p><p>Returns the same as 
+<a href="#install_release/1">install_release/1</a>.
+<strong>Descr</strong> defaults to "" if no <strong>relup</strong> file is found.</p><p>If option <strong>purge</strong> is specified, all old code that can
+be soft-purged is purged after all other checks are
+successfully completed. This can be useful to
+reduce the time needed by <a href="#install_release/1">install_release/1</a>.</p><h4>create_RELEASES(Root, RelDir, RelFile, AppDirs) -&gt; ok | {error, Reason}</h4><p>Creates an initial <strong>RELEASES</strong> file.</p><ul><li><span class="v">Root = RelDir = RelFile = string()</span></li><li><span class="v">AppDirs = [{App, Vsn, Dir}]</span></li><li><span class="v">Â App = atom()</span></li><li><span class="v">Â Vsn = Dir = string()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Creates an initial <strong>RELEASES</strong> file to be used by the
+release handler. This file must exist to install new
+releases.</p><p><strong>Root</strong> is the root of the installation (<strong>$ROOT</strong>) as
+described earlier. <strong>RelDir</strong> is the directory where
+the <strong>RELEASES</strong> file is to be created (normally
+<strong>$ROOT/releases</strong>). <strong>RelFile</strong> is the name
+of the <strong>.rel</strong> file that describes the initial release,
+including the extension <strong>.rel</strong>.</p><p><strong>AppDirs</strong> can be used to specify from where the modules
+for the specified applications are to be loaded. <strong>App</strong> is
+the name of an application, <strong>Vsn</strong> is the version, and
+<strong>Dir</strong> is the name of the directory where <strong>App-Vsn</strong>
+is located. The corresponding modules are to be located under
+<strong>Dir/App-Vsn/ebin</strong>. The directories for applications not
+specified in <strong>AppDirs</strong> are assumed to be located in
+<strong>$ROOT/lib</strong>.</p><h4>install_file(Vsn, File) -&gt; ok | {error, Reason}</h4><p>Installs a release file in the release structure.</p><ul><li><span class="v">Vsn = File = string()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Installs a release-dependent file in the release structure.
+The release-dependent file must be in
+the release structure when a new release is installed:
+<strong>start.boot</strong>, <strong>relup</strong>, and <strong>sys.config</strong>.</p><p>The function can be called, for example, when these files
+are generated at the target. The function is to be called after
+<a href="#set_unpacked/2">set_unpacked/2</a> 
+has been called.</p><h4>install_release(Vsn) -&gt; {ok, OtherVsn, Descr} | {error, Reason}</h4><h4>install_release(Vsn, [Opt]) -&gt; {ok, OtherVsn, Descr} | {continue_after_restart, OtherVsn, Descr} | {error, Reason}</h4><p>Installs a release in the system.</p><ul><li><span class="v">Vsn = OtherVsn = string()</span></li><li><span class="v">Opt = {error_action, Action} | {code_change_timeout, Timeout}</span></li><li><span class="v">Â Â Â | {suspend_timeout, Timeout} | {update_paths, Bool}</span></li><li><span class="v">Â Action = restart | reboot</span></li><li><span class="v">Â Timeout = default | infinity | pos_integer()</span></li><li><span class="v">Â Bool = boolean()</span></li><li><span class="v">Descr = term()</span></li><li><span class="v">Reason = {illegal_option, Opt} | {already_installed, Vsn} | {change_appl_data, term()} | {missing_base_app, OtherVsn, App} | {could_not_create_hybrid_boot, term()} | term()</span></li><li><span class="v">App = atom()</span></li></ul><p>Installs the specified version <strong>Vsn</strong> of the release.
+Looks first for a <strong>relup</strong> file for <strong>Vsn</strong> and a
+script <strong>{UpFromVsn,Descr1,Instructions1}</strong> in this file
+for upgrading from the current version. If not found,
+the function looks for a <strong>relup</strong> file for the current
+version and a script <strong>{Vsn,Descr2,Instructions2}</strong> in this
+file for downgrading to <strong>Vsn</strong>.</p><p>If a script is found, the first thing that happens is that
+the application specifications are updated according to
+the <strong>.app</strong> files and <strong>sys.config</strong> belonging to
+the release version <strong>Vsn</strong>.</p><p>After the application specifications have been updated,
+the instructions in the script are evaluated and the function
+returns <strong>{ok,OtherVsn,Descr}</strong> if successful.
+<strong>OtherVsn</strong> and <strong>Descr</strong> are the version
+(<strong>UpFromVsn</strong> or <strong>Vsn</strong>) and description
+(<strong>Descr1</strong> or <strong>Descr2</strong>) as specified in the script.</p><p>If <strong>{continue_after_restart,OtherVsn,Descr}</strong> is
+returned, the emulator is restarted
+before the upgrade instructions are executed. This
+occurs if the emulator or any of the applications
+Kernel, STDLIB, or SASL
+are updated. The new emulator version
+and these core applications execute after the restart.
+For all other applications the old versions are
+started and the upgrade is performed as normal by
+executing the upgrade instructions.</p><p>If a recoverable error occurs, the function returns
+<strong>{error,Reason}</strong> and the original application
+specifications are restored. If a non-recoverable error
+occurs, the system is restarted.</p><p><em>Options</em>:</p><dl><dt><strong>error_action</strong></dt><dd><p>Defines if the node is to be
+restarted 
+(<a href="../erts/init#restart/0">erts/init#restart/0</a>) 
+or rebooted
+(<a href="../erts/init#reboot/0">erts/init#reboot/0</a>) 
+if there is an error during
+the installation. Default is <strong>restart</strong>.</p></dd><dt><strong>code_change_timeout</strong></dt><dd><p>Defines the time-out
+for all calls to 
+<a href="../stdlib/sys#change_code/4">stdlib/sys#change_code/4</a>.
+If no value is specified or <strong>default</strong> is specified, the 
+default value defined in <strong>sys</strong> is used.</p></dd><dt><strong>suspend_timeout</strong></dt><dd><p>Defines the time-out for 
+all calls to 
+<a href="../stdlib/sys#suspend/1">stdlib/sys#suspend/1</a>.
+If no value is specified, the values defined by the <strong>Timeout</strong> 
+parameter of the <strong>upgrade</strong> or <strong>suspend</strong> instructions are used.
+If <strong>default</strong> is specified, the default value defined in
+<strong>sys</strong> is used.</p></dd><dt><strong>{update_paths,Bool}</strong></dt><dd><p>Indicates if all
+application code paths are to be updated (<strong>Bool==true</strong>)
+or if only code paths for modified applications are to be
+updated (<strong>Bool==false</strong>, default). This option has only
+effect for other application directories than the default
+<strong>$ROOT/lib/App-Vsn</strong>, that is, application directories
+specified in argument <strong>AppDirs</strong> in a call to
+<a href="#create_RELEASES/4">create_RELEASES/4</a> or 
+<a href="#set_unpacked/2">set_unpacked/2</a>.</p> <p><em>Example:</em></p> <p>In the current version <strong>CurVsn</strong> of a release, the
+application directory of <strong>myapp</strong> is
+<strong>$ROOT/lib/myapp-1.0</strong>. A new version <strong>NewVsn</strong> is
+unpacked outside the release handler and the release
+handler is informed about this with a call as follows:</p> <pre><code class="">
+release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
+=&gt; {ok,NewVsn}</code></pre> <p>If <strong>NewVsn</strong> is installed with option
+<strong>{update_paths,true}</strong>, then
+<a href="../kernel/code#lib_dir/1">kernel/code#lib_dir/1</a>
+returns <strong>/home/user/myapp-1.0</strong>.</p></dd></dl><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Installing a new release can be time consuming if
+there are many processes in the system. The reason is that
+each process must be checked for references to old code
+before a module can be purged. This check can lead to
+garbage collections and copying of data.</p><p>To speed up the execution of
+<a href="#install_release/1">install_release/1</a>, 
+first call <a href="#check_install_release/1">check_install_release/1</a>,
+using option <strong>purge</strong>. This does the same
+check for old code. Then purges all modules that can be
+soft-purged. The purged modules do then no longer have any
+old code, and 
+<a href="#install_release/1">install_release/1</a>
+does not need to do the
+checks.</p><p>This does not reduce the overall time for the
+upgrade, but it allows checks and purge to be executed
+in the background before the real upgrade is started.</p></div><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>When upgrading the emulator from a version older than OTP
+R15, an attempt is made to load new application beam
+code into the old emulator. Sometimes the new beam
+format cannot be read by the old emulator, so the code
+loading fails and the complete upgrade is terminated. To
+overcome this problem, the new application code is to be
+compiled with the old emulator. For more information about
+emulator upgrade from pre OTP R15 versions, see
+<a href="./appup_cookbook">Design Principles</a> in <em>System Documentation</em>.</p></div><h4>make_permanent(Vsn) -&gt; ok | {error, Reason}</h4><p>Makes the specified release version permanent.</p><ul><li><span class="v">Vsn = string()</span></li><li><span class="v">Reason = {bad_status, Status} | term()</span></li></ul><p>Makes the specified release version <strong>Vsn</strong>
+permanent.</p><h4>remove_release(Vsn) -&gt; ok | {error, Reason}</h4><p>Removes a release from the system.</p><ul><li><span class="v">Vsn = string()</span></li><li><span class="v">Reason = {permanent, Vsn} | client_node | term()</span></li></ul><p>Removes a release and its files from the system.
+The release must not be the permanent release. Removes only
+the files and directories not in use by another release.</p><h4>reboot_old_release(Vsn) -&gt; ok | {error, Reason}</h4><p>Reboots the system from an old release.</p><ul><li><span class="v">Vsn = string()</span></li><li><span class="v">Reason = {bad_status, Status} | term()</span></li></ul><p>Reboots the system by making the old release permanent, and
+calls 
+<a href="../erts/init#reboot/0">erts/init#reboot/0</a> 
+directly. The release must have status <strong>old</strong>.</p><h4>set_removed(Vsn) -&gt; ok | {error, Reason}</h4><p>Marks a release as removed.</p><ul><li><span class="v">Vsn = string()</span></li><li><span class="v">Reason = {permanent, Vsn} | term()</span></li></ul><p>Makes it possible to handle removal of releases outside
+the release handler. Tells the release handler that
+the release is removed from the system. This function does
+not delete any files.</p><h4>set_unpacked(RelFile, AppDirs) -&gt; {ok, Vsn} | {error, Reason}</h4><p>Marks a release as unpacked.</p><ul><li><span class="v">RelFile = string()</span></li><li><span class="v">AppDirs = [{App, Vsn, Dir}]</span></li><li><span class="v">Â App = atom()</span></li><li><span class="v">Â Vsn = Dir = string()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Makes it possible to handle unpacking of releases outside
+the release handler. Tells the release handler that
+the release is unpacked. <strong>Vsn</strong> is extracted from
+the release resource file <strong>RelFile</strong>.</p><p><strong>AppDirs</strong> can be used to specify from where the modules
+for the specified applications are to be loaded. <strong>App</strong> is
+the name of an application, <strong>Vsn</strong> is the version, and
+<strong>Dir</strong> is the name of the directory where <strong>App-Vsn</strong>
+is located. The corresponding modules are to be located under
+<strong>Dir/App-Vsn/ebin</strong>. The directories for applications not
+specified in <strong>AppDirs</strong> are assumed to be located in
+<strong>$ROOT/lib</strong>.</p><h4>unpack_release(Name) -&gt; {ok, Vsn} | {error, Reason}</h4><p>Unpacks a release package.</p><ul><li><span class="v">Name = Vsn = string()</span></li><li><span class="v">Reason = client_node | term()</span></li></ul><p>Unpacks a release package <strong>Name.tar.gz</strong> located in
+the <strong>releases</strong> directory.</p><p>Performs some checks on the package, for example, checks
+that all mandatory files are present, and extracts its
+contents.</p><h4>which_releases() -&gt; [{Name, Vsn, Apps, Status}]</h4><p>Returns all known releases.</p><ul><li><span class="v">Name = Vsn = string()</span></li><li><span class="v">Apps = ["App-Vsn"]</span></li><li><span class="v">Status = unpacked | current | permanent | old</span></li></ul><p>Returns all releases known to the release handler.</p><h4>which_releases(Status) -&gt; [{Name, Vsn, Apps, Status}]</h4><p>Returns all known releases of a specific status.</p><ul><li><span class="v">Name = Vsn = string()</span></li><li><span class="v">Apps = ["App-Vsn"]</span></li><li><span class="v">Status = unpacked | current | permanent | old</span></li></ul><p>Returns all releases, known to the release handler, of a
+specific status.</p><h4>Application Upgrade/Downgrade</h4><p>The following functions can be used to test upgrade and downgrade
+of single applications (instead of upgrading/downgrading an entire
+release). A script corresponding to the instructions in the
+<strong>relup</strong> file is created
+on-the-fly, based on the <strong>.appup</strong> file for the application,
+and evaluated exactly in the same way as <strong>release_handler</strong>
+does.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>These functions are primarily intended for simplified testing
+of <strong>.appup</strong> files. They are not run within the context of
+the <strong>release_handler</strong> process. They must therefore
+<em>not</em> be used together with calls to
+<a href="#install_release/1">install_release/1</a>, 
+as this causes the
+<strong>release_handler</strong> to end up in an inconsistent state.</p><p>No persistent information is updated, so these functions can
+be used on any Erlang node, embedded or not. Also, using these
+functions does not affect which code is loaded if there is
+a reboot.</p><p>If the upgrade or downgrade fails, the application can end up
+in an inconsistent state.</p></div><h3>Functions</h3><h4>upgrade_app(App, Dir) -&gt; {ok, Unpurged} | restart_emulator | {error, Reason}</h4><p>Upgrades to a new application version.</p><ul><li><span class="v">App = atom()</span></li><li><span class="v">Dir = string()</span></li><li><span class="v">Unpurged = [Module]</span></li><li><span class="v">Â Module = atom()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Upgrades an application <strong>App</strong> from the current
+version to a new version located in <strong>Dir</strong> according to
+the <strong>.appup</strong> file.</p><p><strong>App</strong> is the name of the application, which must be
+started. <strong>Dir</strong> is the new library directory of
+<strong>App</strong>. The corresponding modules as well as
+the <strong>.app</strong> and <strong>.appup</strong> files are to be located
+under <strong>Dir/ebin</strong>.</p><p>The function looks in the <strong>.appup</strong> file and tries to
+find an upgrade script from the current version of
+the application using
+<a href="#upgrade_script/2">upgrade_script/2</a>.
+This script is evaluated using
+<a href="#eval_appup_script/4">eval_appup_script/4</a>,
+exactly in the same way as
+<a href="#install_release/1">install_release/1</a>
+does.</p><p>Returns one of the following:</p><ul><li><strong>{ok, Unpurged}</strong> if evaluating the script is successful, where <strong>Unpurged</strong> is a list of unpurged modules</li><li><strong>restart_emulator</strong> if this instruction is encountered in the script</li><li><strong>{error, Reason}</strong> if an error occurred when finding or evaluating the script</li></ul><p>If the <strong>restart_new_emulator</strong> instruction is found in
+the script, 
+<a href="#upgrade_app/2">upgrade_app/2</a> 
+returns <strong>{error,restart_new_emulator}</strong>. This because
+<strong>restart_new_emulator</strong> requires a new version of the
+emulator to be started before the rest of the upgrade
+instructions can be executed, and this can only be done by
+<a href="#install_release/1">install_release/1</a>.</p><h4>downgrade_app(App, Dir) -&gt;</h4><h4>downgrade_app(App, OldVsn, Dir) -&gt; {ok, Unpurged} | restart_emulator | {error, Reason}</h4><p>Downgrades to a previous application version.</p><ul><li><span class="v">App = atom()</span></li><li><span class="v">Dir = OldVsn = string()</span></li><li><span class="v">Unpurged = [Module]</span></li><li><span class="v">Â Module = atom()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Downgrades an application <strong>App</strong> from the current
+version to a previous version <strong>OldVsn</strong> located in
+<strong>Dir</strong> according to the <strong>.appup</strong> file.</p><p><strong>App</strong> is the name of the application, which must be
+started. <strong>OldVsn</strong> is the previous application version
+and can be omitted if <strong>Dir</strong> is of
+the format <strong>"App-OldVsn"</strong>. <strong>Dir</strong> is the library
+directory of the previous version of <strong>App</strong>.
+The corresponding modules and the old <strong>.app</strong> file
+are to be located under <strong>Dir/ebin</strong>. The <strong>.appup</strong>
+file is to be located in the <strong>ebin</strong> directory of
+the <em>current</em> library directory of the application
+(<a href="../kernel/code#lib_dir/1">kernel/code#lib_dir/1</a>).</p><p>The function looks in the <strong>.appup</strong> file and tries to
+find a downgrade script to the previous version of
+the application using
+<a href="#downgrade_script/3">downgrade_script/3</a>.
+This script is evaluated using
+<a href="#eval_appup_script/4">eval_appup_script/4</a>,
+exactly in the same way as
+<a href="#install_release/1">install_release/1</a>
+does.</p><p>Returns one of the following:</p><ul><li><strong>{ok, Unpurged}</strong> if evaluating the script is successful, where <strong>Unpurged</strong> is a list of unpurged modules</li><li><strong>restart_emulator</strong> if this instruction is encountered in the script</li><li><strong>{error, Reason}</strong> if an error occurred when finding or evaluating the script</li></ul><h4>upgrade_script(App, Dir) -&gt; {ok, NewVsn, Script}</h4><p>Finds an application upgrade script.</p><ul><li><span class="v">App = atom()</span></li><li><span class="v">Dir = string()</span></li><li><span class="v">NewVsn = string()</span></li><li><span class="v">Script = Instructions</span></li></ul><p>Tries to find an application upgrade script for <strong>App</strong>
+from the current version to a new version located in
+<strong>Dir</strong>.</p><p>The upgrade script can then be evaluated using
+<a href="#eval_appup_script/4">eval_appup_script/4</a>.
+It is recommended to use
+<a href="#upgrade_app/2">upgrade_app/2</a>
+instead, but this function (<strong>upgrade_script</strong>) is useful
+to inspect the contents of the script.</p><p><strong>App</strong> is the name of the application, which must be
+started. <strong>Dir</strong> is the new library directory of
+<strong>App</strong>. The corresponding modules as well as
+the <strong>.app</strong> and <strong>.appup</strong> files are to be located
+under <strong>Dir/ebin</strong>.</p><p>The function looks in the <strong>.appup</strong> file and tries to
+find an upgrade script from the current application version.
+High-level instructions are translated to
+low-level instructions. The instructions are sorted in
+the same manner as when generating a <strong>relup</strong> file.</p><p>Returns <strong>{ok, NewVsn, Script}</strong> if successful, where
+<strong>NewVsn</strong> is the new application version.
+For details about <strong>Script</strong>, see 
+<a href="appup">appup</a>.</p><p>Failure: If a script cannot be found, the function fails
+with an appropriate error reason.</p><h4>downgrade_script(App, OldVsn, Dir) -&gt; {ok, Script}</h4><p>Finds an application downgrade script.</p><ul><li><span class="v">App = atom()</span></li><li><span class="v">OldVsn = Dir = string()</span></li><li><span class="v">Script = Instructions</span></li></ul><p>Tries to find an application downgrade script for <strong>App</strong>
+from the current version to a previous version <strong>OldVsn</strong>
+located in <strong>Dir</strong>.</p><p>The downgrade script can then be evaluated using
+<a href="#eval_appup_script/4">eval_appup_script/4</a>.
+It is recommended to use
+<a href="#downgrade_app/2">downgrade_app/2</a>
+instead, but this function (<strong>downgrade_script</strong>) is useful
+to inspect the contents of the script.</p><p><strong>App</strong> is the name of the application, which must be
+started. <strong>Dir</strong> is the previous library directory of
+<strong>App</strong>. The corresponding modules and
+the old <strong>.app</strong> file are to be located under
+<strong>Dir/ebin</strong>. The <strong>.appup</strong> file is to be located in
+the <strong>ebin</strong> directory of the <em>current</em> library
+directory of the application 
+(<a href="../kernel/code#lib_dir/1">)</a>.</p><p>The function looks in the <strong>.appup</strong> file and tries to
+find a downgrade script from the current application version.
+High-level instructions are translated to
+low-level instructions. The instructions are sorted in
+the same manner as when generating a <strong>relup</strong> file.</p><p>Returns <strong>{ok, Script}</strong> if successful. 
+For details about <strong>Script</strong>, see 
+<a href="appup">appup</a>.</p><p>Failure: If a script cannot be found, the function fails
+with an appropriate error reason.</p><h4>eval_appup_script(App, ToVsn, ToDir, Script) -&gt; {ok, Unpurged} | restart_emulator | {error, Reason}</h4><p>Evaluates an application upgrade or downgrade script.</p><ul><li><span class="v">App = atom()</span></li><li><span class="v">ToVsn = ToDir = string()</span></li><li><span class="v">Script</span></li><li><span class="d">See , </span></li><li><span class="v">Unpurged = [Module]</span></li><li><span class="v">Â Module = atom()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Evaluates an application upgrade or downgrade script
+<strong>Script</strong>, the result from calling
+<a href="#upgrade_script/2">upgrade_script/2</a> or
+<a href="#downgrade_script/3">downgrade_script/3</a>,
+exactly in the same way as
+<a href="#install_release/1">install_release/1</a>
+does.</p><p><strong>App</strong> is the name of the application, which must be
+started. <strong>ToVsn</strong> is the version to be upgraded/downgraded
+to, and <strong>ToDir</strong> is the library directory of this version.
+The corresponding modules as well as the <strong>.app</strong> and
+<strong>.appup</strong> files are to be located under <strong>Dir/ebin</strong>.</p><p>Returns one of the following:</p><ul><li><strong>{ok, Unpurged}</strong> if evaluating the script is successful, where <strong>Unpurged</strong> is a list of unpurged modules</li><li><strong>restart_emulator</strong> if this instruction is encountered in the script</li><li><strong>{error, Reason}</strong> if an error occurred when finding or evaluating the script</li></ul><p>If the <strong>restart_new_emulator</strong> instruction is found in
+the script, 
+<a href="#eval_appup_script/4">eval_appup_script/4</a>
+returns <strong>{error,restart_new_emulator}</strong>. This because
+<strong>restart_new_emulator</strong> requires a new version of the
+emulator to be started before the rest of the upgrade
+instructions can be executed, and this can only be done by
+<a href="#install_release/1">install_release/1</a>.</p><h4>Typical Error Reasons</h4><dl><dt><strong>{bad_masters, Masters}</strong></dt><dd><p>The master nodes <strong>Masters</strong> are not alive.</p></dd><dt><strong>{bad_rel_file, File}</strong></dt><dd><p>Specified <strong>.rel</strong> file <strong>File</strong> cannot be read or
+does not contain a single term.</p></dd><dt><strong>{bad_rel_data, Data}</strong></dt><dd><p>Specified <strong>.rel</strong> file does not contain a recognized
+release specification, but another term <strong>Data</strong>.</p></dd><dt><strong>{bad_relup_file, File}</strong></dt><dd><p>Specified <strong>relup</strong> file <strong>Relup</strong> contains bad
+data.</p></dd><dt><strong>{cannot_extract_file, Name, Reason}</strong></dt><dd><p>Problems when extracting from a tar file,
+<a href="../stdlib/erl_tar#extract/2">stdlib/erl_tar#extract/2</a>
+returned <strong>{error, {Name, Reason}}</strong>.</p></dd><dt><strong>{existing_release, Vsn}</strong></dt><dd><p>Specified release version <strong>Vsn</strong> is already
+in use.</p></dd><dt><strong>{Master, Reason, When}</strong></dt><dd><p>Some operation, indicated by the term <strong>When</strong>, failed
+on the master node <strong>Master</strong> with the specified error
+reason <strong>Reason</strong>.</p></dd><dt><strong>{no_matching_relup, Vsn, CurrentVsn}</strong></dt><dd><p>Cannot find a script for upgrading/downgrading between
+<strong>CurrentVsn</strong> and <strong>Vsn</strong>.</p></dd><dt><strong>{no_such_directory, Path}</strong></dt><dd><p>The directory <strong>Path</strong>does not exist.</p></dd><dt><strong>{no_such_file, Path}</strong></dt><dd><p>The path <strong>Path</strong> (file or directory) does not
+exist.</p></dd><dt><strong>{no_such_file, {Master, Path}}</strong></dt><dd><p>The path <strong>Path</strong> (file or directory) does not exist at
+the master node <strong>Master</strong>.</p></dd><dt><strong>{no_such_release, Vsn}</strong></dt><dd><p>The specified release version <strong>Vsn</strong> does not
+exist.</p></dd><dt><strong>{not_a_directory, Path}</strong></dt><dd><p><strong>Path</strong> exists but is not a directory.</p></dd><dt><strong>{Posix, File}</strong></dt><dd><p>Some file operation failed for <strong>File</strong>. <strong>Posix</strong>
+is an atom named from the Posix error codes, such as
+<strong>enoent</strong>, <strong>eacces</strong>, or <strong>eisdir</strong>. See
+<a href="./file">kernel/file</a>
+in Kernel.</p></dd><dt><strong>Posix</strong></dt><dd><p>Some file operation failed, as for the previous item in
+the list.</p></dd></dl><h4>See Also</h4><p><a href="./users_guide">OTP Design Principles</a>,
+<a href="./config">kernel/config</a>,
+<a href="rel">rel</a>,
+<a href="relup">relup</a>,
+<a href="script">script</a>,
+<a href="./sys">stdlib/sys</a>,
+<a href="systools">systools</a></p><h3>systools</h3><p>A Set of Release Handling Tools</p><p>This module contains functions to generate boot scripts
+(<strong>.boot</strong>, <strong>.script</strong>), a release upgrade file
+(<strong>relup</strong>), and release packages.</p><h3>Functions</h3><h4>make_relup(Name, UpFrom, DownTo) -&gt; Result</h4><h4>make_relup(Name, UpFrom, DownTo, [Opt]) -&gt; Result</h4><p>Generates a release upgrade file <strong>relup</strong>.</p><ul><li><span class="v">Name = string()</span></li><li><span class="v">UpFrom = DownTo = [Name | {Name,Descr}]</span></li><li><span class="v">Â Descr = term()</span></li><li><span class="v">Opt = {path,[Dir]} | restart_emulator | silent | noexec | {outdir,Dir} | warnings_as_errors</span></li><li><span class="v">Â Dir = string()</span></li><li><span class="v">Result = ok | error | {ok,Relup,Module,Warnings} | {error,Module,Error}</span></li><li><span class="v">Â Relup, see relup(4)</span></li><li><span class="v">Â Module = atom()</span></li><li><span class="v">Â Warnings = Error = term()</span></li></ul><p>Generates a release upgrade file <strong>relup</strong> containing instructions 
+for upgrading from or downgrading to one or more previous releases. 
+The instructions are used by 
+<a href="release_handler">release_handler</a> 
+when installing a new version of a release in runtime.</p><p>By default, <strong>relup</strong> file is located in the current working
+directory. If option <strong>{outdir,Dir}</strong> is specified,
+the <strong>relup</strong> file is located in <strong>Dir</strong> instead.</p><p>The release resource file <strong>Name.rel</strong> is compared with
+all release resource files <strong>Name2.rel</strong>, specified in
+<strong>UpFrom</strong> and <strong>DownTo</strong>. For each such pair, the
+following is deducted:</p><ul><li> <p>Which applications to be deleted, that is,
+applications listed in <strong>Name.rel</strong> but not
+in <strong>Name2.rel</strong></p> </li><li> <p>Which applications to be added, that is, applications
+listed in <strong>Name2.rel</strong> but not in <strong>Name.rel</strong></p> </li><li> <p>Which applications to be upgraded/downgraded, that
+is, applications listed in both <strong>Name.rel</strong> and
+<strong>Name2.rel</strong> but with different versions</p> </li><li> <p>If the emulator needs to be restarted after upgrading or
+downgrading, that is, if the ERTS version differs
+between <strong>Name.rel</strong> and <strong>Name2.rel</strong></p> </li></ul><p>Instructions for this are added to the <strong>relup</strong> file in
+the above order. Instructions for upgrading or downgrading
+between application versions are fetched from the relevant
+application upgrade files <strong>App.appup</strong>, sorted in
+the same order as when generating a boot script, see
+<a href="#make_script/1">make_script/1</a>. 
+High-level instructions are translated
+into low-level instructions and the result is printed to the
+<strong>relup</strong> file.</p><p>The optional <strong>Descr</strong> parameter is included "as is" in
+the <strong>relup</strong> file, see
+<a href="relup">relup</a>. Defaults to
+the empty list.</p><p>All the files are searched for in the code path. It is
+assumed that the <strong>.app</strong> and <strong>.appup</strong> files for an
+application are located in the same directory.</p><p>If option <strong>{path,[Dir]}</strong> is specified, this path is
+appended to the current path. Wildcard <strong>*</strong> is
+expanded to all matching directories, for example,
+<strong>lib/*/ebin</strong>.</p><p>If option <strong>restart_emulator</strong> is specified, a
+low-level instruction to restart the emulator is appended to
+the <strong>relup</strong> file. This ensures that a complete reboot of
+the system is done when the system is upgraded or downgraded.</p><p>If an upgrade includes a change from an emulator earlier
+than OTP R15 to OTP R15 or later, the warning
+<strong>pre_R15_emulator_upgrade</strong> is issued. For more information
+about this, see
+<a href="./appup_cookbook">Design Principles</a> in <em>System Documentation</em>.</p><p>By default, errors and warnings are printed to tty and
+the function returns <strong>ok</strong> or <strong>error</strong>. If option
+<strong>silent</strong> is specified, the function instead either returns
+<strong>{ok,Relup,Module,Warnings}</strong>, where <strong>Relup</strong> is
+the release upgrade file, or <strong>{error,Module,Error}</strong>.
+Warnings and errors can be converted to strings by calling
+<strong>Module:format_warning(Warnings)</strong> or
+<strong>Module:format_error(Error)</strong>.</p><p>If option <strong>noexec</strong> is specified, the function returns
+the same values as for <strong>silent</strong> but no <strong>relup</strong> file
+is created.</p><p>If option <strong>warnings_as_errors</strong> is specified, warnings
+are treated as errors.</p><h4>make_script(Name) -&gt; Result</h4><h4>make_script(Name, [Opt]) -&gt; Result</h4><p>Generates a boot script <strong>.script/.boot</strong>.</p><ul><li><span class="v">Name = string()</span></li><li><span class="v">Opt = src_tests | {path,[Dir]} | local | {variables,[Var]} | exref | {exref,[App]}] | silent | {outdir,Dir} | no_dot_erlang | no_warn_sasl | warnings_as_errors</span></li><li><span class="v">Â Dir = string()</span></li><li><span class="v">Â Var = {VarName,Prefix}</span></li><li><span class="v">Â Â VarName = Prefix = string()</span></li><li><span class="v">Â App = atom()</span></li><li><span class="v">Result = ok | error | {ok,Module,Warnings} | {error,Module,Error}</span></li><li><span class="v">Â Module = atom()</span></li><li><span class="v">Â Warnings = Error = term()</span></li></ul><p>Generates a boot script <strong>Name.script</strong> and its binary
+version, the boot file <strong>Name.boot</strong>. The boot file
+specifies which code to be loaded and which applications
+to be started when the Erlang runtime system is started.
+See <a href="script">script</a>.</p><p>The release resource file <strong>Name.rel</strong> is read to determine
+which applications are included in the release. Then
+the relevant application resource files <strong>App.app</strong> are read
+to determine which modules to be loaded, and if and
+how the applications are to be started. (Keys <strong>modules</strong>
+and <strong>mod</strong>, see
+<a href="./app">kernel/app</a>.</p><p>By default, the boot script and boot file are located in
+the same directory as <strong>Name.rel</strong>. That is, in the current
+working directory unless <strong>Name</strong> contains a path. If
+option <strong>{outdir,Dir}</strong> is specified, they are located
+in <strong>Dir</strong> instead.</p><p>The correctness of each application is checked as follows:</p><ul><li> <p>The version of an application specified in
+the <strong>.rel</strong> file is to be the same as the version
+specified in the <strong>.app</strong> file.</p> </li><li> <p>There are to be no undefined applications, that is,
+dependencies to applications that are not included in
+the release. (Key <strong>applications</strong> in the <strong>.app</strong>
+file).</p> </li><li> <p>There are to be no circular dependencies among
+the applications.</p> </li><li> <p>There are to be no duplicated modules, that is, modules with
+the same name but belonging to different applications.</p> </li><li> <p>If option <strong>src_tests</strong> is specified, a
+warning is issued if the source code for a module is
+missing or is newer than the object code.</p> </li></ul><p>The applications are sorted according to the dependencies
+between the applications. Where there are no dependencies,
+the order in the <strong>.rel</strong> file is kept.</p><p>The function fails if the mandatory
+applications Kernel and STDLIB are not
+included in the <strong>.rel</strong> file and have start
+type <strong>permanent</strong> (which is default).</p><p>If SASL is not included as an application in
+the <strong>.rel</strong> file, a warning is issued because such a
+release cannot be used in an upgrade. To turn off this
+warning, add option <strong>no_warn_sasl</strong>.</p><p>All files are searched for in the current path. It is
+assumed that the <strong>.app</strong> and <strong>.beam</strong> files for an
+application are located in the same directory. The <strong>.erl</strong>
+files are also assumed to be located in this directory, unless
+it is an <strong>ebin</strong> directory in which case they can be
+located in the corresponding <strong>src</strong> directory.</p><p>If option <strong>{path,[Dir]}</strong> is specified, this path is
+appended to the current path. A directory in the path can be
+specified with a wildcard <strong>*</strong>, this is expanded to all
+matching directories. Example: <strong>"lib/*/ebin"</strong>.</p><p>In the generated boot script all application directories are
+structured as <strong>App-Vsn/ebin</strong>. They are assumed to be located
+in <strong>$ROOT/lib</strong>, where <strong>$ROOT</strong> is the root directory
+of the installed release. If option <strong>local</strong> is
+specified, the actual directories where the applications were
+found are used instead. This is a useful way to test a
+generated boot script locally.</p><p>Option <strong>variables</strong> can be used to specify an
+installation directory other than <strong>$ROOT/lib</strong> for some of
+the applications. If a variable <strong>{VarName,Prefix}</strong> is
+specified and an application is found in a directory
+<strong>Prefix/Rest/App[-Vsn]/ebin</strong>, this application gets
+the path <strong>VarName/Rest/App-Vsn/ebin</strong> in the boot script.
+If an application is found in a directory <strong>Prefix/Rest</strong>,
+the path is <strong>VarName/Rest/App-Vsn/ebin</strong>. When
+starting Erlang, all variables <strong>VarName</strong> are given
+values using command-line flag <strong>boot_var</strong>.</p><p><em>Example:</em> If option <strong>{variables,[{"TEST","lib"}]}</strong>
+is specified and <strong>myapp.app</strong> is found in
+<strong>lib/myapp/ebin</strong>, the path to this application in
+the boot script is <strong>"$TEST/myapp-1/ebin"</strong>. If
+<strong>myapp.app</strong> is found in <strong>lib/test</strong>, the path
+is <strong>$TEST/test/myapp-1/ebin</strong>.</p><p>The checks performed before the boot script is generated can
+be extended with some cross reference checks by specifying
+option <strong>exref</strong>. These checks are performed with
+the Xref tool. All applications, or the applications specified
+with <strong>{exref,[App]}</strong>, are checked by Xref and
+warnings are issued for calls to undefined functions.</p><p>By default, errors and warnings are printed to tty and
+the function returns <strong>ok</strong> or <strong>error</strong>. If option
+<strong>silent</strong> is specified, the function instead returns
+<strong>{ok,Module,Warnings}</strong> or <strong>{error,Module,Error}</strong>.
+Warnings and errors can be converted to strings by calling
+<strong>Module:format_warning(Warnings)</strong> or
+<strong>Module:format_error(Error)</strong>.</p><p>If option <strong>warnings_as_errors</strong> is specified, warnings
+are treated as errors.</p><p>If option <strong>no_dot_erlang</strong> is specified, the instruction to
+load the <strong>.erlang</strong> file during boot is <em>not</em>
+included.</p><h4>make_tar(Name) -&gt; Result</h4><h4>make_tar(Name, [Opt]) -&gt; Result</h4><p>Creates a release package.</p><ul><li><span class="v">Name = string()</span></li><li><span class="v">Opt = {dirs,[IncDir]} | {path,[Dir]} | {variables,[Var]} | {var_tar,VarTar} | {erts,Dir} | src_tests | exref | {exref,[App]} | silent | {outdir,Dir} | | no_warn_sasl | warnings_as_errors</span></li><li><span class="v">Â Dir = string()</span></li><li><span class="v">Â IncDir = src | include | atom()</span></li><li><span class="v">Â Var = {VarName,PreFix}</span></li><li><span class="v">Â Â VarName = Prefix = string()</span></li><li><span class="v">Â VarTar = include | ownfile | omit</span></li><li><span class="v">Â Machine = atom()</span></li><li><span class="v">Â App = atom()</span></li><li><span class="v">Result = ok | error | {ok,Module,Warnings} | {error,Module,Error}</span></li><li><span class="v">Â Module = atom()</span></li><li><span class="v">Â Warning = Error = term()</span></li></ul><p>Creates a release package file <strong>Name.tar.gz</strong>.
+This file must be uncompressed and unpacked on the target
+system using 
+<a href="release_handler">release_handler</a> 
+before the new release can be installed.</p><p>The release resource file <strong>Name.rel</strong> is read to determine
+which applications are included in the release. Then
+the relevant application resource files <strong>App.app</strong> are
+read to determine the version and modules of each application
+(keys <strong>vsn</strong> and <strong>modules</strong>, see
+<a href="./app">kernel/app</a>).</p><p>By default, the release package file is located in the same
+directory as <strong>Name.rel</strong>. That is, in the current working
+directory unless <strong>Name</strong> contains a path. If option
+<strong>{outdir,Dir}</strong> is specified, it is located in <strong>Dir</strong>
+instead.</p><p>If SASL is not included as an application in
+the <strong>.rel</strong> file, a warning is issued because such a
+release cannot be used in an upgrade. To turn off this
+warning, add option <strong>no_warn_sasl</strong>.</p><p>By default, the release package contains the directories
+<strong>lib/App-Vsn/ebin</strong> and <strong>lib/App-Vsn/priv</strong> for each
+included application. If more directories are to be included,
+option <strong>dirs</strong> is specified, for example,
+<strong>{dirs,[src,examples]}</strong>.</p><p>All these files are searched for in the current path. If
+option <strong>{path,[Dir]}</strong> is specified, this path is
+appended to the current path. Wildcard <strong>*</strong> is
+expanded to all matching directories.
+Example: <strong>"lib/*/ebin"</strong>.</p><p>Option <strong>variables</strong> can be used to specify an
+installation directory other than <strong>lib</strong> for some of
+the applications. If variable <strong>{VarName,Prefix}</strong> is
+specified and an application is found in directory
+<strong>Prefix/Rest/App[-Vsn]/ebin</strong>, this application is
+packed into a separate <strong>VarName.tar.gz</strong> file as
+<strong>Rest/App-Vsn/ebin</strong>.</p><p><em>Example:</em> If option <strong>{variables,[{"TEST","lib"}]}</strong>
+is specified and <strong>myapp.app</strong> is located in
+<strong>lib/myapp-1/ebin</strong>, application <strong>myapp</strong> is
+included in <strong>TEST.tar.gz</strong>:</p><pre>
+% <span class="input">tar tf TEST.tar</span>
+myapp-1/ebin/myapp.app
+...</pre><p>Option <strong>{var_tar,VarTar}</strong> can be used to specify if
+and where a separate package is to be stored. In this option
+<strong>VarTar</strong> is one of the following:</p><dl><dt><strong>include</strong></dt><dd><p>Each separate (variable) package is included in the
+main <strong>ReleaseName.tar.gz</strong> file. This is the
+default.</p></dd><dt><strong>ownfile</strong></dt><dd><p>Each separate (variable) package is
+generated as a separate file in the same directory as
+the <strong>ReleaseName.tar.gz</strong> file.</p></dd><dt><strong>omit</strong></dt><dd><p>No separate (variable) packages are
+generated. Applications that are found underneath a
+variable directory are ignored.</p></dd></dl><p>A directory <strong>releases</strong> is also included in
+the release package, containing <strong>Name.rel</strong> and a
+subdirectory <strong>RelVsn</strong>. <strong>RelVsn</strong> is
+the release version as specified in <strong>Name.rel</strong>.</p><p><strong>releases/RelVsn</strong> contains the boot script
+<strong>Name.boot</strong> renamed to <strong>start.boot</strong> and, if found,
+the files <strong>relup</strong> and <strong>sys.config</strong> or <strong>sys.config.src</strong>. These files
+are searched for in the same directory as <strong>Name.rel</strong>,
+in the current working directory, and in any directories
+specified using option <strong>path</strong>. In the case of <strong>sys.config</strong>
+it is not included if <strong>sys.config.src</strong> is found.</p><p>If the release package is to contain a new Erlang runtime
+system, the <strong>bin</strong> directory of the specified runtime
+system <strong>{erts,Dir}</strong> is copied to <strong>erts-ErtsVsn/bin</strong>.</p><p>All checks with function 
+<a href="#make_script/1">make_script/1</a>
+are performed before the release package is created.
+Options <strong>src_tests</strong> and <strong>exref</strong> are also
+valid here.</p><p>The return value and the handling of errors and warnings
+are the same as described for 
+<a href="#make_script/1">make_script/1</a>.</p><h4>script2boot(File) -&gt; ok | error</h4><p>Generates a binary version of a boot script.</p><ul><li><span class="v">File = string()</span></li></ul><p>The Erlang runtime system requires that the contents of
+the script used to boot the system is a binary Erlang term.
+This function transforms the <strong>File.script</strong> boot script
+to a binary term, which is stored in the <strong>File.boot</strong>
+file.</p><p>A boot script generated using 
+<a href="#make_script/1">make_script/1</a>
+is already transformed to the binary form.</p><h4>See Also</h4><p><a href="./app">kernel/app</a>,
+<a href="appup">appup</a>,
+<a href="./erl">erts/erl</a>,
+<a href="rel">rel</a>,
+<a href="release_handler">release_handler</a>,
+<a href="relup">relup</a>,
+<a href="script">script</a></p><h3>appup</h3><p>Application upgrade file</p><p>The <em>application upgrade file</em> defines how an application
+is upgraded or downgraded in a running system.This file is used by the functions in 
+<a href="systools">systools</a> 
+when generating a release upgrade file <strong>relup</strong>.</p><h4>File Syntax</h4><p>The application upgrade file is to be called
+<strong>Application.appup</strong>, where <strong>Application</strong> is the
+application name. The file is to be located in the <strong>ebin</strong>
+directory for the application.</p><p>The <strong>.appup</strong> file contains one single Erlang term, which
+defines the instructions used to upgrade or downgrade
+the application. The file has the following syntax:</p><pre><code class="">
+{Vsn,
+  [{UpFromVsn, Instructions}, ...],
+  [{DownToVsn, Instructions}, ...]}.</code></pre><dl><dt><strong>Vsn = string()</strong></dt><dd><p>Current application version.</p></dd><dt><strong>UpFromVsn = string() | binary()</strong></dt><dd><p>An earlier
+application version to upgrade from. If it is a
+string, it is interpreted as a specific version
+number. If it is a binary, it is interpreted as a
+regular expression that can match multiple version
+numbers.</p></dd><dt><strong>DownToVsn = string() | binary()</strong></dt><dd><p>An earlier
+application version to downgrade to. If it is a
+string, it is  interpreted as a specific version
+number. If it is a binary, it is interpreted as a
+regular expression that can match multiple version
+numbers.</p></dd><dt><strong>Instructions</strong></dt><dd><p>A list of <em>release upgrade instructions</em>, see
+<a href="#Release Upgrade Instructions">Release Upgrade Instructions</a>. It is recommended to use
+high-level instructions only. These are automatically
+translated to low-level instructions by <strong>systools</strong> when
+creating the <strong>relup</strong> file.</p></dd></dl><p>To avoid duplication of upgrade instructions, it is
+allowed to use regular expressions to specify <strong>UpFromVsn</strong>
+and <strong>DownToVsn</strong>. To be considered a regular expression, the
+version identifier must be specified as a binary. For example,
+the following match all versions <strong>2.1.x</strong>, where <strong>x</strong> is
+any number:</p><pre><code class="">
+&lt;&lt;"2\\.1\\.[0-9]+"&gt;&gt;</code></pre><p>Notice that the regular expression must match the complete
+version string, so this example works for, for example,
+<strong>2.1.1</strong>, but not for <strong>2.1.1.1</strong>.</p><a name="Release Upgrade Instructions"></a><h4>Release Upgrade Instructions</h4><p>Release upgrade instructions are interpreted by the release
+handler when an upgrade or downgrade is made. For more
+information about release handling, see
+<a href="./release_handling">OTP Design Principles</a> in <em>System Documentation</em>.</p><p>A process is said to <em>use</em> a module <strong>Mod</strong> if
+<strong>Mod</strong> is listed in the <strong>Modules</strong> part of the child
+specification used to start the process, see
+<a href="./supervisor">stdlib/supervisor</a>.
+In the case of 
+<a href="./gen_event">stdlib/gen_event</a>, 
+an event manager process is said to use <strong>Mod</strong> if <strong>Mod</strong> 
+is an installed event handler.</p><h4>High-Level Instructions</h4><pre>
+{update, Mod}
+{update, Mod, supervisor}
+{update, Mod, Change}
+{update, Mod, DepMods}
+{update, Mod, Change, DepMods}
+{update, Mod, Change, PrePurge, PostPurge, DepMods}
+{update, Mod, Timeout, Change, PrePurge, PostPurge, DepMods}
+{update, Mod, ModType, Timeout, Change, PrePurge, PostPurge, DepMods}
+  Mod = atom()
+  ModType = static | dynamic
+  Timeout = int()&gt;0 | default | infinity
+  Change = soft | {advanced,Extra}
+    Extra = term()
+  PrePurge = PostPurge = soft_purge | brutal_purge
+  DepMods = [Mod]</pre><p>Synchronized code replacement of processes using module
+<strong>Mod</strong>.</p><p>All those processes are suspended using 
+<a href="../stdlib/sys#suspend/1">stdlib/sys#suspend/1</a>,
+the new module version is loaded, and
+then the processes are resumed using 
+<a href="../stdlib/sys#resume/1">stdlib/sys#resume/1</a>.</p><dl><dt><strong>Change</strong></dt><dd><p>Defaults to <strong>soft</strong> and defines the type of
+code change. If it is set to <strong>{advanced,Extra}</strong>, implemented
+processes using 
+<a href="./gen_server">stdlib/gen_server</a>, 
+<a href="./gen_fsm">stdlib/gen_fsm</a>,
+<a href="./gen_statem">stdlib/gen_statem</a>, or
+<a href="./gen_event">stdlib/gen_event</a> 
+transform their internal state by calling the callback function
+<strong>code_change</strong>. Special processes call the callback
+function <strong>system_code_change/4</strong>. In both cases, the term
+<strong>Extra</strong> is passed as an argument to the callback
+function.</p></dd><dt><strong>PrePurge</strong></dt><dd><p>Defaults to <strong>brutal_purge</strong>. It controls
+what action to take with processes executing old code
+before loading the new module version. If the value
+is <strong>brutal_purge</strong>, the processes are killed. If the value is
+<strong>soft_purge</strong>, 
+<a href="./release_handler#install_release/1">release_handler#install_release/1</a>
+returns <strong>{error,{old_processes,Mod}}</strong>.</p></dd><dt><strong>PostPurge</strong></dt><dd><p>Defaults to <strong>brutal_purge</strong>. It controls
+what action to take with processes that are executing old code
+when the new module version has been loaded. If the value
+is <strong>brutal_purge</strong>, the code is purged when the release is
+made permanent and the processes are killed. If the value is
+<strong>soft_purge</strong>, the release handler purges the old code
+when no remaining processes execute the code.</p></dd><dt><strong>DepMods</strong></dt><dd><p>Defaults to <strong>[]</strong> and defines other modules that
+<strong>Mod</strong> is dependent on. In the <strong>relup</strong> file, instructions 
+for suspending processes using <strong>Mod</strong> come before
+instructions for suspending processes using modules in
+<strong>DepMods</strong> when upgrading, and conversely when downgrading.
+In case of circular dependencies, the order of the instructions in
+the <strong>appup</strong> file is kept.</p></dd><dt><strong>Timeout</strong></dt><dd><p>Defines the time-out when suspending processes.
+If no value or <strong>default</strong> is specified, the default value for
+<a href="../stdlib/sys#suspend/1">stdlib/sys#suspend/1</a> 
+is used.</p></dd><dt><strong>ModType</strong></dt><dd><p>Defaults to <strong>dynamic</strong>. It specifies if
+the code is "dynamic", that is, if a process using the module
+spontaneously switches to new code, or if it is "static".
+When doing an advanced update and upgrade, the new version of a
+dynamic module is loaded before the process is asked to change
+code. When downgrading, the process is asked to change code before
+loading the new version. For static modules, the new version is
+loaded before the process is asked to change code, both in
+the case of upgrading and downgrading. Callback modules are
+dynamic.</p></dd></dl><p><strong>update</strong> with argument <strong>supervisor</strong> is used when
+changing the start specification of a supervisor.</p><pre>
+{load_module, Mod}
+{load_module, Mod, DepMods}
+{load_module, Mod, PrePurge, PostPurge, DepMods}
+  Mod = atom()
+  PrePurge = PostPurge = soft_purge | brutal_purge
+  DepMods = [Mod]</pre><p>Simple code replacement of the module <strong>Mod</strong>.</p><p>For a description of <strong>PrePurge</strong> and <strong>PostPurge</strong>,
+see <strong>update</strong> above.</p><p><strong>DepMods</strong> defaults to <strong>[]</strong> and defines which other modules
+<strong>Mod</strong> is dependent on. In the <strong>relup</strong> file, instructions for
+loading these modules come before the instruction for loading
+<strong>Mod</strong> when upgrading, and conversely when downgrading.</p><pre>
+{add_module, Mod}
+{add_module, Mod, DepMods}
+  Mod = atom()
+  DepMods = [Mod]</pre><p>Loads a new module <strong>Mod</strong>.</p><p><strong>DepMods</strong> defaults to <strong>[]</strong> and defines which other modules
+<strong>Mod</strong> is dependent on. In the <strong>relup</strong> file, instructions
+related to these modules come before the instruction for
+loading <strong>Mod</strong> when upgrading, and conversely when
+downgrading.</p><pre>
+{delete_module, Mod}
+{delete_module, Mod, DepMods}
+  Mod = atom()</pre><p>Deletes a module <strong>Mod</strong> using the low-level instructions
+<strong>remove</strong> and <strong>purge</strong>.</p><p><strong>DepMods</strong> defaults to <strong>[]</strong> and defines which other modules
+<strong>Mod</strong> is dependent on. In the <strong>relup</strong> file, instructions
+related to these modules come before the instruction for
+removing <strong>Mod</strong> when upgrading, and conversely when
+downgrading.</p><pre>
+{add_application, Application}
+{add_application, Application, Type}
+  Application = atom()
+  Type = permanent | transient | temporary | load | none</pre><p>Adding an application means that the modules defined by
+the <strong>modules</strong> key in the <strong>.app</strong> file are loaded using
+<strong>add_module</strong>.</p><p><strong>Type</strong> defaults to <strong>permanent</strong> and specifies the start type
+of the application. If <strong>Type = permanent | transient | temporary</strong>,
+the application is loaded and started in the corresponding way, see
+<a href="./application">kernel/application</a>.
+If <strong>Type = load</strong>, the application is only loaded.
+If <strong>Type = none</strong>, the application is not loaded and not
+started, although the code for its modules is loaded.</p><pre>
+{remove_application, Application}
+  Application = atom()</pre><p>Removing an application means that the application is stopped,
+the modules are unloaded using <strong>delete_module</strong>, and then
+the application specification is unloaded from the application
+controller.</p><pre>
+{restart_application, Application}
+  Application = atom()</pre><p>Restarting an application means that the application is stopped
+and then started again, similar to using the instructions
+<strong>remove_application</strong> and <strong>add_application</strong> in sequence.
+Note that, even if the application has been started before the
+release upgrade is performed, <strong>restart_application</strong> may only
+<strong>load</strong> it rather than <strong>start</strong> it, depending on the
+application's <strong>start type</strong>:
+If <strong>Type = load</strong>, the application is only loaded.
+If <strong>Type = none</strong>, the application is not loaded and not
+started, although the code for its modules is loaded.
+</p><h4>Low-Level Instructions</h4><pre>
+{load_object_code, {App, Vsn, [Mod]}}
+  App = Mod = atom()
+  Vsn = string()</pre><p>Reads each <strong>Mod</strong> from directory <strong>App-Vsn/ebin</strong> as
+a binary. It does not load the modules. The instruction is to be
+placed first in the script to read all new code from the file
+to make the suspend-load-resume cycle less time-consuming.</p><pre>
+point_of_no_return</pre><p>If a crash occurs after this instruction, the system cannot
+recover and is restarted from the old release version.
+The instruction must only occur once in a script. It is to be
+placed after all <strong>load_object_code</strong> instructions.</p><pre>
+{load, {Mod, PrePurge, PostPurge}}
+  Mod = atom()
+  PrePurge = PostPurge = soft_purge | brutal_purge</pre><p>Before this instruction occurs, <strong>Mod</strong> must have been loaded
+using <strong>load_object_code</strong>. This instruction loads the module.
+<strong>PrePurge</strong> is ignored. For a description of <strong>PostPurge</strong>,
+see the high-level instruction <strong>update</strong> earlier.</p><pre>
+{remove, {Mod, PrePurge, PostPurge}}
+  Mod = atom()
+  PrePurge = PostPurge = soft_purge | brutal_purge</pre><p>Makes the current version of <strong>Mod</strong> old.
+<strong>PrePurge</strong> is ignored. For a description of <strong>PostPurge</strong>,
+see the high-level instruction <strong>update</strong> earlier.</p><pre>
+{purge, [Mod]}
+  Mod = atom()</pre><p>Purges each module <strong>Mod</strong>, that is, removes the old code.
+Notice that any process executing purged code is killed.</p><pre>
+{suspend, [Mod | {Mod, Timeout}]}
+  Mod = atom()
+  Timeout = int()&gt;0 | default | infinity</pre><p>Tries to suspend all processes using a module <strong>Mod</strong>. If a
+process does not respond, it is ignored. This can cause
+the process to die, either because it crashes when it
+spontaneously switches to new code, or as a result of a purge
+operation. If no <strong>Timeout</strong> is specified or <strong>default</strong> is
+specified, the default value for 
+<a href="../stdlib/sys#suspend/1">stdlib/sys#suspend/1</a> 
+is used.</p><pre>
+{resume, [Mod]}
+  Mod = atom()</pre><p>Resumes all suspended processes using a module <strong>Mod</strong>.</p><pre>
+{code_change, [{Mod, Extra}]}
+{code_change, Mode, [{Mod, Extra}]}
+  Mod = atom()
+  Mode = up | down
+  Extra = term()</pre><p><strong>Mode</strong> defaults to <strong>up</strong> and specifies if it is an
+upgrade or downgrade. This instruction sends a <strong>code_change</strong>
+system message to all processes using a module <strong>Mod</strong> by
+calling function 
+<a href="../stdlib/sys#change_code/4">stdlib/sys#change_code/4</a>, 
+passing term <strong>Extra</strong> as argument.</p><pre>
+{stop, [Mod]}
+  Mod = atom()</pre><p>Stops all processes using a module <strong>Mod</strong> by calling
+<a href="../stdlib/supervisor#terminate_child/2">stdlib/supervisor#terminate_child/2</a>. 
+This instruction is useful
+when the simplest way to change code is to stop and restart the
+processes that run the code.</p><pre>
+{start, [Mod]}
+  Mod = atom()</pre><p>Starts all stopped processes using a module <strong>Mod</strong> by calling
+<a href="../stdlib/supervisor#restart_child/2">stdlib/supervisor#restart_child/2</a>.</p><pre>
+{sync_nodes, Id, [Node]}
+{sync_nodes, Id, {M, F, A}}
+  Id = term()
+  Node = node()
+  M = F = atom()
+  A = [term()]</pre><p><strong>apply(M, F, A)</strong> must return a list of nodes.</p><p>This instruction synchronizes the release installation with other
+nodes. Each <strong>Node</strong> must evaluate this command with the same
+<strong>Id</strong>. The local node waits for all other nodes to evaluate
+the instruction before execution continues. If a node goes
+down, it is considered to be an unrecoverable error, and
+the local node is restarted from the old release. There is no
+time-out for this instruction, which means that it can hang
+forever.</p><pre>
+{apply, {M, F, A}}
+  M = F = atom()
+  A = [term()]</pre><p>Evaluates <strong>apply(M, F, A)</strong>.</p><p>If the instruction appears before instruction
+<strong>point_of_no_return</strong>, a failure is caught.
+<a href="./release_handler#install_release/1">release_handler#install_release/1</a> 
+then returns <strong>{error,{'EXIT',Reason}}</strong>, unless <strong>{error,Error}</strong> 
+is thrown or returned. Then it returns <strong>{error,Error}</strong>.</p><p>If the instruction appears after instruction
+<strong>point_of_no_return</strong> and the function call fails, the
+system is restarted.</p><pre>
+restart_new_emulator</pre><p>This instruction is used when the application ERTS,
+Kernel, STDLIB, or SASL is
+upgraded. It shuts down the current emulator and starts a new
+one. All processes are terminated gracefully, and the new
+version of ERTS, Kernel, STDLIB, and
+SASL are used when the emulator restarts.
+Only one <strong>restart_new_emulator</strong> instruction is allowed
+in the <strong>relup</strong> file, and it must be placed first.
+<a href="./systools#make_relup/3">systools#make_relup/3</a>
+ensures this when the <strong>relup</strong> file is generated. The rest of the
+instructions in the <strong>relup</strong> file is executed after the
+restart as a part of the boot script.</p><p>An info report is written when the upgrade is completed.
+To programmatically determine if the upgrade is complete,
+call <a href="./release_handler#which_releases/0">release_handler#which_releases/0</a> and check if the
+expected release has status <strong>current</strong>.</p><p>The new release must still be made permanent after the upgrade
+is completed, otherwise the old emulator is started if there is
+an emulator restart.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>As stated earlier, instruction <strong>restart_new_emulator</strong>
+causes the emulator to be restarted with new versions of
+ERTS&gt;, Kernel, STDLIB, and SASL.
+However, all other applications do at startup run their old
+versions in this new emulator. This is usually no problem,
+but every now and then incompatible changes occur to the
+core applications, which can cause
+trouble in this setting. Such incompatible changes (when
+functions are removed) are normally preceded by a deprecation
+over two major releases. To ensure that your application is not
+crashed by an incompatible change, always remove any call to
+deprecated functions as soon as possible.</p></div><pre>
+restart_emulator</pre><p>This instruction is similar to <strong>restart_new_emulator</strong>,
+except it must be placed at the end of the <strong>relup</strong> file.
+It is not related to an upgrade of the emulator or the core
+applications, but can be used by any application when a complete
+reboot of the system is required.</p><p>When generating the <strong>relup</strong> file,
+<a href="./systools#make_relup/3">systools#make_relup/3</a>
+ensures that there is only one <strong>restart_emulator</strong>
+instruction and that it is the last instruction in the
+<strong>relup</strong> file.</p><h4>See Also</h4><p><a href="release_handler">release_handler</a>,
+<a href="relup">relup</a>,
+<a href="./supervisor">stdlib/supervisor</a>,
+<a href="systools">systools</a></p><h3>rel</h3><p>Release resource file</p><p>The <em>release resource file</em> specifies which applications
+are included in a release (system) based on Erlang/OTP.This file is used by the functions in 
+<a href="systools">systools</a> 
+when generating start scripts (<strong>.script</strong>, <strong>.boot</strong>) and 
+release upgrade files (<strong>relup</strong>).</p><h4>File Syntax</h4><p>The release resource file is to be called <strong>Name.rel</strong>.</p><p>The <strong>.rel</strong> file contains one single Erlang term, which is
+called a <em>release specification</em>. The file has the
+following syntax:</p><pre><code class="">
+{release, {RelName,Vsn}, {erts, EVsn},
+  [{Application, AppVsn} |
+   {Application, AppVsn, Type} |
+   {Application, AppVsn, IncApps} |
+   {Application, AppVsn, Type, IncApps}]}.</code></pre><dl><dt><strong>RelName = string()</strong></dt><dd><p>Release name.</p></dd><dt><strong>Vsn = string()</strong></dt><dd><p>Release version.</p></dd><dt><strong>EVsn = string()</strong></dt><dd><p>ERTS version the release is intended for.</p></dd><dt><strong>Application = atom()</strong></dt><dd><p>Name of an application included in the release.</p></dd><dt><strong>AppVsn = string()</strong></dt><dd><p>Version of an application included in the release.</p></dd><dt><strong>Type = permanent | transient | temporary | load | none</strong></dt><dd><p>Start type of an application included in the release.</p> <p>If <strong>Type = permanent | transient | temporary</strong>, the
+application is loaded and started in the corresponding way, see
+<a href="./application">kernel/application</a>.</p> <p>If <strong>Type = load</strong>, the application is only loaded.</p> <p>If <strong>Type = none</strong>, the application is not loaded and not
+started, although the code for its modules is loaded.</p> <p>Defaults to <strong>permanent</strong></p></dd><dt><strong>IncApps = [atom()]</strong></dt><dd><p>A list of applications that are included by an application
+included in the release. The list must be a subset of the
+included applications
+specified in the application resource file
+(<strong>Application.app</strong>) and overrides this value. Defaults
+to the same value as in the application resource file.</p></dd></dl><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The list of applications must contain the Kernel and
+STDLIB applications.</p></div><h4>See Also</h4><p><a href="./application">kernel/application</a>,
+<a href="relup">relup</a>,
+<a href="systools">systools</a></p><h3>relup</h3><p>Release upgrade file</p><p>The <em>release upgrade file</em> describes how a release is
+upgraded in a running system.This file is automatically generated by
+<a href="./systools#make_relup/3">systools#make_relup/3</a>, 
+using a release resource file
+(<strong>.rel</strong>), application resource files (<strong>.app</strong>), and
+application upgrade files (<strong>.appup</strong>) as input.</p><h4>File Syntax</h4><p>In a target system, the release upgrade file is to be located in
+directory <strong>$ROOT/releases/Vsn</strong>.</p><p>The <strong>relup</strong> file contains one single Erlang term, which
+defines the instructions used to upgrade the release. The file has
+the following syntax:</p><pre><code class="">
+{Vsn,
+  [{UpFromVsn, Descr, Instructions}, ...],
+  [{DownToVsn, Descr, Instructions}, ...]}.</code></pre><dl><dt><strong>Vsn = string()</strong></dt><dd><p>Current release version.</p></dd><dt><strong>UpFromVsn = string()</strong></dt><dd><p>Earlier version of the release to upgrade from.</p></dd><dt><strong>Descr = term()</strong></dt><dd><p>A user-defined parameter passed
+from the function 
+<a href="./systools#make_relup/3">systools#make_relup/3</a>.
+It is used in the return value of
+<a href="./release_handler#install_release/1">release_handler#install_release/1</a>.</p></dd><dt><strong>Instructions</strong></dt><dd><p>A list of low-level release upgrade instructions, see
+<a href="appup">appup</a>.
+It consists of the release upgrade instructions from
+the respective application upgrade files (high-level instructions
+are translated to low-level instructions), in the same order
+as in the start script.</p></dd><dt><strong>DownToVsn = string()</strong></dt><dd><p>Earlier version of the release to downgrade to.</p></dd></dl><h4>See Also</h4><p><a href="./app">kernel/app</a>,
+<a href="appup">appup</a>,
+<a href="rel">rel</a>,
+<a href="release_handler">release_handler</a>,
+<a href="systools">systools</a></p><h3>script</h3><p>Boot script</p><p>The <em>boot script</em> describes how the Erlang runtime system
+is started. It contains instructions on which code to load and
+which processes and applications to start.Command <strong>erl -boot Name</strong> starts the system with a boot
+file called <strong>Name.boot</strong>, which is generated from the
+<strong>Name.script</strong> file, using 
+<a href="./systools#script2boot/1">systools#script2boot/1</a>.The <strong>.script</strong> file is generated by <strong>systools</strong> from a
+<strong>.rel</strong> file and from <strong>.app</strong> files.</p><h4>File Syntax</h4><p>The boot script is stored in a file with extension
+<strong>.script</strong>. The file has the following syntax:</p><pre><code class="">
+{script, {Name, Vsn},
+ [
+  {progress, loading},
+  {preLoaded, [Mod1, Mod2, ...]},
+  {path, [Dir1,"$ROOT/Dir",...]}.
+  {primLoad, [Mod1, Mod2, ...]},
+  ...
+  {kernel_load_completed},
+  {progress, loaded},
+  {kernelProcess, Name, {Mod, Func, Args}},
+  ...
+  {apply, {Mod, Func, Args}},
+  ...
+  {progress, started}]}.</code></pre><dl><dt><strong>Name = string()</strong></dt><dd><p>Defines the system name.</p></dd><dt><strong>Vsn = string()</strong></dt><dd><p>Defines the system version.</p></dd><dt><strong>{progress, Term}</strong></dt><dd><p>Sets the "progress" of the initialization
+program. The
+<a href="../erts/init#get_status/0">erts/init#get_status/0</a>
+function returns the current value of the progress, which is
+<strong>{InternalStatus,Term}</strong>.</p></dd><dt><strong>{path, [Dir]}</strong></dt><dd><p><strong>Dir</strong> is a string. This
+argument sets the load path of the system to <strong>[Dir]</strong>. The
+load path used to load modules is obtained from the initial
+load path, which is given in the script file, together with
+any path flags that were supplied in the command-line
+arguments. The command-line arguments modify the path as
+follows:</p> <ul><li><strong>-pa Dir1 Dir2 ... DirN</strong> adds the directories <strong>DirN, DirN-1, ..., Dir2, Dir1</strong> to the front of the initial load path.</li><li><strong>-pz Dir1 Dir2 ... DirN</strong> adds the directories <strong>Dir1, Dir2, ..., DirN</strong> to the end of the initial load path.</li><li> <p><strong>-path Dir1 Dir2 ... DirN</strong> defines a set of
+directories <strong>Dir1, Dir2, ..., DirN</strong>, which replace
+the search path given in the script file. Directory names
+in the path are interpreted as follows:</p> <ul><li>Directory names starting with <strong>/</strong> are assumed to be absolute path names.</li><li>Directory names not starting with <strong>/</strong> are assumed to be relative the current working directory.</li><li>The special <strong>$ROOT</strong> variable can only be used in the script, not as a command-line argument. The given directory is relative the Erlang installation directory.</li></ul> </li></ul> </dd><dt><strong>{primLoad, [Mod]}</strong></dt><dd><p>Loads the modules <strong>[Mod]</strong>
+from the directories specified in <strong>Path</strong>. The script
+interpreter fetches the appropriate module by calling
+<a href="../erts/erl_prim_loader#get_file/1">erts/erl_prim_loader#get_file/1</a>. A fatal error
+that terminates the system occurs if the module cannot be
+located.</p></dd><dt><strong>{kernel_load_completed}</strong></dt><dd><p>Indicates that all modules
+that <em>must</em> be loaded <em>before</em> any processes
+are started are loaded. In interactive mode, all
+<strong>{primLoad,[Mod]}</strong> commands interpreted after this
+command are ignored, and these modules are loaded on demand.
+In embedded mode, <strong>kernel_load_completed</strong> is ignored, and
+all modules are loaded during system start.</p></dd><dt><strong>{kernelProcess, Name, {Mod, Func, Args}}</strong></dt><dd><p>Starts the
+"kernel process" <strong>Name</strong>
+by evaluating <strong>apply(Mod, Func, Args)</strong>. The start function is
+to return <strong>{ok, Pid}</strong> or <strong>ignore</strong>. The <strong>init</strong>
+process monitors the behavior of <strong>Pid</strong> and terminates
+the system if <strong>Pid</strong> dies. Kernel processes are key
+components of the runtime system. Users do not normally add
+new kernel processes.</p></dd><dt><strong>{apply, {Mod, Func, Args}}</strong>.</dt><dd><p>The init process
+evaluates <strong>apply(Mod, Func, Args)</strong>. The system
+terminates if this results in an error. The boot procedure
+hangs if this function never returns.</p></dd></dl><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>In an interactive system, the code loader provides
+demand-driven code loading, but in an embedded system
+the code loader loads all code immediately. The same
+version of <a href="./code">kernel/code</a>
+is used in both cases. The code server calls
+<a href="../erts/init#get_argument/1">erts/init#get_argument/1</a>
+to determine if it is to run in demand mode or non-demand
+driven mode.</p></div><h4>See Also</h4><p><a href="systools">systools</a></p></body></html>

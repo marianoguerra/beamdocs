@@ -1,0 +1,171 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Xref - The Cross Reference Tool</h1><p>Xref is a cross reference tool that can be used for
+finding dependencies between functions, modules, applications
+and releases. It does so by analyzing the defined functions
+and the function calls.
+</p><p>In order to make Xref easy to use, there are predefined
+analyses that perform some common tasks. Typically, a module
+or a release can be checked for calls to undefined functions.
+For the somewhat more advanced user there is a small, but
+rather flexible, language that can be used for selecting parts
+of the analyzed system and for doing some simple graph
+analyses on selected calls.
+</p><p>The following sections show some features of Xref, beginning
+with a module check and a predefined analysis. Then follow
+examples that can be skipped on the first reading; not all of
+the concepts used are explained, and it is assumed that the
+<a href="xref">reference manual</a> has been at
+least skimmed.
+</p><h2>Module Check</h2><p>Assume we want to check the following module:
+</p><pre>
+    -module(my_module).
+
+    -export([t/1]).
+
+    t(A) -&gt;
+      my_module:t2(A).
+
+    t2(_) -&gt;
+      true.    </pre><p>Cross reference data are read from BEAM files, so the first
+step when checking an edited module is to compile it:
+</p><pre>
+    1&gt; <span class="input">c(my_module, debug_info).</span>
+    ./my_module.erl:10: Warning: function t2/1 is unused
+    {ok, my_module}    </pre><p>The <strong>debug_info</strong> option ensures that the BEAM file
+contains debug information, which makes it possible to find
+unused local functions.
+</p><p>The module can now be checked for calls to <a href="./xref#deprecated_function">deprecated functions</a>, calls to <a href="./xref#undefined_function">undefined functions</a>,
+and for unused local functions:
+</p><pre>
+    2&gt; <span class="input">xref:m(my_module)</span>
+    [{deprecated,[]},
+     {undefined,[{{my_module,t,1},{my_module,t2,1}}]},
+     {unused,[{my_module,t2,1}]}]    </pre><p><strong>m/1</strong> is also suitable for checking that the
+BEAM file of a module that is about to be loaded into a
+running a system does not call any undefined functions. In
+either case, the code path of the code server (see the module
+<strong>code</strong>) is used for finding modules that export externally
+called functions not exported by the checked module itself, so
+called <a href="./xref#library_module">library modules</a>.
+</p><h2>Predefined Analysis</h2><p>In the last example the module to analyze was given as an
+argument to <strong>m/1</strong>, and the code path was (implicitly)
+used as <a href="./xref#library_path">library path</a>. In this example an <a href="./xref#xref_server">xref server</a> will be used,
+which makes it possible to analyze applications and releases,
+and also to select the library path explicitly.
+</p><p>Each Xref server is referred to by a unique name. The name
+is given when creating the server:
+</p><pre>
+    1&gt; <span class="input">xref:start(s).</span>
+    {ok,&lt;0.27.0&gt;}    </pre><p>Next the system to be analyzed is added to the Xref server.
+Here the system will be OTP, so no library path will be needed.
+Otherwise, when analyzing a system that uses OTP, the OTP
+modules are typically made library modules by
+setting the library path to the default OTP code path (or to
+<strong>code_path</strong>, see the <a href="./xref#code_path">reference manual</a>). By
+default, the names of read BEAM files and warnings are output
+when adding analyzed modules, but these messages can be avoided
+by setting default values of some options:
+</p><pre>
+    2&gt; <span class="input">xref:set_default(s, [{verbose,false}, {warnings,false}]).</span>
+    ok
+    3&gt; <span class="input">xref:add_release(s, code:lib_dir(), {name, otp}).</span>
+    {ok,otp}    </pre><p><strong>add_release/3</strong> assumes that all subdirectories of the
+library directory returned by <strong>code:lib_dir()</strong> contain
+applications; the effect is that of reading all
+applications' BEAM files.
+</p><p>It is now easy to check the release for calls to undefined
+functions:
+</p><pre>
+    4&gt; <span class="input">xref:analyze(s, undefined_function_calls).</span>
+    {ok, [...]}    </pre><p>We can now continue with further analyses, or we can delete
+the Xref server:
+</p><pre>
+    5&gt; <span class="input">xref:stop(s).</span>    </pre><p>The check for calls to undefined functions is an example of a
+predefined analysis, probably the most useful one. Other
+examples are the analyses that find unused local
+functions, or functions that call some given functions. See
+the <a href="./xref#analyze">analyze/2,3</a>
+functions for a complete list of predefined analyses.
+</p><p>Each predefined analysis is a shorthand for a <a href="./xref#query">query</a>, a sentence of a tiny
+language providing cross reference data as
+values of <a href="./xref#predefined_variable">predefined variables</a>.
+The check for calls to undefined functions can thus be stated as
+a query:
+</p><pre>
+    4&gt; <span class="input">xref:q(s, "(XC - UC) || (XU - X - B)").</span>
+    {ok,[...]}    </pre><p>The query asks for the restriction of external calls except the
+unresolved calls to calls to functions that are externally used
+but neither exported nor built-in functions (the <strong>||</strong>
+operator restricts the used functions while the <strong>|</strong>
+operator restricts the calling functions). The <strong>-</strong> operator
+returns the difference of two sets, and the <strong>+</strong> operator to
+be used below returns the union of two sets.
+</p><p>The relationships between the predefined variables
+<strong>XU</strong>, <strong>X</strong>, <strong>B</strong> and a few
+others are worth elaborating upon. 
+The reference manual mentions two ways of expressing the set of
+all functions, one that focuses on how they are defined:
+<strong>XÂ +Â LÂ +Â BÂ +Â U</strong>, and one
+that focuses on how they are used:
+<strong>UUÂ +Â LUÂ +Â XU</strong>. 
+The reference also mentions some <a href="./xref#simple_facts">facts</a> about the
+variables:
+</p><ul><li><strong>F</strong> is equal to <strong>L + X</strong> (the defined functions are the local functions and the external functions);</li><li><strong>U</strong> is a subset of <strong>XU</strong> (the unknown functions are a subset of the externally used functions since the compiler ensures that locally used functions are defined);</li><li><strong>B</strong> is a subset of <strong>XU</strong> (calls to built-in functions are always external by definition, and unused built-in functions are ignored);</li><li><strong>LU</strong> is a subset of <strong>F</strong> (the locally used functions are either local functions or exported functions, again ensured by the compiler);</li><li><strong>UU</strong> is equal to <strong>FÂ -Â (XUÂ +Â LU)</strong> (the unused functions are defined functions that are neither used externally nor locally);</li><li><strong>UU</strong> is a subset of <strong>F</strong> (the unused functions are defined in analyzed modules).</li></ul><p>Using these facts, the two small circles in the picture below
+can be combined. 
+</p><img src="venn1.gif" title="Definition and use of functions"></img><p>It is often clarifying to mark the variables of a query in such
+a circle. This is illustrated in the picture below for some of
+the predefined analyses. Note that local functions used by local
+functions only are not marked in the <strong>locals_not_used</strong>
+circle.       <a name="venn2"></a>
+</p><img src="venn2.gif" title="Some predefined analyses as subsets of all functions"></img><h2>Expressions</h2><p>The module check and the predefined analyses are useful, but
+limited. Sometimes more flexibility is needed, for instance one
+might not need to apply a graph analysis on all calls, but some
+subset will do equally well. That flexibility is provided with 
+a simple language. Below are some expressions of the language
+with comments, focusing on elements of the language rather than
+providing useful examples. The analyzed system is assumed to be
+OTP, so in order to run the queries, first evaluate these calls:
+</p><pre>
+    xref:start(s).
+    xref:add_release(s, code:root_dir()).    </pre><dl><dt><strong>xref:q(s, "(Fun) xref : Mod").</strong></dt><dd>All functions of the <strong>xref</strong> module. </dd><dt><strong>xref:q(s, "xref : Mod * X").</strong></dt><dd>All exported functions of the <strong>xref</strong> module. The first operand of the intersection operator <strong>*</strong> is implicitly converted to the more special type of the second operand.</dd><dt><strong>xref:q(s, "(Mod) tools").</strong></dt><dd>All modules of the Tools application.</dd><dt><strong>xref:q(s, '"xref_.*" : Mod').</strong></dt><dd>All modules with a name beginning with <strong>xref_</strong>.</dd><dt><strong>xref:q(s, "# EÂ |Â XÂ ").</strong></dt><dd>Number of calls from exported functions.</dd><dt><strong>xref:q(s, "XCÂ ||Â LÂ ").</strong></dt><dd>All external calls to local functions.</dd><dt><strong>xref:q(s, "XCÂ *Â LC").</strong></dt><dd>All calls that have both an external and a local version.</dd><dt><strong>xref:q(s, "(LLin) (LC * XC)").</strong></dt><dd>The lines where the local calls of the last example are made.</dd><dt><strong>xref:q(s, "(XLin) (LC * XC)").</strong></dt><dd>The lines where the external calls of the example before last are made.</dd><dt><strong>xref:q(s, "XC * (ME - strict ME)").</strong></dt><dd>External calls within some module.</dd><dt><strong>xref:q(s, "EÂ |||Â kernel").</strong></dt><dd>All calls within the Kernel application. </dd><dt><strong>xref:q(s, "closureÂ EÂ |Â kernelÂ ||Â kernel").</strong></dt><dd>All direct and indirect calls within the Kernel application. Both the calling and the used functions of indirect calls are defined in modules of the kernel application, but it is possible that some functions outside the kernel application are used by indirect calls.</dd><dt><strong>xref:q(s, "{toolbar,debugger}:Mod of ME").</strong></dt><dd>A chain of module calls from <strong>toolbar</strong> to <strong>debugger</strong>, if there is such a chain, otherwise <strong>false</strong>. The chain of calls is represented by a list of modules, <strong>toolbar</strong> being the first element and <strong>debugger</strong>the last element.</dd><dt><strong>xref:q(s, "closure E | toolbar:Mod || debugger:Mod").</strong></dt><dd>All (in)direct calls from functions in <strong>toolbar</strong> to functions in <strong>debugger</strong>.</dd><dt><strong>xref:q(s, "(Fun) xref -&gt; xref_base").</strong></dt><dd>All function calls from <strong>xref</strong> to <strong>xref_base</strong>.</dd><dt><strong>xref:q(s, "E * xref -&gt; xref_base").</strong></dt><dd>Same interpretation as last expression.</dd><dt><strong>xref:q(s, "E || xref_base | xref").</strong></dt><dd>Same interpretation as last expression.</dd><dt><strong>xref:q(s, "E * [xref -&gt; lists, xref_base -&gt; digraph]").</strong></dt><dd>All function calls from <strong>xref</strong> to <strong>lists</strong>, and all function calls from <strong>xref_base</strong> to <strong>digraph</strong>.</dd><dt><strong>xref:q(s, "E | [xref, xref_base] || [lists, digraph]").</strong></dt><dd>All function calls from <strong>xref</strong> and <strong>xref_base</strong> to <strong>lists</strong> and <strong>digraph</strong>.</dd><dt><strong>xref:q(s, "components EE").</strong></dt><dd>All strongly connected components of the Inter Call Graph. Each component is a set of exported or unused local functions that call each other (in)directly.</dd><dt><strong>xref:q(s,  "X * digraph * range (closure (E | digraph) | (L * digraph))").</strong></dt><dd>All exported functions of the <strong>digraph</strong> module used (in)directly by some function in <strong>digraph</strong>.</dd><dt><strong>xref:q(s, "L * yeccparser:Mod - range (closure (E |</strong></dt><dd></dd><dt><strong>yeccparser:Mod) | (X * yeccparser:Mod))").</strong></dt><dd>The interpretation is left as an exercise. </dd></dl><h2>Graph Analysis</h2><p>The list <a href="./xref#representation">representation of graphs</a> is used analyzing direct calls,
+while the <strong>digraph</strong> representation is suited for analyzing
+indirect calls. The restriction operators (<strong>|</strong>, <strong>||</strong>
+and <strong>|||</strong>) are the only operators that accept both
+representations. This means that in order to analyze indirect
+calls using restriction, the <strong>closure</strong> operator (which creates the
+<strong>digraph</strong> representation of graphs) has to be
+applied explicitly.
+</p><p>As an example of analyzing indirect calls, the following Erlang
+function tries to answer the question:
+if we want to know which modules are used indirectly by some
+module(s), is it worth while using the <a href="./xref#call_graph">function graph</a> rather
+than the module graph? Recall that a module M1 is said to call
+a module M2 if there is some function in M1 that calls some
+function in M2. It would be nice if we could use the much
+smaller module graph, since it is available also in the light
+weight <strong>modules</strong><a href="./xref#mode">mode</a> of Xref servers.
+</p><pre><code class="erl">
+    t(S) -&gt;
+      {ok, _} = xref:q(S, "Eplus := closure E"),
+      {ok, Ms} = xref:q(S, "AM"),
+      Fun = fun(M, N) -&gt; 
+          Q = io_lib:format("# (Mod) (Eplus | ~p : Mod)", [M]),
+          {ok, N0} = xref:q(S, lists:flatten(Q)),
+          N + N0
+        end,
+      Sum = lists:foldl(Fun, 0, Ms),
+      ok = xref:forget(S, 'Eplus'),
+      {ok, Tot} = xref:q(S, "# (closure ME | AM)"),
+      100 * ((Tot - Sum) / Tot).    </code></pre><p>Comments on the code:
+</p><ul><li>We want to find the reduction of the closure of the function graph to modules.  The direct expression for doing that would be <strong>(Mod)Â (closureÂ EÂ |Â AM)</strong>, but then we would have to represent all of the transitive closure of E in memory. Instead the number of indirectly used modules is found for each analyzed module, and the sum over all modules is calculated. </li><li>A user variable is employed for holding the <strong>digraph</strong> representation of the function graph for use in many queries. The reason is efficiency. As opposed to the <strong>=</strong> operator, the <strong>:=</strong> operator saves a value for subsequent analyses.  Here might be the place to note that equal subexpressions within a query are evaluated only once; <strong>=</strong> cannot be used for speeding things up. </li><li><strong>Eplus | ~p : Mod</strong>. The <strong>|</strong> operator converts the second operand to the type of the first operand. In this case the module is converted to all functions of the module. It is necessary to assign a type to the module (<strong>:Â Mod</strong>), otherwise modules like <strong>kernel</strong> would be converted to all functions of the application with the same name; the most general constant is used in cases of ambiguity. </li><li>Since we are only interested in a ratio, the unary operator <strong>#</strong> that counts the elements of the operand is used. It cannot be applied to the <strong>digraph</strong> representation of graphs. </li><li>We could find the size of the closure of the module graph with a loop similar to one used for the function graph, but since the module graph is so much smaller, a more direct method is feasible. </li></ul><p>When the Erlang function <strong>t/1</strong> was applied to an Xref
+server loaded with the current version of OTP, the returned
+value was close to 84Â (percent). This means that the number
+of indirectly used modules is approximately six times greater
+when using the module graph.
+So the answer to the above stated question is that it is
+definitely worth while using the function graph for this
+particular analysis.
+Finally, note that in the presence of unresolved calls, the
+graphs may be incomplete, which means that there may be
+indirectly used modules that do not show up.
+</p></body></html>

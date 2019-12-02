@@ -1,0 +1,326 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>ei</h1><h1>ei</h1><p>Routines for handling the Erlang binary term format.</p><p>The library <strong>ei</strong> contains macros and functions to encode
+and decode the Erlang binary term format.<strong>ei</strong> allows you to convert atoms, lists, numbers, and
+binaries to and from the binary format. This is useful when
+writing port programs and drivers. <strong>ei</strong> uses a given
+buffer, no dynamic memory (except
+<strong>ei_decode_fun()</strong>) and is often quite fast.<strong>ei</strong> also handles C-nodes, C-programs that talks Erlang
+distribution with Erlang nodes (or other C-nodes) using the
+Erlang distribution format. The difference between <strong>ei</strong>
+and <strong>erl_interface</strong> is that <strong>ei</strong> uses
+the binary format directly when sending and receiving terms. It is also
+thread safe, and using threads, one process can handle multiple
+C-nodes. The <strong>erl_interface</strong> library is built on top of
+<strong>ei</strong>, but of legacy reasons, it does not allow for
+multiple C-nodes. In general, <strong>ei</strong> is the preferred way
+of doing C-nodes.The decode and encode functions use a buffer and an index into the
+buffer, which points at the point where to encode and
+decode. The index is updated to point right after the term
+encoded/decoded. No checking is done whether the term fits in
+the buffer or not. If encoding goes outside the buffer, the
+program can crash.All functions take two parameters:<ul><li><p><strong>buf</strong> is a pointer to
+the buffer where the binary data is or will be.</p> </li><li><p><strong>index</strong> is a pointer to an index into the
+buffer. This parameter is incremented with the size of the term
+decoded/encoded.</p> </li></ul>The data is thus at <strong>buf[*index]</strong> when an
+<strong>ei</strong> function is called.All encode functions assume that the <strong>buf</strong> and
+<strong>index</strong> parameters point to a buffer large enough for
+the data. To get the size of an encoded term, without encoding it,
+pass <strong>NULL</strong> instead of a buffer pointer. Parameter
+<strong>index</strong> is incremented, but nothing will be encoded. This
+is the way in <strong>ei</strong> to "preflight" term encoding.There are also encode functions that use a dynamic buffer. It
+is often more convenient to use these to encode data. All encode
+functions comes in two versions; those starting with
+<strong>ei_x</strong> use a dynamic buffer.All functions return <strong>0</strong> if successful, otherwise
+<strong>-1</strong> (for example, if a term is not of the expected
+type, or the data to decode is an invalid Erlang term).Some of the decode functions need a pre-allocated buffer. This
+buffer must be allocated large enough, and for non-compound types
+the <strong>ei_get_type()</strong>
+function returns the size required (notice that for strings an
+extra byte is needed for the <strong>NULL</strong>-terminator).</p><h2>Data Types</h2><dl><dt><a name="erlang_char_encoding"></a>erlang_char_encoding</dt><dd> <pre><code class="">
+typedef enum {
+    ERLANG_ASCII = 1,
+    ERLANG_LATIN1 = 2,
+    ERLANG_UTF8 = 4
+} erlang_char_encoding;</code></pre> <p>The character encodings used for atoms. <strong>ERLANG_ASCII</strong>
+represents 7-bit ASCII. Latin-1 and UTF-8 are different extensions
+of 7-bit ASCII. All 7-bit ASCII characters are valid Latin-1 and
+UTF-8 characters. ASCII and Latin-1 both represent each character
+by one byte. An UTF-8 character can consist of 1-4 bytes.
+Notice that these constants are bit-flags and can be combined with
+bitwise OR.</p> </dd></dl><h1>Functions</h1><h2>ei_decode_atom(const char *buf, int *index, char *p):int</h2><p>Decode an atom.</p><p>Decodes an atom from the binary format. The <strong>NULL</strong>-terminated
+name of the atom is placed at <strong>p</strong>. At most
+<strong>MAXATOMLEN</strong> bytes can be placed in the buffer.</p><h2>ei_decode_atom_as(const char *buf, int *index, char *p, int plen, erlang_char_encoding want, erlang_char_encoding* was, erlang_char_encoding* result):int</h2><p>Decode an atom.</p><p>Decodes an atom from the binary format. The <strong>NULL</strong>-terminated
+name of the atom is placed in buffer at <strong>p</strong> of length <strong>plen</strong>
+bytes.</p><p>The wanted string encoding is specified by
+<a href="#erlang_char_encoding">erlang_char_encoding</a>.
+The original encoding used in the binary format (Latin-1 or UTF-8) can
+be obtained from <strong>*was</strong>. The encoding of the resulting string
+(7-bit ASCII, Latin-1, or UTF-8) can be obtained from <strong>*result</strong>.
+Both <strong>was</strong> and <strong>result</strong> can be <strong>NULL</strong>. <strong>*result</strong>
+can differ from <strong>want</strong> if <strong>want</strong> is a bitwise OR'd
+combination like <strong>ERLANG_LATIN1|ERLANG_UTF8</strong> or if
+<strong>*result</strong> turns out to be pure 7-bit ASCII
+(compatible with both Latin-1 and UTF-8).</p><p>This function fails if the atom is too long for the buffer
+or if it cannot be represented with encoding <strong>want</strong>.</p><p>This function was introduced in Erlang/OTP R16 as part of a first
+step to support UTF-8 atoms.</p><h2>ei_decode_bignum(const char *buf, int *index, mpz_t obj):int</h2><p>Decode a GMP arbitrary precision integer.</p><p>Decodes an integer in the binary format to a GMP
+<strong>mpz_t</strong> integer. To use this function, the <strong>ei</strong>
+library must be configured and compiled to use the GMP library.</p><h2>ei_decode_binary(const char *buf, int *index, void *p, long *len):int</h2><p>Decode a binary.</p><p>Decodes a binary from the binary format. Parameter
+<strong>len</strong> is set to the actual size of the
+binary. Notice that <strong>ei_decode_binary()</strong> assumes that
+there is enough room for the binary. The size required can be
+fetched by <strong>ei_get_type()</strong>.</p><h2>ei_decode_bitstring(const char *buf, int *index, const char **pp, unsigned int *bitoffsp, size_t *nbitsp):int</h2><p>Decode a bitstring.</p><p>Decodes a bit string from the binary format.</p><dl><dt><strong>pp</strong></dt><dd><p>Either <strong>NULL</strong> or <strong>*pp</strong> returns a pointer to
+the first byte of the bit string. The returned bit string is
+readable as long as the buffer pointed to by <strong>buf</strong> is
+readable and not written to.</p> </dd><dt><strong>bitoffsp</strong></dt><dd><p>Either <strong>NULL</strong> or <strong>*bitoffsp</strong> returns the
+number of unused bits in the first byte pointed to by
+<strong>*pp</strong>. The value of <strong>*bitoffsp</strong> is between 0 and 7.
+Unused bits in the first byte are the most significant bits.</p> </dd><dt><strong>nbitsp</strong></dt><dd><p>Either <strong>NULL</strong> or <strong>*nbitsp</strong> returns the length
+of the bit string in <em>bits</em>.</p> </dd></dl><p>Returns <strong>0</strong> if it was a bit string term.</p><p>The number of <em>bytes</em> pointed to by <strong>*pp</strong>, which are
+part of the bit string, is <strong>(*bitoffsp + *nbitsp + 7)/8</strong>. If
+<strong>(*bitoffsp + *bitsp)%8 &gt; 0</strong> then only <strong>(*bitoffsp + *bitsp)%8</strong> bits of the last byte are used. Unused bits in
+the last byte are the least significant bits.</p><p>The values of unused bits in the first and last byte are undefined
+and cannot be relied on.</p><p>Number of bits may be divisible by 8, which means a binary
+decodable by <strong>ei_decode_binary</strong> is also decodable by
+<strong>ei_decode_bitstring</strong>.</p><h2>ei_decode_boolean(const char *buf, int *index, int *p):int</h2><p>Decode a boolean.</p><p>Decodes a boolean value from the binary format.
+A boolean is actually an atom, <strong>true</strong> decodes 1
+and <strong>false</strong> decodes 0.</p><h2>ei_decode_char(const char *buf, int *index, char *p):int</h2><p>Decode an 8-bit integer between 0-255.</p><p>Decodes a char (8-bit) integer between 0-255 from the binary format.
+For historical reasons the returned integer is of
+type <strong>char</strong>. Your C code is to  consider the
+returned value to be of type <strong>unsigned char</strong> even if
+the C compilers and system can define <strong>char</strong> to be
+signed.</p><h2>ei_decode_double(const char *buf, int *index, double *p):int</h2><p>Decode a double.</p><p>Decodes a double-precision (64-bit) floating
+point number from the binary format.</p><h2>ei_decode_ei_term(const char* buf, int* index, ei_term* term):int</h2><p>Decode a term, without previous knowledge of type.</p><p>Decodes any term, or at least tries to. If the term
+pointed at by <strong>*index</strong> in <strong>buf</strong> fits
+in the <strong>term</strong> union, it is decoded, and the
+appropriate field in <strong>term-&gt;value</strong> is set, and
+<strong>*index</strong> is incremented by the term size.</p><p>The function returns <strong>1</strong> on successful decoding, <strong>-1</strong> on
+error, and <strong>0</strong> if the term seems alright, but does not fit in the
+<strong>term</strong> structure. If <strong>1</strong> is returned, the
+<strong>index</strong> is incremented, and <strong>term</strong>
+contains the decoded term.</p><p>The <strong>term</strong> structure contains the arity for a tuple
+or list, size for a binary, string, or atom. It contains
+a term if it is any of the following: integer, float, atom,
+pid, port, or ref.</p><h2>ei_decode_fun(const char *buf, int *index, erlang_fun *p):int</h2><h2>free_fun(erlang_fun* f):void</h2><p>Decode a fun.</p><p>Decodes a fun from the binary format. Parameter
+<strong>p</strong> is to be <strong>NULL</strong> or point to an
+<strong>erlang_fun</strong> structure. This is the only decode
+function that allocates memory. When the <strong>erlang_fun</strong>
+is no longer needed, it is to be freed with
+<strong>free_fun</strong>. (This has to do with the arbitrary size
+of the environment for a fun.)</p><h2>ei_decode_list_header(const char *buf, int *index, int *arity):int</h2><p>Decode a list.</p><p>Decodes a list header from the binary
+format. The number of elements is returned in
+<strong>arity</strong>. The <strong>arity+1</strong> elements
+follow (the last one is the tail of the list, normally an empty list).
+If <strong>arity</strong> is <strong>0</strong>, it is an empty
+list.</p><p>Notice that lists are encoded as strings if they consist
+entirely of integers in the range 0..255. This function do
+not decode such strings, use <strong>ei_decode_string()</strong>
+instead.</p><h2>ei_decode_long(const char *buf, int *index, long *p):int</h2><p>Decode integer.</p><p>Decodes a long integer from the binary format.
+If the code is 64 bits, the function <strong>ei_decode_long()</strong> is
+the same as <strong>ei_decode_longlong()</strong>.</p><h2>ei_decode_longlong(const char *buf, int *index, long long *p):int</h2><p>Decode integer.</p><p>Decodes a GCC <strong>long long</strong> or Visual C++
+<strong>__int64</strong>
+(64-bit) integer from the binary format. This
+function is missing in the VxWorks port.</p><h2>ei_decode_map_header(const char *buf, int *index, int *arity):int</h2><p>Decode a map.</p><p>Decodes a map header from the binary
+format. The number of key-value pairs is returned in
+<strong>*arity</strong>. Keys and values follow in this order:
+<strong>K1, V1, K2, V2, ..., Kn, Vn</strong>. This makes a total of
+<strong>arity*2</strong> terms. If <strong>arity</strong> is zero, it is an empty map.
+A correctly encoded map does not have duplicate keys.</p><h2>ei_decode_pid(const char *buf, int *index, erlang_pid *p):int</h2><p>Decode a <strong>pid</strong>.</p><p>Decodes a process identifier (pid) from the binary format.</p><h2>ei_decode_port(const char *buf, int *index, erlang_port *p):int</h2><p>Decode a port.</p><p>Decodes a port identifier from the binary format.</p><h2>ei_decode_ref(const char *buf, int *index, erlang_ref *p):int</h2><p>Decode a reference.</p><p>Decodes a reference from the binary format.</p><h2>ei_decode_string(const char *buf, int *index, char *p):int</h2><p>Decode a string.</p><p>Decodes a string from the binary format. A
+string in Erlang is a list of integers between 0 and
+255. Notice that as the string is just a list, sometimes
+lists are encoded as strings by <strong>term_to_binary/1</strong>,
+even if it was not intended.</p><p>The string is copied to <strong>p</strong>, and enough space must
+be allocated. The returned string is <strong>NULL</strong>-terminated, so you
+must add an extra byte to the memory requirement.</p><h2>ei_decode_term(const char *buf, int *index, void *t):int</h2><p>Decode a <strong>ETERM</strong>.</p><p>Decodes a term from the binary format. The term
+is return in <strong>t</strong> as a <strong>ETERM*</strong>, so
+<strong>t</strong> is actually an <strong>ETERM**</strong> (see
+<a href="erl_eterm">erl_eterm</a>).
+The term is later to be deallocated.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This function is deprecated as of OTP 22 and will be removed in
+OTP 23 together with the old legacy <strong>erl_interface</strong> library (functions
+with prefix <strong>erl_</strong>).</p></div><h2>ei_decode_trace(const char *buf, int *index, erlang_trace *p):int</h2><p>Decode a trace token.</p><p>Decodes an Erlang trace token from the binary format.</p><h2>ei_decode_tuple_header(const char *buf, int *index, int *arity):int</h2><p>Decode a tuple.</p><p>Decodes a tuple header, the number of elements
+is returned in <strong>arity</strong>. The tuple elements follow
+in order in the buffer.</p><h2>ei_decode_ulong(const char *buf, int *index, unsigned long *p):int</h2><p>Decode unsigned integer.</p><p>Decodes an unsigned long integer from the binary format.
+If the code is 64 bits, the function <strong>ei_decode_ulong()</strong> is
+the same as <strong>ei_decode_ulonglong()</strong>.</p><h2>ei_decode_ulonglong(const char *buf, int *index, unsigned long long *p):int</h2><p>Decode unsigned integer.</p><p>Decodes a GCC <strong>unsigned long long</strong> or Visual C++
+<strong>unsigned __int64</strong> (64-bit) integer from the binary
+format. This function is missing in the VxWorks port.</p><h2>ei_decode_version(const char *buf, int *index, int *version):int</h2><p>Decode an empty list (<strong>nil</strong>).</p><p>Decodes the version magic number for the
+Erlang binary term format. It must be the first token in a
+binary term.</p><h2>ei_encode_atom(char *buf, int *index, const char *p):int</h2><h2>ei_encode_atom_len(char *buf, int *index, const char *p, int len):int</h2><h2>ei_x_encode_atom(ei_x_buff* x, const char *p):int</h2><h2>ei_x_encode_atom_len(ei_x_buff* x, const char *p, int len):int</h2><p>Encode an atom.</p><p>Encodes an atom in the binary format. Parameter <strong>p</strong>
+is the name of the atom in Latin-1 encoding. Only up to
+<strong>MAXATOMLEN-1</strong> bytes
+are encoded. The name is to be <strong>NULL</strong>-terminated, except for
+the <strong>ei_x_encode_atom_len()</strong> function.</p><h2>ei_encode_atom_as(char *buf, int *index, const char *p, erlang_char_encoding from_enc, erlang_char_encoding to_enc):int</h2><h2>ei_encode_atom_len_as(char *buf, int *index, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc):int</h2><h2>ei_x_encode_atom_as(ei_x_buff* x, const char *p, erlang_char_encoding from_enc, erlang_char_encoding to_enc):int</h2><h2>ei_x_encode_atom_len_as(ei_x_buff* x, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc):int</h2><p>Encode an atom.</p><p>Encodes an atom in the binary format. Parameter <strong>p</strong> is the name of the atom with
+character encoding
+<a href="#erlang_char_encoding">erlang_char_encoding</a>
+(ASCII, Latin-1, or UTF-8). The name must either be <strong>NULL</strong>-terminated or
+a function variant with a <strong>len</strong> parameter must be used.</p><p>The encoding fails if <strong>p</strong> is not a valid string in encoding
+<strong>from_enc</strong>.</p><p>Argument <strong>to_enc</strong> is ignored. As from Erlang/OTP 20 the encoding is always
+done in UTF-8 which is readable by nodes as old as Erlang/OTP R16.</p><h2>ei_encode_bignum(char *buf, int *index, mpz_t obj):int</h2><h2>ei_x_encode_bignum(ei_x_buff *x, mpz_t obj):int</h2><p>Encode an arbitrary precision integer.</p><p>Encodes a GMP <strong>mpz_t</strong> integer to binary format.
+To use this function, the <strong>ei</strong> library must be configured and
+compiled to use the GMP library.</p><h2>ei_encode_binary(char *buf, int *index, const void *p, long len):int</h2><h2>ei_x_encode_binary(ei_x_buff* x, const void *p, long len):int</h2><p>Encode a binary.</p><p>Encodes a binary in the binary format. The data is at
+<strong>p</strong>, of <strong>len</strong> bytes length.</p><h2>ei_encode_bitstring(char *buf, int *index, const char *p, size_t bitoffs, size_t nbits):int</h2><h2>ei_x_encode_bitstring(ei_x_buff* x, const char *p, size_t bitoffs, size_t nbits):int</h2><p>Encode a bitstring.</p><p>Encodes a bit string in the binary format.</p><p>The data is at <strong>p</strong>. The length of the bit string is <strong>nbits</strong>
+bits. The first <strong>bitoffs</strong> bits of the data at <strong>p</strong> are unused.
+The first byte which is part of the bit string is
+<strong>p[bitoffs/8]</strong>. The <strong>bitoffs%8</strong> most significant bits of
+the first byte <strong>p[bitoffs/8]</strong> are unused.</p><p>The number of bytes which is part of the bit string is <strong>(bitoffs + nbits + 7)/8</strong>. If <strong>(bitoffs + nbits)%8 &gt; 0</strong> then only <strong>(bitoffs + nbits)%8</strong> bits of the last byte are used. Unused bits in
+the last byte are the least significant bits.</p><p>The values of unused bits are disregarded and does not need to be
+cleared.</p><h2>ei_encode_boolean(char *buf, int *index, int p):int</h2><h2>ei_x_encode_boolean(ei_x_buff* x, int p):int</h2><p>Encode a boolean.</p><p>Encodes a boolean value as the atom <strong>true</strong> if
+<strong>p</strong> is not zero, or <strong>false</strong> if <strong>p</strong> is
+zero.</p><h2>ei_encode_char(char *buf, int *index, char p):int</h2><h2>ei_x_encode_char(ei_x_buff* x, char p):int</h2><p>Encode an 8-bit integer between 0-255.</p><p>Encodes a char (8-bit) as an integer between 0-255 in the binary
+format. For historical reasons the integer argument is of
+type <strong>char</strong>. Your C code is to consider the specified
+argument to be of type <strong>unsigned char</strong> even if
+the C compilers and system may define <strong>char</strong> to be
+signed.</p><h2>ei_encode_double(char *buf, int *index, double p):int</h2><h2>ei_x_encode_double(ei_x_buff* x, double p):int</h2><p>Encode a double float.</p><p>Encodes a double-precision (64-bit) floating point number in
+the binary format.</p><p>Returns <strong>-1</strong> if the floating point
+number is not finite.</p><h2>ei_encode_empty_list(char* buf, int* index):int</h2><h2>ei_x_encode_empty_list(ei_x_buff* x):int</h2><p>Encode an empty list (<strong>nil</strong>).</p><p>Encodes an empty list. It is often used at the tail of a list.</p><h2>ei_encode_fun(char *buf, int *index, const erlang_fun *p):int</h2><h2>ei_x_encode_fun(ei_x_buff* x, const erlang_fun* fun):int</h2><p>Encode a fun.</p><p>Encodes a fun in the binary format. Parameter <strong>p</strong>
+points to an <strong>erlang_fun</strong> structure. The
+<strong>erlang_fun</strong> is not freed automatically, the
+<strong>free_fun</strong> is to be called if the fun is not needed
+after encoding.</p><h2>ei_encode_list_header(char *buf, int *index, int arity):int</h2><h2>ei_x_encode_list_header(ei_x_buff* x, int arity):int</h2><p>Encode a list.</p><p>Encodes a list header, with a specified
+arity. The next <strong>arity+1</strong> terms are the elements
+(actually its <strong>arity</strong> cons cells) and the tail of the
+list. Lists and tuples are encoded recursively, so that a
+list can contain another list or tuple.</p><p>For example, to encode the list
+<strong>[c, d, [e | f]]</strong>:</p><pre>
+ei_encode_list_header(buf, &amp;i, 3);
+ei_encode_atom(buf, &amp;i, "c");
+ei_encode_atom(buf, &amp;i, "d");
+ei_encode_list_header(buf, &amp;i, 1);
+ei_encode_atom(buf, &amp;i, "e");
+ei_encode_atom(buf, &amp;i, "f");
+ei_encode_empty_list(buf, &amp;i);</pre><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>It may seem that there is no way to create a list without
+knowing the number of elements in advance. But indeed
+there is a way. Notice that the list <strong>[a, b, c]</strong>
+can be written as <strong>[a | [b | [c]]]</strong>.
+Using this, a list can be written as conses.</p></div><p>To encode a list, without knowing the arity in advance:</p><pre>
+while (something()) {
+    ei_x_encode_list_header(&amp;x, 1);
+    ei_x_encode_ulong(&amp;x, i); /* just an example */
+}
+ei_x_encode_empty_list(&amp;x);</pre><h2>ei_encode_long(char *buf, int *index, long p):int</h2><h2>ei_x_encode_long(ei_x_buff* x, long p):int</h2><p>Encode integer.</p><p>Encodes a long integer in the binary format.
+If the code is 64 bits, the function <strong>ei_encode_long()</strong> is
+the same as <strong>ei_encode_longlong()</strong>.</p><h2>ei_encode_longlong(char *buf, int *index, long long p):int</h2><h2>ei_x_encode_longlong(ei_x_buff* x, long long p):int</h2><p>Encode integer.</p><p>Encodes a GCC <strong>long long</strong> or Visual C++
+<strong>__int64</strong> (64-bit) integer in the binary format.
+This function is missing in the VxWorks port.</p><h2>ei_encode_map_header(char *buf, int *index, int arity):int</h2><h2>ei_x_encode_map_header(ei_x_buff* x, int arity):int</h2><p>Encode a map.</p><p>Encodes a map header, with a specified arity. The next
+<strong>arity*2</strong> terms encoded will be the keys and values of the map
+encoded in the following order: <strong>K1, V1, K2, V2, ..., Kn, Vn</strong>.
+</p><p>For example, to encode the map <strong>#{a =&gt; "Apple", b =&gt; "Banana"}</strong>:</p><pre>
+ei_x_encode_map_header(&amp;x, 2);
+ei_x_encode_atom(&amp;x, "a");
+ei_x_encode_string(&amp;x, "Apple");
+ei_x_encode_atom(&amp;x, "b");
+ei_x_encode_string(&amp;x, "Banana");</pre><p>A correctly encoded map cannot have duplicate keys.</p><h2>ei_encode_pid(char *buf, int *index, const erlang_pid *p):int</h2><h2>ei_x_encode_pid(ei_x_buff* x, const erlang_pid *p):int</h2><p>Encode a pid.</p><p>Encodes an Erlang process identifier (pid) in the binary
+format. Parameter <strong>p</strong> points to an
+<strong>erlang_pid</strong> structure (which should have been
+obtained earlier with <strong>ei_decode_pid()</strong>).</p><h2>ei_encode_port(char *buf, int *index, const erlang_port *p):int</h2><h2>ei_x_encode_port(ei_x_buff* x, const erlang_port *p):int</h2><p>Encode a port.</p><p>Encodes an Erlang port in the binary format. Parameter
+<strong>p</strong> points to a <strong>erlang_port</strong>
+structure (which should have been obtained earlier with
+<strong>ei_decode_port()</strong>).</p><h2>ei_encode_ref(char *buf, int *index, const erlang_ref *p):int</h2><h2>ei_x_encode_ref(ei_x_buff* x, const erlang_ref *p):int</h2><p>Encode a ref.</p><p>Encodes an Erlang reference in the binary format. Parameter
+<strong>p</strong> points to a <strong>erlang_ref</strong>
+structure (which should have been obtained earlier with
+<strong>ei_decode_ref()</strong>).</p><h2>ei_encode_string(char *buf, int *index, const char *p):int</h2><h2>ei_encode_string_len(char *buf, int *index, const char *p, int len):int</h2><h2>ei_x_encode_string(ei_x_buff* x, const char *p):int</h2><h2>ei_x_encode_string_len(ei_x_buff* x, const char* s, int len):int</h2><p>Encode a string.</p><p>Encodes a string in the binary format. (A string in Erlang
+is a list, but is encoded as a character array in the binary
+format.) The string is to be <strong>NULL</strong>-terminated, except for
+the <strong>ei_x_encode_string_len()</strong> function.</p><h2>ei_encode_term(char *buf, int *index, void *t):int</h2><h2>ei_x_encode_term(ei_x_buff* x, void *t):int</h2><p>Encode an <strong>erl_interface</strong> term.</p><p>Encodes an <strong>ETERM</strong>, as obtained from
+<strong>erl_interface</strong>. Parameter <strong>t</strong> is
+actually an <strong>ETERM</strong> pointer. This function
+does not free the <strong>ETERM</strong>.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>These functions are deprecated as of OTP 22 and will be removed in
+OTP 23 together with the old legacy <strong>erl_interface</strong> library
+(functions with prefix <strong>erl_</strong>).</p></div><h2>ei_encode_trace(char *buf, int *index, const erlang_trace *p):int</h2><h2>ei_x_encode_trace(ei_x_buff* x, const erlang_trace *p):int</h2><p>Encode a trace token.</p><p>Encodes an Erlang trace token in the binary format.
+Parameter <strong>p</strong> points to a
+<strong>erlang_trace</strong> structure (which should have been
+obtained earlier with <strong>ei_decode_trace()</strong>).</p><h2>ei_encode_tuple_header(char *buf, int *index, int arity):int</h2><h2>ei_x_encode_tuple_header(ei_x_buff* x, int arity):int</h2><p>Encode a tuple.</p><p>Encodes a tuple header, with a specified
+arity. The next <strong>arity</strong> terms encoded will be the
+elements of the tuple. Tuples and lists are encoded
+recursively, so that a tuple can contain another tuple or list.</p><p>For example, to encode the tuple <strong>{a, {b, {}}}</strong>:</p><pre>
+ei_encode_tuple_header(buf, &amp;i, 2);
+ei_encode_atom(buf, &amp;i, "a");
+ei_encode_tuple_header(buf, &amp;i, 2);
+ei_encode_atom(buf, &amp;i, "b");
+ei_encode_tuple_header(buf, &amp;i, 0);</pre><h2>ei_encode_ulong(char *buf, int *index, unsigned long p):int</h2><h2>ei_x_encode_ulong(ei_x_buff* x, unsigned long p):int</h2><p>Encode unsigned integer.</p><p>Encodes an unsigned long integer in the binary format.
+If the code is 64 bits, the function <strong>ei_encode_ulong()</strong> is
+the same as <strong>ei_encode_ulonglong()</strong>.</p><h2>ei_encode_ulonglong(char *buf, int *index, unsigned long long p):int</h2><h2>ei_x_encode_ulonglong(ei_x_buff* x, unsigned long long p):int</h2><p>Encode unsigned integer.</p><p>Encodes a GCC <strong>unsigned long long</strong> or Visual C++
+<strong>unsigned __int64</strong> (64-bit) integer in the binary
+format. This function is missing in the VxWorks port.</p><h2>ei_encode_version(char *buf, int *index):int</h2><h2>ei_x_encode_version(ei_x_buff* x):int</h2><p>Encode version.</p><p>Encodes a version magic number for the binary format. Must
+be the first token in a binary term.</p><h2>ei_get_type(const char *buf, const int *index, int *type, int *size):int</h2><p>Fetch the type and size of an encoded term.</p><p>Returns the type in <strong>*type</strong> and size in
+<strong>*size</strong> of the encoded term. For strings and atoms,
+size is the number of characters <em>not</em> including the
+terminating <strong>NULL</strong>. For binaries and bitstrings, <strong>*size</strong> is
+the number of bytes. For lists, tuples and maps, <strong>*size</strong> is the
+arity of the object. For other types, <strong>*size</strong> is 0. In all
+cases, <strong>index</strong> is left unchanged.</p><h2>ei_init(void):int</h2><p>Initialize the ei library.</p><p>Initialize the <strong>ei</strong> library. This function should be called once
+(and only once) before calling any other functionality in the <strong>ei</strong>
+library. However, note the exception below.</p><p>If the <strong>ei</strong> library is used together with the <strong>erl_interface</strong>
+library, this function should <em>not</em> be called directly. It will be
+called by the <strong>erl_init()</strong> function which should be used to initialize
+the combination of the two libraries instead.</p><p>On success zero is returned. On failure a posix error code is returned.</p><h2>ei_print_term(FILE* fp, const char* buf, int* index):int</h2><h2>ei_s_print_term(char** s, const char* buf, int* index):int</h2><p>Print a term in clear text.</p><p>Prints a term, in clear text, to the file
+specified by <strong>fp</strong>, or the buffer pointed to by
+<strong>s</strong>. It
+tries to resemble the term printing in the Erlang shell.</p><p>In <strong>ei_s_print_term()</strong>, parameter
+<strong>s</strong> is to
+point to a dynamically (malloc) allocated string of
+<strong>BUFSIZ</strong> bytes or a <strong>NULL</strong> pointer. The string
+can be reallocated (and <strong>*s</strong> can be updated) by this
+function if the result is more than <strong>BUFSIZ</strong>
+characters. The string returned is <strong>NULL</strong>-terminated.</p><p>The return value is the number of characters written to the file
+or string, or <strong>-1</strong> if <strong>buf[index]</strong> does not
+contain a valid term.
+Unfortunately, I/O errors on <strong>fp</strong> is not checked.</p><p>Argument <strong>index</strong> is updated, that is, this function
+can be viewed as a decode function that decodes a term into a
+human-readable format.</p><h2>ei_set_compat_rel(release_number):void</h2><p>Set the ei library in compatibility mode.</p><ul><li><span class="v">unsigned release_number;</span></li></ul><a name="ei_set_compat_rel"></a><p>In general, the <strong>ei</strong> library is guaranteed
+to be compatible with other Erlang/OTP components that are 2 major
+releases older or newer than the <strong>ei</strong> library itself.</p><p>Sometimes an exception to the above rule has to be made to make new
+features (or even bug fixes) possible. A call to
+<strong>ei_set_compat_rel(release_number)</strong> sets
+the <strong>ei</strong> library in compatibility mode of OTP release
+<strong>release_number</strong>.</p><p>The only useful value for <strong>release_number</strong> is currently
+<strong>21</strong>. This will only be useful and have an effect if <em>bit strings</em> or <em>export funs</em> are received from a connected
+node. Before OTP 22, bit strings and export funs were not supported by
+<strong>ei</strong>. They were instead encoded using an undocumented fallback
+tuple format when sent from the emulator to <strong>ei</strong>:</p><dl><dt><strong>Bit string</strong></dt><dd><p>The term <strong>&lt;&lt;42, 1:1&gt;&gt;</strong> was encoded as
+<strong>{&lt;&lt;42, 128&gt;&gt;, 1}</strong>. The first element of the tuple is a
+binary and the second element denotes how many bits of the last bytes
+are part of the bit string. In this example only the most significant
+bit of the last byte (128) is part of the bit string.</p> </dd><dt><strong>Export fun</strong></dt><dd><p>The term <strong>fun lists:map/2</strong> was encoded as
+<strong>{lists,map}</strong>. A tuple with the module, function and a missing
+arity.</p> </dd></dl><p>If <strong>ei_set_compat_rel(21)</strong> is <em>not</em> called then a connected
+emulator will send bit strings and export funs correctly encoded. The
+functions <a href="#ei_decode_bitstring">ei_decode_bitstring</a>
+and <a href="#ei_decode_fun">ei_decode_fun</a>
+has to be used to decode such terms. Calling
+<strong>ei_set_compat_rel(21)</strong> should only be done as a workaround to
+keep an old implementation alive, which expects to receive the
+undocumented tuple formats for bit strings and/or export funs.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>If this function is called, it can only be called once
+and must be called before any other functions in the
+<strong>ei</strong> library are called.</p></div><h2>ei_skip_term(const char* buf, int* index):int</h2><p>Skip a term.</p><p>Skips a term in the specified buffer;
+recursively skips elements of lists and tuples, so that a
+full term is skipped. This is a way to get the size of an
+Erlang term.</p><p><strong>buf</strong> is the buffer.</p><p><strong>index</strong> is updated to point right after the term
+in the buffer.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This can be useful when you want to hold arbitrary
+terms: skip them and copy the binary term data to some
+buffer.</p></div><p>Returns <strong>0</strong> on success, otherwise
+<strong>-1</strong>.</p><h2>ei_x_append(ei_x_buff* x, const ei_x_buff* x2):int</h2><h2>ei_x_append_buf(ei_x_buff* x, const char* buf, int len):int</h2><p>Append a buffer at the end.</p><p>Appends data at the end of buffer <strong>x</strong>.</p><h2>ei_x_format(ei_x_buff* x, const char* fmt, ...):int</h2><h2>ei_x_format_wo_ver(ei_x_buff* x, const char *fmt, ... ):int</h2><p>Format a term from a format string and parameters.</p><p>Formats a term, given as a string, to a buffer.
+Works like a sprintf for Erlang terms.
+<strong>fmt</strong> contains a format string, with arguments like
+<strong>~d</strong>, to insert terms from variables. The following
+formats are supported (with the C types given):</p><pre>
+~a  An atom, char*
+~c  A character, char
+~s  A string, char*
+~i  An integer, int
+~l  A long integer, long int
+~u  A unsigned long integer, unsigned long int
+~f  A float, float
+~d  A double float, double float
+~p  An Erlang pid, erlang_pid*</pre><p>For example, to encode a tuple with some stuff:</p><pre>
+ei_x_format("{~a,~i,~d}", "numbers", 12, 3.14159)
+encodes the tuple {numbers,12,3.14159}</pre><p><strong>ei_x_format_wo_ver()</strong> formats into a buffer,
+without the initial version byte.</p><h2>ei_x_free(ei_x_buff* x):int</h2><p>Free a buffer.</p><p>Frees an <strong>ei_x_buff</strong> buffer.
+The memory used by the buffer is returned to the OS.</p><h2>ei_x_new(ei_x_buff* x):int</h2><h2>ei_x_new_with_version(ei_x_buff* x):int</h2><p>Allocate a new buffer.</p><p>Allocates a new <strong>ei_x_buff</strong> buffer. The
+fields of the structure pointed to by parameter <strong>x</strong>
+is filled in, and a default buffer is allocated.
+<strong>ei_x_new_with_version()</strong> also puts an initial
+version byte, which is used in the binary format (so that
+<strong>ei_x_encode_version()</strong> will not be needed.)</p><h2>Debug Information</h2><p>Some tips on what to check when the emulator does not seem to
+receive the terms that you send:</p><ul><li>Be careful with the version header, use <strong>ei_x_new_with_version()</strong> when appropriate.</li><li>Turn on distribution tracing on the Erlang node.</li><li>Check the result codes from <strong>ei_decode_-calls</strong>.</li></ul><h2>See Also</h2><p><a href="erl_eterm">erl_eterm</a></p></body></html>

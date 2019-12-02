@@ -1,0 +1,66 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>supervisor_bridge</h1><h1>supervisor_bridge</h1><p>Generic supervisor bridge behavior.</p><p>This behavior module provides a supervisor bridge, a process
+that connects a subsystem not designed according to the OTP design
+principles to a supervision tree. The supervisor bridge sits between
+a supervisor and the subsystem. It behaves like a real supervisor to
+its own supervisor, but has a different interface than a real
+supervisor to the subsystem. For more information, see
+<a href="./sup_princ"> Supervisor Behaviour</a> in OTP Design Principles.
+A supervisor bridge assumes the functions for starting and stopping
+the subsystem to be located in a callback module exporting a
+predefined set of functions.The <a href="sys">sys</a> module can be used
+for debugging a supervisor bridge.Unless otherwise stated, all functions in this module fail if
+the specified supervisor bridge does not exist or if bad arguments are
+specified.</p><h1>Functions</h1><h2>start_link/2</h2><h2>start_link/3</h2><p>Create a supervisor bridge process.</p><p>Creates a supervisor bridge process, linked to the calling process,
+which calls <strong><span class="anno">Module</span>:init/1</strong> to start the subsystem.
+To ensure a synchronized startup procedure, this function does
+not return until <strong><span class="anno">Module</span>:init/1</strong> has returned.</p><ul><li> <p>If <strong><span class="anno">SupBridgeName</span>={local,<span class="anno">Name</span>}</strong>,
+the supervisor bridge is registered locally as
+<strong><span class="anno">Name</span></strong> using <strong>register/2</strong>.</p> </li><li> <p>If <strong><span class="anno">SupBridgeName</span>={global,<span class="anno">Name</span>}</strong>,
+the supervisor bridge is registered globally as
+<strong><span class="anno">Name</span></strong> using
+<a href="../kernel/global#register_name/2">kernel/global#register_name/2</a>.</p> </li><li> <p>If
+<strong><span class="anno">SupBridgeName</span>={via,<span class="anno">Module</span>,<span class="anno">Name</span>}</strong>,
+the supervisor bridge is registered as <strong><span class="anno">Name</span></strong>
+using a registry represented by <span class="anno">Module</span>. The
+<strong>Module</strong> callback is to export functions
+<strong>register_name/2</strong>, <strong>unregister_name/1</strong>, and <strong>send/2</strong>,
+which are to behave like the corresponding functions in
+<a href="./global">kernel/global</a>.
+Thus, <strong>{via,global,GlobalName}</strong> is a valid reference.</p> </li></ul><p>If no name is provided, the supervisor bridge is not registered.</p><p><strong><span class="anno">Module</span></strong> is the name of the callback module.</p><p><strong><span class="anno">Args</span></strong> is an arbitrary term that is passed as the
+argument to <strong><span class="anno">Module</span>:init/1</strong>.</p><ul><li> <p>If the supervisor bridge and the subsystem are successfully
+started, the function returns <strong>{ok,<span class="anno">Pid</span>}</strong>, where
+<strong><span class="anno">Pid</span></strong> is is the pid of the supervisor
+bridge.</p> </li><li> <p>If there already exists a process with the specified
+<strong><span class="anno">SupBridgeName</span></strong>, the function returns
+<strong>{error,{already_started,<span class="anno">Pid</span>}}</strong>, where
+<strong><span class="anno">Pid</span></strong> is the pid of that process.</p> </li><li> <p>If <strong><span class="anno">Module</span>:init/1</strong> returns <strong>ignore</strong>, this
+function returns <strong>ignore</strong> as well and the supervisor bridge
+terminates with reason <strong>normal</strong>.</p> </li><li> <p>If <strong><span class="anno">Module</span>:init/1</strong> fails or returns an error
+tuple or an incorrect value, this function returns
+<strong>{error,<span class="anno">Error</span>r}</strong>, where
+<strong><span class="anno">Error</span></strong> is a term with information about the
+error, and the supervisor bridge
+terminates with reason <strong><span class="anno">Error</span></strong>.</p> </li></ul><h2>Callback Functions</h2><p>The following functions must be exported from a
+<strong>supervisor_bridge</strong> callback module.</p><h1>Functions</h1><h2>Module:init(Args) -&gt; Result</h2><p>Initialize process and start subsystem.</p><ul><li><span class="v">Args = term()</span></li><li><span class="v">Result = {ok,Pid,State} | ignore | {error,Error}</span></li><li><span class="v">Â Pid = pid()</span></li><li><span class="v">Â State = term()</span></li><li><span class="v">Â Error = term()</span></li></ul><p>Whenever a supervisor bridge is started using
+<a href="#start_link/2">start_link/2</a>,
+this function is called
+by the new process to start the subsystem and initialize.</p><p><strong>Args</strong> is the <strong>Args</strong> argument provided to the start
+function.</p><p>The function is to return <strong>{ok,Pid,State}</strong>, where <strong>Pid</strong>
+is the pid of the main process in the subsystem and <strong>State</strong>
+is any term.</p><p>If later <strong>Pid</strong> terminates with a reason <strong>Reason</strong>,
+the supervisor bridge terminates with reason <strong>Reason</strong> as well.
+If later the supervisor bridge is stopped by its supervisor with
+reason <strong>Reason</strong>, it calls
+<strong>Module:terminate(Reason,State)</strong> to terminate.</p><p>If the initialization fails, the function is to return
+<strong>{error,Error}</strong>, where <strong>Error</strong> is any term,
+or <strong>ignore</strong>.</p><h2>Module:terminate(Reason, State)</h2><p>Clean up and stop subsystem.</p><ul><li><span class="v">Reason = shutdown | term()</span></li><li><span class="v">State = term()</span></li></ul><p>This function is called by the supervisor bridge when it is about
+to terminate. It is to be the opposite of <strong>Module:init/1</strong>
+and stop the subsystem and do any necessary cleaning up.
+The return value is ignored.</p><p><strong>Reason</strong> is <strong>shutdown</strong> if the supervisor bridge is
+terminated by its supervisor. If the supervisor bridge terminates
+because a a linked process (apart from the main process of
+the subsystem) has terminated with reason <strong>Term</strong>,
+then <strong>Reason</strong> becomes <strong>Term</strong>.</p><p><strong>State</strong> is taken from the return value of
+<strong>Module:init/1</strong>.</p><h2>See Also</h2><p><a href="supervisor">supervisor</a>, 
+<a href="sys">sys</a></p></body></html>

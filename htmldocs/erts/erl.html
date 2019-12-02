@@ -1,0 +1,731 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>erl</h1><h1>erl</h1><p>The Erlang emulator.</p><p>The <strong>erl</strong> program starts an Erlang runtime system.
+The exact details (for example, whether <strong>erl</strong> is a
+script or a program and which other programs it calls) are
+system-dependent.Windows users probably want to use the <strong>werl</strong> program
+instead, which runs in its own window with scrollbars and supports
+command-line editing. The <strong>erl</strong> program on Windows
+provides no line editing in its shell, and on Windows 95 there is no way
+to scroll back to text that has scrolled off the screen. The
+<strong>erl</strong> program must be used, however, in pipelines or if
+you want to redirect standard input or output.</p><h1>Functions</h1><h2>erl &lt;arguments&gt;</h2><p>Start an Erlang runtime system.</p><p>Starts an Erlang runtime system.</p><p>The arguments can be divided into <em>emulator flags</em>,
+<em>flags</em>, and <em>plain arguments</em>:</p><ul><li> <p>Any argument starting with character <strong>+</strong> is
+interpreted as an
+<a href="#emu_flags">emulator flag</a>.</p> <p>As indicated by the name, emulator flags control
+the behavior of the emulator.</p> </li><li> <p>Any argument starting with character <strong>-</strong>
+(hyphen) is interpreted as a
+<a href="#init_flags">flag</a>, which is to
+be passed to the Erlang part of the runtime system, more
+specifically to the <strong>init</strong> system process, see
+<a href="init">init</a>.</p> <p>The <strong>init</strong> process itself interprets some of
+these flags, the <em>init flags</em>. It also stores any
+remaining flags, the <em>user flags</em>. The latter can be
+retrieved by calling <strong>init:get_argument/1</strong>.</p> <p>A small number of "-" flags exist, which now actually are
+emulator flags, see the description below.</p> </li><li> <p>Plain arguments are not interpreted in any way. They are also
+stored by the <strong>init</strong> process and can be retrieved
+by calling <strong>init:get_plain_arguments/0</strong>.
+Plain arguments can occur before the first flag, or after a
+<strong>--</strong> flag. Also, the <strong>-extra</strong>
+flag causes everything that follows to become plain arguments.</p> </li></ul><p><em>Examples:</em></p><pre>
+% <span class="input">erl +W w -sname arnie +R 9 -s my_init -extra +bertie</span>
+(arnie@host)1&gt; <span class="input">init:get_argument(sname).</span>
+{ok,[["arnie"]]}
+(arnie@host)2&gt; <span class="input">init:get_plain_arguments().</span>
+["+bertie"]</pre><p>Here <strong>+W w</strong> and <strong>+R 9</strong> are
+emulator flags. <strong>-s my_init</strong> is an init flag,
+interpreted by <strong>init</strong>.
+<strong>-sname arnie</strong> is a user flag, stored by
+<strong>init</strong>. It is read by Kernel and causes the
+Erlang runtime system to become distributed. Finally, everything after
+<strong>-extra</strong> (that is, <strong>+bertie</strong>) is
+considered as plain arguments.</p><pre>
+% <span class="input">erl -myflag 1</span>
+1&gt; <span class="input">init:get_argument(myflag).</span>
+{ok,[["1"]]}
+2&gt; <span class="input">init:get_plain_arguments().</span>
+[]</pre><p>Here the user flag <strong>-myflag 1</strong> is passed to and
+stored by the <strong>init</strong> process. It is a user-defined
+flag, presumably used by some user-defined application.</p><a name="init_flags"></a><h2>Flags</h2><p>In the following list, init flags are marked "(init flag)".
+Unless otherwise specified, all other flags are user flags, for
+which the values can be retrieved by calling
+<strong>init:get_argument/1</strong>. Notice that the list of user
+flags is not exhaustive, there can be more application-specific
+flags that instead are described in the corresponding
+application documentation.</p><dl><dt><strong>--</strong> (init flag)</dt><dd> <p>Everything following <strong>--</strong> up to the next flag
+(<strong>-flag</strong> or <strong>+flag</strong>) is considered
+plain arguments and can be retrieved using
+<strong>init:get_plain_arguments/0</strong>.</p> </dd><dt><strong>-Application Par Val</strong></dt><dd> <p>Sets the application configuration parameter <strong>Par</strong>
+to the value <strong>Val</strong> for the application
+<strong>Application</strong>; see
+<a href="./app">kernel/app</a> and
+<a href="./application">kernel/application</a>.</p> </dd><dt><a name="args_file"></a><strong>-args_file FileName</strong></dt><dd> <p>Command-line arguments are read from the file
+<strong>FileName</strong>. The arguments read from the file replace
+flag '<strong>-args_file FileName</strong>' on the resulting
+command line.</p> <p>The file <strong>FileName</strong> is to be a plain text file and
+can contain comments and command-line arguments. A comment begins
+with a <strong>#</strong> character and continues until the next end of line
+character. Backslash (\\) is used as quoting character. All
+command-line arguments accepted by <strong>erl</strong> are allowed,
+also flag <strong>-args_file FileName</strong>. Be careful not to
+cause circular dependencies between files containing flag
+<strong>-args_file</strong>, though.</p> <p>The flag <strong>-extra</strong> is treated in special way. Its
+scope ends at the end of the file. Arguments following an
+<strong>-extra</strong> flag are moved on the command line into the
+<strong>-extra</strong> section, that is, the end of the command
+line following after an <strong>-extra</strong> flag.</p> </dd><dt><strong>-async_shell_start</strong></dt><dd> <p>The initial Erlang shell does not read user input until
+the system boot procedure has been completed (Erlang/OTP 5.4 and
+later). This flag disables the start synchronization feature
+and lets the shell start in parallel with the rest of
+the system.</p> </dd><dt><strong>-boot File</strong></dt><dd> <p>Specifies the name of the boot file, <strong>File.boot</strong>,
+which is used to start the system; see
+<a href="init">init</a>. Unless
+<strong>File</strong> contains an absolute path, the system searches
+for <strong>File.boot</strong> in the current and 
+<strong>$ROOT/bin</strong> directories.</p> <p>Defaults to <strong>$ROOT/bin/start.boot</strong>.</p> </dd><dt><strong>-boot_var Var Dir</strong></dt><dd> <p>If the boot script contains a path variable <strong>Var</strong>
+other than <strong>$ROOT</strong>, this variable is expanded to
+<strong>Dir</strong>. Used when applications are installed in
+another directory than <strong>$ROOT/lib</strong>; see
+<a href="../sasl/systools#make_script/1">sasl/systools#make_script/1</a> in SASL.</p> </dd><dt><strong>-code_path_cache</strong></dt><dd> <p>Enables the code path cache of the code server; see
+<a href="./code">kernel/code</a>.</p> </dd><dt><strong>-compile Mod1 Mod2 ...</strong></dt><dd> <p>Compiles the specified modules and then terminates (with
+non-zero exit code if the compilation of some file did not
+succeed). Implies <strong>-noinput</strong>.</p> <p>Not recommended; use <a href="erlc">erlc</a>
+instead.</p> </dd><dt><strong>-config Config</strong></dt><dd> <p>Specifies the name of a configuration file,
+<strong>Config.config</strong>, which is used to configure
+applications; see
+<a href="./app">kernel/app</a> and
+<a href="./application">kernel/application</a>.</p> </dd><dt><a name="connect_all"></a><strong>-connect_all false</strong></dt><dd> <p>If this flag is present, <strong>global</strong> does not maintain
+a fully connected network of distributed Erlang nodes, and then
+global name registration cannot be used; see
+<a href="./global">kernel/global</a>.</p> </dd><dt><strong>-cookie Cookie</strong></dt><dd> <p>Obsolete flag without any effect and common misspelling for
+<strong>-setcookie</strong>. Use <strong>-setcookie</strong>
+instead.</p> </dd><dt><strong>-detached</strong></dt><dd> <p>Starts the Erlang runtime system detached from the system
+console. Useful for running daemons and backgrounds processes. Implies
+<strong>-noinput</strong>.</p> </dd><dt><strong>-emu_args</strong></dt><dd> <p>Useful for debugging. Prints the arguments sent to the emulator.</p> </dd><dt><strong>-emu_type Type</strong></dt><dd> <p>Start an emulator of a different type. For example, to start
+the lock-counter emualator, use <strong>-emu_type lcnt</strong>. (The emulator
+must already be built. Use the <strong>configure</strong> option
+<strong>--enable-lock-counter</strong> to build the lock-counter emulator.)</p> </dd><dt><strong>-env Variable Value</strong></dt><dd> <p>Sets the host OS environment variable <strong>Variable</strong> to
+the value <strong>Value</strong> for the Erlang runtime system.
+Example:</p> <pre>
+% <span class="input">erl -env DISPLAY gin:0</span></pre> <p>In this example, an Erlang runtime system is started with
+environment variable <strong>DISPLAY</strong> set to
+<strong>gin:0</strong>.</p> </dd><dt><strong>-epmd_module Module</strong> (init flag)</dt><dd> <p>Configures the module responsible to communicate to
+<a href="epmd">epmd</a>. Defaults to <strong>erl_epmd</strong>.</p> </dd><dt><strong>-eval Expr</strong> (init flag)</dt><dd> <p>Makes <strong>init</strong> evaluate the expression
+<strong>Expr</strong>; see
+<a href="init">init</a>.</p> </dd><dt><strong>-extra</strong> (init flag)</dt><dd> <p>Everything following <strong>-extra</strong> is considered plain
+arguments and can be retrieved using
+<strong>init:get_plain_arguments/0</strong>.</p> </dd><dt><strong>-heart</strong></dt><dd> <p>Starts heartbeat monitoring of the Erlang runtime system;
+see <a href="./heart">kernel/heart</a>.</p> </dd><dt><strong>-hidden</strong></dt><dd> <p>Starts the Erlang runtime system as a hidden node, if it is
+run as a distributed node. Hidden nodes always establish
+hidden connections to all other nodes except for nodes in the
+same global group. Hidden connections are not published on
+any of the connected nodes, that is, none of the connected
+nodes are part of the result from <strong>nodes/0</strong> on the
+other node. See also hidden global groups;
+<a href="./global_group">kernel/global_group</a>.</p> </dd><dt><strong>-hosts Hosts</strong></dt><dd> <p>Specifies the IP addresses for the hosts on which Erlang boot servers
+are running, see <a href="./erl_boot_server">kernel/erl_boot_server</a>. This flag
+is mandatory if flag <strong>-loader inet</strong> is present.</p> <p>The IP addresses must be specified in the standard form (four
+decimal numbers separated by periods, for example,
+<strong>"150.236.20.74"</strong>. Hosts names are not acceptable,
+but a broadcast address (preferably limited to the local network)
+is.</p> </dd><dt><strong>-id Id</strong></dt><dd> <p>Specifies the identity of the Erlang runtime system. If it is
+run as a distributed node, <strong>Id</strong> must be identical to
+the name supplied together with flag <strong>-sname</strong> or
+<strong>-name</strong>.</p> </dd><dt><strong>-init_debug</strong></dt><dd> <p>Makes <strong>init</strong> write some debug information while
+interpreting the boot script.</p> </dd><dt><a name="instr"></a><strong>-instr</strong> (emulator flag)</dt><dd> <p>Selects an instrumented Erlang runtime system (virtual
+machine) to run, instead of the ordinary one. When running an
+instrumented runtime system, some resource usage data can be
+obtained and analyzed using the <strong>instrument</strong> module.
+Functionally, it behaves exactly like an ordinary Erlang
+runtime system.</p> </dd><dt><strong>-loader Loader</strong></dt><dd> <p>Specifies the method used by <strong>erl_prim_loader</strong> to
+load Erlang modules into the system; see
+<a href="erl_prim_loader">erl_prim_loader</a>.
+Two <strong>Loader</strong> methods are supported:</p> <ul><li> <p><strong>efile</strong>, which means use the local file system,
+this is the default.</p> </li><li> <p><strong>inet</strong>, which means use a boot server on
+another machine. The flags <strong>-id</strong>,
+<strong>-hosts</strong> and <strong>-setcookie</strong> must
+also be specified.</p> </li></ul> <p>If <strong>Loader</strong> is something else, the user-supplied
+<strong>Loader</strong> port program is started.</p> </dd><dt><strong>-make</strong></dt><dd> <p>Makes the Erlang runtime system invoke <strong>make:all()</strong>
+in the current working directory and then terminate; see
+<a href="./make">tools/make</a>. Implies
+<strong>-noinput</strong>.</p> </dd><dt><strong>-man Module</strong></dt><dd> <p>Displays the manual page for the Erlang module
+<strong>Module</strong>. Only supported on Unix.</p> </dd><dt><strong>-mode interactive | embedded</strong></dt><dd> <p>Modules are auto loaded when they are first referenced if the
+runtime system runs in <strong>interactive</strong> mode, which is
+the default. In <strong>embedded</strong> mode modules are not auto
+loaded. The latter is recommended when the boot script preloads all
+modules, as conventionally happens in OTP releases. See
+<a href="./code">kernel/code</a></p>. </dd><dt><strong>-name Name</strong></dt><dd> <p>Makes the Erlang runtime system into a distributed node.
+This flag invokes all network servers necessary for a node to
+become distributed; see <a href="./net_kernel">kernel/net_kernel</a>. It is also ensured that
+<strong>epmd</strong> runs on the current host before Erlang is
+started; see <a href="epmd">epmd</a>.and the
+<a href="#start_epmd">start_epmd</a> option.</p> <p>The node name will be <strong>Name@Host</strong>, where
+<strong>Host</strong> is the fully qualified host name of the
+current host. For short names, use flag <strong>-sname</strong>
+instead.</p> <div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>
+Starting a distributed node without also specifying
+<a href="#proto_dist">proto_dist</a>
+will expose the node to attacks that may give the attacker
+complete access to the node and in extension the cluster.
+When using un-secure distributed nodes, make sure that the
+network is configured to keep potential attackers out.
+</p></div> </dd><dt><strong>-noinput</strong></dt><dd> <p>Ensures that the Erlang runtime system never tries to read
+any input. Implies <strong>-noshell</strong>.</p> </dd><dt><strong>-noshell</strong></dt><dd> <p>Starts an Erlang runtime system with no shell. This flag
+makes it possible to have the Erlang runtime system as a
+component in a series of Unix pipes.</p> </dd><dt><strong>-nostick</strong></dt><dd> <p>Disables the sticky directory facility of the Erlang code
+server; see
+<a href="./code">kernel/code</a>.</p> </dd><dt><strong>-oldshell</strong></dt><dd> <p>Invokes the old Erlang shell from Erlang/OTP 3.3. The old shell
+can still be used.</p> </dd><dt><strong>-pa Dir1 Dir2 ...</strong></dt><dd> <p>Adds the specified directories to the beginning of the code
+path, similar to <a href="../kernel/code#add_pathsa/1">kernel/code#add_pathsa/1</a>. Note that the
+order of the given directories will be reversed in the
+resulting path.</p> <p>As an alternative to <strong>-pa</strong>, if several directories are
+to be prepended to the code path and the directories have a
+common parent directory, that parent directory can be
+specified in environment variable <strong>ERL_LIBS</strong>; see
+<a href="./code">kernel/code</a>.</p> </dd><dt><strong>-pz Dir1 Dir2 ...</strong></dt><dd> <p>Adds the specified directories to the end of the code path,
+similar to <strong>code:add_pathsz/1</strong>; see
+<a href="./code">kernel/code</a>.</p> </dd><dt><strong>-path Dir1 Dir2 ...</strong></dt><dd> <p>Replaces the path specified in the boot script; see
+<a href="./script">sasl/script</a>.</p> </dd><dt><strong>-proto_dist Proto</strong></dt><dd> <a name="proto_dist"></a> <p>Specifies a protocol for Erlang distribution:</p> <dl><dt><strong>inet_tcp</strong></dt><dd>TCP over IPv4 (the default)</dd><dt><strong>inet_tls</strong></dt><dd>Distribution over TLS/SSL, See the <a href="./ssl_distribution"> Using SSL for Erlang Distribution</a> User's Guide for details on how to setup a secure distributed node. </dd><dt><strong>inet6_tcp</strong></dt><dd>TCP over IPv6</dd></dl> <p>For example, to start up IPv6 distributed nodes:</p> <pre>
+% <span class="input">erl -name test@ipv6node.example.com -proto_dist inet6_tcp</span></pre> </dd><dt><strong>-remsh Node</strong></dt><dd> <p>Starts Erlang with a remote shell connected to
+<strong>Node</strong>. Requires either <strong>-name</strong>
+or <strong>-sname</strong> to be given. If <strong>Node</strong>
+does not contain a hostname, one is automatically taken from
+<strong>-name</strong> or <strong>-sname</strong></p> </dd><dt><strong>-rsh Program</strong></dt><dd> <p>Specifies an alternative to <strong>ssh</strong> for starting a
+slave node on a remote host; see
+<a href="./slave">stdlib/slave</a>.</p> </dd><dt><strong>-run Mod [Func [Arg1, Arg2, ...]]</strong> (init flag)</dt><dd> <p>Makes <strong>init</strong> call the specified function.
+<strong>Func</strong> defaults to <strong>start</strong>.
+If no arguments are provided, the function is assumed to be of
+arity 0. Otherwise it is assumed to be of arity 1, taking the list
+<strong>[Arg1,Arg2,...]</strong> as argument. All arguments are
+passed as strings. See <a href="init">init</a>.</p> </dd><dt><strong>-s Mod [Func [Arg1, Arg2, ...]]</strong> (init flag)</dt><dd> <p>Makes <strong>init</strong> call the specified function.
+<strong>Func</strong> defaults to <strong>start</strong>.
+If no arguments are provided, the function is assumed to be of
+arity 0. Otherwise it is assumed to be of arity 1, taking the list
+<strong>[Arg1,Arg2,...]</strong> as argument. All arguments are
+passed as atoms. See <a href="init">init</a>.</p> </dd><dt><strong>-setcookie Cookie</strong></dt><dd> <p>Sets the magic cookie of the node to <strong>Cookie</strong>; see
+<a href="./erlang#set_cookie/2">erlang#set_cookie/2</a>.</p> </dd><dt><strong>-shutdown_time Time</strong></dt><dd> <p>Specifies how long time (in milliseconds) the <strong>init</strong>
+process is allowed to spend shutting down the system. If
+<strong>Time</strong> milliseconds have elapsed, all processes still
+existing are killed. Defaults to <strong>infinity</strong>.</p> </dd><dt><strong>-sname Name</strong></dt><dd> <p>Makes the Erlang runtime system into a distributed node, similar to
+<strong>-name</strong>, but the host name portion of the node
+name <strong>Name@Host</strong> will be the short name, not fully
+qualified.</p> <p>This is sometimes the only way to run distributed Erlang if
+the Domain Name System (DNS) is not running. No communication can
+exist between nodes running with flag <strong>-sname</strong>
+and those running with flag <strong>-name</strong>, as node
+names must be unique in distributed Erlang systems.</p> <div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>
+Starting a distributed node without also specifying
+<a href="#proto_dist">proto_dist</a>
+will expose the node to attacks that may give the attacker
+complete access to the node and in extension the cluster.
+When using un-secure distributed nodes, make sure that the
+network is configured to keep potential attackers out.
+</p></div> </dd><dt><a name="start_epmd"></a><strong>-start_epmd true | false</strong></dt><dd> <p>Specifies whether Erlang should start
+<a href="epmd">epmd</a> on startup. By default
+this is <strong>true</strong>, but if you prefer to start epmd
+manually, set this to <strong>false</strong>.</p> <p>This only applies if Erlang is started as a distributed node,
+i.e. if <strong>-name</strong> or <strong>-sname</strong> is specified. Otherwise,
+epmd is not started even if <strong>-start_epmd true</strong> is given.</p> <p>Note that a distributed node will fail to start if epmd is
+not running.</p> </dd><dt><strong>-version</strong> (emulator flag)</dt><dd> <p>Makes the emulator print its version number. The same
+as <strong>erl +V</strong>.</p> </dd></dl><a name="emu_flags"></a><h2>Emulator Flags</h2><p><strong>erl</strong> invokes the code for the Erlang emulator (virtual
+machine), which supports the following flags:</p><dl><dt><a name="async_thread_stack_size"></a> <strong>+a size</strong></dt><dd> <p>Suggested stack size, in kilowords, for threads in the
+async thread pool. Valid range is 16-8192 kilowords. The
+default suggested stack size is 16 kilowords, that is, 64
+kilobyte on 32-bit architectures. This small default size
+has been chosen because the number of async threads can
+be large. The default size is enough for drivers
+delivered with Erlang/OTP, but might not be large
+enough for other dynamically linked-in drivers that use the
+<a href="./erl_driver#driver_async">erl_driver#driver_async</a> functionality.
+Notice that the value passed is only a suggestion,
+and it can even be ignored on some platforms.</p> </dd><dt><a name="async_thread_pool_size"></a><strong>+A size</strong></dt><dd> <p>Sets the number of threads in async thread pool. Valid range
+is 0-1024. Defaults to 1.</p> </dd><dt><strong>+B [c | d | i]</strong></dt><dd> <p>Option <strong>c</strong> makes <strong>Ctrl-C</strong>
+interrupt the current shell instead of invoking the emulator break
+handler. Option <strong>d</strong> (same as specifying
+<strong>+B</strong> without an extra option) disables the break
+handler. Option <strong>i</strong> makes the emulator ignore any
+break signal.</p> <p>If option <strong>c</strong> is used with
+<strong>oldshell</strong> on Unix, <strong>Ctrl-C</strong> will
+restart the shell process rather than interrupt it.</p> <p>Notice that on Windows, this flag is only applicable for
+<strong>werl</strong>, not <strong>erl</strong>
+(<strong>oldshell</strong>). Notice also that
+<strong>Ctrl-Break</strong> is used instead of
+<strong>Ctrl-C</strong> on Windows.</p> </dd><dt><a name="+c"></a><strong>+c true | false</strong></dt><dd> <p>Enables or disables
+<a href="./time_correction#Time_Correction">time correction</a>:</p> <dl><dt><strong>true</strong></dt><dd>Enables time correction. This is the default if time correction is supported on the specific platform.</dd><dt><strong>false</strong></dt><dd>Disables time correction.</dd></dl> <p>For backward compatibility, the boolean value can be omitted.
+This is interpreted as <strong>+c false</strong>.</p> </dd><dt><a name="+C_"></a><strong>+C no_time_warp | single_time_warp | multi_time_warp</strong></dt><dd> <p>Sets <a href="./time_correction#Time_Warp_Modes">time warp mode</a>:</p> <dl><dt><strong>no_time_warp</strong></dt><dd><a href="./time_correction#No_Time_Warp_Mode"> No time warp mode</a> (the default)</dd><dt><strong>single_time_warp</strong></dt><dd><a href="./time_correction#Single_Time_Warp_Mode"> Single time warp mode</a></dd><dt><strong>multi_time_warp</strong></dt><dd><a href="./time_correction#Multi_Time_Warp_Mode"> Multi-time warp mode</a></dd></dl> </dd><dt><strong>+d</strong></dt><dd> <p>If the emulator detects an internal error (or runs out of memory),
+it, by default, generates both a crash dump and a core dump.
+The core dump is, however, not very useful as the content
+of process heaps is destroyed by the crash dump generation.</p> <p>Option <strong>+d</strong> instructs the emulator to produce only a
+core dump and no crash dump if an internal error is detected.</p> <p>Calling <a href="./erlang#halt/1">erlang#halt/1</a> with a string argument still
+produces a crash dump. On Unix systems, sending an emulator process
+a <strong>SIGUSR1</strong> signal also forces a crash dump.</p> </dd><dt><a name="+dcg"></a><strong>+rg DecentralizedCounterGroupsLimit</strong></dt><dd> <p>Limits the number of decentralized counter groups used by
+decentralized counters optimized for update operations in the
+Erlang runtime system. By default, the limit is 256.</p> <p>When the number of schedulers is less than or equal to the
+limit, each scheduler has its own group. When the
+number of schedulers is larger than the groups limit,
+schedulers share groups. Shared groups degrade
+the performance for updating counters while many reader groups
+degrade the performance for reading counters. So, the limit is a tradeoff
+between performance for update operations and performance for
+read operations. Each group consumes 64 bytes in each
+counter.</p> <p>Notice that a runtime system using decentralized
+counter groups benefits from <a href="#+sbt">binding schedulers to logical processors</a>, as the groups are
+distributed better between schedulers with this option.</p> <p>This option only affects decentralized counters used for
+the counters that are keeping track of the memory consumption
+and the number of terms in ETS tables of type ordered_set with
+the write_concurrency option activated.</p> </dd><dt><a name="+e"></a><strong>+e Number</strong></dt><dd> <p>Sets the maximum number of ETS tables. This limit is
+<a href="../stdlib/ets#max_ets_tables">partially obsolete</a>.
+</p> </dd><dt><strong>+ec</strong></dt><dd> <p>Forces option <strong>compressed</strong> on all ETS tables.
+Only intended for test and evaluation.</p> </dd><dt><a name="file_name_encoding"></a> <strong>+fnl</strong></dt><dd> <p>The virtual machine works with filenames as if they are encoded
+using the ISO Latin-1 encoding, disallowing Unicode characters with
+code points &gt; 255.</p> <p>For more information about Unicode filenames, see section
+<a href="../stdlib/unicode_usage#unicode_file_names">Unicode Filenames</a> in the STDLIB User's Guide. Notice that
+this value also applies to command-line parameters and environment
+variables (see section <a href="../stdlib/unicode_usage#unicode_in_environment_and_parameters"> Unicode in Environment and Parameters</a> in the STDLIB
+User's Guide).</p> </dd><dt><strong>+fnu[{w|i|e}]</strong></dt><dd> <p>The virtual machine works with filenames as if they are encoded
+using UTF-8 (or some other system-specific Unicode encoding). This is
+the default on operating systems that enforce Unicode encoding, that
+is, Windows and MacOS X.</p> <p>The <strong>+fnu</strong> switch can be followed by <strong>w</strong>, <strong>i</strong>, or
+<strong>e</strong> to control how wrongly encoded filenames are to be
+reported:</p> <ul><li> <p><strong>w</strong> means that a warning is sent to the <strong>error_logger</strong>
+whenever a wrongly encoded filename is "skipped" in directory
+listings. This is the default.</p> </li><li> <p><strong>i</strong> means that those wrongly encoded filenames are silently
+ignored.</p> </li><li> <p><strong>e</strong> means that the API function returns an error whenever a
+wrongly encoded filename (or directory name) is encountered.</p> </li></ul> <p>Notice that <a href="../kernel/file#read_link/1">kernel/file#read_link/1</a> always returns an error if the link
+points to an invalid filename.</p> <p>For more information about Unicode filenames, see section
+<a href="../stdlib/unicode_usage#unicode_file_names">Unicode Filenames</a> in the STDLIB User's Guide. Notice that
+this value also applies to command-line parameters and environment
+variables (see section <a href="../stdlib/unicode_usage#unicode_in_environment_and_parameters"> Unicode in Environment and Parameters</a> in the STDLIB
+User's Guide).</p> </dd><dt><strong>+fna[{w|i|e}]</strong></dt><dd> <p>Selection between <strong>+fnl</strong> and <strong>+fnu</strong> is done based
+on the current locale settings in the OS. This means that if you
+have set your terminal for UTF-8 encoding, the filesystem is
+expected to use the same encoding for filenames. This is
+default on all operating systems, except MacOS X and Windows.</p> <p>The <strong>+fna</strong> switch can be followed by <strong>w</strong>, <strong>i</strong>, or
+<strong>e</strong>. This has effect if the locale settings cause the behavior
+of <strong>+fnu</strong> to be selected; see the description of <strong>+fnu</strong>
+above. If the locale settings cause the behavior of <strong>+fnl</strong> to be
+selected, then <strong>w</strong>, <strong>i</strong>, or <strong>e</strong> have no effect.</p> <p>For more information about Unicode filenames, see section
+<a href="../stdlib/unicode_usage#unicode_file_names">Unicode Filenames</a> in the STDLIB User's Guide. Notice that
+this value also applies to command-line parameters and environment
+variables (see section <a href="../stdlib/unicode_usage#unicode_in_environment_and_parameters"> Unicode in Environment and Parameters</a> in the STDLIB
+User's Guide).</p> </dd><dt><strong>+hms Size</strong></dt><dd> <p>Sets the default heap size of processes to the size
+<strong>Size</strong>.</p> </dd><dt><strong>+hmbs Size</strong></dt><dd> <p>Sets the default binary virtual heap size of processes to the size
+<strong>Size</strong>.</p> </dd><dt><a name="+hmax"></a><strong>+hmax Size</strong></dt><dd> <p>Sets the default maximum heap size of processes to the size
+<strong>Size</strong>. Defaults to <strong>0</strong>, which means that no
+maximum heap size is used. For more information, see
+<a href="./erlang#process_flag_max_heap_size">erlang#process_flag_max_heap_size</a>.</p> </dd><dt><a name="+hmaxel"></a><strong>+hmaxel true|false</strong></dt><dd> <p>Sets whether to send an error logger message or not for processes
+reaching the maximum heap size. Defaults to <strong>true</strong>.
+For more information, see
+<a href="./erlang#process_flag_max_heap_size">erlang#process_flag_max_heap_size</a>.</p> </dd><dt><a name="+hmaxk"></a><strong>+hmaxk true|false</strong></dt><dd> <p>Sets whether to kill processes reaching the maximum heap size or not.
+Default to <strong>true</strong>. For more information, see
+<a href="./erlang#process_flag_max_heap_size">erlang#process_flag_max_heap_size</a>.</p> </dd><dt><strong>+hpds Size</strong></dt><dd> <p>Sets the initial process dictionary size of processes to the size
+<strong>Size</strong>.</p> </dd><dt><a name="+hmqd"></a><strong>+hmqd off_heap|on_heap</strong></dt><dd> <p>Sets the default value for process flag <strong>message_queue_data</strong>.
+Defaults to <strong>on_heap</strong>. If <strong>+hmqd</strong> is not
+passed, <strong>on_heap</strong> will be the default. For more information, see
+<a href="./erlang#process_flag_message_queue_data">erlang#process_flag_message_queue_data</a>.</p> </dd><dt><a name="+IOp"></a><strong>+IOp PollSets</strong></dt><dd> <p>Sets the number of IO pollsets to use when polling for I/O.
+This option is only used on platforms that support concurrent
+updates of a pollset, otherwise the same number of pollsets
+are used as IO poll threads.
+The default is 1.
+</p> </dd><dt><a name="+IOt"></a><strong>+IOt PollThreads</strong></dt><dd> <p>Sets the number of IO poll threads to use when polling for I/O.
+The maximum number of poll threads allowed is 1024. The default is 1.
+</p> <p>A good way to check if more IO poll threads are needed is to use
+<a href="./msacc">microstate accounting</a>
+and see what the load of the IO poll thread is. If it is high it could
+be a good idea to add more threads.</p> </dd><dt><a name="+IOPp"></a><strong>+IOPp PollSetsPercentage</strong></dt><dd> <p>Similar to <a href="#+IOp">+IOp</a> but uses
+percentages to set the number of IO pollsets to create, based on the
+number of poll threads configured. If both <strong>+IOPp</strong> and <strong>+IOp</strong>
+are used, <strong>+IOPp</strong> is ignored.
+</p> </dd><dt><a name="+IOPt"></a><strong>+IOPt PollThreadsPercentage</strong></dt><dd> <p>Similar to <a href="#+IOt">+IOt</a> but uses
+percentages to set the number of IO poll threads to create, based on
+the number of schedulers configured. If both <strong>+IOPt</strong> and
+<strong>+IOt</strong> are used, <strong>+IOPt</strong> is ignored.
+</p> </dd><dt><strong>+l</strong></dt><dd> <p>Enables autoload tracing, displaying information while loading
+code.</p> </dd><dt><strong>+L</strong></dt><dd> <p>Prevents loading information about source filenames and line
+numbers. This saves some memory, but exceptions do not contain
+information about the filenames and line numbers.</p> </dd><dt><a name="erts_alloc"></a><strong>+MFlag Value</strong></dt><dd> <p>Memory allocator-specific flags. For more information, see
+<a href="erts_alloc">erts_alloc</a>.</p> </dd><dt><a name="+pc"></a><a name="printable_character_range"></a> <strong>+pc Range</strong></dt><dd> <p>Sets the range of characters that the system considers printable in
+heuristic detection of strings. This typically affects the shell,
+debugger, and <strong>io:format</strong> functions (when <strong>~tp</strong> is used in
+the format string).</p>  <p>Two values are supported for <strong>Range</strong>:</p> <dl><dt><strong>latin1</strong></dt><dd>The default. Only characters in the ISO Latin-1 range can be considered printable. This means that a character with a code point &gt; 255 is never considered printable and that lists containing such characters are displayed as lists of integers rather than text strings by tools.</dd><dt><strong>unicode</strong></dt><dd>All printable Unicode characters are considered when determining if a list of integers is to be displayed in string syntax. This can give unexpected results if, for example, your font does not cover all Unicode characters.</dd></dl> <p>See also <a href="../stdlib/io#printable_range/0">stdlib/io#printable_range/0</a> in STDLIB.</p> </dd><dt><a name="+P"></a><a name="max_processes"></a><strong>+P Number</strong></dt><dd> <p>Sets the maximum number of simultaneously existing processes for this
+system if a <strong>Number</strong> is passed as value. Valid range for
+<strong>Number</strong> is <strong>[1024-134217727]</strong></p> <p><em>NOTE</em>: The actual maximum chosen may be much larger than
+the <strong>Number</strong> passed. Currently the runtime system often,
+but not always, chooses a value that is a power of 2. This might,
+however, be changed in the future. The actual value chosen can be
+checked by calling
+<a href="./erlang#system_info_process_limit">erlang:system_info(process_limit)</a>.</p> <p>The default value is <strong>262144</strong></p> </dd><dt><a name="+Q"></a><a name="max_ports"></a><strong>+Q Number</strong></dt><dd> <p>Sets the maximum number of simultaneously existing ports for this
+system if a Number is passed as value. Valid range for <strong>Number</strong>
+is <strong>[1024-134217727]</strong></p> <p><em>NOTE</em>: The actual maximum chosen may be much larger than
+the actual <strong>Number</strong> passed. Currently the runtime system often,
+but not always, chooses a value that is a power of 2. This might,
+however, be changed in the future. The actual value chosen can be
+checked by calling
+<a href="./erlang#system_info_port_limit">erlang:system_info(port_limit)</a>.</p> <p>The default value used is normally <strong>65536</strong>. However, if
+the runtime system is able to determine maximum amount of file
+descriptors that it is allowed to open and this value is larger
+than <strong>65536</strong>, the chosen value will increased to a value
+larger or equal to the maximum amount of file descriptors that
+can be opened.</p> <p>On Windows the default value is set to <strong>8196</strong> because the
+normal OS limitations are set higher than most machines can handle.</p> </dd><dt><a name="compat_rel"></a><strong>+R ReleaseNumber</strong></dt><dd> <p>Sets the compatibility mode.</p> <p>The distribution mechanism is not backward compatible by
+default. This flag sets the emulator in compatibility mode
+with an earlier Erlang/OTP release <strong>ReleaseNumber</strong>.
+The release number must be in the range
+<strong>&lt;current release&gt;-2..&lt;current release&gt;</strong>. This
+limits the emulator, making it possible for it to communicate
+with Erlang nodes (as well as C- and Java nodes) running that
+earlier release.</p> <div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Ensure that all nodes (Erlang-,  C-, and Java nodes) of
+a distributed Erlang system is of the same Erlang/OTP release,
+or from two different Erlang/OTP releases X and Y, where
+<em>all</em> Y nodes have compatibility mode X.</p></div> </dd><dt><strong>+r</strong></dt><dd> <p>Forces ETS memory block to be moved on realloc.</p> </dd><dt><a name="+rg"></a><strong>+rg ReaderGroupsLimit</strong></dt><dd> <p>Limits the number of reader groups used by read/write locks
+optimized for read operations in the Erlang runtime system. By
+default the reader groups limit is 64.</p> <p>When the number of schedulers is less than or equal to the reader
+groups limit, each scheduler has its own reader group. When the
+number of schedulers is larger than the reader groups limit,
+schedulers share reader groups. Shared reader groups degrade
+read lock and read unlock performance while many
+reader groups degrade write lock performance. So, the limit is a
+tradeoff between performance for read operations and performance
+for write operations. Each reader group consumes 64 byte
+in each read/write lock.</p> <p>Notice that a runtime system using shared reader groups benefits from
+<a href="#+sbt">binding schedulers to logical processors</a>, as the reader groups are distributed better
+between schedulers.</p> </dd><dt><a name="+S"></a> <strong>+S Schedulers:SchedulerOnline</strong></dt><dd> <p>Sets the number of scheduler threads to create and scheduler threads
+to set online. The maximum for both
+values is 1024. If the Erlang runtime system is able to determine the
+number of logical processors configured and logical processors
+available, <strong>Schedulers</strong> defaults to logical processors
+configured, and <strong>SchedulersOnline</strong> defaults to logical processors
+available; otherwise the default values are 1. <strong>Schedulers</strong> can
+be omitted if <strong>:SchedulerOnline</strong> is not and conversely. The
+number of schedulers online can be changed at runtime through
+<a href="./erlang#system_flag_schedulers_online">erlang#system_flag_schedulers_online</a>.</p> <p>If <strong>Schedulers</strong> or <strong>SchedulersOnline</strong> is specified as a
+negative number, the value is subtracted from the default number of
+logical processors configured or logical processors available,
+respectively.</p> <p>Specifying value <strong>0</strong> for <strong>Schedulers</strong> or
+<strong>SchedulersOnline</strong> resets the number of scheduler threads or
+scheduler threads online, respectively, to its default value.</p> </dd><dt><a name="+SP"></a><strong>+SP SchedulersPercentage:SchedulersOnlinePercentage</strong></dt><dd> <p>Similar to <a href="#+S">+S</a> but uses
+percentages to set the number of scheduler threads to create, based
+on logical processors configured, and scheduler threads to set online,
+based on logical processors available.
+Specified values must be &gt; 0. For example,
+<strong>+SP 50:25</strong> sets the number of scheduler threads to 50% of the
+logical processors configured, and the number of scheduler threads
+online to 25% of the logical processors available.
+<strong>SchedulersPercentage</strong> can be omitted if
+<strong>:SchedulersOnlinePercentage</strong> is not and conversely. The number
+of schedulers online can be changed at runtime through
+<a href="./erlang#system_flag_schedulers_online">erlang#system_flag_schedulers_online</a>.</p> <p>This option interacts with <a href="#+S">+S</a>
+settings. For example, on a system with 8 logical cores configured
+and 8 logical cores available, the combination of the options
+<strong>+S 4:4 +SP 50:25</strong> (in either order) results in 2 scheduler
+threads (50% of 4) and 1 scheduler thread online (25% of 4).</p> </dd><dt><a name="+SDcpu"></a><strong>+SDcpu DirtyCPUSchedulers:DirtyCPUSchedulersOnline</strong></dt><dd> <p>Sets the number of dirty CPU scheduler threads to create and dirty
+CPU scheduler threads to set online.
+The maximum for both values is 1024, and each value is
+further limited by the settings for normal schedulers:</p> <ul><li>The number of dirty CPU scheduler threads created cannot exceed the number of normal scheduler threads created.</li><li>The number of dirty CPU scheduler threads online cannot exceed the number of normal scheduler threads online.</li></ul> <p>For details, see the <a href="#+S">+S</a> and
+<a href="#+SP">+SP</a>. By default, the number
+of dirty CPU scheduler threads created equals the number of normal
+scheduler threads created, and the number of dirty CPU scheduler
+threads online equals the number of normal scheduler threads online.
+<strong>DirtyCPUSchedulers</strong> can be omitted if
+<strong>:DirtyCPUSchedulersOnline</strong> is not and conversely. The number of
+dirty CPU schedulers online can be changed at runtime through
+<a href="./erlang#system_flag_dirty_cpu_schedulers_online">erlang#system_flag_dirty_cpu_schedulers_online</a>.</p> <p>The amount of dirty CPU schedulers is limited by the amount of
+normal schedulers in order to limit the effect on processes
+executing on ordinary schedulers. If the amount of dirty CPU
+schedulers was allowed to be unlimited, dirty CPU bound jobs would
+potentially starve normal jobs.</p> </dd><dt><a name="+SDPcpu"></a><strong>+SDPcpu DirtyCPUSchedulersPercentage:DirtyCPUSchedulersOnlinePercentage</strong></dt><dd> <p>Similar to <a href="#+SDcpu">+SDcpu</a> but
+uses percentages to set the number of dirty CPU scheduler threads to
+create and the number of dirty CPU scheduler threads to set online.
+Specified values must be
+&gt; 0. For example, <strong>+SDPcpu 50:25</strong> sets the number of dirty
+CPU scheduler threads to 50% of the logical processors configured
+and the number of dirty CPU scheduler threads online to 25% of the
+logical processors available. <strong>DirtyCPUSchedulersPercentage</strong> can
+be omitted if <strong>:DirtyCPUSchedulersOnlinePercentage</strong> is not and
+conversely. The number of dirty CPU schedulers online can be changed
+at runtime through
+<a href="./erlang#system_flag_dirty_cpu_schedulers_online">erlang#system_flag_dirty_cpu_schedulers_online</a>.</p> <p>This option interacts with <a href="#+SDcpu">+SDcpu</a> settings. For example, on a
+system with 8 logical cores configured and 8 logical cores available,
+the combination of the options <strong>+SDcpu 4:4 +SDPcpu 50:25</strong> (in
+either order) results in 2 dirty CPU scheduler threads (50% of 4) and
+1 dirty CPU scheduler thread online (25% of 4).</p> </dd><dt><a name="+SDio"></a><strong>+SDio DirtyIOSchedulers</strong></dt><dd> <p>Sets the number of dirty I/O scheduler threads to create.
+Valid range is 0-1024. By
+default, the number of dirty I/O scheduler threads created is 10,
+same as the default number of threads in the <a href="#async_thread_pool_size">async thread pool</a>.</p> <p>The amount of dirty IO schedulers is not limited by the amount of
+normal schedulers <a href="#+SDcpu">like the amount of dirty CPU schedulers</a>. This since only I/O bound work is
+expected to execute on dirty I/O schedulers. If the user should schedule CPU
+bound jobs on dirty I/O schedulers, these jobs might starve ordinary
+jobs executing on ordinary schedulers.</p> </dd><dt><strong>+sFlag Value</strong></dt><dd> <p>Scheduling specific flags.</p> <dl><dt><a name="+sbt"></a><strong>+sbt BindType</strong></dt><dd> <p>Sets scheduler bind type.</p> <p>Schedulers can also be bound using flag
+<a href="#+stbt">+stbt</a>. The only
+difference between these two flags is how the following errors
+are handled:</p> <ul><li>Binding of schedulers is not supported on the specific platform.</li><li>No available CPU topology. That is, the runtime system was not able to detect the CPU topology automatically, and no <a href="#+sct">user-defined CPU topology</a> was set.</li></ul> <p>If any of these errors occur when <strong>+sbt</strong> has been passed,
+the runtime system prints an error message, and refuses to
+start. If any of these errors occur when <strong>+stbt</strong> has been
+passed, the runtime system silently ignores the error, and
+start up using unbound schedulers.</p> <p>Valid <strong>BindType</strong>s:</p> <dl><dt><strong>u</strong></dt><dd><strong>unbound</strong> - Schedulers are not bound to logical processors, that is, the operating system decides where the scheduler threads execute, and when to migrate them. This is the default. </dd><dt><strong>ns</strong></dt><dd><strong>no_spread</strong> - Schedulers with close scheduler identifiers are bound as close as possible in hardware. </dd><dt><strong>ts</strong></dt><dd><strong>thread_spread</strong> - Thread refers to hardware threads (such as Intel's hyper-threads). Schedulers with low scheduler identifiers, are bound to the first hardware thread of each core, then schedulers with higher scheduler identifiers are bound to the second hardware thread of each core,and so on. </dd><dt><strong>ps</strong></dt><dd><strong>processor_spread</strong> - Schedulers are spread like <strong>thread_spread</strong>, but also over physical processor chips. </dd><dt><strong>s</strong></dt><dd><strong>spread</strong> - Schedulers are spread as much as possible. </dd><dt><strong>nnts</strong></dt><dd><strong>no_node_thread_spread</strong> - Like <strong>thread_spread</strong>, but if multiple Non-Uniform Memory Access (NUMA) nodes exist, schedulers are spread over one NUMA node at a time, that is, all logical processors of one NUMA node are bound to schedulers in sequence. </dd><dt><strong>nnps</strong></dt><dd><strong>no_node_processor_spread</strong> - Like <strong>processor_spread</strong>, but if multiple NUMA nodes exist, schedulers are spread over one NUMA node at a time, that is, all logical processors of one NUMA node are bound to schedulers in sequence. </dd><dt><strong>tnnps</strong></dt><dd><strong>thread_no_node_processor_spread</strong> - A combination of <strong>thread_spread</strong>, and <strong>no_node_processor_spread</strong>. Schedulers are spread over hardware threads across NUMA nodes, but schedulers are only spread over processors internally in one NUMA node at a time. </dd><dt><strong>db</strong></dt><dd><strong>default_bind</strong> - Binds schedulers the default way. Defaults to <strong>thread_no_node_processor_spread</strong> (which can change in the future). </dd></dl> <p>Binding of schedulers is only supported on newer
+Linux, Solaris, FreeBSD, and Windows systems.</p> <p>If no CPU topology is available when flag <strong>+sbt</strong>
+is processed and <strong>BindType</strong> is any other type than
+<strong>u</strong>, the runtime system fails to start. CPU
+topology can be defined using flag
+<a href="#+sct">+sct</a>. Notice
+that flag <strong>+sct</strong> can have to be passed before flag
+<strong>+sbt</strong> on the command line (if no CPU topology
+has been automatically detected).</p> <p>The runtime system does by default <em>not</em> bind schedulers
+to logical processors.</p> <div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>If the Erlang runtime system is the only operating system
+process that binds threads to logical processors, this
+improves the performance of the runtime system. However,
+if other operating system processes (for example
+another Erlang runtime system) also bind threads to
+logical processors, there can be a performance penalty
+instead. This performance penalty can sometimes be
+severe. If so, you are advised not to
+bind the schedulers.</p></div> <p>How schedulers are bound matters. For example, in
+situations when there are fewer running processes than
+schedulers online, the runtime system tries to migrate
+processes to schedulers with low scheduler identifiers.
+The more the schedulers are spread over the hardware,
+the more resources are available to the runtime
+system in such situations.</p> <div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>If a scheduler fails to bind, this is
+often silently ignored, as it is not always
+possible to verify valid logical processor identifiers. If
+an error is reported, it is reported to the
+<strong>error_logger</strong>. If you want to verify that the
+schedulers have bound as requested, call
+<a href="./erlang#system_info_scheduler_bindings">erlang#system_info_scheduler_bindings</a>.</p></div> </dd><dt><a name="+sbwt"></a> <strong>+sbwt none|very_short|short|medium|long|very_long</strong></dt><dd> <p>Sets scheduler busy wait threshold. Defaults to <strong>medium</strong>.
+The threshold determines how long schedulers are to busy
+wait when running out of work before going to sleep.</p> <div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This flag can be removed or changed at any time
+without prior notice.</p></div> </dd><dt><a name="+sbwtdcpu"></a> <strong>+sbwtdcpu none|very_short|short|medium|long|very_long</strong></dt><dd> <p>As <a href="#+sbwt">+sbwt</a> but affects
+dirty CPU schedulers. Defaults to <strong>short</strong>.</p> <div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This flag can be removed or changed at any time
+without prior notice.</p></div> </dd><dt><a name="+sbwtdio"></a> <strong>+sbwtdio none|very_short|short|medium|long|very_long</strong></dt><dd> <p>As <a href="#+sbwt">+sbwt</a> but affects
+dirty IO schedulers. Defaults to <strong>short</strong>.</p> <div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This flag can be removed or changed at any time
+without prior notice.</p></div> </dd><dt><a name="+scl"></a><strong>+scl true|false</strong></dt><dd> <p>Enables or disables scheduler compaction of load. By default
+scheduler compaction of load is enabled. When enabled, load
+balancing strives for a load distribution, which causes
+as many scheduler threads as possible to be fully loaded (that is,
+not run out of work). This is accomplished by migrating load
+(for example, runnable processes) into a smaller set of schedulers
+when schedulers frequently run out of work. When disabled,
+the frequency with which schedulers run out of work is
+not taken into account by the load balancing logic.</p> <p><strong>+scl false</strong> is similar to
+<a href="#+sub">+sub</a>, but
+<strong>+sub true</strong> also balances scheduler utilization
+between schedulers.</p> </dd><dt><a name="+sct"></a><strong>+sct CpuTopology</strong></dt><dd> <ul><li><strong>&lt;Id&gt; = integer(); when 0 =&lt; &lt;Id&gt; =&lt; 65535</strong> </li><li><strong>&lt;IdRange&gt; = &lt;Id&gt;-&lt;Id&gt;</strong></li><li><strong>&lt;IdOrIdRange&gt; = &lt;Id&gt; | &lt;IdRange&gt;</strong></li><li><strong>&lt;IdList&gt; = &lt;IdOrIdRange&gt;,&lt;IdOrIdRange&gt; | &lt;IdOrIdRange&gt;</strong></li><li><strong>&lt;LogicalIds&gt; = L&lt;IdList&gt;</strong></li><li><strong>&lt;ThreadIds&gt; = T&lt;IdList&gt; | t&lt;IdList&gt;</strong> </li><li><strong>&lt;CoreIds&gt; = C&lt;IdList&gt; | c&lt;IdList&gt;</strong></li><li><strong>&lt;ProcessorIds&gt; = P&lt;IdList&gt; | p&lt;IdList&gt;</strong> </li><li><strong>&lt;NodeIds&gt; = N&lt;IdList&gt; | n&lt;IdList&gt;</strong></li><li><strong>&lt;IdDefs&gt; = &lt;LogicalIds&gt;&lt;ThreadIds&gt;&lt;CoreIds&gt;&lt;ProcessorIds&gt;&lt;NodeIds&gt; | &lt;LogicalIds&gt;&lt;ThreadIds&gt;&lt;CoreIds&gt;&lt;NodeIds&gt;&lt;ProcessorIds&gt;</strong> </li><li><strong>CpuTopology = &lt;IdDefs&gt;:&lt;IdDefs&gt; | &lt;IdDefs&gt;</strong></li></ul> <p>Sets a user-defined CPU topology. The user-defined
+CPU topology overrides any automatically detected
+CPU topology. The CPU topology is used when
+<a href="#+sbt">binding schedulers to logical processors</a>.</p> <p>Uppercase letters signify real identifiers and lowercase
+letters signify fake identifiers only used for description
+of the topology. Identifiers passed as real identifiers can
+be used by the runtime system when trying to access specific
+hardware; if they are incorrect the behavior is
+undefined. Faked logical CPU identifiers are not accepted,
+as there is no point in defining the CPU topology without
+real logical CPU identifiers. Thread, core, processor, and
+node identifiers can be omitted. If omitted, the thread ID
+defaults to <strong>t0</strong>, the core ID defaults to <strong>c0</strong>,
+the processor ID defaults to <strong>p0</strong>, and the node ID is
+left undefined. Either each logical processor must 
+belong to only one NUMA node, or no logical
+processors must belong to any NUMA nodes.</p> <p>Both increasing and decreasing <strong>&lt;IdRange&gt;</strong>s
+are allowed.</p> <p>NUMA node identifiers are system wide. That is, each NUMA
+node on the system must have a unique identifier. Processor
+identifiers are also system wide. Core identifiers are
+processor wide. Thread identifiers are core wide.</p> <p>The order of the identifier types implies the hierarchy of the
+CPU topology. The valid orders are as follows:</p> <ul><li> <p><strong>&lt;LogicalIds&gt;&lt;ThreadIds&gt;&lt;CoreIds&gt;&lt;ProcessorIds&gt;&lt;NodeIds&gt;</strong>,
+that is, thread is part of a core that is part of a processor,
+which is part of a NUMA node.</p> </li><li> <p><strong>&lt;LogicalIds&gt;&lt;ThreadIds&gt;&lt;CoreIds&gt;&lt;NodeIds&gt;&lt;ProcessorIds&gt;</strong>,
+that is, thread is part of a core that is part of a NUMA node,
+which is part of a processor.</p> </li></ul> <p>A CPU topology can consist of both processor external, and
+processor internal NUMA nodes as long as each logical processor
+belongs to only one NUMA node. If
+<strong>&lt;ProcessorIds&gt;</strong> is omitted, its default position
+is before <strong>&lt;NodeIds&gt;</strong>. That is, the default is
+processor external NUMA nodes.</p> <p>If a list of identifiers is used in an
+<strong>&lt;IdDefs&gt;</strong>:</p> <ul><li><strong>&lt;LogicalIds&gt;</strong> must be a list of identifiers.</li><li>At least one other identifier type besides <strong>&lt;LogicalIds&gt;</strong> must also have a list of identifiers.</li><li>All lists of identifiers must produce the same number of identifiers.</li></ul> <p>A simple example. A single quad core processor can be
+described as follows:</p> <pre>
+% <span class="input">erl +sct L0-3c0-3</span>
+1&gt; <span class="input">erlang:system_info(cpu_topology).</span>
+[{processor,[{core,{logical,0}},
+             {core,{logical,1}},
+             {core,{logical,2}},
+             {core,{logical,3}}]}]</pre> <p>A more complicated example with two quad core
+processors, each processor in its own NUMA node.
+The ordering of logical processors is a bit weird.
+This to give a better example of identifier lists:</p> <pre>
+% <span class="input">erl +sct L0-1,3-2c0-3p0N0:L7,4,6-5c0-3p1N1</span>
+1&gt; <span class="input">erlang:system_info(cpu_topology).</span>
+[{node,[{processor,[{core,{logical,0}},
+                    {core,{logical,1}},
+                    {core,{logical,3}},
+                    {core,{logical,2}}]}]},
+ {node,[{processor,[{core,{logical,7}},
+                    {core,{logical,4}},
+                    {core,{logical,6}},
+                    {core,{logical,5}}]}]}]</pre> <p>As long as real identifiers are correct, it is OK
+to pass a CPU topology that is not a correct
+description of the CPU topology. When used with
+care this can be very useful. This
+to trick the emulator to bind its schedulers
+as you want. For example, if you want to run multiple
+Erlang runtime systems on the same machine, you
+want to reduce the number of schedulers used and
+manipulate the CPU topology so that they bind to
+different logical CPUs. An example, with two Erlang
+runtime systems on a quad core machine:</p> <pre>
+% <span class="input">erl +sct L0-3c0-3 +sbt db +S3:2 -detached -noinput -noshell -sname one</span>
+% <span class="input">erl +sct L3-0c0-3 +sbt db +S3:2 -detached -noinput -noshell -sname two</span></pre> <p>In this example, each runtime system have two
+schedulers each online, and all schedulers online
+will run on different cores. If we change to one
+scheduler online on one runtime system, and three
+schedulers online on the other, all schedulers
+online will still run on different cores.</p> <p>Notice that a faked CPU topology that does not reflect
+how the real CPU topology looks like is likely to
+decrease the performance of the runtime system.</p> <p>For more information, see
+<a href="./erlang#system_info_cpu_topology">erlang#system_info_cpu_topology</a>.</p> </dd><dt><a name="+sfwi"></a><strong>+sfwi Interval</strong></dt><dd> <p>Sets scheduler-forced wakeup interval. All run queues are
+scanned each <strong>Interval</strong> milliseconds. While there are
+sleeping schedulers in the system, one scheduler is woken
+for each non-empty run queue found. <strong>Interval</strong> default
+to <strong>0</strong>, meaning this feature is disabled.</p> <div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This feature has been introduced as a temporary workaround
+for long-executing native code, and native code that does not
+bump reductions properly in OTP. When these bugs have be fixed,
+this flag will be removed.</p></div> </dd><dt><a name="+spp"></a><strong>+spp Bool</strong></dt><dd> <p>Sets default scheduler hint for port parallelism. If set to
+<strong>true</strong>, the virtual machine schedules port tasks when it
+improves parallelism in the system. If set to <strong>false</strong>, the
+virtual machine tries to perform port tasks immediately,
+improving latency at the expense of parallelism. Default to
+<strong>false</strong>. The default used can be inspected in runtime by
+calling <a href="./erlang#system_info_port_parallelism">erlang#system_info_port_parallelism</a>.
+The default can be overridden on port creation by passing option
+<a href="./erlang#open_port_parallelism">erlang#open_port_parallelism</a> to
+<a href="./erlang#open_port/2">erlang#open_port/2</a></p>. </dd><dt><a name="sched_thread_stack_size"></a> <strong>+sss size</strong></dt><dd> <p>Suggested stack size, in kilowords, for scheduler threads.
+Valid range is 20-8192 kilowords. The default suggested
+stack size is 128 kilowords.</p> </dd><dt><a name="dcpu_sched_thread_stack_size"></a> <strong>+sssdcpu size</strong></dt><dd> <p>Suggested stack size, in kilowords, for dirty CPU scheduler
+threads. Valid range is 20-8192 kilowords. The default
+suggested stack size is 40 kilowords.</p> </dd><dt><a name="dio_sched_thread_stack_size"></a> <strong>+sssdio size</strong></dt><dd> <p>Suggested stack size, in kilowords, for dirty IO scheduler
+threads. Valid range is 20-8192 kilowords. The default
+suggested stack size is 40 kilowords.</p> </dd><dt><a name="+stbt"></a><strong>+stbt BindType</strong></dt><dd> <p>Tries to set the scheduler bind type. The same as flag
+<a href="#+sbt">+sbt</a> except
+how some errors are handled. For more information, see
+<a href="#+sbt">+sbt</a>.</p> </dd><dt><a name="+sub"></a><strong>+sub true|false</strong></dt><dd> <p>Enables or disables
+<a href="../erts/erlang#statistics_scheduler_wall_time"> scheduler utilization</a> balancing of load. By default
+scheduler utilization balancing is disabled and instead scheduler
+compaction of load is enabled, which strives for a load
+distribution that causes as many scheduler threads as possible
+to be fully loaded (that is, not run out of work). When scheduler
+utilization balancing is enabled, the system instead tries to
+balance scheduler utilization between schedulers. That is,
+strive for equal scheduler utilization on all schedulers.</p> <p><strong>+sub true</strong> is only supported on systems where the runtime
+system detects and uses a monotonically increasing high-resolution
+clock. On other systems, the runtime system fails to start.</p> <p><strong>+sub true</strong> implies <a href="#+scl">+scl</a>. The difference between
+<strong>+sub true</strong> and <strong>+scl false</strong> is that <strong>+scl false</strong>
+does not try to balance the scheduler utilization.</p> </dd><dt><a name="+swct"></a> <strong>+swct very_eager|eager|medium|lazy|very_lazy</strong></dt><dd> <p>Sets scheduler wake cleanup threshold. Defaults to <strong>medium</strong>.
+Controls how eager schedulers are to be requesting
+wakeup because of certain cleanup operations. When a lazy setting
+is used, more outstanding cleanup operations can be left undone
+while a scheduler is idling. When an eager setting is used,
+schedulers are more frequently woken, potentially increasing
+CPU-utilization.</p> <div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This flag can be removed or changed at any time without prior
+notice.</p></div> </dd><dt><a name="+sws"></a><strong>+sws default|legacy</strong></dt><dd> <p>Sets scheduler wakeup strategy. Default strategy changed in
+ERTS 5.10 (Erlang/OTP R16A). This strategy was known as
+<strong>proposal</strong> in Erlang/OTP R15. The <strong>legacy</strong> strategy
+was used as default from R13 up to and including R15.</p> <div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This flag can be removed or changed at any time without prior
+notice.</p></div> </dd><dt><a name="+swt"></a> <strong>+swt very_low|low|medium|high|very_high</strong></dt><dd> <p>Sets scheduler wakeup threshold. Defaults to <strong>medium</strong>.
+The threshold determines when to wake up sleeping schedulers
+when more work than can be handled by currently awake schedulers
+exists. A low threshold causes earlier wakeups, and a high
+threshold causes later wakeups. Early wakeups distribute work
+over multiple schedulers faster, but work does more easily bounce
+between schedulers.</p> <div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This flag can be removed or changed at any time without prior
+notice.</p></div> </dd><dt><a name="+swtdcpu"></a> <strong>+swtdcpu very_low|low|medium|high|very_high</strong></dt><dd> <p>As <a href="#+swt">+swt</a> but
+affects dirty CPU schedulers. Defaults to <strong>medium</strong>.</p> <div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This flag can be removed or changed at any time
+without prior notice.</p></div> </dd><dt><a name="+swtdio"></a> <strong>+swtdio very_low|low|medium|high|very_high</strong></dt><dd> <p>As <a href="#+swt">+swt</a> but affects
+dirty IO schedulers. Defaults to <strong>medium</strong>.</p> <div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This flag can be removed or changed at any time
+without prior notice.</p></div> </dd></dl> </dd><dt><a name="+t"></a><strong>+t size</strong></dt><dd> <p>Sets the maximum number of atoms the virtual machine can handle.
+Defaults to 1,048,576.</p> </dd><dt><a name="+T"></a><strong>+T Level</strong></dt><dd> <p>Enables modified timing and sets the modified timing level. Valid
+range is 0-9. The timing of the runtime system is changed. A high
+level usually means a greater change than a low level. Changing the
+timing can be very useful for finding timing-related bugs.</p> <p>Modified timing affects the following:</p> <dl><dt>Process spawning</dt><dd>A process calling <strong>spawn</strong>, <strong>spawn_link</strong>, <strong>spawn_monitor</strong>, or <strong>spawn_opt</strong> is scheduled out immediately after completing the call. When higher modified timing levels are used, the caller also sleeps for a while after it is scheduled out. </dd><dt>Context reductions</dt><dd>The number of reductions a process is allowed to use before it is scheduled out is increased or reduced. </dd><dt>Input reductions</dt><dd>The number of reductions performed before checking I/O is increased or reduced. </dd></dl> <div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Performance suffers when modified timing is enabled. This flag is
+<em>only</em> intended for testing and debugging.</p><p><strong>return_to</strong> and <strong>return_from</strong>
+trace messages are lost when tracing on the spawn BIFs.</p><p>This flag can be removed or changed at any time without prior
+notice.</p></div> </dd><dt><strong>+v</strong></dt><dd> <p>Verbose.</p> </dd><dt><strong>+V</strong></dt><dd> <p>Makes the emulator print its version number.</p> </dd><dt><strong>+W w | i | e</strong></dt><dd> <p>Sets the mapping of warning messages for
+<strong>error_logger</strong>. Messages sent to the error logger
+using one of the warning routines can be mapped to errors
+(<strong>+W e</strong>), warnings (<strong>+W w</strong>), or
+information reports (<strong>+W i</strong>). Defaults to warnings.
+The current mapping can be retrieved using
+<strong>error_logger:warning_map/0</strong>. For more information,
+see <a href="../kernel/error_logger#warning_map/0">kernel/error_logger#warning_map/0</a> in Kernel.</p> </dd><dt><strong>+zFlag Value</strong></dt><dd> <p>Miscellaneous flags:</p> <dl><dt><a name="+zdbbl"></a><strong>+zdbbl size</strong></dt><dd> <p>Sets the distribution buffer busy limit
+(<a href="./erlang#system_info_dist_buf_busy_limit">erlang#system_info_dist_buf_busy_limit</a>)
+in kilobytes. Valid range is 1-2097151. Defaults to 1024.</p> <p>A larger buffer limit allows processes to buffer
+more outgoing messages over the distribution. When the
+buffer limit has been reached, sending processes will be
+suspended until the buffer size has shrunk. The buffer
+limit is per distribution channel. A higher limit
+gives lower latency and higher throughput at the expense
+of higher memory use.</p> </dd><dt><a name="+zdntgc"></a><strong>+zdntgc time</strong></dt><dd> <p>Sets the delayed node table garbage collection time
+(<a href="./erlang#system_info_delayed_node_table_gc">erlang#system_info_delayed_node_table_gc</a>)
+in seconds. Valid values are either <strong>infinity</strong> or
+an integer in the range 0-100000000. Defaults to 60.</p> <p>Node table entries that are not referred linger
+in the table for at least the amount of time that this
+parameter determines. The lingering prevents repeated
+deletions and insertions in the tables from occurring.</p> </dd></dl> </dd></dl><a name="environment_variables"></a><h2>Environment Variables</h2><dl><dt><strong>ERL_CRASH_DUMP</strong></dt><dd> <p>If the emulator needs to write a crash dump, the value of this
+variable is the filename of the crash dump file.
+If the variable is not set, the name of the crash dump file is
+<strong>erl_crash.dump</strong> in the current directory.</p> </dd><dt><strong>ERL_CRASH_DUMP_NICE</strong></dt><dd> <p><em>Unix systems</em>: If the emulator needs to write a crash dump,
+it uses the value of this variable to set the nice value
+for the process, thus lowering its priority. Valid range is
+1-39 (higher values are replaced with 39). The highest
+value, 39, gives the process the lowest priority.</p> </dd><dt><strong>ERL_CRASH_DUMP_SECONDS</strong></dt><dd> <p><em>Unix systems</em>: This variable gives the number of seconds
+that the emulator is allowed to spend writing a crash dump. When the
+given number of seconds have elapsed, the emulator is terminated.</p> <dl><dt><strong>ERL_CRASH_DUMP_SECONDS=0</strong></dt><dd>If the variable is set to <strong>0</strong> seconds, the runtime system does not even attempt to write the crash dump file. It only terminates. This is the default if option <strong>-heart</strong> is passed to <strong>erl</strong> and <strong>ERL_CRASH_DUMP_SECONDS</strong> is not set. </dd><dt><strong>ERL_CRASH_DUMP_SECONDS=S</strong></dt><dd>If the variable is set to a positive value <strong>S</strong>, wait for <strong>S</strong> seconds to complete the crash dump file and then terminates the runtime system with a <strong>SIGALRM</strong> signal. </dd><dt><strong>ERL_CRASH_DUMP_SECONDS=-1</strong></dt><dd>A negative value causes the termination of the runtime system to wait indefinitely until the crash dump file has been completly written. This is the default if option <strong>-heart</strong> is <em>not</em> passed to <strong>erl</strong> and <strong>ERL_CRASH_DUMP_SECONDS</strong> is not set. </dd></dl> <p>See also <a href="./heart">kernel/heart</a>.</p> </dd><dt><strong>ERL_CRASH_DUMP_BYTES</strong></dt><dd> <p>This variable sets the maximum size of a crash dump file in bytes.
+The crash dump will be truncated if this limit is exceeded. If the
+variable is not set, no size limit is enforced by default. If the
+variable is set to <strong>0</strong>, the runtime system does not even attempt
+to write a crash dump file.</p> <p>Introduced in ERTS 8.1.2 (Erlang/OTP 19.2).</p> </dd><dt><a name="ERL_AFLAGS"></a><strong>ERL_AFLAGS</strong></dt><dd> <p>The content of this variable is added to the beginning of the
+command line for <strong>erl</strong>.</p> <p>Flag <strong>-extra</strong> is treated in a special way. Its
+scope ends at the end of the environment variable content. Arguments
+following an <strong>-extra</strong> flag are moved on the command
+line into section <strong>-extra</strong>, that is, the end of the
+command line following an <strong>-extra</strong> flag.</p> </dd><dt><a name="ERL_ZFLAGS"></a><strong>ERL_ZFLAGS</strong> and <a name="ERL_FLAGS"></a><strong>ERL_FLAGS</strong></dt><dd> <p>The content of these variables are added to the end of the command
+line for <strong>erl</strong>.</p> <p>Flag <strong>-extra</strong> is treated in a special way. Its
+scope ends at the end of the environment variable content. Arguments
+following an <strong>-extra</strong> flag are moved on the command
+line into section <strong>-extra</strong>, that is, the end of the
+command line following an <strong>-extra</strong> flag.</p> </dd><dt><strong>ERL_LIBS</strong></dt><dd> <p>Contains a list of additional library directories that the code
+server searches for applications and adds to the code path; see
+<a href="./code">kernel/code</a>.</p> </dd><dt><strong>ERL_EPMD_ADDRESS</strong></dt><dd> <p>Can be set to a comma-separated list of IP addresses, in which case
+the <a href="epmd">epmd</a> daemon listens only
+on the specified address(es) and on the loopback address (which is
+implicitly added to the list if it has not been specified).</p> </dd><dt><strong>ERL_EPMD_PORT</strong></dt><dd> <p>Can contain the port number to use when communicating with
+<a href="epmd">epmd</a>. The default port works
+fine in most cases. A different port can be specified
+to allow nodes of independent clusters to co-exist on the same host.
+All nodes in a cluster must use the same <strong>epmd</strong> port number.</p> </dd></dl><a name="signals"></a><h2>Signals</h2><p>On Unix systems, the Erlang runtime will interpret two types of signals.</p><dl><dt><strong>SIGUSR1</strong></dt><dd> <p>A <strong>SIGUSR1</strong> signal forces a crash dump.</p> </dd><dt><strong>SIGTERM</strong></dt><dd> <p>A <strong>SIGTERM</strong> will produce a <strong>stop</strong> message to the <strong>init</strong> process.
+This is equivalent to a <strong>init:stop/0</strong> call.</p> <p>Introduced in ERTS 8.3 (Erlang/OTP 19.3)</p> </dd></dl><p>The signal <strong>SIGUSR2</strong> is reserved for internal usage. No other signals are handled.</p><a name="configuration"></a><h2>Configuration</h2><p>The standard Erlang/OTP system can be reconfigured to change the default
+behavior on startup.</p><dl><dt>The <strong>.erlang</strong> startup file</dt><dd> <p>When Erlang/OTP is started, the system searches for a file named
+<strong>.erlang</strong> in the user's home directory.</p> <p>If an <strong>.erlang</strong> file is found, it is assumed to contain valid
+Erlang expressions. These expressions are evaluated as if they were
+input to the shell.</p> <p>A typical <strong>.erlang</strong> file contains a set of search paths, for
+example:</p> <pre><code class="">
+io:format("executing user profile in HOME/.erlang\n",[]).
+code:add_path("/home/calvin/test/ebin").
+code:add_path("/home/hobbes/bigappl-1.2/ebin").
+io:format(".erlang rc finished\n",[]).    </code></pre> </dd><dt>user_default and shell_default</dt><dd> <p>Functions in the shell that are not prefixed by a module name are
+assumed to be functional objects (funs), built-in functions (BIFs),
+or belong to the module <strong>user_default</strong> or
+<strong>shell_default</strong>.</p> <p>To include private shell commands, define them in a module
+<strong>user_default</strong> and add the following argument as the first line
+in the <strong>.erlang</strong> file:</p> <pre><code class="">
+code:load_abs("..../user_default").    </code></pre> </dd><dt>erl</dt><dd> <p>If the contents of <strong>.erlang</strong> are changed and a private version
+of <strong>user_default</strong> is defined, the Erlang/OTP environment can be
+customized. More powerful changes can be made by supplying
+command-line arguments in the startup script <strong>erl</strong>. For more
+information, see <a href="init">init</a>.</p> </dd></dl><h2>See Also</h2><p><a href="epmd">epmd</a>,
+<a href="erl_prim_loader">erl_prim_loader</a>,
+<a href="erts_alloc">erts_alloc</a>,
+<a href="init">init</a>,
+<a href="./application">kernel/application</a>,
+<a href="./auth">kernel/auth</a>,
+<a href="./code">kernel/code</a>,
+<a href="./erl_boot_server">kernel/erl_boot_server</a>,
+<a href="./heart">kernel/heart</a>,
+<a href="./net_kernel">kernel/net_kernel</a>,
+<a href="./make">tools/make</a></p></body></html>

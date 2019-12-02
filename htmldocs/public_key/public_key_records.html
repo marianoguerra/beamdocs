@@ -1,0 +1,297 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Public-Key Records</h1><p>This chapter briefly describes Erlang records derived from ASN.1
+specifications used to handle public key infrastructure.
+The scope is to describe the data types of each component,
+not the semantics. For information on the
+semantics, refer to the relevant standards and RFCs linked in the sections below.</p><p>Use the following include directive to get access to the
+records and constant macros described in the following sections:</p><pre><code class=""> -include_lib("public_key/include/public_key.hrl"). </code></pre><h2>Data Types</h2><p>Common non-standard Erlang
+data types used to describe the record fields in the
+following sections and which are not defined in the Public Key <a href="public_key">Reference Manual</a>
+follows here:</p><dl><dt><strong>time() =</strong></dt><dd><p><strong>utc_time() | general_time()</strong></p></dd><dt><strong>utc_time() =</strong></dt><dd><p><strong>{utcTime, "YYMMDDHHMMSSZ"}</strong></p></dd><dt><strong>general_time() =</strong></dt><dd><p><strong>{generalTime, "YYYYMMDDHHMMSSZ"}</strong></p></dd><dt><strong>general_name() =</strong></dt><dd><p><strong>{rfc822Name, string()}</strong></p> <p><strong>| {dNSName, string()}</strong></p> <p><strong>| {x400Address, string()}</strong></p> <p><strong>| {directoryName, {rdnSequence, [#AttributeTypeAndValue'{}]}}</strong></p> <p><strong>| {ediPartyName, special_string()}</strong></p> <p><strong>| {ediPartyName, special_string(), special_string()}</strong></p> <p><strong>| {uniformResourceIdentifier, string()}</strong></p> <p><strong>| {iPAddress, string()}</strong></p> <p><strong>| {registeredId, oid()}</strong></p> <p><strong>| {otherName, term()}</strong></p> </dd><dt><strong>special_string() =</strong></dt><dd><p><strong>{teletexString, string()}</strong></p> <p><strong>| {printableString, string()}</strong></p> <p><strong>| {universalString, string()}</strong></p> <p><strong>| {utf8String, binary()}</strong></p> <p><strong>| {bmpString, string()}</strong></p> </dd><dt><strong>dist_reason() =</strong></dt><dd><p><strong>unused</strong></p> <p><strong>| keyCompromise</strong></p> <p><strong>| cACompromise</strong></p> <p><strong>| affiliationChanged</strong></p> <p><strong>| superseded</strong></p> <p><strong>| cessationOfOperation</strong></p> <p><strong>| certificateHold</strong></p> <p><strong>| privilegeWithdrawn</strong></p> <p><strong>| aACompromise</strong></p> </dd><dt><strong>OID_macro() =</strong></dt><dd><p><strong>?OID_name()</strong></p> </dd><dt><strong>OID_name() =</strong></dt><dd><p><strong>atom()</strong></p> </dd></dl><h2>RSA</h2><p>Erlang representation of <a href="http://www.ietf.org/rfc/rfc3447.txt">  Rivest-Shamir-Adleman cryptosystem (RSA)</a> keys follows:</p><pre><code class="">
+#'RSAPublicKey'{
+	  modulus,       % integer()
+	  publicExponent % integer()
+	  }.
+
+#'RSAPrivateKey'{
+          version,         % two-prime | multi
+	  modulus,         % integer()
+	  publicExponent,  % integer()
+	  privateExponent, % integer()
+	  prime1,          % integer() 
+	  prime2,          % integer()
+	  exponent1,       % integer()
+	  exponent2,       % integer()
+	  coefficient,     % integer()
+	  otherPrimeInfos  % [#OtherPrimeInfo{}] | asn1_NOVALUE
+	 }.
+
+#'OtherPrimeInfo'{
+	prime,           % integer()
+	exponent,        % integer()
+	coefficient      % integer()
+ 	 }.	 </code></pre><h2>DSA</h2><p>Erlang representation of <a href="http://www.ietf.org/rfc/rfc6979.txt">Digital Signature Algorithm (DSA)</a> keys</p><pre><code class="">	 
+#'DSAPrivateKey',{
+	  version,      % integer()
+	  p,            % integer()
+	  q,            % integer()
+	  g,            % integer()
+	  y,            % integer()
+	  x             % integer()
+	  }.
+
+#'Dss-Parms',{
+         p,         % integer()
+	 q,         % integer()
+	 g          % integer()
+	 }. </code></pre><h2>ECDSA</h2><p>Erlang representation of  <a href="http://www.ietf.org/rfc/rfc6979.txt">Elliptic Curve Digital Signature Algorithm (ECDSA)</a> keys follows:</p><pre><code class="">	 
+#'ECPrivateKey'{
+          version,       % integer()
+	  privateKey,    % binary()  
+          parameters,    % {ecParameters, #'ECParameters'{}} |
+                         % {namedCurve, Oid::tuple()} |
+                         % {implicitlyCA, 'NULL'}
+	  publicKey      % bitstring()
+	  }.
+	  
+#'ECParameters'{
+      version,    % integer()
+      fieldID,    % #'FieldID'{}
+      curve,      % #'Curve'{}
+      base,       % binary()       
+      order,      % integer()        
+      cofactor    % integer()
+      }.
+      
+#'Curve'{
+	a,        % binary()
+	b,        % binary() 
+	seed      % bitstring() - optional
+
+	}.
+
+#'FieldID'{
+	fieldType,    % oid()
+	parameters    % Depending on fieldType
+	}.
+
+#'ECPoint'{
+      point %  binary() - the public key
+      }.</code></pre><h2>PKIX Certificates</h2><p>Erlang representation of PKIX certificates derived from ASN.1 
+specifications see also <a href="http://www.ietf.org/rfc/rfc5280.txt">X509 certificates (RFC 5280)</a>, also referred to as <strong>plain</strong> type,  are as follows:</p><pre><code class="">
+#'Certificate'{
+		tbsCertificate,        % #'TBSCertificate'{}
+		signatureAlgorithm,    % #'AlgorithmIdentifier'{} 
+		signature              % bitstring()
+	       }.
+
+#'TBSCertificate'{
+	  version,              % v1 | v2 | v3 
+	  serialNumber,         % integer() 
+	  signature,            % #'AlgorithmIdentifier'{} 
+	  issuer,               % {rdnSequence, [#AttributeTypeAndValue'{}]} 
+	  validity,             % #'Validity'{}
+	  subject,              % {rdnSequence, [#AttributeTypeAndValue'{}]} 
+	  subjectPublicKeyInfo, % #'SubjectPublicKeyInfo'{}
+	  issuerUniqueID,       % binary() | asn1_novalue
+	  subjectUniqueID,      % binary() | asn1_novalue
+	  extensions            % [#'Extension'{}] 
+	 }.
+	  
+#'AlgorithmIdentifier'{
+	  algorithm,  % oid() 
+	  parameters  % der_encoded()
+	 }.</code></pre><p>Erlang alternate representation of PKIX certificate, also referred to as <strong>otp</strong> type</p><pre><code class="">
+#'OTPCertificate'{
+		tbsCertificate,        % #'OTPTBSCertificate'{}
+		signatureAlgorithm,    % #'SignatureAlgorithm'
+		signature              % bitstring()
+	       }.
+
+#'OTPTBSCertificate'{
+	  version,              % v1 | v2 | v3 
+	  serialNumber,         % integer() 
+	  signature,            % #'SignatureAlgorithm'
+	  issuer,               % {rdnSequence, [#AttributeTypeAndValue'{}]} 
+	  validity,             % #'Validity'{}
+	  subject,              % {rdnSequence, [#AttributeTypeAndValue'{}]} 
+	  subjectPublicKeyInfo, % #'OTPSubjectPublicKeyInfo'{}
+	  issuerUniqueID,       % binary() | asn1_novalue
+	  subjectUniqueID,      % binary() | asn1_novalue
+	  extensions            % [#'Extension'{}] 
+	 }.
+	  
+#'SignatureAlgorithm'{
+	  algorithm,  % id_signature_algorithm()
+	  parameters  % asn1_novalue | #'Dss-Parms'{}
+	 }.</code></pre><p><strong>id_signature_algorithm() = OID_macro()</strong></p><p>The available OID names are as follows:</p><table class="table table-bordered table-hover table-striped"><caption>Signature Algorithm OIDs</caption><tbody><tr><td><em>OID Name</em></td></tr><tr><td>id-dsa-with-sha1</td></tr><tr><td>id-dsaWithSHA1 (ISO or OID to above)</td></tr><tr><td>md2WithRSAEncryption</td></tr><tr><td>md5WithRSAEncryption</td></tr><tr><td>sha1WithRSAEncryption</td></tr><tr><td>sha-1WithRSAEncryption (ISO or OID to above)</td></tr><tr><td>sha224WithRSAEncryption</td></tr><tr><td>sha256WithRSAEncryption</td></tr><tr><td>sha512WithRSAEncryption</td></tr><tr><td>ecdsa-with-SHA1</td></tr></tbody></table><p>The data type <strong>'AttributeTypeAndValue'</strong>, is represented as
+the following erlang record:</p><pre><code class="">
+#'AttributeTypeAndValue'{
+	  type,   % id_attributes()
+	  value   % term() 
+	 }.</code></pre><p>The attribute OID name atoms and their corresponding value types
+are as follows:</p><table class="table table-bordered table-hover table-striped"><caption>Attribute OIDs</caption><tbody><tr><td><em>OID Name</em></td><td><em>Value Type</em></td></tr><tr><td>id-at-name</td><td>special_string()</td></tr><tr><td>id-at-surname</td><td>special_string()</td></tr><tr><td>id-at-givenName</td><td>special_string()</td></tr><tr><td>id-at-initials </td><td>special_string()</td></tr><tr><td>id-at-generationQualifier</td><td>special_string()</td></tr><tr><td>id-at-commonName</td><td>special_string()</td></tr><tr><td>id-at-localityName</td><td>special_string()</td></tr><tr><td>id-at-stateOrProvinceName</td><td>special_string()</td></tr><tr><td>id-at-organizationName</td><td>special_string()</td></tr><tr><td>id-at-title</td><td>special_string()</td></tr><tr><td>id-at-dnQualifier</td><td>{printableString, string()}</td></tr><tr><td>id-at-countryName</td><td>{printableString, string()}</td></tr><tr><td>id-at-serialNumber</td><td>{printableString, string()}</td></tr><tr><td>id-at-pseudonym</td><td>special_string()</td></tr></tbody></table><p>The data types <strong>'Validity'</strong>, <strong>'SubjectPublicKeyInfo'</strong>, and 
+<strong>'SubjectPublicKeyInfoAlgorithm'</strong> are represented as the following Erlang records:</p><pre><code class="">
+#'Validity'{ 
+	  notBefore, % time()
+	  notAfter   % time()
+	 }.
+	 
+#'SubjectPublicKeyInfo'{
+	  algorithm,       % #AlgorithmIdentifier{} 
+	  subjectPublicKey % binary() 
+	 }.
+
+#'SubjectPublicKeyInfoAlgorithm'{
+	  algorithm,  % id_public_key_algorithm()
+	  parameters  % public_key_params()
+	 }.</code></pre><p>The public-key algorithm OID name atoms are as follows:</p><table class="table table-bordered table-hover table-striped"><caption>Public-Key Algorithm OIDs</caption><tbody><tr><td><em>OID Name</em></td></tr><tr><td>rsaEncryption</td></tr><tr><td>id-dsa</td></tr><tr><td>dhpublicnumber</td></tr><tr><td>id-keyExchangeAlgorithm</td></tr><tr><td>id-ecPublicKey</td></tr></tbody></table><pre><code class="">
+#'Extension'{
+	  extnID,    % id_extensions() | oid() 
+	  critical,  % boolean()
+	  extnValue  % der_encoded()
+	 }.</code></pre><p><strong>id_extensions()</strong>  
+<a href="#StdCertExt">Standard Certificate Extensions</a>, 
+<a href="#PrivIntExt">Private Internet Extensions</a>,  
+<a href="#CRLCertExt">CRL Extensions</a> and 
+<a href="#CRLEntryExt">CRL Entry Extensions</a>.
+</p><a name="StdCertExt"></a><h2>Standard Certificate Extensions</h2><p>The standard certificate extensions OID name atoms and their 
+corresponding value types are as follows:</p><table class="table table-bordered table-hover table-striped"><caption>Standard Certificate Extensions</caption><tbody><tr><td><em>OID Name</em></td><td><em>Value Type</em></td></tr><tr><td>id-ce-authorityKeyIdentifier</td><td>#'AuthorityKeyIdentifier'{}</td></tr><tr><td>id-ce-subjectKeyIdentifier</td><td>oid()</td></tr><tr><td>id-ce-keyUsage</td><td>[key_usage()]</td></tr><tr><td>id-ce-privateKeyUsagePeriod</td><td>#'PrivateKeyUsagePeriod'{}</td></tr><tr><td>id-ce-certificatePolicies</td><td>#'PolicyInformation'{}</td></tr><tr><td>id-ce-policyMappings</td><td>#'PolicyMappings_SEQOF'{}</td></tr><tr><td>id-ce-subjectAltName</td><td>general_name()</td></tr><tr><td>id-ce-issuerAltName</td><td>general_name()</td></tr><tr><td>id-ce-subjectDirectoryAttributes</td><td> [#'Attribute'{}]</td></tr><tr><td>id-ce-basicConstraints</td><td>#'BasicConstraints'{}</td></tr><tr><td>id-ce-nameConstraints</td><td>#'NameConstraints'{}</td></tr><tr><td>id-ce-policyConstraints</td><td>#'PolicyConstraints'{}</td></tr><tr><td>id-ce-extKeyUsage</td><td>[id_key_purpose()]</td></tr><tr><td>id-ce-cRLDistributionPoints</td><td>[#'DistributionPoint'{}]</td></tr><tr><td>id-ce-inhibitAnyPolicy</td><td>integer()</td></tr><tr><td>id-ce-freshestCRL</td><td>[#'DistributionPoint'{}]</td></tr></tbody></table><p>Here:</p><dl><dt><strong>key_usage()</strong></dt><dd>= <p><strong>digitalSignature</strong></p> <p><strong>| nonRepudiation</strong></p> <p><strong>| keyEncipherment</strong></p> <p><strong>| dataEncipherment</strong></p> <p><strong>| keyAgreement</strong></p> <p><strong>| keyCertSign</strong></p> <p><strong>| cRLSign</strong></p> <p><strong>| encipherOnly</strong></p> <p><strong>| decipherOnly </strong></p> </dd></dl><p>And for <strong>id_key_purpose()</strong>:</p><table class="table table-bordered table-hover table-striped"><caption>Key Purpose OIDs</caption><tbody><tr><td><em>OID Name</em></td></tr><tr><td>id-kp-serverAuth</td></tr><tr><td>id-kp-clientAuth</td></tr><tr><td>id-kp-codeSigning</td></tr><tr><td>id-kp-emailProtection</td></tr><tr><td>id-kp-timeStamping</td></tr><tr><td>id-kp-OCSPSigning</td></tr></tbody></table><pre><code class="">
+#'AuthorityKeyIdentifier'{
+	  keyIdentifier,	    % oid()
+	  authorityCertIssuer,      % general_name()
+	  authorityCertSerialNumber % integer() 
+	 }.
+
+#'PrivateKeyUsagePeriod'{
+	  notBefore,   % general_time()
+	  notAfter     % general_time()
+	 }.
+
+#'PolicyInformation'{
+	  policyIdentifier,  % oid()
+	  policyQualifiers   % [#PolicyQualifierInfo{}]
+	 }.
+
+#'PolicyQualifierInfo'{
+	  policyQualifierId,   % oid()
+	  qualifier            % string() | #'UserNotice'{}
+	 }.
+
+#'UserNotice'{
+         noticeRef,   % #'NoticeReference'{}
+	 explicitText % string()
+	 }.
+
+#'NoticeReference'{
+         organization,    % string()
+	 noticeNumbers    % [integer()]
+	 }.
+
+#'PolicyMappings_SEQOF'{
+	  issuerDomainPolicy,  % oid()
+	  subjectDomainPolicy  % oid()
+	 }.
+
+#'Attribute'{
+          type,  % oid()
+	  values % [der_encoded()]
+	  }).
+
+#'BasicConstraints'{
+	  cA,		    % boolean()
+	  pathLenConstraint % integer()
+	 }).
+
+#'NameConstraints'{
+	  permittedSubtrees, % [#'GeneralSubtree'{}]
+	  excludedSubtrees   % [#'GeneralSubtree'{}]
+	 }).
+
+#'GeneralSubtree'{
+	  base,    % general_name()
+	  minimum, % integer()
+	  maximum  % integer()
+	 }).
+
+#'PolicyConstraints'{
+	  requireExplicitPolicy, % integer()
+	  inhibitPolicyMapping   % integer()
+	 }).
+
+#'DistributionPoint'{
+	  distributionPoint, % {fullName, [general_name()]} | {nameRelativeToCRLIssuer,
+	  [#AttributeTypeAndValue{}]}
+	  reasons,           % [dist_reason()]
+	  cRLIssuer          % [general_name()]
+	 }).</code></pre><a name="PrivIntExt"></a><h2>Private Internet Extensions</h2><p>The private internet extensions OID name atoms and their corresponding value 
+types are as follows:</p><table class="table table-bordered table-hover table-striped"><caption>Private Internet Extensions</caption><tbody><tr><td><em>OID Name</em></td><td><em>Value Type</em></td></tr><tr><td>id-pe-authorityInfoAccess</td><td>[#'AccessDescription'{}]</td></tr><tr><td>id-pe-subjectInfoAccess</td><td>[#'AccessDescription'{}]</td></tr></tbody></table><pre><code class="">
+#'AccessDescription'{
+           accessMethod,    % oid()
+	   accessLocation   % general_name()
+	 }).</code></pre><h2>CRL and CRL Extensions Profile</h2><p>Erlang representation of CRL and CRL extensions profile 
+derived from ASN.1 specifications and RFC 5280 are as follows:</p><pre><code class="">
+#'CertificateList'{
+          tbsCertList,        % #'TBSCertList{}
+          signatureAlgorithm, % #'AlgorithmIdentifier'{} 
+          signature           % bitstring()
+	  }).
+
+#'TBSCertList'{
+      version,             % v2 (if defined)
+      signature,           % #AlgorithmIdentifier{}
+      issuer,              % {rdnSequence, [#AttributeTypeAndValue'{}]} 
+      thisUpdate,          % time()
+      nextUpdate,          % time() 
+      revokedCertificates, % [#'TBSCertList_revokedCertificates_SEQOF'{}]
+      crlExtensions        % [#'Extension'{}]
+      }).
+
+#'TBSCertList_revokedCertificates_SEQOF'{
+         userCertificate,      % integer()
+ 	 revocationDate,       % timer()
+	 crlEntryExtensions    % [#'Extension'{}]
+	 }).</code></pre><a name="CRLCertExt"></a><h2>CRL Extensions</h2><p>The CRL extensions OID name atoms and their corresponding value types are as follows:</p><table class="table table-bordered table-hover table-striped"><caption>CRL Extensions</caption><tbody><tr><td><em>OID Name</em></td><td><em>Value Type</em></td></tr><tr><td>id-ce-authorityKeyIdentifier</td><td>#'AuthorityKeyIdentifier{}</td></tr><tr><td>id-ce-issuerAltName</td><td>{rdnSequence, [#AttributeTypeAndValue'{}]}</td></tr><tr><td>id-ce-cRLNumber</td><td>integer()</td></tr><tr><td>id-ce-deltaCRLIndicator</td><td>integer()</td></tr><tr><td>id-ce-issuingDistributionPoint</td><td>#'IssuingDistributionPoint'{}</td></tr><tr><td>id-ce-freshestCRL</td><td>[#'Distributionpoint'{}]</td></tr></tbody></table><p>Here, the data type <strong>'IssuingDistributionPoint'</strong> is represented as 
+the following Erlang record:</p><pre><code class="">
+#'IssuingDistributionPoint'{
+          distributionPoint,         % {fullName, [general_name()]} | {nameRelativeToCRLIssuer,
+	  [#AttributeTypeAndValue'{}]}
+	  onlyContainsUserCerts,     % boolean()
+	  onlyContainsCACerts,       % boolean()
+	  onlySomeReasons,           % [dist_reason()]
+	  indirectCRL,               % boolean()
+	  onlyContainsAttributeCerts % boolean()
+	  }).</code></pre><a name="CRLEntryExt"></a><h2>CRL Entry Extensions</h2><p>The CRL entry extensions OID name atoms and their corresponding value types are as follows:</p><table class="table table-bordered table-hover table-striped"><caption>CRL Entry Extensions</caption><tbody><tr><td><em>OID Name</em></td><td><em>Value Type</em></td></tr><tr><td>id-ce-cRLReason</td><td>crl_reason()</td></tr><tr><td>id-ce-holdInstructionCode</td><td>oid()</td></tr><tr><td>id-ce-invalidityDate</td><td>general_time()</td></tr><tr><td>id-ce-certificateIssuer</td><td>general_name()</td></tr></tbody></table><p>Here:</p><dl><dt><strong>crl_reason()</strong></dt><dd>= <p><strong>unspecified</strong></p> <p><strong>| keyCompromise</strong></p> <p><strong>| cACompromise</strong></p> <p><strong>| affiliationChanged</strong></p> <p><strong>| superseded</strong></p> <p><strong>| cessationOfOperation</strong></p> <p><strong>| certificateHold</strong></p> <p><strong>| removeFromCRL</strong></p> <p><strong>| privilegeWithdrawn</strong></p> <p><strong>| aACompromise</strong></p> </dd></dl><a name="PKCS10"></a><h2>PKCS#10 Certification Request</h2><p>Erlang representation of a PKCS#10 certification request 
+derived from ASN.1 specifications and RFC 5280 are as follows:</p><pre><code class="">
+#'CertificationRequest'{
+          certificationRequestInfo #'CertificationRequestInfo'{},
+	  signatureAlgorithm	   #'CertificationRequest_signatureAlgorithm'{}}.
+	  signature                bitstring()
+	  }
+
+#'CertificationRequestInfo'{
+	  version       atom(),
+	  subject       {rdnSequence, [#AttributeTypeAndValue'{}]} ,
+	  subjectPKInfo #'CertificationRequestInfo_subjectPKInfo'{},
+	  attributes    [#'AttributePKCS-10' {}]
+	  }
+
+#'CertificationRequestInfo_subjectPKInfo'{
+          algorithm		#'CertificationRequestInfo_subjectPKInfo_algorithm'{}
+	  subjectPublicKey 	  bitstring()
+	  }
+
+#'CertificationRequestInfo_subjectPKInfo_algorithm'{
+     algorithm = oid(),
+     parameters = der_encoded()
+}	  
+
+#'CertificationRequest_signatureAlgorithm'{
+     algorithm = oid(),
+     parameters = der_encoded()
+     }
+
+#'AttributePKCS-10'{
+    type = oid(),
+    values = [der_encoded()]
+}  </code></pre></body></html>

@@ -1,0 +1,68 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Errors and Error Handling</h1><h2>Terminology</h2><p>Errors can roughly be divided into four different types:</p><ul><li>Compile-time errors</li><li>Logical errors</li><li>Run-time errors</li><li>Generated errors</li></ul><p>A compile-time error, for example a syntax error, does not
+cause much trouble as it is caught by the compiler.</p><p>A logical error is when a program does not behave as intended,
+but does not crash. An example is that nothing happens when
+a button in a graphical user interface is clicked.</p><p>A run-time error is when a crash occurs. An example is
+when an operator is applied to arguments of the wrong type.
+The Erlang programming language has built-in features for
+handling of run-time errors.</p><p>A run-time error can also be emulated by calling
+<strong>erlang:error(Reason)</strong> or <strong>erlang:error(Reason, Args)</strong>.</p><p>A run-time error is another name for an exception
+of class <strong>error</strong>.
+</p><p>A generated error is when the code itself calls
+<strong>exit/1</strong> or <strong>throw/1</strong>. Notice that emulated run-time
+errors are not denoted as generated errors here.
+</p><p>Generated errors are exceptions of classes <strong>exit</strong> and
+<strong>throw</strong>.
+</p><p>When a run-time error or generated error occurs in Erlang, 
+execution for the process that evaluated
+the erroneous expression is stopped.
+This is referred to as a <em>failure</em>, that execution or
+evaluation <em>fails</em>, or that the process <em>fails</em>,
+<em>terminates</em>, or <em>exits</em>. Notice that a process can
+terminate/exit for other reasons than a failure.</p><p>A process that terminates emits an <em>exit signal</em> with
+an <em>exit reason</em> that says something about which error
+has occurred. Normally, some information about the error is
+printed to the terminal.</p><h2>Exceptions</h2><p>Exceptions are run-time errors or generated errors and 
+are of three different classes, with different origins. The
+<a href="./expressions#try">try</a> expression 
+can distinguish between the different classes, whereas the
+<a href="./expressions#catch">catch</a>
+expression cannot. They are described in
+<a href="expressions">Expressions </a>.</p><table class="table table-bordered table-hover table-striped"><caption>Exception Classes.</caption><tbody><tr><td><em>Class</em></td><td><em>Origin</em></td></tr><tr><td><strong>error</strong></td><td>Run-time error, for example, <strong>1+a</strong>, or the process called <strong>erlang:error/1,2</strong></td></tr><tr><td><strong>exit</strong></td><td>The process called <strong>exit/1</strong></td></tr><tr><td><strong>throw</strong></td><td>The process called <strong>throw/1</strong></td></tr></tbody></table><p>An exception consists of its class, an exit reason
+(see <a href="#exit_reasons">Exit Reason</a>),
+and a stack trace (which aids in finding the code location of
+the exception).</p><p>The stack trace can be be bound to a variable from within
+a <strong>try</strong> expression, and is returned for
+exceptions of class <strong>error</strong> from a <strong>catch</strong> expression.</p><p>An exception of class <strong>error</strong> is also known as a run-time 
+error.</p><h2>The call-stack back trace (stacktrace)</h2><p>The stack back-trace (<em>stacktrace</em>) is a list of
+<strong>{Module,Function,Arity,Location}</strong>
+tuples. The field <strong>Arity</strong> in the first tuple can be the
+argument list of that function call instead of an arity integer,
+depending on the exception.</p><p><strong>Location</strong> is a (possibly empty) list of two-tuples
+that can indicate the location in the source code of the
+function.  The first element is an atom describing the type of
+information in the second element. The following items can
+occur:</p><dl><dt><strong>file</strong></dt><dd>The second element of the tuple is a string (list of characters) representing the filename of the source file of the function. </dd><dt><strong>line</strong></dt><dd>The second element of the tuple is the line number (an integer &gt; 0) in the source file where the exception occurred or the function was called. </dd></dl><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>Developers should rely on stacktrace entries only for
+debugging purposes.</p><p>The VM performs tail call optimization, which
+does not add new entries to the stacktrace, and also limits stacktraces
+to a certain depth. Furthermore, compiler options, optimizations and
+future changes may add or remove stacktrace entries, causing any code
+that expects the stacktrace to be in a certain order or contain specific
+items to fail.</p><p>The only exception to this rule is the class <strong>error</strong> with the
+reason <strong>undef</strong> which is guaranteed to include the <strong>Module</strong>,
+<strong>Function</strong> and <strong>Arity</strong> of the attempted
+function as the first stacktrace entry.</p></div><h2>Handling of Run-time Errors in Erlang</h2><h2>Error Handling Within Processes</h2><p>It is possible to prevent run-time errors and other
+exceptions from causing
+the process to terminate by using <strong>catch</strong> or
+<strong>try</strong>, see <a href="expressions"> Expressions</a> about
+<a href="./expressions#catch">catch</a>
+and <a href="./expressions#try">try</a>.</p><h2>Error Handling Between Processes</h2><p>Processes can monitor other processes and detect process
+terminations, see
+<a href="./processes#errors">Processes</a>.</p><a name="exit_reasons"></a><h2>Exit Reasons</h2><p>When a run-time error occurs,
+that is an exception of class <strong>error</strong>.
+The exit reason is a tuple <strong>{Reason,Stack}</strong>, where
+<strong>Reason</strong> is a term indicating the type of error:</p><table class="table table-bordered table-hover table-striped"><caption>Exit Reasons</caption><tbody><tr><td><em>Reason</em></td><td><em>Type of Error</em></td></tr><tr><td><strong>badarg</strong></td><td>Bad argument. The argument is of wrong data type, or is otherwise badly formed.</td></tr><tr><td><strong>badarith</strong></td><td>Bad argument in an arithmetic expression.</td></tr><tr><td><strong>{badmatch,V}</strong></td><td>Evaluation of a match expression failed. The value <strong>V</strong> did not match.</td></tr><tr><td><strong>function_clause</strong></td><td>No matching function clause is found when evaluating a function call.</td></tr><tr><td><strong>{case_clause,V}</strong></td><td>No matching branch is found when evaluating a <strong>case</strong> expression. The value <strong>V</strong> did not match.</td></tr><tr><td><strong>if_clause</strong></td><td>No true branch is found when evaluating an <strong>if</strong> expression.</td></tr><tr><td><strong>{try_clause,V}</strong></td><td>No matching branch is found when evaluating the of-section of a <strong>try</strong> expression. The value <strong>V</strong> did not match.</td></tr><tr><td><strong>undef</strong></td><td>The function cannot be found when evaluating a function call.</td></tr><tr><td><strong>{badfun,F}</strong></td><td>Something is wrong with a fun <strong>F</strong>.</td></tr><tr><td><strong>{badarity,F}</strong></td><td>A fun is applied to the wrong number of arguments. <strong>F</strong> describes the fun and the arguments.</td></tr><tr><td><strong>timeout_value</strong></td><td>The timeout value in a <strong>receive..after</strong> expression is evaluated to something else than an integer or <strong>infinity</strong>.</td></tr><tr><td><strong>noproc</strong></td><td>Trying to link to a non-existing process.</td></tr><tr><td><strong>{nocatch,V}</strong></td><td>Trying to evaluate a <strong>throw </strong>outside a <strong>catch</strong>. <strong>V</strong> is the thrown term.</td></tr><tr><td><strong>system_limit</strong></td><td>A system limit has been reached. See <a href="./advanced"> Efficiency Guide</a> for information about system limits. </td></tr></tbody></table><p><strong>Stack</strong> is the stack of function calls being evaluated
+when the error occurred, given as a list of tuples
+<strong>{Module,Name,Arity}</strong> with the most recent function call
+first. The most recent function call tuple can in some
+cases be <strong>{Module,Name,[Arg]}</strong>.</p></body></html>

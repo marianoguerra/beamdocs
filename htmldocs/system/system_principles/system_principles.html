@@ -1,0 +1,76 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>System Principles</h1><a name="system principles"></a><h2>Starting the System</h2><p>An Erlang runtime system is started with command <strong>erl</strong>:</p><pre>
+% <span class="input">erl</span>
+Erlang/OTP 17 [erts-6.0] [hipe] [smp:8:8]
+
+Eshell V6.0  (abort with ^G)
+1&gt; </pre><p><strong>erl</strong> understands a number of command-line arguments, see
+the <a href="./erl">erl(1)</a>  manual page in
+ERTS. Some of them are also described in this chapter.</p><p>Application programs can access the values of the command-line
+arguments by calling the function <strong>init:get_argument(Key)</strong>
+or <strong>init:get_arguments()</strong>. See the
+<a href="./init">init(3)</a> manual page in
+ERTS.</p><h2>Restarting and Stopping the System</h2><p>The runtime system is halted by calling <strong>halt/0,1</strong>. For
+details, see the <a href="./erlang">erlang(3)</a>
+manual page in ERTS.</p><p>The module <strong>init</strong> contains functions for restarting,
+rebooting, and stopping the runtime system:</p><pre>
+init:restart()
+init:reboot()
+init:stop()</pre><p>For details, see the <a href="./init">init(3)</a>
+manual page in ERTS.</p><p>The runtime system terminates if the Erlang shell is
+terminated.</p><a name="BOOTSCRIPT"></a><h2>Boot Scripts</h2><p>The runtime system is started using a <em>boot script</em>.
+The boot script contains instructions on which code to load and
+which processes and applications to start.</p><p>A boot script file has the extension <strong>.script</strong>.
+The runtime system uses a binary version of the script. This
+<em>binary boot script</em> file has the extension <strong>.boot</strong>.</p><p>Which boot script to use is specified by the command-line flag
+<strong>-boot</strong>. The extension <strong>.boot</strong> is to be omitted.
+For example, using the boot script <strong>start_all.boot</strong>:</p><pre>
+% <span class="input">erl -boot start_all</span></pre><p>If no boot script is specified, it defaults to
+<strong>ROOT/bin/start</strong>, see <a href="#default_boot_scripts"> Default Boot Scripts</a>.</p><p>The command-line flag <strong>-init_debug</strong> makes the <strong>init</strong>
+process write some debug information while interpreting the boot
+script:</p><pre>
+% <span class="input">erl -init_debug</span>
+{progress,preloaded}
+{progress,kernel_load_completed}
+{progress,modules_loaded}
+{start,heart}
+{start,logger}
+...</pre><p>For a detailed description of the syntax and contents of the
+boot script, see the <strong>script(4)</strong> manual page in SASL.</p><a name="default_boot_scripts"></a><h2>Default Boot Scripts</h2><p>Erlang/OTP comes with these boot scripts:</p><ul><li><strong>start_clean.boot</strong> - Loads the code for and starts the applications Kernel and STDLIB.</li><li><strong>start_sasl.boot</strong> - Loads the code for and starts the applications Kernel, STDLIB, and SASL).</li><li><strong>no_dot_erlang.boot</strong> - Loads the code for and starts the applications Kernel and STDLIB. Skips loading the file <strong>.erlang</strong>. Useful for scripts and other tools that are to behave the same irrespective of user preferences.</li></ul><p>Which of <strong>start_clean</strong> and <strong>start_sasl</strong> to use as
+default is decided by the user when installing Erlang/OTP using
+<strong>Install</strong>. The user is asked "Do you want to use a minimal
+system startup instead of the SASL startup". If the answer is
+yes, then <strong>start_clean</strong> is used, otherwise
+<strong>start_sasl</strong> is used. A copy of the selected boot script is
+made, named <strong>start.boot</strong> and placed in directory
+<strong>ROOT/bin</strong>.</p><h2>User-Defined Boot Scripts</h2><p>It is sometimes useful or necessary to create a user-defined
+boot script. This is true especially when running Erlang in
+embedded mode, see <a href="#code_loading"> Code Loading Strategy</a>.</p><p>A boot script can be written manually. However, it is
+recommended to create a boot script by generating it from a
+release resource file <strong>Name.rel</strong>, using the function
+<strong>systools:make_script/1,2</strong>. This requires that the source
+code is structured as applications according to the OTP design
+principles. (The program does not have to be started in terms of
+OTP applications, but can be plain Erlang).</p><p>For more information about <strong>.rel</strong> files, see
+<a href="./release_handling"> OTP Design Principles</a> and the
+<a href="./rel">rel(4)</a> manual page in
+SASL.</p><p>The binary boot script file <strong>Name.boot</strong> is generated from
+the boot script file <strong>Name.script</strong>, using the function
+<strong>systools:script2boot(File)</strong>.</p><a name="code_loading"></a><h2>Code Loading Strategy</h2><p>The runtime system can be started in either <em>embedded</em> or
+<em>interactive</em> mode. Which one is decided by the
+command-line flag <strong>-mode</strong>.</p><pre>
+% <span class="input">erl -mode embedded</span></pre><p>Default mode is <strong>interactive</strong>.</p><p>The mode properties are as follows:</p><ul><li>In embedded mode, all code is loaded during system startup according to the boot script. (Code can also be loaded later by explicitly ordering the code server to do so.)</li><li>In interactive mode, the code is dynamically loaded when first referenced. When a call to a function in a module is made, and the module is not loaded, the code server searches the code path and loads the module into the system.</li></ul><p>Initially, the code path consists of the current
+working directory and all object code directories under
+<strong>ROOT/lib</strong>, where <strong>ROOT</strong> is the installation directory
+of Erlang/OTP. Directories can be named <strong>Name[-Vsn]</strong>. The
+code server, by default, chooses the directory with
+the highest version number among those which have the same
+<strong>Name</strong>. The <strong>-Vsn</strong> suffix is optional. If an
+<strong>ebin</strong> directory exists under the <strong>Name[-Vsn]</strong>
+directory, this directory is added to the code path.</p><p>The code path can be extended by using the command-line flags
+<strong>-pa Directories</strong> and <strong>-pz Directories</strong>. These add
+<strong>Directories</strong> to the head or the end of the code path,
+respectively. Example:</p><pre>
+% <span class="input">erl -pa /home/arne/mycode</span></pre><p>The code server module <strong>code</strong> contains a number of
+functions for modifying and checking the search path, see the
+<strong>code(3)</strong> manual page in Kernel.</p><h2>File Types</h2><p>The following file types are defined in Erlang/OTP:</p><table class="table table-bordered table-hover table-striped"><caption>File Types</caption><tbody><tr><td><em>File Type</em></td><td><em>File Name/Extension</em></td><td><em>Documented in</em></td></tr><tr><td>Module</td><td><strong>.erl</strong></td><td> <a href="./modules"> Erlang Reference Manual</a></td></tr><tr><td>Include file</td><td><strong>.hrl</strong></td><td> <a href="./modules"> Erlang Reference Manual</a></td></tr><tr><td>Release resource file</td><td><strong>.rel</strong></td><td> <a href="./rel">rel(4)</a> manual page in SASL</td></tr><tr><td>Application resource file</td><td><strong>.app</strong></td><td> <a href="./app">app(4)</a> manual page in Kernel</td></tr><tr><td>Boot script</td><td><strong>.script</strong></td><td> <a href="./script">script(4)</a> manual page in SASL</td></tr><tr><td>Binary boot script</td><td><strong>.boot</strong></td><td>-</td></tr><tr><td>Configuration file</td><td><strong>.config</strong></td><td> <a href="./config">config(4)</a> manual page in Kernel</td></tr><tr><td>Application upgrade file</td><td><strong>.appup</strong></td><td> <a href="./appup">appup(4)</a> manual page in SASL</td></tr><tr><td>Release upgrade file</td><td><strong>relup</strong></td><td> <a href="./relup">relup(4)</a> manual page in SASL</td></tr></tbody></table></body></html>

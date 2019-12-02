@@ -1,0 +1,223 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Ports</h1><p>This section outlines an example of how to solve the example
+problem in the <a href="example">previous section</a>
+by using a port.</p><p>The scenario is illustrated in the following figure:</p><img src="../tutorial/port.gif" title="Port Communication"></img><h2>Erlang Program</h2><p>All communication between Erlang and C must be established by
+creating the port. The Erlang process that creates a port is
+said to be <em>the connected process</em> of the port. All
+communication to and from the port must go through the connected
+process. If the connected process terminates, the port also
+terminates (and the external program, if it is written
+properly).</p><p>The port is created using the BIF <strong>open_port/2</strong> with
+<strong>{spawn,ExtPrg}</strong> as the first argument. The string
+<strong>ExtPrg</strong> is the name of the external program, including any
+command line arguments. The second argument is a list of
+options, in this case only <strong>{packet,2}</strong>. This option says
+that a 2 byte length indicator is to be used to simplify the
+communication between C and Erlang. The Erlang port
+automatically adds the length indicator, but this must be done
+explicitly in the external C program.</p><p>The process is also set to trap exits, which enables detection
+of failure of the external program:</p><pre>
+-module(complex1).
+-export([start/1, init/1]).
+
+start(ExtPrg) -&gt;
+  spawn(?MODULE, init, [ExtPrg]).
+
+init(ExtPrg) -&gt;
+  register(complex, self()),
+  process_flag(trap_exit, true),
+  Port = open_port({spawn, ExtPrg}, [{packet, 2}]),
+  loop(Port).</pre><p>Now <strong>complex1:foo/1</strong> and <strong>complex1:bar/1</strong> can be
+implemented. Both send a message to the <strong>complex</strong> process
+and receive the following replies:</p><pre>
+foo(X) -&gt;
+  call_port({foo, X}).
+bar(Y) -&gt;
+  call_port({bar, Y}).
+
+call_port(Msg) -&gt;
+  complex ! {call, self(), Msg},
+  receive
+    {complex, Result} -&gt;
+      Result
+  end.</pre><p>The <strong>complex</strong> process does the following:</p><ul><li>Encodes the message into a sequence of bytes.</li><li>Sends it to the port.</li><li>Waits for a reply.</li><li>Decodes the reply.</li><li>Sends it back to the caller:</li></ul><pre>
+loop(Port) -&gt;
+  receive
+    {call, Caller, Msg} -&gt;
+      Port ! {self(), {command, encode(Msg)}},
+      receive
+        {Port, {data, Data}} -&gt;
+          Caller ! {complex, decode(Data)}
+      end,
+      loop(Port)
+  end.</pre><p>Assuming that both the arguments and the results from the C
+functions are less than 256, a simple encoding/decoding scheme
+is employed. In this scheme, <strong>foo</strong> is represented by byte
+1, <strong>bar</strong> is represented by 2, and the argument/result is
+represented by a single byte as well:</p><pre>
+encode({foo, X}) -&gt; [1, X];
+encode({bar, Y}) -&gt; [2, Y].
+
+decode([Int]) -&gt; Int.</pre><p>The resulting Erlang program, including functionality for
+stopping the port and detecting port failures, is as follows:
+</p><pre><code class="">
+
+-module(complex1).
+-export([start/1, stop/0, init/1]).
+-export([foo/1, bar/1]).
+
+start(ExtPrg) -&gt;
+    spawn(?MODULE, init, [ExtPrg]).
+stop() -&gt;
+    complex ! stop.
+
+foo(X) -&gt;
+    call_port({foo, X}).
+bar(Y) -&gt;
+    call_port({bar, Y}).
+
+call_port(Msg) -&gt;
+    complex ! {call, self(), Msg},
+    receive
+	{complex, Result} -&gt;
+	    Result
+    end.
+
+init(ExtPrg) -&gt;
+    register(complex, self()),
+    process_flag(trap_exit, true),
+    Port = open_port({spawn, ExtPrg}, [{packet, 2}]),
+    loop(Port).
+
+loop(Port) -&gt;
+    receive
+	{call, Caller, Msg} -&gt;
+	    Port ! {self(), {command, encode(Msg)}},
+	    receive
+		{Port, {data, Data}} -&gt;
+		    Caller ! {complex, decode(Data)}
+	    end,
+	    loop(Port);
+	stop -&gt;
+	    Port ! {self(), close},
+	    receive
+		{Port, closed} -&gt;
+		    exit(normal)
+	    end;
+	{'EXIT', Port, Reason} -&gt;
+	    exit(port_terminated)
+    end.
+
+encode({foo, X}) -&gt; [1, X];
+encode({bar, Y}) -&gt; [2, Y].
+
+decode([Int]) -&gt; Int.
+</code></pre><h2>C Program</h2><p>On the C side, it is necessary to write functions for receiving
+and sending data with 2 byte length indicators from/to Erlang.
+By default, the C program is to read from standard input (file
+descriptor 0) and write to standard output (file descriptor 1).
+Examples of such functions, <strong>read_cmd/1</strong> and
+<strong>write_cmd/2</strong>, follows:</p><pre><code class="">
+
+/* erl_comm.c */
+
+typedef unsigned char byte;
+
+read_cmd(byte *buf)
+{
+  int len;
+
+  if (read_exact(buf, 2) != 2)
+    return(-1);
+  len = (buf[0] &lt;&lt; 8) | buf[1];
+  return read_exact(buf, len);
+}
+
+write_cmd(byte *buf, int len)
+{
+  byte li;
+
+  li = (len &gt;&gt; 8) &amp; 0xff;
+  write_exact(&amp;li, 1);
+  
+  li = len &amp; 0xff;
+  write_exact(&amp;li, 1);
+
+  return write_exact(buf, len);
+}
+
+read_exact(byte *buf, int len)
+{
+  int i, got=0;
+
+  do {
+    if ((i = read(0, buf+got, len-got)) &lt;= 0)
+      return(i);
+    got += i;
+  } while (got&lt;len);
+
+  return(len);
+}
+
+write_exact(byte *buf, int len)
+{
+  int i, wrote = 0;
+
+  do {
+    if ((i = write(1, buf+wrote, len-wrote)) &lt;= 0)
+      return (i);
+    wrote += i;
+  } while (wrote&lt;len);
+
+  return (len);
+}
+</code></pre><p>Notice that <strong>stdin</strong> and <strong>stdout</strong> are for buffered
+input/output and must <em>not</em> be used for the communication
+with Erlang.</p><p>In the <strong>main</strong> function, the C program is to listen for a
+message from Erlang and, according to the selected
+encoding/decoding scheme, use the first byte to determine which
+function to call and the second byte as argument to the
+function. The result of calling the function is then to be sent
+back to Erlang:</p><pre><code class="">
+
+/* port.c */
+
+typedef unsigned char byte;
+
+int main() {
+  int fn, arg, res;
+  byte buf[100];
+
+  while (read_cmd(buf) &gt; 0) {
+    fn = buf[0];
+    arg = buf[1];
+    
+    if (fn == 1) {
+      res = foo(arg);
+    } else if (fn == 2) {
+      res = bar(arg);
+    }
+
+    buf[0] = res;
+    write_cmd(buf, 1);
+  }
+}
+      
+</code></pre><p>Notice that the C program is in a <strong>while</strong>-loop, checking
+for the return value of <strong>read_cmd/1</strong>. This is because the C
+program must detect when the port closes and terminates.</p><h2>Running the Example</h2><p><em>Step 1.</em> Compile the C code:</p><pre>
+unix&gt; <span class="input">gcc -o extprg complex.c erl_comm.c port.c</span></pre><p><em>Step 2.</em> Start Erlang and compile the Erlang code:</p><pre>
+unix&gt; <span class="input">erl</span>
+Erlang (BEAM) emulator version 4.9.1.2
+
+Eshell V4.9.1.2 (abort with ^G)
+1&gt; <span class="input">c(complex1).</span>
+{ok,complex1}</pre><p><em>Step 3.</em> Run the example:</p><pre>
+2&gt; <span class="input">complex1:start("extprg").</span>
+&lt;0.34.0&gt;
+3&gt; <span class="input">complex1:foo(3).</span>
+4
+4&gt; <span class="input">complex1:bar(5).</span>
+10
+5&gt; <span class="input">complex1:stop().</span>
+stop</pre></body></html>

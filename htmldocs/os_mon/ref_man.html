@@ -1,0 +1,343 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>OS_Mon Reference Manual</h1><p>The operating system monitor, OS_Mon, provides services for
+monitoring CPU load, disk usage, memory usage and OS messages.</p><h2>os_mon</h2><p>OS Monitoring Application</p><p>The operating system monitor, OS_Mon, provides the following
+services:<ul><li><a href="cpu_sup">cpu_sup</a> CPU load and utilization supervision (Unix)</li><li><a href="disksup">disksup</a> Disk supervision(Unix, Windows)</li><li><a href="memsup">memsup</a> Memory supervision (Unix, Windows, VxWorks)</li><li><a href="os_sup">os_sup</a> Interface to OS system messages (Solaris, Windows)</li></ul>To simplify usage of OS_Mon on distributed Erlang systems, it is
+not considered an error trying to use a service at a node where it
+is not available (either because OS_Mon is not running, or because
+the service is not available for that OS, or because the service
+is not started). Instead, a warning message is issued via
+<strong>error_logger</strong> and a dummy value is returned, which one is
+specified in the man pages for the respective services.</p><h3>Configuration</h3><p>When OS_Mon is started, by default all services available for
+the OS, except <strong>os_sup</strong>, are automatically started. This
+configuration can be changed using the following application
+configuration parameters:</p><dl><dt><strong>start_cpu_sup = bool()</strong></dt><dd> <p>Specifies if <strong>cpu_sup</strong> should be started. Defaults to
+<strong>true</strong>.</p> </dd><dt><strong>start_disksup = bool()</strong></dt><dd> <p>Specifies if <strong>disksup</strong> should be started. Defaults to
+<strong>true</strong>.</p> </dd><dt><strong>start_memsup = bool()</strong></dt><dd> <p>Specifies if <strong>memsup</strong> should be started. Defaults to
+<strong>true</strong>.</p> </dd><dt><strong>start_os_sup = bool()</strong></dt><dd> <p>Specifies if <strong>os_sup</strong> should be started. Defaults to
+<strong>false</strong>.</p> </dd></dl><p>Configuration parameters effecting the different OS_Mon services
+are described in the respective man pages.</p><p>See <a href="./config">config(4)</a> for
+information about how to change the value of configuration
+parameters.</p><h3>See Also</h3><p><a href="cpu_sup">cpu_sup(3)</a>,
+<a href="disksup">disksup(3)</a>,
+<a href="memsup">memsup(3)</a>,
+<a href="os_sup">os_sup(3)</a>,
+<a href="nteventlog">nteventlog(3)</a>,
+<a href="./snmp">snmp(3)</a>.</p><h2>cpu_sup</h2><p>A CPU Load and CPU Utilization Supervisor Process</p><p><strong>cpu_sup</strong> is a process which supervises the CPU load
+and CPU utilization. It is part of the OS_Mon application, see
+<a href="os_mon_app">os_mon(6)</a>. Available for Unix,
+although CPU utilization values (<strong>util/0,1</strong>) are only
+available for Solaris, Linux and FreeBSD.The load values are proportional to how long time a runnable
+Unix process has to spend in the run queue before it is scheduled.
+Accordingly, higher values mean more system load. The returned
+value divided by 256 produces the figure displayed by <strong>rup</strong>
+and <strong>top</strong>. What is displayed as 2.00 in <strong>rup</strong>, is
+displayed as load up to the second mark in <strong>xload</strong>.For example, <strong>rup</strong> displays a load of 128 as 0.50, and
+512 as 2.00.If the user wants to view load values as percentage of machine
+capacity, then this way of measuring presents a problem, because
+the load values are not restricted to a fixed interval. In this
+case, the following simple mathematical transformation can
+produce the load value as a percentage:<pre><code class="">
+      PercentLoad = 100 * (1 - D/(D + Load))
+    </code></pre><strong>D</strong> determines which load value should be associated with
+which percentage. Choosing <strong>D</strong> = 50 means that 128 is 60% 
+load, 256 is 80%, 512 is 90%, and so on.Another way of measuring system load is to divide the number of
+busy CPU cycles by the total number of CPU cycles. This produces 
+values in the 0-100 range immediately. However, this method hides 
+the fact that a machine can be more or less saturated. CPU
+utilization is therefore a better name than system load for this
+measure.A server which receives just enough requests to never become
+idle will score a CPU utilization of 100%. If the server receives
+50% more requests, it will still score 100%. When the system load
+is calculated with the percentage formula shown previously,
+the load will increase from 80% to 87%.The <strong>avg1/0</strong>, <strong>avg5/0</strong>, and <strong>avg15/0</strong> functions
+can be used for retrieving system load values, and
+the <strong>util/0</strong> and <strong>util/1</strong> functions can be used for
+retrieving CPU utilization values.When run on Linux, <strong>cpu_sup</strong> assumes that the <strong>/proc</strong>
+file system is present and accessible by <strong>cpu_sup</strong>. If it is
+not, <strong>cpu_sup</strong> will terminate.</p><h2>Functions</h2><h3>nprocs() -&gt; UnixProcesses | {error, Reason}</h3><p>Get the number of UNIX processes running on this host</p><ul><li><span class="v">UnixProcesses = int()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Returns the number of UNIX processes running on this machine.
+This is a crude way of measuring the system load, but it may
+be of interest in some cases.</p><p>Returns 0 if <strong>cpu_sup</strong> is not available.</p><h3>avg1() -&gt; SystemLoad | {error, Reason}</h3><p>Get the system load average for the last minute</p><ul><li><span class="v">SystemLoad = int()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Returns the average system load in the last minute, as
+described above. 0 represents no load, 256 represents the load
+reported as 1.00 by <strong>rup</strong>.</p><p>Returns 0 if <strong>cpu_sup</strong> is not available.</p><h3>avg5() -&gt; SystemLoad | {error, Reason}</h3><p>Get the system load average for the last five minutes</p><ul><li><span class="v">SystemLoad = int()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Returns the average system load in the last five minutes, as
+described above. 0 represents no load, 256 represents the load
+reported as 1.00 by <strong>rup</strong>.</p><p>Returns 0 if <strong>cpu_sup</strong> is not available.</p><h3>avg15() -&gt; SystemLoad | {error, Reason}</h3><p>Get the system load average for the last fifteen minutes</p><ul><li><span class="v">SystemLoad = int()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Returns the average system load in the last 15 minutes, as
+described above. 0 represents no load, 256 represents the load
+reported as 1.00 by <strong>rup</strong>.</p><p>Returns 0 if <strong>cpu_sup</strong> is not available.</p><h3>util() -&gt; CpuUtil | {error, Reason}</h3><p>Get the CPU utilization</p><ul><li><span class="v">CpuUtil = float()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Returns CPU utilization since the last call to
+<strong>util/0</strong> or <strong>util/1</strong> by the calling process.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The returned value of the first call to <strong>util/0</strong> or
+<strong>util/1</strong> by a process will on most systems be the CPU
+utilization since system boot, but this is not guaranteed
+and the value should therefore be regarded as garbage. This
+also applies to the first call after a restart of
+<strong>cpu_sup</strong>.</p></div><p>The CPU utilization is defined as the sum of the percentage
+shares of the CPU cycles spent in all busy processor states
+(see <strong>util/1</strong> below) in average on all CPUs.</p><p>Returns 0 if <strong>cpu_sup</strong> is not available.</p><h3>util(Opts) -&gt; UtilSpec | {error, Reason}</h3><p>Get the CPU utilization</p><ul><li><span class="v">Opts = [detailed | per_cpu]</span></li><li><span class="v">UtilSpec = UtilDesc | [UtilDesc]</span></li><li><span class="v">Â UtilDesc = {Cpus, Busy, NonBusy, Misc}</span></li><li><span class="v">Â Â Cpus = all | int() | [int()]()</span></li><li><span class="v">Â Â Busy = NonBusy = {State, Share} | Share</span></li><li><span class="v">Â Â Â State = user | nice_user | kernel</span></li><li><span class="v">Â Â Â Â | wait | idle | atom()</span></li><li><span class="v">Â Â Â Share = float()</span></li><li><span class="v">Â Â Misc = []</span></li><li><span class="v">Reason = term()</span></li></ul><p>Returns CPU utilization since the last call to
+<strong>util/0</strong> or <strong>util/1</strong> by the calling process, in
+more detail than <strong>util/0</strong>.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The returned value of the first call to <strong>util/0</strong> or
+<strong>util/1</strong> by a process will on most systems be the CPU
+utilization since system boot, but this is not guaranteed
+and the value should therefore be regarded as garbage. This
+also applies to the first call after a restart of
+<strong>cpu_sup</strong>.</p></div><p>Currently recognized options:</p><dl><dt><strong>detailed</strong></dt><dd> <p>The returned <strong>UtilDesc</strong>(s) will be even more
+detailed.</p> </dd><dt><strong>per_cpu</strong></dt><dd> <p>Each CPU will be specified separately (assuming this
+information can be retrieved from the operating system),
+that is, a list with one <strong>UtilDesc</strong> per CPU will be
+returned.</p> </dd></dl><p>Description of <strong>UtilDesc = {Cpus, Busy, NonBusy, Misc}</strong>:</p><dl><dt><strong>Cpus</strong></dt><dd> <p>If the <strong>detailed</strong> and/or <strong>per_cpu</strong> option is
+given, this is the CPU number, or a list of the CPU
+numbers.</p> <p>If not, this is the atom <strong>all</strong> which implies that
+the <strong>UtilDesc</strong> contains information about all CPUs.</p> </dd><dt><strong>Busy</strong></dt><dd> <p>If the <strong>detailed</strong> option is given, this is a list
+of <strong>{State, Share}</strong> tuples, where each tuple
+contains information about a processor state that has
+been identified as a busy processor state (see below).
+The atom <strong>State</strong> is the name of the state, and
+the float <strong>Share</strong> represents the percentage share of
+the CPU cycles spent in this state since the last call to
+<strong>util/0</strong> or <strong>util/1</strong>.</p> <p>If not, this is the sum of the percentage shares of
+the CPU cycles spent in all states identified as busy.</p> <p>If the <strong>per_cpu</strong> is not given, the value(s)
+presented are the average of all CPUs.</p> </dd><dt><strong>NonBusy</strong></dt><dd> <p>Similar to <strong>Busy</strong>, but for processor states that
+have been identified as non-busy (see below).</p> </dd><dt><strong>Misc</strong></dt><dd> <p>Currently unused; reserved for future use.</p> </dd></dl><p>Currently these processor states are identified as busy:</p><dl><dt><strong>user</strong></dt><dd> <p>Executing code in user mode.</p> </dd><dt><strong>nice_user</strong></dt><dd> <p>Executing code in low priority (nice) user mode.
+This state is currently only identified on Linux.</p> </dd><dt><strong>kernel</strong></dt><dd> <p>Executing code in kernel mode.</p> </dd></dl><p>Currently these processor states are identified as non-busy:</p><dl><dt><strong>wait</strong></dt><dd> <p>Waiting. This state is currently only identified on
+Solaris.</p> </dd><dt><strong>idle</strong></dt><dd> <p>Idle.</p> </dd></dl><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Identified processor states may be different on different
+operating systems and may change between different versions
+of <strong>cpu_sup</strong> on the same operating system. The sum of
+the percentage shares of the CPU cycles spent in all busy
+and all non-busy processor states will always add up to
+100%, though.</p></div><p>Returns <strong>{all,0,0,[]}</strong> if <strong>cpu_sup</strong> is not
+available.</p><h3>See Also</h3><p><a href="os_mon_app">os_mon(3)</a></p><h2>disksup</h2><p>A Disk Supervisor Process</p><p><strong>disksup</strong> is a process which supervises the available disk
+space in the system. It is part of the OS_Mon application, see
+<a href="os_mon_app">os_mon(6)</a>. Available for Unix
+and Windows.Periodically checks the disks. For each disk or partition which
+uses more than a certain amount of the available space, the alarm
+<strong>{{disk_almost_full, MountedOn}, []}</strong> is set.<dl><dt>On Unix</dt><dd> <p>All (locally) mounted disks are checked, including the swap
+disk if it is present.</p> </dd><dt>On WIN32</dt><dd> <p>All logical drives of type "FIXED_DISK" are checked.</p> </dd></dl>Alarms are reported to the SASL alarm handler, see
+<a href="./alarm_handler">alarm_handler(3)</a>.
+To set an alarm, <strong>alarm_handler:set_alarm(Alarm)</strong> is called
+where <strong>Alarm</strong> is the alarm specified above.The alarms are cleared automatically when the alarm cause is no
+longer valid.</p><a name="config"></a><h3>Configuration</h3><p>The following configuration parameters can be used to change
+the default values for time interval and threshold:</p><dl><dt><strong>disk_space_check_interval = int()&gt;0</strong></dt><dd> <p>The time interval, in minutes, for the periodic disk space
+check. The default is 30 minutes.</p> </dd><dt><strong>disk_almost_full_threshold = float()</strong></dt><dd> <p>The threshold, as percentage of total disk space, for how
+much disk can be utilized before the <strong>disk_almost_full</strong>
+alarm is set. The default is 0.80 (80%).</p> </dd><dt><strong>disksup_posix_only = bool()</strong></dt><dd> <p>Specifies whether the <strong>disksup</strong> helper process should only
+use POSIX conformant commands (<strong>true</strong>) or not. The default is
+<strong>false</strong>. Setting this parameter to <strong>true</strong> can be
+necessary on embedded systems with stripped-down versions
+of Unix tools like <strong>df</strong>. The returned disk data and alarms
+can be different when using this option.</p> <p>The parameter is ignored on platforms that are known to not be
+posix compatible (Windows and SunOS).</p> </dd></dl><p>See <a href="./config">config(4)</a> for
+information about how to change the value of configuration
+parameters.</p><h2>Functions</h2><h3>get_disk_data() -&gt; [DiskData]</h3><p>Get data for the disks in the system</p><ul><li><span class="v">DiskData = {Id, KByte, Capacity}</span></li><li><span class="v">Â Id = string()</span></li><li><span class="v">Â KByte = int()</span></li><li><span class="v">Â Capacity = int()</span></li></ul><p>Returns the result of the latest disk check. <strong>Id</strong> is a
+string that identifies the disk or partition. <strong>KByte</strong> is
+the total size of the disk or partition in kbytes.
+<strong>Capacity</strong> is the percentage of disk space used.</p><p>The function is asynchronous in the sense that it does not
+invoke a disk check, but returns the latest available value.</p><p>Returns <strong>[{"none",0,0}]</strong> if <strong>disksup</strong> is not
+available.</p><h3>get_check_interval() -&gt; MS</h3><p>Get time interval, in milliseconds, for the periodic disk space check</p><ul><li><span class="v">MS = int()</span></li></ul><p>Returns the time interval, in milliseconds, for the periodic
+disk space check.</p><h3>set_check_interval(Minutes) -&gt; ok</h3><p>Set time interval, in minutes, for the periodic disk space check</p><ul><li><span class="v">Minutes = int()&gt;=1</span></li></ul><p>Changes the time interval, given in minutes, for the periodic
+disk space check.</p><p>The change will take effect after the next disk space check
+and is non-persist. That is, in case of a process restart,
+this value is forgotten and the default value will be used.
+See <a href="#config">Configuration</a> above.</p><h3>get_almost_full_threshold() -&gt; Percent</h3><p>Get threshold, in percent, for disk space utilization</p><ul><li><span class="v">Percent = int()</span></li></ul><p>Returns the threshold, in percent, for disk space utilization.</p><h3>set_almost_full_threshold(Float) -&gt; ok</h3><p>Set threshold, as percentage represented by a float, for disk space utilization</p><ul><li><span class="v">Float = float(), 0=&lt;Float=&lt;1</span></li></ul><p>Changes the threshold, given as a float, for disk space
+utilization.</p><p>The change will take effect during the next disk space check
+and is non-persist. That is, in case of a process restart,
+this value is forgotten and the default value will be used.
+See <a href="#config">Configuration</a> above.</p><h3>See Also</h3><p><a href="./alarm_handler">alarm_handler(3)</a>,
+<a href="os_mon_app">os_mon(3)</a></p><h2>memsup</h2><p>A Memory Supervisor Process</p><p><strong>memsup</strong> is a process which supervises the memory usage for
+the system and for individual processes. It is part of the OS_Mon
+application, see <a href="os_mon_app">os_mon(6)</a>.
+Available for Unix, Windows and VxWorks.Periodically performs a memory check:<ul><li> <p>If more than a certain amount of available system memory is
+allocated, as reported by the underlying operating system,
+the alarm <strong>{system_memory_high_watermark, []}</strong> is set.</p> </li><li> <p>If any Erlang process <strong>Pid</strong> in the system has allocated
+more than a certain amount of total system memory, the alarm
+<strong>{process_memory_high_watermark, Pid}</strong> is set.</p> </li></ul>Alarms are reported to the SASL alarm handler, see
+<a href="./alarm_handler">alarm_handler(3)</a>.
+To set an alarm, <strong>alarm_handler:set_alarm(Alarm)</strong> is called
+where <strong>Alarm</strong> is either of the alarms specified above.The alarms are cleared automatically when the alarm cause is no
+longer valid.The function 
+<a href="#get_memory_data/0">get_memory_data()</a>
+can be used to retrieve the result of the latest periodic memory
+check.There is also a interface to system dependent memory data,
+<a href="#get_system_memory_data/0">get_system_memory_data()</a>.
+The result is highly dependent on the underlying operating
+system and the interface is targeted primarily for systems
+without virtual memory (e.g. VxWorks). The output on other
+systems is however still valid, although sparse.A call to <strong>get_system_memory_data/0</strong> is more costly
+than a call to <strong>get_memory_data/0</strong> as data is collected
+synchronously when this function is called.The total system memory reported under UNIX is the number of
+physical pages of memory times the page size, and the available
+memory is the number of available physical pages times the page
+size. This is a reasonable measure as swapping should be avoided
+anyway, but the task of defining total memory and available
+memory is difficult because of virtual memory and swapping.</p><a name="config"></a><h3>Configuration</h3><p>The following configuration parameters can be used to change
+the default values for time intervals and thresholds:</p><dl><dt><strong>memory_check_interval = int()&gt;0</strong></dt><dd> <p>The time interval, in minutes, for the periodic memory check.
+The default is one minute.</p> </dd><dt><strong>system_memory_high_watermark = float()</strong></dt><dd> <p>The threshold, as percentage of system memory, for how much
+system memory can be allocated before the corresponding alarm
+is set. The default is 0.80 (80%).</p> </dd><dt><strong>process_memory_high_watermark = float()</strong></dt><dd> <p>The threshold, as percentage of system memory, for how much
+system memory can be allocated by one Erlang process before
+the corresponding alarm is set. The default is 0.05 (5%).</p> </dd><dt><strong>memsup_helper_timeout = int()&gt;0</strong></dt><dd> <p>A timeout, in seconds, for how long the <strong>memsup</strong>
+process should wait for a result from a memory check. If
+the timeout expires, a warning message <strong>"OS_MON (memsup) timeout"</strong> is issued via <strong>error_logger</strong> and any
+pending, synchronous client calls will return a dummy value.
+Normally, this situation should not occur. There have been
+cases on Linux, however, where the pseudo file from which
+system data is read is temporarily unavailable when the system
+is heavily loaded.</p> <p>The default is 30 seconds. </p> </dd><dt><strong>memsup_system_only = bool()</strong></dt><dd> <p>Specifies whether the <strong>memsup</strong> process should only
+check system memory usage (<strong>true</strong>) or not. The default is
+<strong>false</strong>, meaning that information regarding both system
+memory usage and Erlang process memory usage is collected.</p> <p>It is recommended to set this parameter to <strong>false</strong> on
+systems with many concurrent processes, as each process memory
+check makes a traversal of the entire list of processes.</p> </dd></dl><p>See <a href="./config">config(4)</a> for
+information about how to change the value of configuration
+parameters.</p><h2>Functions</h2><h3>get_memory_data() -&gt; {Total,Allocated,Worst}</h3><p>Get data for the memory in the system</p><ul><li><span class="v">Total = Allocated = int()</span></li><li><span class="v">Worst = {Pid, PidAllocated} | undefined</span></li><li><span class="v">Â Pid = pid()</span></li><li><span class="v">Â PidAllocated = int()</span></li></ul><p>Returns the result of the latest memory check, where
+<strong>Total</strong> is the total memory size and <strong>Allocated</strong>
+the allocated memory size, in bytes.</p><p><strong>Worst</strong> is the pid and number of allocated bytes of
+the largest Erlang process on the node. If <strong>memsup</strong>
+should not collect process data, that is if the configuration
+parameter <strong>memsup_system_only</strong> was set to <strong>true</strong>,
+<strong>Worst</strong> is <strong>undefined</strong>.</p><p>The function is normally asynchronous in the sense that it
+does not invoke a memory check, but returns the latest
+available value. The one exception if is the function is
+called before a first memory check is finished, in which case
+it does not return a value until the memory check is finished.</p><p>Returns <strong>{0,0,{pid(),0}}</strong> or <strong>{0,0,undefined}</strong> if
+<strong>memsup</strong> is not available, or if all memory checks so far
+have timed out.</p><h3>get_system_memory_data() -&gt; MemDataList</h3><p>Get system dependent memory data</p><ul><li><span class="v">MemDataList = [{Tag, Size}]</span></li><li><span class="v">Â Tag = atom()</span></li><li><span class="v">Â Size = int()</span></li></ul><p>Invokes a memory check and returns the resulting, system
+dependent, data as a list of tagged tuples, where <strong>Tag</strong>
+can be one of the following:</p><dl><dt><strong>total_memory</strong></dt><dd>The total amount of memory available to the Erlang emulator, allocated and free. May or may not be equal to the amount of memory configured in the system.</dd><dt><strong>free_memory</strong></dt><dd>The amount of free memory available to the Erlang emulator for allocation.</dd><dt><strong>system_total_memory</strong></dt><dd>The amount of memory available to the whole operating system. This may well be equal to <strong>total_memory</strong> but not necessarily.</dd><dt><strong>largest_free</strong></dt><dd>The size of the largest contiguous free memory block available to the Erlang emulator.</dd><dt><strong>number_of_free</strong></dt><dd>The number of free blocks available to the Erlang runtime system. This gives a fair indication of how fragmented the memory is.</dd><dt><strong>buffered_memory</strong></dt><dd> The amount of memory the system uses for temporary storing raw disk blocks. </dd><dt><strong>cached_memory</strong></dt><dd> The amount of memory the system uses for cached files read from disk. </dd><dt><strong>total_swap</strong></dt><dd> The amount of total amount of memory the system has available for disk swap. </dd><dt><strong>free_swap</strong></dt><dd> The amount of memory the system has available for disk swap. </dd></dl><p>All memory sizes are presented as number of <em>bytes</em>.</p><p>The <strong>largest_free</strong> and <strong>number_of_free</strong> tags are
+currently only returned on a VxWorks system.</p><p>Returns the empty list [] if <strong>memsup</strong> is not available,
+or if the memory check times out.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+On linux the memory available to the emulator is <strong>cached_memory</strong> and <strong>buffered_memory</strong> in addition to 
+<strong>free_memory</strong>.</p></div><h3>get_os_wordsize() -&gt; Wordsize</h3><p>Get the wordsize of running os.</p><ul><li><span class="v">Wordsize = 32 | 64 | unsupported_os</span></li></ul><p>Returns the wordsize of the current running operating system. </p><h3>get_check_interval() -&gt; MS</h3><p>Get time interval, in milliseconds, for the periodic memory check</p><ul><li><span class="v">MS = int()</span></li></ul><p>Returns the time interval, in milliseconds, for the periodic
+memory check.</p><h3>set_check_interval(Minutes) -&gt; ok</h3><p>Set time interval, in minutes, for the periodic memory check</p><ul><li><span class="v">Minutes = int()&gt;0</span></li></ul><p>Changes the time interval, given in minutes, for the periodic
+memory check.</p><p>The change will take effect after the next memory check and is
+non-persistent. That is, in case of a process restart, this
+value is forgotten and the default value will be used. See
+<a href="#config">Configuration</a> above.</p><h3>get_procmem_high_watermark() -&gt; int()</h3><p>Get threshold, in percent, for process memory allocation</p><p>Returns the threshold, in percent, for process memory
+allocation.</p><h3>set_procmem_high_watermark(Float) -&gt; ok</h3><p>Set threshold, as percentage represented by a float, for process memory allocation</p><p>Changes the threshold, given as a float, for process memory
+allocation.</p><p>The change will take effect during the next periodic memory
+check and is non-persistent. That is, in case of a process
+restart, this value is forgotten and the default value will be
+used. See <a href="#config">Configuration</a>
+above.</p><h3>get_sysmem_high_watermark() -&gt; int()</h3><p>Get threshold, in percent, for system memory allocation</p><p>Returns the threshold, in percent, for system memory
+allocation.</p><h3>set_sysmem_high_watermark(Float) -&gt; ok</h3><p>Set threshold, given as a float, for system memory allocation</p><p>Changes the threshold, given as a float, for system memory
+allocation.</p><p>The change will take effect during the next periodic memory
+check and is non-persistent. That is, in case of a process
+restart, this value is forgotten and the default value will be
+used. See <a href="#config">Configuration</a>
+above.</p><h3>get_helper_timeout() -&gt; Seconds</h3><p>Get the timeout value, in seconds, for memory checks</p><ul><li><span class="v">Seconds = int()</span></li></ul><p>Returns the timeout value, in seconds, for memory checks.</p><h3>set_helper_timeout(Seconds) -&gt; ok</h3><p>Set the timeout value, in seconds, for memory checks</p><ul><li><span class="v">Seconds = int() (&gt;= 1)</span></li></ul><p>Changes the timeout value, given in seconds, for memory
+checks.</p><p>The change will take effect for the next memory check and is
+non-persistent. That is, in the case of a process restart, this
+value is forgotten and the default value will be used. See
+<a href="#config">Configuration</a> above.</p><h3>See Also</h3><p><a href="./alarm_handler">alarm_handler(3)</a>,
+<a href="os_mon_app">os_mon(3)</a></p><h2>os_sup</h2><p>Interface to OS System Messages</p><p><strong>os_sup</strong> is a process providing a message passing service
+from the operating system to the error logger in the Erlang
+runtime system. It is part of the OS_Mon application, see
+<a href="os_mon_app">os_mon(6)</a>. Available for
+Solaris and Windows.Messages received from the operating system results in an
+user defined callback function being called. This function can do
+whatever filtering and formatting is necessary and then deploy any
+type of logging suitable for the user's application.</p><h3>Solaris Operation</h3><p>The Solaris (SunOS 5.x) messages are retrieved from
+the syslog-daemon, <strong>syslogd</strong>.</p><p>Enabling the service includes actions which require root
+privileges, such as change of ownership and file privileges of an
+executable binary file, and creating a modified copy of
+the configuration file for <strong>syslogd</strong>. When <strong>os_sup</strong> is
+terminated, the service must be disabled, meaning the original
+configuration must be restored. Enabling/disabling can be done
+either outside or inside <strong>os_sup</strong>, see
+<a href="#config">Configuration</a> below.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>This process cannot run in multiple instances on the same
+hardware. OS_Mon must be configured to start <strong>os_sup</strong> on
+one node only if two or more Erlang nodes execute on the same
+machine.</p></div><p>The format of received events is not defined.</p><h3>Windows Operation</h3><p>The Windows messages are retrieved from the eventlog file.</p><p>The <strong>nteventlog</strong> module is used to implement <strong>os_sup</strong>.
+See <a href="nteventlog">nteventlog(3)</a>. Note
+that the start functions of <strong>nteventlog</strong> does not need to be
+used, in this case the process is started automatically as part of
+the OS_Mon supervision tree.</p><p>OS messages are formatted as a tuple
+<strong>{Time, Category, Facility, Severity, Message}</strong>:</p><dl><dt><strong>Time = {MegaSecs, Secs, MicroSecs}</strong></dt><dd> <p>A time stamp as returned by the BIF <strong>now()</strong>.</p> </dd><dt><strong>Category = string()</strong></dt><dd> <p>Usually one of <strong>"System"</strong>, <strong>"Application"</strong> or
+<strong>"Security"</strong>. Note that the NT eventlog viewer has
+another notion of category, which in most cases is totally
+meaningless and therefore not imported into Erlang. What is
+called a category here is one of the main three types of
+events occurring in a normal NT system.</p> </dd><dt><strong>Facility = string()</strong></dt><dd> <p>The source of the message, usually the name of
+the application that generated it. This could be almost any
+string. When matching messages from certain applications,
+the version number of the application may have to be
+accounted for. This is what the NT event viewer calls
+"source".</p> </dd><dt><strong>Severity = string()</strong></dt><dd> <p>One of <strong>"Error"</strong>, <strong>"Warning"</strong>,
+<strong>"Informational"</strong>, <strong>"Audit_Success"</strong>,
+<strong>"Audit_Faulure"</strong> or, in case of a currently unknown
+Windows NT version <strong>"Severity_Unknown"</strong>.</p> </dd><dt><strong>Message = string()</strong></dt><dd> <p>Formatted exactly as it would be in the NT eventlog viewer.
+Binary data is not imported into Erlang.</p> </dd></dl><a name="config"></a><h3>Configuration</h3><dl><dt><strong>os_sup_mfa = {Module, Function, Args}</strong></dt><dd> <p>The callback function to use. <strong>Module</strong> and
+<strong>Function</strong> are atoms and <strong>Args</strong> is a list of terms.
+When an OS message <strong>Msg</strong> is received, this function is
+called as <strong>apply(Module, Function, [Msg | Args])</strong>.</p> <p>Default is <strong>{os_sup, error_report, [Tag]}</strong> which will
+send the event to the error logger using
+<a href="../kernel/error_logger#error_report/2">error_logger:error_report(Tag, Msg)</a>. <strong>Tag</strong> is the value of
+<strong>os_sup_errortag</strong>, see below.</p> </dd><dt><strong>os_sup_errortag = atom()</strong></dt><dd> <p>This parameter defines the error report type used when
+messages are sent to error logger using the default callback
+function. Default is <strong>std_error</strong>, which means the events
+are handled by the standard event handler.</p> </dd><dt><strong>os_sup_enable = bool()</strong></dt><dd> <p>Solaris only. Defines if the service should be enabled (and
+disabled) inside (<strong>true</strong>) or outside (<strong>false</strong>)
+<strong>os_sup</strong>. For backwards compatibility reasons,
+the default is <strong>true</strong>. The recommended value is
+<strong>false</strong>, as the Erlang emulator should normally not be
+run with <strong>root</strong> privileges, as is required for enabling
+the service.</p> </dd><dt><strong>os_sup_own = string()</strong></dt><dd> <p>Solaris only. Defines the directory which contains
+the backup copy and the Erlang specific configuration files
+for <strong>syslogd</strong>, and a named pipe to receive the messages
+from <strong>syslogd</strong>. Default is <strong>"/etc"</strong>.</p> </dd><dt><strong>os_sup_syslogconf = string()</strong></dt><dd> <p>Solaris only. Defines the full name of the configuration file
+for <strong>syslogd</strong>. Default is <strong>"/etc/syslog.conf"</strong>.</p> </dd></dl><h2>Functions</h2><h3>enable() -&gt; ok | {error, Res}</h3><h3>enable(Dir, Conf) -&gt; ok | {error, Error}</h3><p>Enable the service (Solaris only)</p><ul><li><span class="v">Dir = Conf = Res = string()</span></li></ul><p>Enables the <strong>os_sup</strong> service. Needed on Solaris only.</p><p>If the configuration parameter <strong>os_sup_enable</strong> is
+<strong>false</strong>, this function is called automatically by
+<strong>os_sup</strong>, using the values of <strong>os_sup_own</strong> and
+<strong>os_sup_syslogconf</strong> as arguments.</p><p>If <strong>os_sup_enable</strong> is <strong>true</strong>, this function must
+be called <em>before</em> OS_Mon/<strong>os_sup</strong> is started.
+<strong>Dir</strong> defines the directory which contains the backup
+copy and the Erlang specific configuration files for
+<strong>syslogd</strong>, and a named pipe to receive the messages
+from <strong>syslogd</strong>. Defaults to <strong>"/etc"</strong>. <strong>Conf</strong>
+defines the full name of the configuration file for
+<strong>syslogd</strong>. Default is <strong>"/etc/syslog.conf"</strong>.</p><p>Results in a OS call to:</p><pre><code class="">
+&lt;PRIVDIR&gt;/bin/mod_syslog otp Dir Conf
+        </code></pre><p>where <strong>&lt;PRIVDIR&gt;</strong> is the <strong>priv</strong> directory of
+OS_Mon, <strong>code:priv_dir(os_mon)</strong>.</p><p>Returns <strong>ok</strong> if this yields the expected result
+<strong>"0"</strong>, and <strong>{error, Res}</strong> if it yields anything
+else.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This function requires root privileges to succeed.</p></div><h3>disable() -&gt; ok | {error, Res}</h3><h3>disable(Dir, Conf) -&gt; ok | {error, Error}</h3><p>Disable the service (Solaris only)</p><ul><li><span class="v">Dir = Conf = Res = string()</span></li></ul><p>Disables the <strong>os_sup</strong> service. Needed on Solaris only.</p><p>If the configuration parameter <strong>os_sup_enable</strong> is
+<strong>false</strong>, this function is called automatically by
+<strong>os_sup</strong>, using the same arguments as when
+<strong>enable/2</strong> was called.</p><p>If <strong>os_sup_enable</strong> is <strong>true</strong>, this function must
+be called <em>after</em> OS_Mon/<strong>os_sup</strong> is stopped.
+<strong>Dir</strong> defines the directory which contains the backup
+copy and the Erlang specific configuration files for
+<strong>syslogd</strong>, and a named pipe to receive the messages
+from <strong>syslogd</strong>. Defaults to <strong>"/etc"</strong>. <strong>Conf</strong>
+defines the full name of the configuration file for
+<strong>syslogd</strong>. Default is <strong>"/etc/syslog.conf"</strong>.</p><p>Results in a OS call to:</p><pre><code class="">
+&lt;PRIVDIR&gt;/bin/mod_syslog nootp Dir Conf
+        </code></pre><p>where <strong>&lt;PRIVDIR&gt;</strong> is the <strong>priv</strong> directory of
+OS_Mon, <strong>code:priv_dir(os_mon)</strong>.</p><p>Returns <strong>ok</strong> if this yields the expected result
+<strong>"0"</strong>, and <strong>{error, Res}</strong> if it yields anything
+else.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This function requires root privileges to succeed.</p></div><h3>See also</h3><p><a href="./error_logger">error_logger(3)</a>,
+<a href="os_mon_app">os_mon(3)</a></p><p><strong>syslogd(1M)</strong>, <strong>syslog.conf(4)</strong> in the Solaris
+documentation.</p><h2>nteventlog</h2><p>Interface to Windows Event Log</p><p><strong>nteventlog</strong> provides a generic interface to the Windows
+event log. It is part of the OS_Mon application, see
+<a href="os_mon_app">os_mon(6)</a>. Available for
+Windows versions where the event log is available. That is, not
+for Windows 98 and some other older Windows versions, but for most
+(all?) newer Windows versions.This module is used as the Windows backend for <strong>os_sup</strong>, see
+<a href="os_sup">os_sup(3)</a>.To retain backwards compatibility, this module can also be used
+to start a standalone <strong>nteventlog</strong> process which is not part
+of the OS_Mon supervision tree. When starting such a process,
+the user has to supply an identifier as well as a callback
+function to handle the messages.The identifier, an arbitrary string, should be reused whenever
+the same application (or node) wants to start the process.
+<strong>nteventlog</strong> is informed about all events that have arrived
+to the eventlog since the last accepted message for the current
+identifier. As long as the same identifier is used, the same
+eventlog record will not be sent to <strong>nteventlog</strong> more than
+once (with the exception of when graved system failures arise, in
+which case the last records written before the failure may be
+sent to Erlang again after reboot).If the event log is configured to wrap around automatically,
+records that have arrived to the log and been overwritten when
+<strong>nteventlog</strong> was not running are lost. It however detects
+this state and loses no records that are not overwritten.The callback function works as described in <strong>os_sup(3)</strong>.</p><h2>Functions</h2><h3>start(Identifier, MFA) -&gt; Result</h3><h3>start_link(Identifier, MFA) -&gt; Result</h3><p>Start the NT eventlog server</p><ul><li><span class="v">Identifier = string() | atom()</span></li><li><span class="v">MFA = {Mod, Func, Args}</span></li><li><span class="v">Â Mod = Func = atom()</span></li><li><span class="v">Â Args = [term()]</span></li><li><span class="v">Result = {ok, Pid} | {error, {already_started, Pid}}</span></li><li><span class="v">Pid = pid()</span></li></ul><p>This function starts the standalone <strong>nteventlog</strong> process
+and, if <strong>start_link/2</strong> is used, links to it.</p><p><strong>Identifier</strong> is an identifier as described above.</p><p><strong>MFA</strong> is the supplied callback function. When
+<strong>nteventlog</strong> receives information about a new event, this
+function will be called as <strong>apply(Mod, Func, [Event|Args])</strong> where <strong>Event</strong> is a tuple</p><h3>stop() -&gt; stopped</h3><p>Stop the NT eventlog server</p><ul><li><span class="v">Result = stopped</span></li></ul><p>Stops <strong>nteventlog</strong>. Usually only used during
+development. The server does not have to be shut down
+gracefully to maintain its state.</p><h3>See Also</h3><p><a href="os_mon_app">os_mon(6)</a>,
+<a href="os_sup">os_sup(3)</a></p><p>Windows NT documentation</p></body></html>

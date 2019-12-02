@@ -1,0 +1,248 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>erl_tracer</h1><h1>erl_tracer</h1><p>Erlang tracer behavior.</p><p>This behavior module implements the back end of the Erlang
+tracing system. The functions in this module are called whenever
+a trace probe is triggered. Both the <strong>enabled</strong> and <strong>trace</strong>
+functions are called in the context of the entity that triggered the
+trace probe.
+This means that the overhead by having the tracing enabled is
+greatly effected by how much time is spent in these functions. So, do as
+little work as possible in these functions.</p><h1>Data Types</h1><span class="name">trace_tag_call</span><span class="name">trace_tag_gc</span><span class="name">trace_tag_ports</span><span class="name">trace_tag_procs</span><span class="name">trace_tag_receive</span><span class="name">trace_tag_running_ports</span><span class="name">trace_tag_running_procs</span><span class="name">trace_tag_send</span><span class="name">trace_tag</span><p>The different trace tags that the tracer is called with.
+Each trace tag is described in detail in
+<a href="#Module:trace/5">Module:trace/5</a>.</p><span class="name">tracee</span><p>The process or port that the trace belongs to.</p><span class="name">trace_opts</span><p>The options for the tracee:</p><dl><dt><strong>timestamp</strong></dt><dd>If set the tracer has been requested to include a time stamp.</dd><dt><strong>extra</strong></dt><dd>If set the tracepoint has included additional data about the trace event. What the additional data is depends on which <strong>TraceTag</strong> has been triggered. The <strong>extra</strong> trace data corresponds to the fifth element in the trace tuples described in <a href="./erlang#trace_3_trace_messages"> erlang:trace/3</a>.</dd><dt><strong>match_spec_result</strong></dt><dd>If set the tracer has been requested to include the output of a match specification that was run.</dd><dt><strong>scheduler_id</strong></dt><dd>If set the scheduler id is to be included by the tracer.</dd></dl><span class="name">tracer_state</span><p>The state specified when calling
+<a href="./erlang#trace-3">erlang#trace-3</a>.
+The tracer state is an immutable value that is passed to
+<strong>erl_tracer</strong> callbacks and is to
+contain all the data that is needed to generate the trace event.</p><h2>Callback Functions</h2><p>The following functions are to be exported from an <strong>erl_tracer</strong>
+callback module:</p><dl><dt><a href="#Module:enabled/3">Module:enabled/3</a></dt><dd>Mandatory</dd><dt><a href="#Module:trace/5">Module:trace/5</a></dt><dd>Mandatory</dd><dt><a href="#Module:enabled_call/3">Module:enabled_call/3</a></dt><dd>Optional</dd><dt><a href="#Module:trace_call/5">Module:trace_call/5</a></dt><dd>Optional</dd><dt><a href="#Module:enabled_garbage_collection/3">Module:enabled_garbage_collection/3</a></dt><dd>Optional</dd><dt><a href="#Module:trace_garbage_collection/5">Module:trace_garbage_collection/5</a></dt><dd>Optional</dd><dt><a href="#Module:enabled_ports/3">Module:enabled_ports/3</a></dt><dd>Optional</dd><dt><a href="#Module:trace_ports/5">Module:trace_ports/5</a></dt><dd>Optional</dd><dt><a href="#Module:enabled_procs/3">Module:enabled_procs/3</a></dt><dd>Optional</dd><dt><a href="#Module:trace_procs/5">Module:trace_procs/5</a></dt><dd>Optional</dd><dt><a href="#Module:enabled_receive/3">Module:enabled_receive/3</a></dt><dd>Optional</dd><dt><a href="#Module:trace_receive/5">Module:trace_receive/5</a></dt><dd>Optional</dd><dt><a href="#Module:enabled_running_ports/3">Module:enabled_running_ports/3</a></dt><dd>Optional</dd><dt><a href="#Module:trace_running_ports/5">Module:trace_running_ports/5</a></dt><dd>Optional</dd><dt><a href="#Module:enabled_running_procs/3">Module:enabled_running_procs/3</a></dt><dd>Optional</dd><dt><a href="#Module:trace_running_procs/5">Module:trace_running_procs/5</a></dt><dd>Optional</dd><dt><a href="#Module:enabled_send/3">Module:enabled_send/3</a></dt><dd>Optional</dd><dt><a href="#Module:trace_send/5">Module:trace_send/5</a></dt><dd>Optional</dd></dl><h1>Functions</h1><h2>Module:enabled(TraceTag, TracerState, Tracee) -&gt; Result</h2><p>Check if a trace event is to be generated.</p><ul><li><span class="v">TraceTag =  | trace_status</span></li><li><span class="v">TracerState = term()</span></li><li><span class="v">Tracee = </span></li><li><span class="v">Result = trace | discard | remove</span></li></ul><p>This callback is called whenever a tracepoint is triggered. It
+allows the tracer to decide whether a trace is to be generated or not.
+This check is made as early as possible to limit the amount of
+overhead associated with tracing. If <strong>trace</strong> is returned, the
+necessary trace data is created and the trace callback of the tracer
+is called. If <strong>discard</strong> is returned, this trace call is
+discarded and no call to trace is done.</p><p><strong>trace_status</strong> is a special type of <strong>TraceTag</strong>, which is
+used to check if the tracer is still to be active. It is called in
+multiple scenarios, but most significantly it is used when tracing
+is started using this tracer. If <strong>remove</strong> is returned when the
+<strong>trace_status</strong> is checked, the tracer is removed from the
+tracee.</p><p>This function can be called multiple times per tracepoint, so it
+is important that it is both fast and without side effects.</p><h2>Module:enabled_call(TraceTag, TracerState, Tracee) -&gt; Result</h2><p>Check if a trace event is to be generated.</p><ul><li><span class="v">TraceTag = </span></li><li><span class="v">TracerState = term()</span></li><li><span class="v">Tracee = </span></li><li><span class="v">Result = trace | discard | remove</span></li></ul><p>This callback is called whenever a tracepoint with trace flag
+<a href="./erlang#trace-3">erlang#trace-3</a>
+is triggered.</p><p>If <strong>enabled_call/3</strong> is undefined,
+<a href="#Module:enabled/3">Module:enabled/3</a>
+is called instead.</p><h2>Module:enabled_garbage_collection(TraceTag, TracerState, Tracee) -&gt; Result</h2><p>Check if a trace event is to be generated.</p><ul><li><span class="v">TraceTag = </span></li><li><span class="v">TracerState = term()</span></li><li><span class="v">Tracee = </span></li><li><span class="v">Result = trace | discard | remove</span></li></ul><p>This callback is called whenever a tracepoint with trace flag
+<a href="./erlang#trace-3">erlang#trace-3</a>
+is triggered.</p><p>If <strong>enabled_garbage_collection/3</strong> is undefined,
+<a href="#Module:enabled/3">Module:enabled/3</a>
+is called instead.</p><h2>Module:enabled_ports(TraceTag, TracerState, Tracee) -&gt; Result</h2><p>Check if a trace event is to be generated.</p><ul><li><span class="v">TraceTag = </span></li><li><span class="v">TracerState = term()</span></li><li><span class="v">Tracee = </span></li><li><span class="v">Result = trace | discard | remove</span></li></ul><p>This callback is called whenever a tracepoint with trace flag
+<a href="./erlang#trace-3">erlang#trace-3</a>
+is triggered.</p><p>If <strong>enabled_ports/3</strong> is undefined,
+<a href="#Module:enabled/3">Module:enabled/3</a>
+is called instead.</p><h2>Module:enabled_procs(TraceTag, TracerState, Tracee) -&gt; Result</h2><p>Check if a trace event is to be generated.</p><ul><li><span class="v">TraceTag = </span></li><li><span class="v">TracerState = term()</span></li><li><span class="v">Tracee = </span></li><li><span class="v">Result = trace | discard | remove</span></li></ul><p>This callback is called whenever a tracepoint with trace flag
+<a href="./erlang#trace-3">erlang#trace-3</a>
+is triggered.</p><p>If <strong>enabled_procs/3</strong> is undefined,
+<a href="#Module:enabled/3">Module:enabled/3</a>
+is called instead.</p><h2>Module:enabled_receive(TraceTag, TracerState, Tracee) -&gt; Result
+</h2><p>Check if a trace event is to be generated.</p><ul><li><span class="v">TraceTag = </span></li><li><span class="v">TracerState = term()</span></li><li><span class="v">Tracee = </span></li><li><span class="v">Result = trace | discard | remove</span></li></ul><p>This callback is called whenever a tracepoint with trace flag
+<a href="./erlang#trace-3">erlang#trace-3</a>
+is triggered.</p><p>If <strong>enabled_receive/3</strong> is undefined,
+<a href="#Module:enabled/3">Module:enabled/3</a>
+is called instead.</p><h2>Module:enabled_running_ports(TraceTag, TracerState, Tracee) -&gt;
+        Result</h2><p>Check if a trace event is to be generated.</p><ul><li><span class="v">TraceTag = </span></li><li><span class="v">TracerState = term()</span></li><li><span class="v">Tracee = </span></li><li><span class="v">Result = trace | discard | remove</span></li></ul><p>This callback is called whenever a tracepoint with trace flag
+<a href="./erlang#trace-3">erlang#trace-3</a>
+is triggered.</p><p>If <strong>enabled_running_ports/3</strong> is undefined,
+<a href="#Module:enabled/3">Module:enabled/3</a>
+is called instead.</p><h2>Module:enabled_running_procs(TraceTag, TracerState, Tracee) -&gt;
+        Result</h2><p>Check if a trace event is to be generated.</p><ul><li><span class="v">TraceTag = </span></li><li><span class="v">TracerState = term()</span></li><li><span class="v">Tracee = </span></li><li><span class="v">Result = trace | discard | remove</span></li></ul><p>This callback is called whenever a tracepoint with trace flag
+<a href="./erlang#trace-3">erlang#trace-3</a>
+is triggered.</p><p>If <strong>enabled_running_procs/3</strong> is undefined,
+<a href="#Module:enabled/3">Module:enabled/3</a>
+is called instead.</p><h2>Module:enabled_send(TraceTag, TracerState, Tracee) -&gt; Result</h2><p>Check if a trace event is to be generated.</p><ul><li><span class="v">TraceTag = </span></li><li><span class="v">TracerState = term()</span></li><li><span class="v">Tracee = </span></li><li><span class="v">Result = trace | discard | remove</span></li></ul><p>This callback is called whenever a tracepoint with trace flag
+<a href="./erlang#trace-3">erlang#trace-3</a>
+is triggered.</p><p>If <strong>enabled_send/3</strong> is undefined,
+<a href="#Module:enabled/3">Module:enabled/3</a>
+is called instead.</p><h2>Module:trace(TraceTag, TracerState, Tracee, TraceTerm,
+        Opts) -&gt; Result</h2><p>Check if a trace event is to be generated.</p><ul><li><span class="v">TraceTag = </span></li><li><span class="v">TracerState = term()</span></li><li><span class="v">Tracee = </span></li><li><span class="v">TraceTerm = term()</span></li><li><span class="v">Opts = </span></li><li><span class="v">Result = ok</span></li></ul><p>This callback is called when a tracepoint is triggered and the
+<a href="#Module:enabled/3">Module:enabled/3</a>
+callback returned <strong>trace</strong>. In it any side effects needed by
+the tracer are to be done. The tracepoint payload is located in
+the <strong>TraceTerm</strong>. The content of the <strong>TraceTerm</strong>
+depends on which <strong>TraceTag</strong> is triggered.
+<strong>TraceTerm</strong> corresponds to the
+fourth element in the trace tuples described in
+<a href="./erlang#trace_3_trace_messages">erlang#trace_3_trace_messages</a>.</p><p>If the trace tuple has five elements, the fifth element
+will be sent as the <strong>extra</strong> value in the <strong>Opts</strong> maps.</p><h2>Module:trace(seq_trace, TracerState, Label,
+        SeqTraceInfo, Opts) -&gt; Result</h2><p>Check if a sequence trace event is to be generated.</p><ul><li><span class="v">TracerState = term()</span></li><li><span class="v">Label = term()</span></li><li><span class="v">SeqTraceInfo = term()</span></li><li><span class="v">Opts = </span></li><li><span class="v">Result = ok</span></li></ul><p>The <strong>TraceTag</strong> <strong>seq_trace</strong> is handled slightly
+differently. There is no <strong>Tracee</strong> for <strong>seq_trace</strong>, instead
+the <strong>Label</strong> associated with the <strong>seq_trace</strong> event is
+specified.</p><p>For more information on what <strong>Label</strong> and <strong>SeqTraceInfo</strong>
+can be, see <a href="./seq_trace">kernel/seq_trace</a>.</p><h2>Module:trace_call(TraceTag, TracerState, Tracee, TraceTerm,
+          Opts) -&gt; Result</h2><p>Check if a trace event is to be generated.</p><ul><li><span class="v">TraceTag = </span></li><li><span class="v">TracerState = term()</span></li><li><span class="v">Tracee = </span></li><li><span class="v">TraceTerm = term()</span></li><li><span class="v">Opts = </span></li><li><span class="v">Result = ok</span></li></ul><p>This callback is called when a tracepoint is triggered and the
+<a href="#Module:enabled_call/3">Module:enabled_call/3</a>
+callback returned <strong>trace</strong>.</p><p>If <strong>trace_call/5</strong> is undefined,
+<a href="#Module:trace/5">Module:trace/5</a>
+is called instead.</p><h2>Module:trace_garbage_collection(TraceTag, TracerState, Tracee,
+        TraceTerm, Opts) -&gt; Result</h2><p>Check if a trace event is to be generated.</p><ul><li><span class="v">TraceTag = </span></li><li><span class="v">TracerState = term()</span></li><li><span class="v">Tracee = </span></li><li><span class="v">TraceTerm = term()</span></li><li><span class="v">Opts = </span></li><li><span class="v">Result = ok</span></li></ul><p>This callback is called when a tracepoint is triggered and the
+<a href="#Module:enabled_garbage_collection/3">Module:enabled_garbage_collection/3</a>
+callback returned <strong>trace</strong>.</p><p>If <strong>trace_garbage_collection/5</strong> is undefined,
+<a href="#Module:trace/5">Module:trace/5</a>
+is called instead.</p><h2>Module:trace_ports(TraceTag, TracerState, Tracee, TraceTerm,
+        Opts) -&gt; Result</h2><p>Check if a trace event is to be generated.</p><ul><li><span class="v">TraceTag = </span></li><li><span class="v">TracerState = term()</span></li><li><span class="v">Tracee = </span></li><li><span class="v">TraceTerm = term()</span></li><li><span class="v">Opts = </span></li><li><span class="v">Result = ok</span></li></ul><p>This callback is called when a tracepoint is triggered and the
+<a href="#Module:enabled_ports/3">Module:enabled_ports/3</a>
+callback returned <strong>trace</strong>.</p><p>If <strong>trace_ports/5</strong> is undefined,
+<a href="#Module:trace/5">Module:trace/5</a>
+is called instead.</p><h2>Module:trace_procs(TraceTag, TracerState, Tracee, TraceTerm,
+        Opts) -&gt; Result</h2><p>Check if a trace event is to be generated.</p><ul><li><span class="v">TraceTag = </span></li><li><span class="v">TracerState = term()</span></li><li><span class="v">Tracee = </span></li><li><span class="v">TraceTerm = term()</span></li><li><span class="v">Opts = </span></li><li><span class="v">Result = ok</span></li></ul><p>This callback is called when a tracepoint is triggered and the
+<a href="#Module:enabled_procs/3">Module:enabled_procs/3</a>
+callback returned <strong>trace</strong>.</p><p>If <strong>trace_procs/5</strong> is undefined,
+<a href="#Module:trace/5">Module:trace/5</a>
+is called instead.</p><h2>Module:trace_receive(TraceTag, TracerState, Tracee, TraceTerm,
+        Opts) -&gt; Result</h2><p>Check if a trace event is to be generated.</p><ul><li><span class="v">TraceTag = </span></li><li><span class="v">TracerState = term()</span></li><li><span class="v">Tracee = </span></li><li><span class="v">TraceTerm = term()</span></li><li><span class="v">Opts = </span></li><li><span class="v">Result = ok</span></li></ul><p>This callback is called when a tracepoint is triggered and the
+<a href="#Module:enabled_receive/3">Module:enabled_receive/3</a>
+callback returned <strong>trace</strong>.</p><p>If <strong>trace_receive/5</strong> is undefined,
+<a href="#Module:trace/5">Module:trace/5</a>
+is called instead.</p><h2>Module:trace_running_ports(TraceTag, TracerState, Tracee,
+        TraceTerm, Opts) -&gt; Result</h2><p>Check if a trace event is to be generated.</p><ul><li><span class="v">TraceTag = </span></li><li><span class="v">TracerState = term()</span></li><li><span class="v">Tracee = </span></li><li><span class="v">TraceTerm = term()</span></li><li><span class="v">Opts = </span></li><li><span class="v">Result = ok</span></li></ul><p>This callback is called when a tracepoint is triggered and the
+<a href="#Module:enabled_running_ports/3">Module:enabled_running_ports/3</a>
+callback returned <strong>trace</strong>.</p><p>If <strong>trace_running_ports/5</strong> is undefined,
+<a href="#Module:trace/5">Module:trace/5</a>
+is called instead.</p><h2>Module:trace_running_procs(TraceTag, TracerState, Tracee,
+        TraceTerm, Opts) -&gt; Result</h2><p>Check if a trace event is to be generated.</p><ul><li><span class="v">TraceTag = </span></li><li><span class="v">TracerState = term()</span></li><li><span class="v">Tracee = </span></li><li><span class="v">TraceTerm = term()</span></li><li><span class="v">Opts = </span></li><li><span class="v">Result = ok</span></li></ul><p>This callback is called when a tracepoint is triggered and the
+<a href="#Module:enabled_running_procs/3">Module:enabled_running_procs/3</a>
+callback returned <strong>trace</strong>.</p><p>If <strong>trace_running_procs/5</strong> is undefined,
+<a href="#Module:trace/5">Module:trace/5</a>
+is called instead.</p><h2>Module:trace_send(TraceTag, TracerState, Tracee, TraceTerm,
+        Opts) -&gt; Result</h2><p>Check if a trace event is to be generated.</p><ul><li><span class="v">TraceTag = </span></li><li><span class="v">TracerState = term()</span></li><li><span class="v">Tracee = </span></li><li><span class="v">TraceTerm = term()</span></li><li><span class="v">Opts = </span></li><li><span class="v">Result = ok</span></li></ul><p>This callback is called when a tracepoint is triggered and the
+<a href="#Module:enabled_send/3">Module:enabled_send/3</a>
+callback returned <strong>trace</strong>.</p><p>If <strong>trace_send/5</strong> is undefined,
+<a href="#Module:trace/5">Module:trace/5</a>
+is called instead.</p><a name="example"></a><h2>Erl Tracer Module Example</h2><p>In this example, a tracer module with a NIF back end sends a
+message for each <strong>send</strong> trace tag containing only the sender and
+receiver. Using this tracer module, a much more lightweight message
+tracer is used, which only records who sent messages to who.</p><p>The following is an example session using it on Linux:</p><pre>
+$ gcc -I erts-8.0/include/ -fPIC -shared -o erl_msg_tracer.so erl_msg_tracer.c
+$ erl
+Erlang/OTP 19 [DEVELOPMENT] [erts-8.0] [source-ed2b56b] [64-bit] [smp:8:8] [async-threads:10] [hipe] [kernel-poll:false]
+
+Eshell V8.0  (abort with ^G)
+1&gt; c(erl_msg_tracer), erl_msg_tracer:load().
+ok
+2&gt; Tracer = spawn(fun F() -&gt; receive M -&gt; io:format("~p~n",[M]), F() end end).
+&lt;0.37.0&gt;
+3&gt; erlang:trace(new, true, [send,{tracer, erl_msg_tracer, Tracer}]).
+0
+{trace,&lt;0.39.0&gt;,&lt;0.27.0&gt;}
+4&gt; {ok, D} = file:open("/tmp/tmp.data",[write]).
+{trace,#Port&lt;0.486&gt;,&lt;0.40.0&gt;}
+{trace,&lt;0.40.0&gt;,&lt;0.21.0&gt;}
+{trace,#Port&lt;0.487&gt;,&lt;0.4.0&gt;}
+{trace,#Port&lt;0.488&gt;,&lt;0.4.0&gt;}
+{trace,#Port&lt;0.489&gt;,&lt;0.4.0&gt;}
+{trace,#Port&lt;0.490&gt;,&lt;0.4.0&gt;}
+{ok,&lt;0.40.0&gt;}
+{trace,&lt;0.41.0&gt;,&lt;0.27.0&gt;}
+5&gt;</pre><p><strong>erl_msg_tracer.erl</strong>:</p><pre>
+-module(erl_msg_tracer).
+
+-export([enabled/3, trace/5, load/0]).
+
+load() -&gt;
+    erlang:load_nif("erl_msg_tracer", []).
+
+enabled(_, _, _) -&gt;
+    error.
+
+trace(_, _, _, _, _) -&gt;
+    error.</pre><p><strong>erl_msg_tracer.c</strong>:</p><pre>
+#include &lt;erl_nif.h&gt;
+
+/* NIF interface declarations */
+static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
+static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info);
+static void unload(ErlNifEnv* env, void* priv_data);
+
+/* The NIFs: */
+static ERL_NIF_TERM enabled(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
+static ErlNifFunc nif_funcs[] = {
+    {"enabled", 3, enabled},
+    {"trace", 5, trace}
+};
+
+ERL_NIF_INIT(erl_msg_tracer, nif_funcs, load, NULL, upgrade, unload)
+
+static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
+{
+    *priv_data = NULL;
+    return 0;
+}
+
+static void unload(ErlNifEnv* env, void* priv_data)
+{
+
+}
+
+static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
+		   ERL_NIF_TERM load_info)
+{
+    if (*old_priv_data != NULL || *priv_data != NULL) {
+	return -1; /* Don't know how to do that */
+    }
+    if (load(env, priv_data, load_info)) {
+	return -1;
+    }
+    return 0;
+}
+
+/*
+ * argv[0]: TraceTag
+ * argv[1]: TracerState
+ * argv[2]: Tracee
+ */
+static ERL_NIF_TERM enabled(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifPid to_pid;
+    if (enif_get_local_pid(env, argv[1], &amp;to_pid))
+        if (!enif_is_process_alive(env, &amp;to_pid))
+            if (enif_is_identical(enif_make_atom(env, "trace_status"), argv[0]))
+                /* tracer is dead so we should remove this tracepoint */
+                return enif_make_atom(env, "remove");
+            else
+                return enif_make_atom(env, "discard");
+
+    /* Only generate trace for when tracer != tracee */
+    if (enif_is_identical(argv[1], argv[2]))
+        return enif_make_atom(env, "discard");
+
+    /* Only trigger trace messages on 'send' */
+    if (enif_is_identical(enif_make_atom(env, "send"), argv[0]))
+        return enif_make_atom(env, "trace");
+
+    /* Have to answer trace_status */
+    if (enif_is_identical(enif_make_atom(env, "trace_status"), argv[0]))
+        return enif_make_atom(env, "trace");
+
+    return enif_make_atom(env, "discard");
+}
+
+/*
+ * argv[0]: TraceTag, should only be 'send'
+ * argv[1]: TracerState, process to send {Tracee, Recipient} to
+ * argv[2]: Tracee
+ * argv[3]: Message
+ * argv[4]: Options, map containing Recipient
+ */
+static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifPid to_pid;
+    ERL_NIF_TERM recipient, msg;
+
+    if (enif_get_local_pid(env, argv[1], &amp;to_pid)) {
+      if (enif_get_map_value(env, argv[4], enif_make_atom(env, "extra"), &amp;recipient)) {
+        msg = enif_make_tuple3(env, enif_make_atom(env, "trace"), argv[2], recipient);
+        enif_send(env, &amp;to_pid, NULL, msg);
+      }
+    }
+
+    return enif_make_atom(env, "ok");
+}</pre></body></html>

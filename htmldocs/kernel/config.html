@@ -1,0 +1,47 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>config</h1><h1>config</h1><p>Configuration file.</p><p>A <em>configuration file</em> contains values for configuration
+parameters for the applications in the system. The <strong>erl</strong>
+command-line argument <strong>-config Name</strong> tells the system to use
+data in the system configuration file <strong>Name.config</strong>.Configuration parameter values in the configuration file
+override the values in the application resource files (see
+<a href="app">app</a>).
+The values in the configuration file can be
+overridden by command-line flags (see
+<a href="./erl">erts/erl</a>).The value of a configuration parameter is retrieved by calling
+<strong>application:get_env/1,2</strong>.</p><h2>File Syntax</h2><p>The configuration file is to be called <strong>Name.config</strong>, where
+<strong>Name</strong> is any name.</p><p>File <strong>.config</strong> contains a single Erlang term and
+has the following syntax:</p><pre><code class="">
+[{Application1, [{Par11, Val11}, ...]},
+ ...
+ {ApplicationN, [{ParN1, ValN1}, ...]}].</code></pre><dl><dt><strong>Application = atom()</strong></dt><dd><p>Application name.</p></dd><dt><strong>Par = atom()</strong></dt><dd><p>Name of a configuration parameter.</p></dd><dt><strong>Val = term()</strong></dt><dd><p>Value of a configuration parameter.</p></dd></dl><h2>sys.config</h2><p>When starting Erlang in embedded mode, it is assumed that
+exactly one system configuration file is used, named
+<strong>sys.config</strong>. This file is to be located in
+<strong>$ROOT/releases/Vsn</strong>, where <strong>$ROOT</strong> is the Erlang/OTP
+root installation directory and <strong>Vsn</strong> is the release version.</p><p>Release handling relies on this assumption. When installing a
+new release version, the new <strong>sys.config</strong> is read and used
+to update the application configurations.</p><p>This means that specifying another <strong>.config</strong> file, or more
+<strong>.config</strong> files, leads to inconsistent update of application
+configurations. There is, however, a syntax for
+<strong>sys.config</strong> that allows pointing out other
+<strong>.config</strong> files:</p><pre><code class="">
+[{Application, [{Par, Val}]} | File].</code></pre><dl><dt><strong>File = string()</strong></dt><dd>Name of another <strong>.config</strong> file. Extension <strong>.config</strong> can be omitted. It is recommended to use absolute paths. If a relative path is used, <strong>File</strong> is searched, first, relative from <strong>sys.config</strong> directory, then relative to the current working directory of the emulator, for backward compatibility. This allow to use a <strong>sys.config</strong> pointing out other <strong>.config</strong> files in a release or in a node started manually using <strong>-config ...</strong> with same result whatever the current working directory. </dd></dl><p>When traversing the contents of <strong>sys.config</strong> and a filename
+is encountered, its contents are read and merged with the result
+so far. When an application configuration tuple
+<strong>{Application, Env}</strong> is found, it is merged with the result
+so far. Merging means that new parameters are added and existing
+parameter values overwritten.</p><p><em>Example:</em></p><pre><code class="">
+sys.config:
+
+[{myapp,[{par1,val1},{par2,val2}]},
+ "/home/user/myconfig"].
+
+myconfig.config:
+
+[{myapp,[{par2,val3},{par3,val4}]}].</code></pre><p>This yields the following environment for <strong>myapp</strong>:</p><pre><code class="">
+[{par1,val1},{par2,val3},{par3,val4}]</code></pre><p>The behavior if a file specified in <strong>sys.config</strong> does not
+exist, or is erroneous, is backwards compatible.
+Starting the runtime system will fail. Installing a new release
+version will not fail, but an error message is returned and
+the erroneous file is ignored.</p><h2>See Also</h2><p><a href="app">app</a>,
+<a href="./erl">erts/erl</a>,
+<a href="./des_princ">OTP Design Principles</a></p></body></html>

@@ -1,0 +1,47 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>mod_esi</h1><h1>mod_esi</h1><p>Erlang Server Interface</p><p>This module defines the Erlang Server Interface (ESI) API.
+It is a more efficient way of writing Erlang scripts
+for your <strong>Inets</strong> web server than writing them as common CGI scripts.<a name="deliver"></a></p><h2>DATA TYPES</h2><p>The following data types are used in the functions for mod_esi:</p><dl><dt><strong>env() = </strong></dt><dd> <p><strong>{EnvKey()::atom(), Value::term()}</strong></p> <p>Currently supported key value pairs</p> <dl><dt><strong>{server_software, string()}</strong></dt><dd><p>Indicates the inets version.</p></dd><dt><strong>{server_name, string()}</strong></dt><dd><p>The local hostname. </p></dd><dt><strong>{gateway_interface, string()}</strong></dt><dd><p>Legacy string used in CGI, just ignore.</p> </dd><dt><strong>{server_protocol, string()}</strong></dt><dd><p> HTTP version, currently "HTTP/1.1"</p></dd><dt><strong>{server_port, integer()}</strong></dt><dd><p>Servers port number.</p></dd><dt><strong>{request_method, "GET | "PUT" | "DELETE" | "POST" | "PATCH"}</strong></dt><dd><p>HTTP request method.</p></dd><dt><strong>{remote_adress, inet:ip_address()} </strong></dt><dd><p>The clients ip address.</p></dd><dt><strong>{peer_cert, undefined | no_peercert | DER:binary()}</strong></dt><dd> <p>For TLS connections where client certificates are used this will
+be an ASN.1 DER-encoded X509-certificate as an Erlang binary.
+If client certificates are not used the value will be <strong>no_peercert</strong>,
+and if TLS is not used (HTTP or connection is lost due to network failure)
+the value will be <strong>undefined</strong>.
+</p></dd><dt><strong>{script_name, string()}</strong></dt><dd><p>Request URI</p></dd><dt><strong>{http_LowerCaseHTTPHeaderName, string()}</strong></dt><dd><p>example: {http_content_type, "text/html"}</p></dd></dl>     </dd></dl><h1>Functions</h1><h2>deliver(SessionID, Data) -&gt; ok | {error, Reason}</h2><p>Sends <strong>Data</strong> back to client.</p><ul><li><span class="v">SessionID = term()</span></li><li><span class="v">Data = string() | io_list() | binary()</span></li><li><span class="v">Reason = term()</span></li></ul><a name="deliver"></a><p>This function is <em>only</em> intended to be used from
+functions called by the Erl Scheme interface to deliver
+parts of the content to the user.</p><p>Sends data from an Erl Scheme script back to the client.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>If any HTTP header fields are added by the
+script, they must be in the first call to <strong>deliver/2</strong>, 
+and the data in the call must be a string. Calls after the headers
+are complete can contain binary data to reduce copying
+overhead. Do not assume anything about the data type of 
+<strong>SessionID</strong>. <strong>SessionID</strong> must be the value given 
+as input to the ESI callback function that you implemented.</p></div><h2>ESI Callback Functions</h2><h1>Functions</h1><h2>Module:Function(SessionID, Env, Input)-&gt; {continue, State} | _</h2><p>Creates a dynamic web page and returns it chunk by chunk  to the server process by calling <strong>mod_esi:deliver/2</strong>.</p><ul><li><span class="v">SessionID = term()</span></li><li><span class="v">Env = env()</span></li><li><span class="v">Input = string() | chunked_data()</span></li><li><span class="v">chunked_data() = {first, Data::binary()} | {continue, Data::binary(), State::term()} | {last, Data::binary(), State::term()} </span></li><li><span class="v">State = term()</span></li></ul><p><strong>Module</strong> must be found in the code path and export
+<strong>Function</strong> with an arity of three. An <strong>erlScriptAlias</strong> must
+also be set up in the configuration file for the web server.</p><p><strong>mod_esi:deliver/2</strong> shall be used to generate the response
+to the client and <strong>SessionID</strong> is an identifier that shall by used when
+calling this function, do not assume anything about
+the datatype. This function may be called
+several times to chunk the response data. Notice that the
+first chunk of data sent to the client must at least contain
+all HTTP header fields that the response will generate. If the
+first chunk does not contain the <em>end of HTTP header</em>,
+that is, <strong>"\r\n\r\n",</strong> the server assumes that no HTTP
+header fields will be generated.</p><p><strong>Env</strong> environment data of the request see description above.</p><p><strong>Input</strong> is query data of a GET request or the body of
+a PUT or POST request. The default behavior (legacy reasons)
+for delivering the body, is that the whole body is gathered and
+converted to a string. But if the httpd config parameter
+<a href="./httpd#max_client_body_chunk">max_client_body_chunk</a>
+is set, the body will be delivered as binary chunks
+instead. The maximum size of the chunks is either <a href="./httpd#max_client_body_chunk">max_client_body_chunk</a>
+or decide by the client if it uses HTTP chunked encoding
+to send the body. When using the chunking
+mechanism this callback must return {continue, State::term()}
+for all calls where <strong>Input</strong> is <strong>{first, Data::binary()}</strong> or <strong>{continue, Data::binary(), State::term()}</strong>. When <strong>Input</strong> is <strong>{last, Data::binary(), State::term()}</strong> the return value will be ignored.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Note that if the body is
+small all data may be delivered in only one chunk and then the
+callback will be called with {last, Data::binary(), undefined}
+without getting called with <strong>{first, Data::binary()}</strong>.</p></div><p>The input <strong>State</strong> is
+the last returned <strong>State</strong>, in it the callback can include
+any data that it needs to keep track of when handling the chunks.
+</p><h2>Module:Function(Env, Input)-&gt; Response</h2><p>Creates a dynamic web page and returns it as a list.  This function is deprecated and is only kept for backwards compatibility.</p><ul><li><span class="v">Env = env()</span></li><li><span class="v">Input = string() </span></li><li><span class="v">Response = string()</span></li></ul><p>This callback format consumes much memory, as the
+whole response must be generated before it is sent to the
+user. This callback format is deprecated. 
+For new development, use <strong>Module:Function/3</strong>.</p></body></html>

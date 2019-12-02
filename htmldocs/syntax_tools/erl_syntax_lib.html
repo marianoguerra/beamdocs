@@ -1,0 +1,289 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>erl_syntax_lib</h1><h1>erl_syntax_lib</h1><p>Support library for abstract Erlang syntax trees.</p><p>Support library for abstract Erlang syntax trees.This module contains utility functions for working with the
+abstract data type defined in the module <a href="erl_syntax">erl_syntax</a>.
+</p><h2>DATA TYPES</h2><a name="types"></a><dl><dt><a name="type-info_pair"></a>info_pair() = {<a href="#type-key">key()</a>, term()}</dt><dd> </dd><dt><a name="type-key"></a>key() = attributes | errors | exports | functions | imports | module | records | warnings</dt><dd> </dd><dt><a name="type-ordset"></a>ordset(T) = <a href="../stdlib/ordsets#type-ordset">ordsets:ordset(T)</a></dt><dd> </dd><dt><a name="type-set"></a>set(T) = <a href="../stdlib/sets#type-set">sets:set(T)</a></dt><dd> </dd><dt><a name="type-syntaxTree"></a>syntaxTree() = <a href="./erl_syntax#type-syntaxTree">erl_syntax:syntaxTree()</a></dt><dd> <p>An abstract syntax
+tree. See the <a href="erl_syntax">erl_syntax</a> module for details.</p> </dd></dl><h1>Functions</h1><h2>analyze_application(Node::) -&gt; FunctionName | Arity</h2><p>Returns the name of a called function.</p><ul><li><span class="v">FunctionName = {atom(), Arity} | {ModuleName, FunctionName}</span></li><li><span class="v">Arity = integer()</span></li><li><span class="v">ModuleName = atom()</span></li></ul><a name="analyze_application-1"></a><p>Returns the name of a called function. The result is a
+representation of the name of the applied function <strong>F/A</strong>,
+if <strong>Node</strong> represents a function application
+"<strong>&lt;em&gt;F&lt;/em&gt;(&lt;em&gt;X_1&lt;/em&gt;, ..., &lt;em&gt;X_A&lt;/em&gt;)</strong>". If the
+function is not explicitly named (i.e., <strong>F</strong> is given by
+some expression), only the arity <strong>A</strong> is returned.</p><p>The evaluation throws <strong>syntax_error</strong> if <strong>Node</strong> does not represent a
+well-formed application expression.
+</p><p><em>See also:</em> <a href="#analyze_function_name-1">analyze_function_name/1</a>.</p><h2>analyze_attribute(Node::) -&gt; preprocessor | {atom(), atom()}</h2><p>Analyzes an attribute node.</p><a name="analyze_attribute-1"></a><p>Analyzes an attribute node. If <strong>Node</strong> represents a
+preprocessor directive, the atom <strong>preprocessor</strong> is
+returned. Otherwise, if <strong>Node</strong> represents a module
+attribute "<strong>-&lt;em&gt;Name&lt;/em&gt;...</strong>", a tuple <strong>{Name, Info}</strong> is returned, where <strong>Info</strong> depends on
+<strong>Name</strong>, as follows:
+</p><dl><dt><strong>{module, Info}</strong></dt><dd><p>where <strong>Info = analyze_module_attribute(Node)</strong>.</p></dd><dt><strong>{export, Info}</strong></dt><dd><p>where <strong>Info = analyze_export_attribute(Node)</strong>.</p></dd><dt><strong>{import, Info}</strong></dt><dd><p>where <strong>Info = analyze_import_attribute(Node)</strong>.</p></dd><dt><strong>{file, Info}</strong></dt><dd><p>where <strong>Info = analyze_file_attribute(Node)</strong>.</p></dd><dt><strong>{record, Info}</strong></dt><dd><p>where <strong>Info = analyze_record_attribute(Node)</strong>.</p></dd><dt><strong>{Name, Info}</strong></dt><dd><p>where <strong>{Name, Info} = analyze_wild_attribute(Node)</strong>.</p></dd></dl><p>
+The evaluation throws <strong>syntax_error</strong> if <strong>Node</strong>
+does not represent a well-formed module attribute.
+</p><p><em>See also:</em> <a href="#analyze_export_attribute-1">analyze_export_attribute/1</a>, <a href="#analyze_file_attribute-1">analyze_file_attribute/1</a>, <a href="#analyze_import_attribute-1">analyze_import_attribute/1</a>, <a href="#analyze_module_attribute-1">analyze_module_attribute/1</a>, <a href="#analyze_record_attribute-1">analyze_record_attribute/1</a>, <a href="#analyze_wild_attribute-1">analyze_wild_attribute/1</a>.</p><h2>analyze_export_attribute(Node::) -&gt; [FunctionName]</h2><p>Returns the list of function names declared by an export   attribute.</p><ul><li><span class="v">FunctionName = atom() | {atom(), integer()} | {ModuleName, FunctionName}</span></li><li><span class="v">ModuleName = atom()</span></li></ul><a name="analyze_export_attribute-1"></a><p>Returns the list of function names declared by an export  
+attribute. We do not guarantee that each name occurs at most once in  
+the list. The order of listing is not defined.</p><p>The evaluation throws <strong>syntax_error</strong> if <strong>Node</strong> does not represent a
+well-formed export attribute.
+</p><p><em>See also:</em> <a href="#analyze_attribute-1">analyze_attribute/1</a>.</p><h2>analyze_file_attribute(Node::) -&gt; {string(), integer()}</h2><p>Returns the file name and line number of a file attribute.</p><a name="analyze_file_attribute-1"></a><p>Returns the file name and line number of a <strong>file</strong>
+attribute. The result is the pair <strong>{File, Line}</strong> if
+<strong>Node</strong> represents "<strong>-file(File, Line).</strong>".</p><p>The evaluation throws <strong>syntax_error</strong> if
+<strong>Node</strong> does not represent a well-formed <strong>file</strong>
+attribute.
+</p><p><em>See also:</em> <a href="#analyze_attribute-1">analyze_attribute/1</a>.</p><h2>analyze_form(Node::) -&gt; {atom(), term()} | atom()</h2><p>Analyzes a "source code form" node.</p><a name="analyze_form-1"></a><p>Analyzes a "source code form" node. If <strong>Node</strong> is a
+"form" type (cf. <strong>erl_syntax:is_form/1</strong>), the returned
+value is a tuple <strong>{Type, Info}</strong> where <strong>Type</strong> is
+the node type and <strong>Info</strong> depends on <strong>Type</strong>, as
+follows:
+</p><dl><dt><strong>{attribute, Info}</strong></dt><dd><p>where <strong>Info = analyze_attribute(Node)</strong>.</p></dd><dt><strong>{error_marker, Info}</strong></dt><dd><p>where <strong>Info = erl_syntax:error_marker_info(Node)</strong>.</p></dd><dt><strong>{function, Info}</strong></dt><dd><p>where <strong>Info = analyze_function(Node)</strong>.</p></dd><dt><strong>{warning_marker, Info}</strong></dt><dd><p>where <strong>Info = erl_syntax:warning_marker_info(Node)</strong>.</p></dd></dl><p>  
+For other types of forms, only the node type is returned.</p><p>The evaluation throws <strong>syntax_error</strong> if
+<strong>Node</strong> is not well-formed.
+</p><p><em>See also:</em> <a href="#analyze_attribute-1">analyze_attribute/1</a>, <a href="#analyze_function-1">analyze_function/1</a>, <a href="./erl_syntax#error_marker_info-1">erl_syntax:error_marker_info/1</a>, <a href="./erl_syntax#is_form-1">erl_syntax:is_form/1</a>, <a href="./erl_syntax#warning_marker_info-1">erl_syntax:warning_marker_info/1</a>.</p><h2>analyze_forms(Forms) -&gt; [{Key, term()}]</h2><p>Analyzes a sequence of "program forms".</p><ul><li><span class="v">Forms =  | []</span></li><li><span class="v">Key = attributes | errors | exports | functions | imports | module | records | warnings</span></li></ul><a name="analyze_forms-1"></a><p>Analyzes a sequence of "program forms". The given
+<strong>Forms</strong> may be a single syntax tree of type
+<strong>form_list</strong>, or a list of "program form" syntax trees. The
+returned value is a list of pairs <strong>{Key, Info}</strong>, where
+each value of <strong>Key</strong> occurs at most once in the list; the  
+absence of a particular key indicates that there is no well-defined  
+value for that key.</p><p>Each entry in the resulting list contains the following
+corresponding information about the program forms:
+</p><dl><dt><strong>{attributes, Attributes}</strong></dt><dd><ul><li><p><strong>Attributes = [{atom(), term()}]</strong></p></li></ul><p>
+<strong>Attributes</strong> is a list of pairs representing the
+names and corresponding values of all so-called "wild"
+attributes (as e.g. "<strong>-compile(...)</strong>") occurring in
+<strong>Forms</strong> (cf. <strong>analyze_wild_attribute/1</strong>).
+We do not guarantee that each name occurs at most once in the
+list. The order of listing is not defined.</p></dd><dt><strong>{errors, Errors}</strong></dt><dd><ul><li><p><strong>Errors = [term()]</strong></p></li></ul><p>
+<strong>Errors</strong> is the list of error descriptors of all
+<strong>error_marker</strong> nodes that occur in
+<strong>Forms</strong>. The order of listing is not defined.</p></dd><dt><strong>{exports, Exports}</strong></dt><dd><ul><li><p><strong>Exports = [FunctionName]</strong></p></li><li><p><strong>FunctionName = atom() | {atom(), integer()} | {ModuleName, FunctionName}</strong></p></li><li><p><strong>ModuleName = atom()</strong></p></li></ul><p>
+<strong>Exports</strong> is a list of representations of those
+function names that are listed by export declaration attributes
+in <strong>Forms</strong> (cf.
+<strong>analyze_export_attribute/1</strong>). We do not guarantee
+that each name occurs at most once in the list. The order of
+listing is not defined.</p></dd><dt><strong>{functions, Functions}</strong></dt><dd><ul><li><p><strong>Functions = [{atom(), integer()}]</strong></p></li></ul><p>
+<strong>Functions</strong> is a list of the names of the functions
+that are defined in <strong>Forms</strong> (cf.
+<strong>analyze_function/1</strong>). We do not guarantee that each
+name occurs at most once in the list. The order of listing is
+not defined.</p></dd><dt><strong>{imports, Imports}</strong></dt><dd><ul><li><p><strong>Imports = [{Module, Names}]</strong></p></li><li><p><strong>Module = atom()</strong></p></li><li><p><strong>Names = [FunctionName]</strong></p></li><li><p><strong>FunctionName = atom() | {atom(), integer()} | {ModuleName, FunctionName}</strong></p></li><li><p><strong>ModuleName = atom()</strong></p></li></ul><p>
+<strong>Imports</strong> is a list of pairs representing those
+module names and corresponding function names that are listed
+by import declaration attributes in <strong>Forms</strong> (cf.
+<strong>analyze_import_attribute/1</strong>), where each
+<strong>Module</strong> occurs at most once in
+<strong>Imports</strong>. We do not guarantee that each name occurs
+at most once in the lists of function names. The order of
+listing is not defined.</p></dd><dt><strong>{module, ModuleName}</strong></dt><dd><ul><li><p><strong>ModuleName = atom()</strong></p></li></ul><p>
+<strong>ModuleName</strong> is the name declared by a module
+attribute in <strong>Forms</strong>. If no module name is defined
+in <strong>Forms</strong>, the result will contain no entry for the
+<strong>module</strong> key. If multiple module name declarations
+should occur, all but the first will be ignored.</p></dd><dt><strong>{records, Records}</strong></dt><dd><ul><li><p><strong>Records = [{atom(), Fields}]</strong></p></li><li><p><strong>Fields = [{atom(), {Default, Type}}]</strong></p></li><li><p><strong>Default = none | syntaxTree()</strong></p></li><li><p><strong>Type = none | syntaxTree()</strong></p></li></ul><p>
+<strong>Records</strong> is a list of pairs representing the names
+and corresponding field declarations of all record declaration
+attributes occurring in <strong>Forms</strong>. For fields declared
+without a default value, the corresponding value for
+<strong>Default</strong> is the atom <strong>none</strong>. Similarly, for fields declared
+without a type, the corresponding value for <strong>Type</strong> is the
+atom <strong>none</strong> (cf.
+<strong>analyze_record_attribute/1</strong>). We do not guarantee
+that each record name occurs at most once in the list. The
+order of listing is not defined.</p></dd><dt><strong>{warnings, Warnings}</strong></dt><dd><ul><li><p><strong>Warnings = [term()]</strong></p></li></ul><p>
+<strong>Warnings</strong> is the list of error descriptors of all
+<strong>warning_marker</strong> nodes that occur in
+<strong>Forms</strong>. The order of listing is not defined.</p></dd></dl><p>The evaluation throws <strong>syntax_error</strong> if an ill-formed
+Erlang construct is encountered.
+</p><p><em>See also:</em> <a href="#analyze_export_attribute-1">analyze_export_attribute/1</a>, <a href="#analyze_function-1">analyze_function/1</a>, <a href="#analyze_import_attribute-1">analyze_import_attribute/1</a>, <a href="#analyze_record_attribute-1">analyze_record_attribute/1</a>, <a href="#analyze_wild_attribute-1">analyze_wild_attribute/1</a>, <a href="./erl_syntax#error_marker_info-1">erl_syntax:error_marker_info/1</a>, <a href="./erl_syntax#warning_marker_info-1">erl_syntax:warning_marker_info/1</a>.</p><h2>analyze_function(Node::) -&gt; {atom(), integer()}</h2><p>Returns the name and arity of a function definition.</p><a name="analyze_function-1"></a><p>Returns the name and arity of a function definition. The result
+is a pair <strong>{Name, A}</strong> if <strong>Node</strong> represents a
+function definition "<strong>Name(&lt;em&gt;P_1&lt;/em&gt;, ..., &lt;em&gt;P_A&lt;/em&gt;) -&gt; ...</strong>".</p><p>The evaluation throws <strong>syntax_error</strong> if
+<strong>Node</strong> does not represent a well-formed function
+definition.</p><h2>analyze_function_name(Node::) -&gt; FunctionName</h2><p>Returns the function name represented by a syntax tree.</p><ul><li><span class="v">FunctionName = atom() | {atom(), integer()} | {ModuleName, FunctionName}</span></li><li><span class="v">ModuleName = atom()</span></li></ul><a name="analyze_function_name-1"></a><p>Returns the function name represented by a syntax tree. If
+<strong>Node</strong> represents a function name, such as
+"<strong>foo/1</strong>" or "<strong>bloggs:fred/2</strong>", a uniform  
+representation of that name is returned. Different nestings of arity  
+and module name qualifiers in the syntax tree does not affect the  
+result.</p><p>The evaluation throws <strong>syntax_error</strong> if
+<strong>Node</strong> does not represent a well-formed function name.</p><h2>analyze_implicit_fun(Node::) -&gt; FunctionName</h2><p>Returns the name of an implicit fun expression "fun &lt;em&gt;F&lt;/em&gt;".</p><ul><li><span class="v">FunctionName = atom() | {atom(), integer()} | {ModuleName, FunctionName}</span></li><li><span class="v">ModuleName = atom()</span></li></ul><a name="analyze_implicit_fun-1"></a><p>Returns the name of an implicit fun expression "<strong>fun &lt;em&gt;F&lt;/em&gt;</strong>". The result is a representation of the function
+name <strong>F</strong>. (Cf. <strong>analyze_function_name/1</strong>.)</p><p>The evaluation throws <strong>syntax_error</strong> if
+<strong>Node</strong> does not represent a well-formed implicit fun.
+</p><p><em>See also:</em> <a href="#analyze_function_name-1">analyze_function_name/1</a>.</p><h2>analyze_import_attribute(Node::) -&gt; {atom(), [FunctionName]} | atom()</h2><p>Returns the module name and (if present) list of function names declared by an import attribute.</p><ul><li><span class="v">FunctionName = atom() | {atom(), integer()} | {ModuleName, FunctionName}</span></li><li><span class="v">ModuleName = atom()</span></li></ul><a name="analyze_import_attribute-1"></a><p>Returns the module name and (if present) list of function names
+declared by an import attribute. The returned value is an atom
+<strong>Module</strong> or a pair <strong>{Module, Names}</strong>, where
+<strong>Names</strong> is a list of function names declared as imported
+from the module named by <strong>Module</strong>. We do not guarantee
+that each name occurs at most once in <strong>Names</strong>. The order  
+of listing is not defined.</p><p>The evaluation throws <strong>syntax_error</strong> if <strong>Node</strong> does not represent a
+well-formed import attribute.
+</p><p><em>See also:</em> <a href="#analyze_attribute-1">analyze_attribute/1</a>.</p><h2>analyze_module_attribute(Node::) -&gt; Name::atom() | {Name::atom(), Variables::[atom()]}</h2><p>Returns the module name and possible parameters declared by a module attribute.</p><a name="analyze_module_attribute-1"></a><p>Returns the module name and possible parameters declared by a
+module attribute. If the attribute is a plain module declaration such
+as <strong>-module(name)</strong>, the result is the module name. If the attribute  
+is a parameterized module declaration, the result is a tuple  
+containing the module name and a list of the parameter variable  
+names.</p><p>The evaluation throws <strong>syntax_error</strong> if <strong>Node</strong> does not represent a
+well-formed module attribute.
+</p><p><em>See also:</em> <a href="#analyze_attribute-1">analyze_attribute/1</a>.</p><h2>analyze_record_attribute(Node::) -&gt; {atom(), Fields}</h2><p>Returns the name and the list of fields of a record declaration attribute.</p><ul><li><span class="v">Fields = [{atom(), {Default, Type}}]</span></li><li><span class="v">Default = none | </span></li><li><span class="v">Type = none | </span></li></ul><a name="analyze_record_attribute-1"></a><p>Returns the name and the list of fields of a record declaration
+attribute. The result is a pair <strong>{Name, Fields}</strong>, if
+<strong>Node</strong> represents "<strong>-record(Name, {...}).</strong>",
+where <strong>Fields</strong> is a list of pairs <strong>{Label, {Default, Type}}</strong> for each field "<strong>Label</strong>", "<strong>Label = &lt;em&gt;Default&lt;/em&gt;</strong>", "<strong>Label :: &lt;em&gt;Type&lt;/em&gt;</strong>", or
+"<strong>Label = &lt;em&gt;Default&lt;/em&gt; :: &lt;em&gt;Type&lt;/em&gt;</strong>" in the declaration,
+listed in left-to-right
+order. If the field has no default-value declaration, the value for
+<strong>Default</strong> will be the atom <strong>none</strong>. If the field has no type declaration,
+the value for <strong>Type</strong> will be the atom <strong>none</strong>. We do not  
+guarantee that each label occurs at most once in the list.</p><p>The evaluation throws <strong>syntax_error</strong> if
+<strong>Node</strong> does not represent a well-formed record declaration
+attribute.
+</p><p><em>See also:</em> <a href="#analyze_attribute-1">analyze_attribute/1</a>, <a href="#analyze_record_field-1">analyze_record_field/1</a>.</p><h2>analyze_record_expr(Node::) -&gt; {atom(), Info} | atom()</h2><p>Returns the record name and field name/names of a record expression.</p><ul><li><span class="v">Info = {atom(), [{atom(), Value}]} | {atom(), atom()} | atom()</span></li><li><span class="v">Value = </span></li></ul><a name="analyze_record_expr-1"></a><p>Returns the record name and field name/names of a record
+expression. If <strong>Node</strong> has type <strong>record_expr</strong>,
+<strong>record_index_expr</strong> or <strong>record_access</strong>, a pair
+<strong>{Type, Info}</strong> is returned, otherwise an atom
+<strong>Type</strong> is returned. <strong>Type</strong> is the node type of
+<strong>Node</strong>, and <strong>Info</strong> depends on
+<strong>Type</strong>, as follows:
+</p><dl><dt><strong>record_expr</strong>:</dt><dd><p><strong>{atom(), [{atom(), Value}]}</strong></p></dd><dt><strong>record_access</strong>:</dt><dd><p><strong>{atom(), atom()}</strong></p></dd><dt><strong>record_index_expr</strong>:</dt><dd><p><strong>{atom(), atom()}</strong></p></dd></dl><p>
+</p><p>For a <strong>record_expr</strong> node, <strong>Info</strong> represents
+the record name and the list of descriptors for the involved fields,
+listed in the order they appear. A field descriptor is a pair
+<strong>{Label, Value}</strong>, if <strong>Node</strong> represents "<strong>Label = &lt;em&gt;Value&lt;/em&gt;</strong>".
+For a <strong>record_access</strong> node,
+<strong>Info</strong> represents the record name and the field name. For a
+<strong>record_index_expr</strong> node, <strong>Info</strong> represents the  
+record name and the name field name.</p><p>The evaluation throws <strong>syntax_error</strong> if
+<strong>Node</strong> represents a record expression that is not
+well-formed.
+</p><p><em>See also:</em> <a href="#analyze_record_attribute-1">analyze_record_attribute/1</a>, <a href="#analyze_record_field-1">analyze_record_field/1</a>.</p><h2>analyze_record_field(Node::) -&gt; {atom(), {Default, Type}}</h2><p>Returns the label, value-expression, and type of a record field specifier.</p><ul><li><span class="v">Default = none | </span></li><li><span class="v">Type = none | </span></li></ul><a name="analyze_record_field-1"></a><p>Returns the label, value-expression, and type of a record field
+specifier. The result is a pair <strong>{Label, {Default, Type}}</strong>, if
+<strong>Node</strong> represents "<strong>Label</strong>", "<strong>Label = &lt;em&gt;Default&lt;/em&gt;</strong>",
+"<strong>Label :: &lt;em&gt;Type&lt;/em&gt;</strong>", or
+"<strong>Label = &lt;em&gt;Default&lt;/em&gt; :: &lt;em&gt;Type&lt;/em&gt;</strong>".
+If the field has no value-expression, the value for
+<strong>Default</strong> will be the atom <strong>none</strong>. If the field has no type,
+the value for <strong>Type</strong> will be the atom <strong>none</strong>.</p><p>The evaluation throws <strong>syntax_error</strong> if
+<strong>Node</strong> does not represent a well-formed record field
+specifier.
+</p><p><em>See also:</em> <a href="#analyze_record_attribute-1">analyze_record_attribute/1</a>, <a href="#analyze_record_expr-1">analyze_record_expr/1</a>.</p><h2>analyze_type_application(Node::) -&gt; TypeName</h2><p>Returns the name of a used type.</p><ul><li><span class="v">TypeName = {atom(), integer()} | {ModuleName, {atom(), integer()}}</span></li><li><span class="v">ModuleName = atom()</span></li></ul><a name="analyze_type_application-1"></a><p>Returns the name of a used type. The result is a
+representation of the name of the used pre-defined or local type <strong>N/A</strong>,
+if <strong>Node</strong> represents a local (user) type application
+"<strong>&lt;em&gt;N&lt;/em&gt;(&lt;em&gt;T_1&lt;/em&gt;, ..., &lt;em&gt;T_A&lt;/em&gt;)</strong>", or
+a representation of the name of the used remote type <strong>M:N/A</strong>
+if <strong>Node</strong> represents a remote user type application
+"<strong>&lt;em&gt;M&lt;/em&gt;:&lt;em&gt;N&lt;/em&gt;(&lt;em&gt;T_1&lt;/em&gt;, ..., &lt;em&gt;T_A&lt;/em&gt;)</strong>".</p><p>The evaluation throws <strong>syntax_error</strong> if <strong>Node</strong> does not represent a
+well-formed (user) type application expression.
+</p><p><em>See also:</em> <a href="#analyze_type_name-1">analyze_type_name/1</a>.</p><h2>analyze_type_name(Node::) -&gt; TypeName</h2><p>Returns the type name represented by a syntax tree.</p><ul><li><span class="v">TypeName = atom() | {atom(), integer()} | {ModuleName, {atom(), integer()}}</span></li><li><span class="v">ModuleName = atom()</span></li></ul><a name="analyze_type_name-1"></a><p>Returns the type name represented by a syntax tree. If
+<strong>Node</strong> represents a type name, such as
+"<strong>foo/1</strong>" or "<strong>bloggs:fred/2</strong>", a uniform  
+representation of that name is returned.</p><p>The evaluation throws <strong>syntax_error</strong> if
+<strong>Node</strong> does not represent a well-formed type name.</p><h2>analyze_wild_attribute(Node::) -&gt; {atom(), term()}</h2><p>Returns the name and value of a "wild" attribute.</p><a name="analyze_wild_attribute-1"></a><p>Returns the name and value of a "wild" attribute. The result is
+the pair <strong>{Name, Value}</strong>, if <strong>Node</strong> represents "<strong>-Name(Value)</strong>".</p><p>Note that no checking is done whether <strong>Name</strong> is a
+reserved attribute name such as <strong>module</strong> or
+<strong>export</strong>: it is assumed that the attribute is "wild".</p><p>The evaluation throws <strong>syntax_error</strong> if <strong>Node</strong> does not represent a
+well-formed wild attribute.
+</p><p><em>See also:</em> <a href="#analyze_attribute-1">analyze_attribute/1</a>.</p><h2>annotate_bindings(Tree::) -&gt;</h2><p>Adds or updates annotations on nodes in a syntax tree.</p><a name="annotate_bindings-1"></a><p>Adds or updates annotations on nodes in a syntax tree.
+Equivalent to <strong>annotate_bindings(Tree, Bindings)</strong> where
+the top-level environment <strong>Bindings</strong> is taken from the
+annotation <strong>{env, Bindings}</strong> on the root node of
+<strong>Tree</strong>. An exception is thrown if no such annotation
+should exist.
+</p><p><em>See also:</em> <a href="#annotate_bindings-2">annotate_bindings/2</a>.</p><h2>annotate_bindings(Tree::, Bindings::) -&gt;</h2><p>Adds or updates annotations on nodes in a syntax tree.</p><a name="annotate_bindings-2"></a><p>Adds or updates annotations on nodes in a syntax tree.
+<strong>Bindings</strong> specifies the set of bound variables in the
+environment of the top level node. The following annotations are
+affected:
+</p><ul><li><p><strong>{env, Vars}</strong>, representing the input environment
+of the subtree.</p></li><li><p><strong>{bound, Vars}</strong>, representing the variables that
+are bound in the subtree.</p></li><li><p><strong>{free, Vars}</strong>, representing the free variables in
+the subtree.</p></li></ul><p>
+<strong>Bindings</strong> and <strong>Vars</strong> are ordered-set lists
+(cf. module <strong>ordsets</strong>) of atoms representing variable
+names.
+</p><p><em>See also:</em> <a href="./ordsets">ordsets(3)</a>, <a href="#annotate_bindings-1">annotate_bindings/1</a>.</p><h2>fold(F::Function, Start::term(), Tree::) -&gt; term()</h2><p>Folds a function over all nodes of a syntax tree.</p><ul><li><span class="v">Function = (, term()) -&gt; term()</span></li></ul><a name="fold-3"></a><p>Folds a function over all nodes of a syntax tree. The result is
+the value of <strong>Function(X1, Function(X2, ... Function(Xn, Start) ... ))</strong>, where <strong>[X1, X2, ..., Xn]</strong> are the nodes of
+<strong>Tree</strong> in a post-order traversal.
+</p><p><em>See also:</em> <a href="#fold_subtrees-3">fold_subtrees/3</a>, <a href="#foldl_listlist-3">foldl_listlist/3</a>.</p><h2>fold_subtrees(F::Function, Start::term(), Tree::) -&gt; term()</h2><p>Folds a function over the immediate subtrees of a syntax tree.</p><ul><li><span class="v">Function = (, term()) -&gt; term()</span></li></ul><a name="fold_subtrees-3"></a><p>Folds a function over the immediate subtrees of a syntax tree.
+This is similar to <strong>fold/3</strong>, but only on the immediate
+subtrees of <strong>Tree</strong>, in left-to-right order; it does not
+include the root node of <strong>Tree</strong>.
+</p><p><em>See also:</em> <a href="#fold-3">fold/3</a>.</p><h2>foldl_listlist(F::Function, Start::term(), Ls::[[term()]]) -&gt; term()</h2><p>Like lists:foldl/3, but over a list of lists.</p><ul><li><span class="v">Function = (term(), term()) -&gt; term()</span></li></ul><a name="foldl_listlist-3"></a><p>Like <strong>lists:foldl/3</strong>, but over a list of lists.
+</p><p><em>See also:</em> <a href="../stdlib/lists#foldl/3">lists:foldl/3</a>, <a href="#fold-3">fold/3</a>.</p><h2>function_name_expansions(Names::[Name]) -&gt; [{ShortName, Name}]</h2><p>Creates a mapping from corresponding short names to full function names.</p><ul><li><span class="v">Name = ShortName | {atom(), Name}</span></li><li><span class="v">ShortName = atom() | {atom(), integer()}</span></li></ul><a name="function_name_expansions-1"></a><p>Creates a mapping from corresponding short names to full
+function names. Names are represented by nested tuples of atoms and
+integers (cf. <strong>analyze_function_name/1</strong>). The result is a
+list containing a pair <strong>{ShortName, Name}</strong> for each
+element <strong>Name</strong> in the given list, where the corresponding
+<strong>ShortName</strong> is the rightmost-innermost part of
+<strong>Name</strong>. The list thus represents a finite mapping from  
+unqualified names to the corresponding qualified names.</p><p>Note: the resulting list can contain more than one tuple
+<strong>{ShortName, Name}</strong> for the same <strong>ShortName</strong>,
+possibly with different values for <strong>Name</strong>, depending on
+the given list.
+</p><p><em>See also:</em> <a href="#analyze_function_name-1">analyze_function_name/1</a>.</p><h2>is_fail_expr(Tree::) -&gt; boolean()</h2><p>Returns true if Tree represents an expression which never terminates normally.</p><a name="is_fail_expr-1"></a><p>Returns <strong>true</strong> if <strong>Tree</strong> represents an
+expression which never terminates normally. Note that the reverse
+does not apply. Currently, the detected cases are calls to
+<strong>exit/1</strong>, <strong>throw/1</strong>,
+<strong>erlang:error/1</strong> and <strong>erlang:error/2</strong>.
+</p><p><em>See also:</em> <a href="../erts/erlang#error/1">erlang:error/1</a>, <a href="../erts/erlang#error/2">erlang:error/2</a>, <a href="../erts/erlang#exit/1">erlang:exit/1</a>, <a href="../erts/erlang#throw/1">erlang:throw/1</a>.</p><h2>limit(Tree, Depth) -&gt;</h2><p>Equivalent to limit(Tree, Depth, Text) using the text "..." as default replacement.</p><a name="limit-2"></a><p>Equivalent to <strong>limit(Tree, Depth, Text)</strong> using the
+text <strong>"..."</strong> as default replacement.
+</p><p><em>See also:</em> <a href="#limit-3">limit/3</a>, <a href="./erl_syntax#text-1">erl_syntax:text/1</a>.</p><h2>limit(Tree::, Depth::integer(), Node::) -&gt;</h2><p>Limits a syntax tree to a specified depth.</p><a name="limit-3"></a><p>Limits a syntax tree to a specified depth. Replaces all non-leaf
+subtrees in <strong>Tree</strong> at the given <strong>Depth</strong> by
+<strong>Node</strong>. If <strong>Depth</strong> is negative, the result is
+always <strong>Node</strong>, even if <strong>Tree</strong> has no subtrees.</p><p>When a group of subtrees (as e.g., the argument list of an
+<strong>application</strong> node) is at the specified depth, and there
+are two or more subtrees in the group, these will be collectively
+replaced by <strong>Node</strong> even if they are leaf nodes. Groups of
+subtrees that are above the specified depth will be limited in size,
+as if each subsequent tree in the group were one level deeper than
+the previous. E.g., if <strong>Tree</strong> represents a list of
+integers "<strong>[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]</strong>", the result
+of <strong>limit(Tree, 5)</strong> will represent <strong>[1, 2, 3, 4, ...]</strong>.</p><p>The resulting syntax tree is typically only useful for
+pretty-printing or similar visual formatting.
+</p><p><em>See also:</em> <a href="#limit-2">limit/2</a>.</p><h2>map(F::Function, Tree::) -&gt;</h2><p>Applies a function to each node of a syntax tree.</p><ul><li><span class="v">Function = () -&gt; </span></li></ul><a name="map-2"></a><p>Applies a function to each node of a syntax tree. The result of
+each application replaces the corresponding original node. The order
+of traversal is bottom-up.
+</p><p><em>See also:</em> <a href="#map_subtrees-2">map_subtrees/2</a>.</p><h2>map_subtrees(F::Function, Tree::) -&gt;</h2><p>Applies a function to each immediate subtree of a syntax tree.</p><ul><li><span class="v">Function = (Tree) -&gt; Tree1</span></li></ul><a name="map_subtrees-2"></a><p>Applies a function to each immediate subtree of a syntax tree.
+The result of each application replaces the corresponding original
+node.
+</p><p><em>See also:</em> <a href="#map-2">map/2</a>.</p><h2>mapfold(F::Function, Start::term(), Tree::) -&gt; {, term()}</h2><p>Combines map and fold in a single operation.</p><ul><li><span class="v">Function = (, term()) -&gt; {, term()}</span></li></ul><a name="mapfold-3"></a><p>Combines map and fold in a single operation. This is similar to
+<strong>map/2</strong>, but also propagates an extra value from each
+application of the <strong>Function</strong> to the next, while doing a
+post-order traversal of the tree like <strong>fold/3</strong>. The value
+<strong>Start</strong> is passed to the first function application, and
+the final result is the result of the last application.
+</p><p><em>See also:</em> <a href="#fold-3">fold/3</a>, <a href="#map-2">map/2</a>.</p><h2>mapfold_subtrees(F::Function, Start::term(), Tree::) -&gt; {, term()}</h2><p>Does a mapfold operation over the immediate subtrees of a syntax tree.</p><ul><li><span class="v">Function = (, term()) -&gt; {, term()}</span></li></ul><a name="mapfold_subtrees-3"></a><p>Does a mapfold operation over the immediate subtrees of a syntax
+tree. This is similar to <strong>mapfold/3</strong>, but only on the
+immediate subtrees of <strong>Tree</strong>, in left-to-right order; it
+does not include the root node of <strong>Tree</strong>.
+</p><p><em>See also:</em> <a href="#mapfold-3">mapfold/3</a>.</p><h2>mapfoldl_listlist(F::Function, S::State, Ls::[[term()]]) -&gt; {[[term()]], term()}</h2><p>Like lists:mapfoldl/3, but over a list of lists.</p><ul><li><span class="v">Function = (term(), term()) -&gt; {term(), term()}</span></li></ul><a name="mapfoldl_listlist-3"></a><p>Like <strong>lists:mapfoldl/3</strong>, but over a list of lists.
+The list of lists in the result has the same structure as the given
+list of lists.</p><h2>new_variable_name(Used::) -&gt; atom()</h2><p>Returns an atom which is not already in the set Used.</p><a name="new_variable_name-1"></a><p>Returns an atom which is not already in the set <strong>Used</strong>. This is
+equivalent to <strong>new_variable_name(Function, Used)</strong>, where <strong>Function</strong>
+maps a given integer <strong>N</strong> to the atom whose name consists of "<strong>V</strong>"
+followed by the numeral for <strong>N</strong>.
+</p><p><em>See also:</em> <a href="#new_variable_name-2">new_variable_name/2</a>.</p><h2>new_variable_name(F::Function, Used::) -&gt; atom()</h2><p>Returns a user-named atom which is not already in the set Used.</p><ul><li><span class="v">Function = (integer()) -&gt; atom()</span></li></ul><a name="new_variable_name-2"></a><p>Returns a user-named atom which is not already in the set
+<strong>Used</strong>. The atom is generated by applying the given
+<strong>Function</strong> to a generated integer. Integers are generated  
+using an algorithm which tries to keep the names randomly distributed  
+within a reasonably small range relative to the number of elements in  
+the set.</p><p>This function uses the module <strong>rand</strong> to generate new
+keys. The seed it uses may be initialized by calling
+<strong>rand:seed/1</strong> or <strong>rand:seed/2</strong> before this
+function is first called.
+</p><p><em>See also:</em> <a href="./random">random(3)</a>, <a href="./sets">sets(3)</a>, <a href="#new_variable_name-1">new_variable_name/1</a>.</p><h2>new_variable_names(N::integer(), Used::) -&gt; [atom()]</h2><p>Like new_variable_name/1, but generates a list of N new names.</p><a name="new_variable_names-2"></a><p>Like <strong>new_variable_name/1</strong>, but generates a list of
+<strong>N</strong> new names.
+</p><p><em>See also:</em> <a href="#new_variable_name-1">new_variable_name/1</a>.</p><h2>new_variable_names(N::integer(), F::Function, Used::) -&gt; [atom()]</h2><p>Like new_variable_name/2, but generates a list of N new names.</p><ul><li><span class="v">Function = (integer()) -&gt; atom()</span></li></ul><a name="new_variable_names-3"></a><p>Like <strong>new_variable_name/2</strong>, but generates a list of
+<strong>N</strong> new names.
+</p><p><em>See also:</em> <a href="#new_variable_name-2">new_variable_name/2</a>.</p><h2>strip_comments(Tree::) -&gt;</h2><p>Removes all comments from all nodes of a syntax tree.</p><a name="strip_comments-1"></a><p>Removes all comments from all nodes of a syntax tree. All other
+attributes (such as position information) remain unchanged.
+Standalone comments in form lists are removed; any other standalone
+comments are changed into null-comments (no text, no indentation).</p><h2>to_comment(Tree) -&gt;</h2><p>Equivalent to to_comment(Tree, "% "). </p><a name="to_comment-1"></a><p>Equivalent to <a href="#to_comment-2">to_comment(Tree, "% ")</a>.</p><h2>to_comment(Tree::, Prefix::string()) -&gt;</h2><p>Equivalent to to_comment(Tree, Prefix, F) for a default formatting function F.</p><a name="to_comment-2"></a><p>Equivalent to <strong>to_comment(Tree, Prefix, F)</strong> for a
+default formatting function <strong>F</strong>. The default
+<strong>F</strong> simply calls <strong>erl_prettypr:format/1</strong>.
+</p><p><em>See also:</em> <a href="#to_comment-3">to_comment/3</a>, <a href="./erl_prettypr#format-1">erl_prettypr:format/1</a>.</p><h2>to_comment(Tree::, Prefix::string(), F::Printer) -&gt;</h2><p>Transforms a syntax tree into an abstract comment.</p><ul><li><span class="v">Printer = () -&gt; string()</span></li></ul><a name="to_comment-3"></a><p>Transforms a syntax tree into an abstract comment. The lines of
+the comment contain the text for <strong>Node</strong>, as produced by
+the given <strong>Printer</strong> function. Each line of the comment is
+prefixed by the string <strong>Prefix</strong> (this does not include the
+initial "<strong>%</strong>" character of the comment line).</p><p>For example, the result of
+<strong>to_comment(erl_syntax:abstract([a,b,c]))</strong> represents
+</p><pre>
+          %% [a,b,c]</pre><p>
+(cf. <strong>to_comment/1</strong>).</p><p>Note: the text returned by the formatting function will be split
+automatically into separate comment lines at each line break. No
+extra work is needed.
+</p><p><em>See also:</em> <a href="#to_comment-1">to_comment/1</a>, <a href="#to_comment-2">to_comment/2</a>.</p><h2>variables(Tree::) -&gt;</h2><p>Returns the names of variables occurring in a syntax tree, The result is a set of variable names represented by atoms.</p><a name="variables-1"></a><p>Returns the names of variables occurring in a syntax tree, The
+result is a set of variable names represented by atoms. Macro names
+are not included.
+</p><p><em>See also:</em> <a href="./sets">sets(3)</a>.</p><h1>Authors</h1><span class="aname">Richard Carlsson</span><span class="email">carlsson.richard@gmail.com</span></body></html>

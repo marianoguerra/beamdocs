@@ -1,0 +1,39 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>ssl</h1><h1>ssl_session_cache_api</h1><p>TLS session cache API</p><p>
+Defines the API for the TLS session cache so
+that the data storage scheme can be replaced by
+defining a new callback module implementing this API.
+</p><h1>Data Types</h1><span class="name">session_cache_ref</span><span class="name">session_cache_key</span><p>A key to an entry in the session cache.</p><span class="name">partial_key</span><p>The opaque part of the key. Does not need to be handled
+by the callback.</p><span class="name">session</span><p>The session data that is stored for each session.</p><h1>Functions</h1><h2>delete(Cache, Key) -&gt; _</h2><p>Deletes a cache entry.</p><ul><li><span class="v">Cache = </span></li><li><span class="v">Key =  </span></li></ul><p>Deletes a cache entry. Is only called from the cache
+handling process.
+</p><h2>foldl(Fun, Acc0, Cache) -&gt; Acc</h2><ul><li><span class="v">Fun = fun()</span></li><li><span class="v">Acc0 = Acc = term()</span></li><li><span class="v">Cache = </span></li></ul><p>Calls <strong>Fun(Elem, AccIn)</strong> on successive elements of the
+cache, starting with <strong>AccIn == Acc0</strong>. <strong>Fun/2</strong> must
+return a new accumulator, which is passed to the next call.
+The function returns the final value of the accumulator.
+<strong>Acc0</strong> is returned if the cache is empty.
+</p><h2>init(Args) -&gt; Cache</h2><p>Returns cache reference.</p><ul><li><span class="v">Cache = </span></li><li><span class="v">Args = </span></li></ul><p>Includes property <strong>{role, client | server}</strong>.
+Currently this is the only predefined property,
+there can also be user-defined properties. See also
+application environment variable
+<a href="ssl_app">session_cb_init_args</a>.
+</p><p>Performs possible initializations of the cache and returns
+a reference to it that is used as parameter to the other
+API functions. Is called by the cache handling processes
+<strong>init</strong> function, hence putting the same requirements on it
+as a normal process <strong>init</strong> function. This function is
+called twice when starting the SSL application, once with
+the role client and once with the role server, as the SSL
+application must be prepared to take on both roles.
+</p><h2>lookup(Cache, Key) -&gt; Entry</h2><p>Looks up a cache entry.</p><ul><li><span class="v">Cache = </span></li><li><span class="v">Key =  </span></li><li><span class="v">Session =  | undefined</span></li></ul><p>Looks up a cache entry. Is to be callable from any
+process.
+</p><h2>select_session(Cache, PartialKey) -&gt; [Session]</h2><p>Selects sessions that can be reused.</p><ul><li><span class="v">Cache = </span></li><li><span class="v">PartialKey = </span></li><li><span class="v">Session = </span></li></ul><p>Selects sessions that can be reused. Is to be callable
+from any process.
+</p><h2>size(Cache) -&gt; integer()</h2><p>Returns the number of sessions in the cache.</p><ul><li><span class="v">Cache = </span></li></ul><p>Returns the number of sessions in the cache. If size
+exceeds the maximum number of sessions, the current cache
+entries will be invalidated regardless of their remaining
+lifetime. Is to be callable from any process.
+</p><h2>terminate(Cache) -&gt; _</h2><p>Called by the process that handles the cache when it is about to terminate.</p><ul><li><span class="v">Cache = </span></li><li><span class="d">As returned by init/0</span></li></ul><p>Takes care of possible cleanup that is needed when the
+cache handling process terminates.
+</p><h2>update(Cache, Key, Session) -&gt; _</h2><p>Caches a new session or updates an already cached one.</p><ul><li><span class="v">Cache = </span></li><li><span class="v">Key =  </span></li><li><span class="v">Session = </span></li></ul><p>Caches a new session or updates an already cached one. Is
+only called from the cache handling process.
+</p></body></html>

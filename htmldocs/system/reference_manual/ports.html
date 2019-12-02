@@ -1,0 +1,48 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Ports and Port Drivers</h1><p>Examples of how to use ports and port drivers are provided in
+<a href="../doc/tutorial/introduction#interoperability tutorial"> Interoperability Tutorial</a>.
+For information about the BIFs mentioned, see the
+<a href="./erlang">erlang(3)</a> manual
+page in ERTS.</p><h2>Ports</h2><p><em>Ports</em> provide the basic mechanism for communication
+with the external world, from Erlang's point of view. They
+provide a byte-oriented interface to an external program. When a
+port has been created, Erlang can communicate with it by sending
+and receiving lists of bytes, including binaries.</p><p>The Erlang process creating a port is said to be
+the <em>port owner</em>, or the <em>connected process</em> of
+the port. All communication to and from the port must go through
+the port owner. If the port owner terminates, so does the port
+(and the external program, if it is written correctly).</p><p>The external program resides in another OS process. By default,
+it reads from standard input (file descriptor 0) and writes
+to standard output (file descriptor 1). The external program
+is to terminate when the port is closed.</p><h2>Port Drivers</h2><p>It is possible to write a driver in C according to certain
+principles and dynamically link it to the Erlang runtime system.
+The linked-in driver looks like a port from the Erlang
+programmer's point of view and is called a <em>port driver</em>.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>An erroneous port driver causes the entire Erlang runtime
+system to leak memory, hang or crash.</p></div><p>For information about port drivers, see the
+<a href="./erl_driver">erl_driver(4)</a>
+manual page in ERTS,
+<a href="./driver_entry">driver_entry(1)</a>
+manual page in ERTS, and
+<a href="./erl_ddll">erl_ddll(3)</a>
+manual page in Kernel.</p><h2>Port BIFs</h2><p>To create a port:</p><table class="table table-bordered table-hover table-striped"><caption>Port Creation BIF</caption><tbody><tr><td><strong>open_port(PortName, PortSettings</strong></td><td>Returns a port identifier <strong>Port</strong> as the result of opening a new Erlang port. Messages can be sent to, and received from, a port identifier, just like a pid. Port identifiers can also be linked to using <strong>link/1</strong>, or registered under a name using <strong>register/2</strong>.</td></tr></tbody></table><p><strong>PortName</strong> is usually a tuple <strong>{spawn,Command}</strong>, where
+the string <strong>Command</strong> is the name of the external program.
+The external program runs outside the Erlang workspace, unless a
+port driver with the name <strong>Command</strong> is found. If <strong>Command</strong>
+is found, that driver is started.</p><p><strong>PortSettings</strong> is a list of settings (options) for the port.
+The list typically contains at least a tuple <strong>{packet,N}</strong>,
+which specifies that data sent between the port and the external
+program are preceded by an N-byte length indicator. Valid values
+for N are 1, 2, or 4. If binaries are to be used instead of lists
+of bytes, the option <strong>binary</strong> must be included.</p><p>The port owner <strong>Pid</strong> can communicate with the port
+<strong>Port</strong> by sending and receiving messages. (In fact, any
+process can send the messages to the port, but the port owner must
+be identified in the message).</p><p>As of Erlang/OTP R16, messages sent to ports are delivered truly
+asynchronously. The underlying implementation previously
+delivered messages to ports synchronously. Message passing has
+however always been documented as an asynchronous operation. Hence,
+this is not to be an issue for an Erlang program communicating
+with ports, unless false assumptions about ports have been made.</p><p>In the following tables of examples, <strong>Data</strong> must be an I/O list.
+An I/O list is a binary or a (possibly deep) list of binaries
+or integers in the range 0..255:</p><table class="table table-bordered table-hover table-striped"><caption>Messages Sent To a Port</caption><tbody><tr><td><em>Message</em></td><td><em>Description</em></td></tr><tr><td><strong>{Pid,{command,Data}}</strong></td><td>Sends <strong>Data</strong> to the port.</td></tr><tr><td><strong>{Pid,close}</strong></td><td>Closes the port. Unless the port is already closed, the port replies with <strong>{Port,closed}</strong> when all buffers have been flushed and the port really closes.</td></tr><tr><td><strong>{Pid,{connect,NewPid}}</strong></td><td>Sets the port owner of <strong>Port</strong>to <strong>NewPid</strong>. Unless the port is already closed, the port replies with<strong>{Port,connected}</strong> to the old port owner. Note that the old port owner is still linked to the port, but the new port owner is not.</td></tr></tbody></table><table class="table table-bordered table-hover table-striped"><caption>Messages Received From a Port</caption><tbody><tr><td><em>Message</em></td><td><em>Description</em></td></tr><tr><td><strong>{Port,{data,Data}}</strong></td><td><strong>Data</strong> is received from the external program.</td></tr><tr><td><strong>{Port,closed}</strong></td><td>Reply to <strong>Port ! {Pid,close}</strong>.</td></tr><tr><td><strong>{Port,connected}</strong></td><td>Reply to <strong>Port ! {Pid,{connect,NewPid}}</strong>.</td></tr><tr><td><strong>{'EXIT',Port,Reason}</strong></td><td>If the port has terminated for some reason.</td></tr></tbody></table><p>Instead of sending and receiving messages, there are also a
+number of BIFs that can be used:</p><table class="table table-bordered table-hover table-striped"><caption>Port BIFs</caption><tbody><tr><td><em>Port BIF</em></td><td><em>Description</em></td></tr><tr><td><strong>port_command(Port,Data)</strong></td><td>Sends <strong>Data</strong> to the port.</td></tr><tr><td><strong>port_close(Port)</strong></td><td>Closes the port.</td></tr><tr><td><strong>port_connect(Port,NewPid)</strong></td><td>Sets the port owner of <strong>Port</strong>to <strong>NewPid</strong>. The old port owner <strong>Pid</strong> stays linked to the port and must call <strong>unlink(Port)</strong> if this is not desired.</td></tr><tr><td><strong>erlang:port_info(Port,Item)</strong></td><td>Returns information as specified by <strong>Item</strong>.</td></tr><tr><td><strong>erlang:ports()</strong></td><td>Returns a list of all ports on the current node.</td></tr></tbody></table><p>Some additional BIFs that apply to port drivers:
+<strong>port_control/3</strong> and <strong>erlang:port_call/3</strong>.</p></body></html>

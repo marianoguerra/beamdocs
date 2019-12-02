@@ -1,0 +1,147 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>array</h1><h1>array</h1><p>Functional, extendible arrays.</p><p>Functional, extendible arrays. Arrays can have fixed size, or can grow
+automatically as needed. A default value is used for entries that have not
+been explicitly set.Arrays uses <em>zero</em>-based indexing. This is a deliberate design
+choice and differs from other Erlang data structures, for example,
+tuples.Unless specified by the user when the array is created, the default
+value is the atom <strong>undefined</strong>. There is no difference between an
+unset entry and an entry that has been explicitly set to the same value
+as the default one (compare
+<a href="#reset-2">reset-2</a>). If you need to
+differentiate between unset and set entries, ensure that the default value
+cannot be confused with the values of set entries.The array never shrinks automatically. If an index <strong>I</strong> has been used
+to set an entry successfully, all indices in the range [0,<strong>I</strong>] stay
+accessible unless the array size is explicitly changed by calling
+<a href="#resize-2">resize-2</a>.<em>Examples:</em>Create a fixed-size array with entries 0-9 set to <strong>undefined</strong>:<pre>
+A0 = array:new(10).
+10 = array:size(A0).</pre>Create an extendible array and set entry 17 to <strong>true</strong>, causing the
+array to grow automatically:<pre>
+A1 = array:set(17, true, array:new()).
+18 = array:size(A1).</pre>Read back a stored value:<pre>
+true = array:get(17, A1).</pre>Accessing an unset entry returns default value:<pre>
+undefined = array:get(3, A1)</pre>Accessing an entry beyond the last set entry also returns the default
+value, if the array does not have fixed size:<pre>
+undefined = array:get(18, A1).</pre>"Sparse" functions ignore default-valued entries:<pre>
+A2 = array:set(4, false, A1).
+[{4, false}, {17, true}] = array:sparse_to_orddict(A2).</pre>An extendible array can be made fixed-size later:<pre>
+A3 = array:fix(A2).</pre>A fixed-size array does not grow automatically and does not allow
+accesses beyond the last set entry:<pre>
+{'EXIT',{badarg,_}} = (catch array:set(18, true, A3)).
+{'EXIT',{badarg,_}} = (catch array:get(18, A3)).</pre></p><h1>Data Types</h1><span class="name">array</span><p>A functional, extendible array. The representation is not documented
+and is subject to change without notice. Notice that arrays cannot be
+directly compared for equality.</p><span class="name">array</span><span class="name">array_indx</span><span class="name">array_opts</span><span class="name">array_opt</span><span class="name">indx_pairs</span><span class="name">indx_pair</span><h1>Functions</h1><h2>default/1</h2><p>Get the value used for uninitialized entries.</p><a name="default-1"></a><p>Gets the value used for uninitialized entries.</p><p>See also <a href="#new-2">new-2</a>.</p><h2>fix/1</h2><p>Fix the array size.</p><a name="fix-1"></a><p>Fixes the array size. This prevents it from growing automatically
+upon insertion.</p><p>See also <a href="#set-3">set-3</a> and
+<a href="#relax-1">relax-1</a>.</p><h2>foldl/3</h2><p>Fold the array elements using the specified function and initial accumulator value.</p><a name="foldl-3"></a><p>Folds the array elements using the specified function and initial
+accumulator value. The elements are visited in order from the lowest
+index to the highest. If <strong><span class="anno">Function</span></strong> is not a
+function, the call fails with reason <strong>badarg</strong>.</p><p>See also <a href="#foldr-3">foldr-3</a>,
+<a href="#map-2">map-2</a>,
+<a href="#sparse_foldl-3">sparse_foldl-3</a>.</p><h2>foldr/3</h2><p>Fold the array elements right-to-left using the specified function and initial accumulator value.</p><a name="foldr-3"></a><p>Folds the array elements right-to-left using the specified function
+and initial accumulator value. The elements are visited in order from
+the highest index to the lowest. If <strong><span class="anno">Function</span></strong> is
+not a function, the call fails with reason <strong>badarg</strong>.</p><p>See also <a href="#foldl-3">foldl-3</a>,
+<a href="#map-2">map-2</a>.</p><h2>from_list/1</h2><p>Equivalent to <strong>from_list(List, undefined)</strong>.</p><a name="from_list-1"></a><p>Equivalent to
+<a href="#from_list-2">from_list-2</a>.</p><h2>from_list/2</h2><p>Convert a list to an extendible array.</p><a name="from_list-2"></a><p>Converts a list to an extendible array. <strong><span class="anno">Default</span></strong>
+is used as the value for uninitialized entries of the array. If
+<strong><span class="anno">List</span></strong> is not a proper list, the call fails with
+reason <strong>badarg</strong>.</p><p>See also <a href="#new-2">new-2</a>,
+<a href="#to_list-1">to_list-1</a>.</p><h2>from_orddict/1</h2><p>Equivalent to <strong>from_orddict(Orddict, undefined)</strong>. </p><a name="from_orddict-1"></a><p>Equivalent to
+<a href="#from_orddict-2">from_orddict-2</a>.</p><h2>from_orddict/2</h2><p>Convert an ordered list of pairs <strong>{Index, Value}</strong> to a corresponding extendible array.</p><a name="from_orddict-2"></a><p>Converts an ordered list of pairs <strong>{Index, <span class="anno">Value</span>}</strong>
+to a corresponding extendible array. <strong><span class="anno">Default</span></strong> is
+used as the value for uninitialized entries of the array. If
+<strong><span class="anno">Orddict</span></strong> is not a proper, ordered list of pairs
+whose first elements are non-negative integers, the call fails with
+reason <strong>badarg</strong>.</p><p>See also <a href="#new-2">new-2</a>,
+<a href="#to_orddict-1">to_orddict-1</a>.</p><h2>get/2</h2><p>Get the value of entry <strong>I</strong>.</p><a name="get-2"></a><p>Gets the value of entry <strong><span class="anno">I</span></strong>. If
+<strong><span class="anno">I</span></strong> is not a non-negative integer, or if the array
+has fixed size and <strong><span class="anno">I</span></strong> is larger than the maximum
+index, the call fails with reason <strong>badarg</strong>.</p><p>If the array does not have fixed size, the default value for any
+index <strong><span class="anno">I</span></strong> greater than
+<strong>size(<span class="anno">Array</span>)-1</strong> is returned.</p><p>See also <a href="#set-3">set-3</a>.</p><h2>is_array/1</h2><p>Returns <strong>true</strong> if <strong>X</strong> is an array, otherwise <strong>false</strong>.</p><a name="is_array-1"></a><p>Returns <strong>true</strong> if <strong><span class="anno">X</span></strong> is an array, otherwise
+<strong>false</strong>. Notice that the check is only shallow, as there is no
+guarantee that <strong><span class="anno">X</span></strong> is a well-formed array
+representation even if this function returns <strong>true</strong>.</p><h2>is_fix/1</h2><p>Check if the array has fixed size.</p><a name="is_fix-1"></a><p>Checks if the array has fixed size. Returns <strong>true</strong> if the array
+is fixed, otherwise <strong>false</strong>.</p><p>See also <a href="#fix-1">fix-1</a>.</p><h2>map/2</h2><p>Map the specified function onto each array element.</p><a name="map-2"></a><p>Maps the specified function onto each array element. The elements are
+visited in order from the lowest index to the highest. If
+<strong><span class="anno">Function</span></strong> is not a function, the call fails with
+reason <strong>badarg</strong>.</p><p>See also <a href="#foldl-3">foldl-3</a>,
+<a href="#foldr-3">foldr-3</a>,
+<a href="#sparse_map-2">sparse_map-2</a>.</p><h2>new/0</h2><p>Create a new, extendible array with initial size zero. </p><a name="new-0"></a><p>Creates a new, extendible array with initial size zero.</p><p>See also <a href="#new-1">new-1</a>,
+<a href="#new-2">new-2</a>.</p><h2>new/1</h2><p>Create a new array according to the specified options. </p><a name="new-1"></a><p>Creates a new array according to the specified otions. By default,
+the array is extendible and has initial size zero. Array indices
+start at <strong>0</strong>.</p><p><strong><span class="anno">Options</span></strong> is a single term or a list of terms,
+selected from the following:</p><dl><dt><strong>N::integer() &gt;= 0</strong> or <strong>{size, N::integer() &gt;= 0}</strong> </dt><dd><p>Specifies the initial array size; this also implies
+<strong>{fixed, true}</strong>. If <strong>N</strong> is not a non-negative integer, the
+call fails with reason <strong>badarg</strong>.</p></dd><dt><strong>fixed</strong> or <strong>{fixed, true}</strong></dt><dd><p>Creates a fixed-size array. See also
+<a href="#fix-1">fix-1</a>.</p></dd><dt><strong>{fixed, false}</strong></dt><dd><p>Creates an extendible (non-fixed-size) array.</p></dd><dt><strong>{default, Value}</strong></dt><dd><p>Sets the default value for the array to <strong>Value</strong>.</p> </dd></dl><p>Options are processed in the order they occur in the list, that is,
+later options have higher precedence.</p><p>The default value is used as the value of uninitialized entries, and
+cannot be changed once the array has been created.</p><p><em>Examples:</em></p><pre>
+array:new(100)</pre><p>creates a fixed-size array of size 100.</p><pre>
+array:new({default,0})</pre><p>creates an empty, extendible array whose default value is <strong>0</strong>.
+</p><pre>
+array:new([{size,10},{fixed,false},{default,-1}])</pre><p>creates an extendible array with initial size 10 whose default value
+is <strong>-1</strong>.</p><p>See also <a href="#fix-1">fix-1</a>,
+<a href="#from_list-2">from_list-2</a>,
+<a href="#get-2">get-2</a>,
+<a href="#new-0">new-0</a>,
+<a href="#new-2">new-2</a>,
+<a href="#set-3">set-3</a>.</p><h2>new/2</h2><p>Create a new array according to the specified size and options. </p><a name="new-2"></a><p>Creates a new array according to the specified size and options. If
+<strong><span class="anno">Size</span></strong> is not a non-negative integer, the call fails
+with reason <strong>badarg</strong>. By default, the array has fixed size.
+Notice that any size specifications in <strong><span class="anno">Options</span></strong>
+override parameter <strong><span class="anno">Size</span></strong>.</p><p>If <strong><span class="anno">Options</span></strong> is a list, this is equivalent to
+<strong>new([{size, <span class="anno">Size</span>} | <span class="anno">Options</span>]</strong>,
+otherwise it is equivalent to <strong>new([{size, <span class="anno">Size</span>} | [<span class="anno">Options</span>]]</strong>. However, using this function directly is
+more efficient.</p><p><em>Example:</em></p><pre>
+array:new(100, {default,0})</pre><p>creates a fixed-size array of size 100, whose default value is
+<strong>0</strong>.</p><p>See also <a href="#new-1">new-1</a>.</p><h2>relax/1</h2><p>Make the array resizable.</p><a name="relax-1"></a><p>Makes the array resizable. (Reverses the effects of
+<a href="#fix-1">fix-1</a>.)</p><p>See also <a href="#fix-1">fix-1</a>.</p><h2>reset/2</h2><p>Reset entry <strong>I</strong> to the default value for the array. </p><a name="reset-2"></a><p>Resets entry <strong><span class="anno">I</span></strong> to the default value for the
+array. If the value of entry <strong><span class="anno">I</span></strong> is the default
+value, the array is returned unchanged. Reset never changes the array
+size. Shrinking can be done explicitly by calling
+<a href="#resize-2">resize-2</a>.</p><p>If <strong><span class="anno">I</span></strong> is not a non-negative integer, or if the
+array has fixed size and <strong><span class="anno">I</span></strong> is larger than the
+maximum index, the call fails with reason <strong>badarg</strong>; compare
+<a href="#set-3">set-3</a></p><p>See also <a href="#new-2">new-2</a>,
+<a href="#set-3">set-3</a>.</p><h2>resize/1</h2><p>Change the array size to that reported by <strong>sparse_size/1</strong>. </p><a name="resize-1"></a><p>Changes the array size to that reported by
+<a href="#sparse_size-1">sparse_size-1</a>. If
+the specified array has fixed size, also the resulting array has fixed
+size.</p><p>See also <a href="#resize-2">resize-2</a>,
+<a href="#sparse_size-1">sparse_size-1</a>.</p><h2>resize/2</h2><p>Change the array size.</p><a name="resize-2"></a><p>Change the array size. If <strong><span class="anno">Size</span></strong> is not a
+non-negative integer, the call fails with reason <strong>badarg</strong>. If
+the specified array has fixed size, also the resulting array has fixed
+size.</p><h2>set/3</h2><p>Set entry <strong>I</strong> of the array to <strong>Value</strong>.</p><a name="set-3"></a><p>Sets entry <strong><span class="anno">I</span></strong> of the array to
+<strong><span class="anno">Value</span></strong>. If <strong><span class="anno">I</span></strong> is not a
+non-negative integer, or if the array has fixed size and
+<strong><span class="anno">I</span></strong> is larger than the maximum index, the call
+fails with reason <strong>badarg</strong>.</p><p>If the array does not have fixed size, and <strong><span class="anno">I</span></strong> is
+greater than <strong>size(<span class="anno">Array</span>)-1</strong>, the array grows to
+size <strong><span class="anno">I</span>+1</strong>.</p><p>See also <a href="#get-2">get-2</a>,
+<a href="#reset-2">reset-2</a>.</p><h2>size/1</h2><p>Get the number of entries in the array.</p><a name="size-1"></a><p>Gets the number of entries in the array. Entries are numbered from
+<strong>0</strong> to <strong>size(<span class="anno">Array</span>)-1</strong>. Hence, this is also the
+index of the first entry that is guaranteed to not have been
+previously set.</p><p>See also <a href="#set-3">set-3</a>,
+<a href="#sparse_size-1">sparse_size-1</a>.</p><h2>sparse_foldl/3</h2><p>Fold the array elements using the specified function and initial accumulator value, skipping default-valued entries.</p><a name="sparse_foldl-3"></a><p>Folds the array elements using the specified function and initial
+accumulator value, skipping default-valued entries. The elements are
+visited in order from the lowest index to the highest. If
+<strong><span class="anno">Function</span></strong> is not a function, the call fails with
+reason <strong>badarg</strong>.</p><p>See also <a href="#foldl-3">foldl-3</a>,
+<a href="#sparse_foldr-3">sparse_foldr-3</a>.</p><h2>sparse_foldr/3</h2><p>Fold the array elements right-to-left using the specified function and initial accumulator value, skipping default-valued entries.</p><a name="sparse_foldr-3"></a><p>Folds the array elements right-to-left using the specified
+function and initial accumulator value, skipping default-valued
+entries. The elements are visited in order from the highest index to
+the lowest. If <strong><span class="anno">Function</span></strong> is not a function, the
+call fails with reason <strong>badarg</strong>.</p><p>See also <a href="#foldr-3">foldr-3</a>,
+<a href="#sparse_foldl-3">sparse_foldl-3</a>.</p><h2>sparse_map/2</h2><p>Map the specified function onto each array element, skipping default-valued entries.</p><a name="sparse_map-2"></a><p>Maps the specified function onto each array element, skipping
+default-valued entries. The elements are visited in order from the
+lowest index to the highest. If <strong><span class="anno">Function</span></strong> is not a
+function, the call fails with reason <strong>badarg</strong>.</p><p>See also <a href="#map-2">map-2</a>.</p><h2>sparse_size/1</h2><p>Get the number of entries in the array up until the last non-default-valued entry.</p><a name="sparse_size-1"></a><p>Gets the number of entries in the array up until the last
+non-default-valued entry. That is, returns <strong>I+1</strong> if <strong>I</strong> is
+the last non-default-valued entry in the array, or zero if no such
+entry exists.</p><p>See also <a href="#resize-1">resize-1</a>,
+<a href="#size-1">size-1</a>.</p><h2>sparse_to_list/1</h2><p>Convert the array to a list, skipping default-valued entries. </p><a name="sparse_to_list-1"></a><p>Converts the array to a list, skipping default-valued entries.</p><p>See also <a href="#to_list-1">to_list-1</a>.</p><h2>sparse_to_orddict/1</h2><p>Convert the array to an ordered list of pairs <strong>{Index, Value}</strong>, skipping default-valued entries.</p><a name="sparse_to_orddict-1"></a><p>Converts the array to an ordered list of pairs <strong>{Index, <span class="anno">Value</span>}</strong>, skipping default-valued entries.</p><p>See also
+<a href="#to_orddict-1">to_orddict-1</a>.</p><h2>to_list/1</h2><p>Convert the array to a list.</p><a name="to_list-1"></a><p>Converts the array to a list.</p><p>See also <a href="#from_list-2">from_list-2</a>,
+<a href="#sparse_to_list-1">sparse_to_list-1</a>.
+</p><h2>to_orddict/1</h2><p>Convert the array to an ordered list of pairs <strong>{Index, Value}</strong>.</p><a name="to_orddict-1"></a><p>Converts the array to an ordered list of pairs <strong>{Index, <span class="anno">Value</span>}</strong>.</p><p>See also
+<a href="#from_orddict-2">from_orddict-2</a>,
+<a href="#sparse_to_orddict-1">sparse_to_orddict-1</a>.
+</p></body></html>

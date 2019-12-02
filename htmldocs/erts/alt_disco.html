@@ -1,0 +1,26 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>How to Implement an Alternative Service Discovery for Erlang Distribution
+</h1><p>
+This section describes how to implement an alternative discovery mechanism
+for Erlang distribution. Discovery is normally done using DNS and the
+Erlang Port Mapper Daemon (EPMD) for port discovery.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+Support for alternative service discovery mechanisms was added in Erlang/OTP
+21.
+</p></div><h2>Introduction</h2><p>To implement your own service discovery module you have to write your own
+EPMD module. The <a href="./erl_epmd">EPMD module</a> is
+responsible for providing the location of another node. The distribution
+modules (<strong>inet_tcp_dist</strong>/<strong>inet_tls_dist</strong>) call the EPMD module to
+get the IP address and port of the other node. The EPMD module that is part
+of Erlang/OTP will resolve the hostname using DNS and uses the EPMD unix
+process to get the port of another node. The EPMD unix process does this by
+connecting to the other node on a well-known port, port 4369.</p><h2>Discovery module</h2><p>The discovery module needs to implement the same API as the regular
+<a href="./erl_epmd">EPMD module</a>. However, instead of
+communicating with EPMD you can connect to any service to find out
+connection details of other nodes. A discovery module is enabled
+by setting <a href="./erl">-epmd_module</a>
+when starting erlang. The discovery module must implement the following
+callbacks:</p><dl><dt><a href="../kernel/erl_epmd#start_link/0">start_link/0</a></dt><dd>Start any processes needed by the discovery module.</dd><dt><a href="../kernel/erl_epmd#names/1">names/1</a></dt><dd>Return node names held by the registrar for the given host.</dd><dt><a href="../kernel/erl_epmd#register_node/2">register_node/2</a></dt><dd>Register the given node name with the registrar.</dd><dt><a href="../kernel/erl_epmd#port_please/3">port_please/3</a></dt><dd>Return the distribution port used by the given node.</dd></dl><p>The discovery module may implement the following callback:</p><dl><dt><a href="../kernel/erl_epmd#address_please/3">address_please/3</a></dt><dd><p>Return the address of the given node.
+If not implemented, <a href="../kernel/inet#gethostbyname/1"> inet:gethostbyname/1</a> will be used instead</p> <p>This callback may also return the port of the given node. In that case
+<a href="../kernel/erl_epmd#port_please/3">port_please/3</a>
+may be omitted.</p></dd></dl></body></html>

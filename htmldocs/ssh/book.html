@@ -1,0 +1,1434 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>SSH</h1><h1>SSH</h1><p>The Erlang Secure Shell (SSH) application, <strong>ssh</strong>, implements the SSH Transport Layer Protocol and
+provides SSH File Transfer Protocol (SFTP) clients and servers.
+</p><p>SSH is a protocol for secure remote logon and
+other secure network services over an insecure network.</p><h4>Scope and Purpose</h4><p>SSH provides a single, full-duplex, and byte-oriented connection between
+client and server. The protocol also provides privacy, integrity,
+server authentication, and man-in-the-middle protection.</p><p>The <strong>ssh</strong> application is an implementation of the SSH Transport, Connection and Authentication
+Layer Protocols in Erlang. It provides the following:</p><ul><li>API functions to write customized SSH clients and servers applications</li><li>The Erlang shell available over SSH</li><li>An SFTP client (<a href="ssh_sftp">ssh_sftp</a>) and server (<a href="ssh_sftp">ssh_sftpd</a>)</li></ul><h4>Prerequisites</h4><p>It is assumed that the reader is familiar with the Erlang programming language,
+concepts of <em>OTP</em>, and has a basic understanding of <em>public keys</em>.</p><h4>SSH Protocol Overview</h4><p>Conceptually, the SSH protocol can be partitioned into four
+layers:</p><img src="SSH_protocols.png" title="SSH Protocol Architecture"></img><h4>Transport Protocol</h4><p>The SSH Transport Protocol is a secure, low-level transport.
+It provides strong encryption, cryptographic host
+authentication, and integrity protection. A minimum of
+Message Authentication Code (MAC) and encryption
+algorithms are supported. For details, see the
+<a href="ssh">ssh(3)</a> manual page in <strong>ssh</strong>.</p><h4>Authentication Protocol</h4><p>The SSH Authentication Protocol is a general-purpose user
+authentication protocol run over the SSH Transport Layer
+Protocol. The <strong>ssh</strong> application supports user authentication as follows:
+</p><ul><li> Using public key technology. RSA and DSA, X509-certificates are not supported. </li><li> Using keyboard-interactive authentication. This is suitable for interactive authentication methods that do not need any special software support on the client side. Instead, all authentication data is entered from the keyboard. </li><li> Using a pure password-based authentication scheme. Here, the plain text password is encrypted before sent over the network. </li></ul><p>Several configuration options for
+authentication handling are available in
+<a href="./ssh#connect-3">ssh:connect/[3,4]</a>
+and <a href="./ssh#daemon-2">ssh:daemon/[2,3]</a>.</p><p>
+The public key handling can be customized by implementing
+the following behaviours from <strong>ssh</strong>:</p><ul><li>Module <a href="ssh_client_key_api">ssh_client_key_api</a>. </li><li>Module <a href="ssh_server_key_api">ssh_server_key_api</a>. </li></ul><h4>Connection Protocol</h4><p>The SSH Connection Protocol provides application-support
+services over the transport pipe, for example, channel multiplexing,
+flow control, remote program execution, signal propagation, and
+connection forwarding. Functions for handling the SSH
+Connection Protocol can be found in the module <a href="ssh_connection">ssh_connection</a> in <strong>ssh</strong>.
+</p><h4>Channels</h4><p>All terminal sessions, forwarded connections, and so on, are
+channels. Multiple channels are multiplexed into a single
+connection. All channels are flow-controlled. This means that no
+data is sent to a channel peer until a message is received to
+indicate that window space is available.
+The <em>initial window size</em> specifies how many bytes of channel
+data that can be sent to the channel peer without adjusting the
+window. Typically, an SSH client opens a channel, sends data (commands),
+receives data (control information), and then closes the channel.
+The <a href="ssh_client_channel">ssh_client_channel</a> behaviour
+handles generic parts of SSH channel management. This makes it easy
+to write your own SSH client/server processes that use flow-control
+and thus opens for more focus on the application logic.
+</p><p>Channels come in the following three flavors:</p><ul><li><em>Subsystem</em> - Named services that can be run as part of an SSH server, such as SFTP <a href="ssh_sftpd">(ssh_sftpd)</a>, that is built into the SSH daemon (server) by default, but it can be disabled. The Erlang <strong>ssh</strong> daemon can be configured to run any Erlang- implemented SSH subsystem. </li><li><em>Shell</em> - Interactive shell. By default the Erlang daemon runs the Erlang shell. The shell can be customized by providing your own read-eval-print loop. You can also provide your own Command-Line Interface (CLI) implementation, but that is much more work. </li><li><em>Exec</em> - One-time remote execution of commands. See function <a href="./ssh_connection#exec-4">ssh_connection:exec/4</a> for more information.</li></ul><h4>Where to Find More Information</h4><p>
+For detailed information about the SSH protocol, refer to the
+following Request for Comments(RFCs):
+</p><ul><li><a href="http://www.ietf.org/rfc/rfc4250.txt">RFC 4250</a> - Protocol Assigned Numbers</li><li><a href="http://www.ietf.org/rfc/rfc4251.txt">RFC 4251</a> - Protocol Architecture</li><li><a href="http://www.ietf.org/rfc/rfc4252.txt">RFC 4252</a> - Authentication Protocol</li><li><a href="http://www.ietf.org/rfc/rfc4253.txt">RFC 4253</a> - Transport Layer Protocol</li><li><a href="http://www.ietf.org/rfc/rfc4254.txt">RFC 4254</a> - Connection Protocol</li><li><a href="http://www.ietf.org/rfc/rfc4344.txt">RFC 4344</a> - Transport Layer Encryption Modes</li><li><a href="http://www.ietf.org/rfc/rfc4716.txt">RFC 4716</a> - Public Key File Format</li></ul><h4>General Information</h4><p>The following examples use the utility function
+<a href="./ssh#start-0"> ssh:start/0</a> to start
+all needed applications (<strong>crypto</strong>, <strong>public_key</strong>, and <strong>ssh</strong>).
+All examples are run in an Erlang shell, or in a bash shell, using <em>openssh</em>
+to illustrate how the <strong>ssh</strong> application can be used. The
+examples are run as the user <strong>otptest</strong> on a local network where the
+user is authorized to log in over <strong>ssh</strong> to the host <em>tarlop</em>.
+</p><p>If nothing else is stated, it is presumed that the <strong>otptest</strong> user
+has an entry in the <em>authorized_keys</em> file of <em>tarlop</em>
+(allowed to log in over <strong>ssh</strong> without entering a password).
+Also, <em>tarlop</em> is a known host in the <strong>known_hosts</strong>
+file of the user <strong>otptest</strong>. This means that host-verification
+can be done without user-interaction.
+</p><h4>Using the Erlang ssh Terminal Client</h4><p>The user <strong>otptest</strong>, which has bash as default shell, uses the
+<strong>ssh:shell/1</strong> client to connect to the <em>openssh</em> daemon running on a
+host called <em>tarlop</em>:</p><pre><code class="erl">
+      1&gt;  ssh:start().
+      ok
+      2&gt; {ok, S} = ssh:shell("tarlop").
+      otptest@tarlop:&gt; pwd
+      /home/otptest
+      otptest@tarlop:&gt; exit
+      logout
+      3&gt;
+    </code></pre><a name="Running an Erlang ssh Daemon"></a><h4>Running an Erlang ssh Daemon</h4><p>The
+<a href="./ssh_file#type-system_dir_daemon_option">ssh_file#type-system_dir_daemon_option</a>
+option must be a directory containing a host key file and it defaults to <strong>/etc/ssh</strong>.
+For details, see Section Configuration Files in <a href="SSH_app">ssh(6)</a>.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Normally, the <strong>/etc/ssh</strong> directory is only readable by root.</p></div><p>The option <a href="./ssh_file#type-user_dir_common_option">ssh_file#type-user_dir_common_option</a>
+defaults to directory <strong>users ~/.ssh</strong>.</p><p><em>Step 1.</em> To run the example without root privileges,
+generate new keys and host keys:</p><pre><code class="">
+      $bash&gt; ssh-keygen -t rsa -f /tmp/ssh_daemon/ssh_host_rsa_key
+      [...]
+      $bash&gt; ssh-keygen -t rsa -f /tmp/otptest_user/.ssh/id_rsa
+      [...]
+    </code></pre><p><em>Step 2.</em> Create the file <strong>/tmp/otptest_user/.ssh/authorized_keys</strong>
+and add the content of <strong>/tmp/otptest_user/.ssh/id_rsa.pub</strong>.</p><p><em>Step 3.</em> Start the Erlang <strong>ssh</strong> daemon:</p><pre><code class="erl">
+      1&gt; ssh:start().
+      ok
+      2&gt; {ok, Sshd} = ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
+                                        {user_dir, "/tmp/otptest_user/.ssh"}]).
+      {ok,&lt;0.54.0&gt;}
+      3&gt;
+    </code></pre><p><em>Step 4.</em> Use the <em>openssh</em> client from a shell to connect
+to the Erlang <strong>ssh</strong> daemon:</p><pre><code class="">
+      $bash&gt; ssh tarlop -p 8989  -i /tmp/otptest_user/.ssh/id_rsa\
+             -o UserKnownHostsFile=/tmp/otptest_user/.ssh/known_hosts
+      The authenticity of host 'tarlop' can't be established.
+      RSA key fingerprint is 14:81:80:50:b1:1f:57:dd:93:a8:2d:2f:dd:90:ae:a8.
+      Are you sure you want to continue connecting (yes/no)? yes
+      Warning: Permanently added 'tarlop' (RSA) to the list of known hosts.
+      Eshell V5.10  (abort with ^G)
+      1&gt;
+    </code></pre><p>There are two ways of shutting down an <strong>ssh</strong> daemon,
+see <em>Step 5a</em> and <em>Step 5b</em>.</p><p><em>Step 5a.</em> Shut down the Erlang <strong>ssh</strong> daemon so that it
+stops the listener but leaves existing connections, started by the listener,
+operational:</p><pre><code class="erl">
+      3&gt; ssh:stop_listener(Sshd).
+      ok
+      4&gt;
+    </code></pre><p><em>Step 5b.</em> Shut down the Erlang <strong>ssh</strong> daemon so that it
+stops the listener and all connections started by the listener:</p><pre><code class="erl">
+      3&gt; ssh:stop_daemon(Sshd)
+      ok
+      4&gt;
+    </code></pre><h4>One-Time Execution</h4><p>In the following example, the Erlang shell is the client process
+that receives the channel replies.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The number of received messages in this example depends on which OS
+and which shell that is used on the machine running the <strong>ssh</strong> daemon.
+See also <a href="./ssh_connection#exec-4">ssh_connection:exec/4</a>.
+</p></div><p>Do a one-time execution of a remote command over <strong>ssh</strong>:</p><pre><code class="erl">
+      1&gt;  ssh:start().
+      ok
+      2&gt; {ok, ConnectionRef} = ssh:connect("tarlop", 22, []).
+      {ok,&lt;0.57.0&gt;}
+      3&gt;{ok, ChannelId} =  ssh_connection:session_channel(ConnectionRef, infinity).
+      {ok,0}
+      4&gt; success = ssh_connection:exec(ConnectionRef, ChannelId, "pwd", infinity).
+      5&gt;  flush().
+      Shell got {ssh_cm,&lt;0.57.0&gt;,{data,0,0,&lt;&lt;"/home/otptest\n"&gt;&gt;}}
+      Shell got {ssh_cm,&lt;0.57.0&gt;,{eof,0}}
+      Shell got {ssh_cm,&lt;0.57.0&gt;,{exit_status,0,0}}
+      Shell got {ssh_cm,&lt;0.57.0&gt;,{closed,0}}
+      ok
+      6&gt;
+    </code></pre><p>Notice that only the channel is closed. The connection is still up and can
+handle other channels:</p><pre><code class="erl">
+      6&gt; {ok, NewChannelId} =  ssh_connection:session_channel(ConnectionRef, infinity).
+        {ok,1}
+	...
+    </code></pre><h4>SFTP Server</h4><p>Start the Erlang <strong>ssh</strong> daemon with the SFTP subsystem:</p><pre><code class="erl">
+      1&gt; ssh:start().
+      ok
+      2&gt; ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
+                           {user_dir, "/tmp/otptest_user/.ssh"},
+                           {subsystems, [ssh_sftpd:subsystem_spec([{cwd, "/tmp/sftp/example"}])
+                                        ]}]).
+      {ok,&lt;0.54.0&gt;}
+      3&gt;
+    </code></pre><p>Run the OpenSSH SFTP client:</p><pre><code class="erl">
+      $bash&gt; sftp -oPort=8989 -o IdentityFile=/tmp/otptest_user/.ssh/id_rsa\
+             -o UserKnownHostsFile=/tmp/otptest_user/.ssh/known_hosts tarlop
+      Connecting to tarlop...
+      sftp&gt; pwd
+      Remote working directory: /tmp/sftp/example
+      sftp&gt;
+    </code></pre><h4>SFTP Client</h4><p>Fetch a file with the Erlang SFTP client:</p><pre><code class="erl">
+      1&gt; ssh:start().
+      ok
+      2&gt; {ok, ChannelPid, Connection} = ssh_sftp:start_channel("tarlop", []).
+      {ok,&lt;0.57.0&gt;,&lt;0.51.0&gt;}
+      3&gt;  ssh_sftp:read_file(ChannelPid, "/home/otptest/test.txt").
+      {ok,&lt;&lt;"This is a test file\n"&gt;&gt;}
+    </code></pre><h4>SFTP Client with TAR Compression and Encryption</h4><p>Example of writing and then reading a tar file follows:</p><pre><code class="erl">
+      {ok,HandleWrite} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [write]),
+      ok = erl_tar:add(HandleWrite, .... ),
+      ok = erl_tar:add(HandleWrite, .... ),
+      ...
+      ok = erl_tar:add(HandleWrite, .... ),
+      ok = erl_tar:close(HandleWrite),
+
+      %% And for reading
+      {ok,HandleRead} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [read]),
+      {ok,NameValueList} = erl_tar:extract(HandleRead,[memory]),
+      ok = erl_tar:close(HandleRead),
+    </code></pre><p>The previous write and read example can be extended with encryption and decryption as follows:</p><pre><code class="erl">
+%% First three parameters depending on which crypto type we select:
+Key = &lt;&lt;"This is a 256 bit key. abcdefghi"&gt;&gt;,
+Ivec0 = crypto:strong_rand_bytes(16),
+DataSize = 1024,  % DataSize rem 16 = 0 for aes_cbc
+
+%% Initialization of the CryptoState, in this case it is the Ivector.
+InitFun = fun() -&gt; {ok, Ivec0, DataSize} end,
+
+%% How to encrypt:
+EncryptFun =
+    fun(PlainBin,Ivec) -&gt;
+        EncryptedBin = crypto:block_encrypt(aes_cbc256, Key, Ivec, PlainBin),
+        {ok, EncryptedBin, crypto:next_iv(aes_cbc,EncryptedBin)}
+    end,
+
+%% What to do with the very last block:
+CloseFun =
+    fun(PlainBin, Ivec) -&gt;
+        EncryptedBin = crypto:block_encrypt(aes_cbc256, Key, Ivec,
+                                            pad(16,PlainBin) %% Last chunk
+                                           ),
+       {ok, EncryptedBin}
+    end,
+
+Cw = {InitFun,EncryptFun,CloseFun},
+{ok,HandleWrite} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [write,{crypto,Cw}]),
+ok = erl_tar:add(HandleWrite, .... ),
+ok = erl_tar:add(HandleWrite, .... ),
+...
+ok = erl_tar:add(HandleWrite, .... ),
+ok = erl_tar:close(HandleWrite),
+
+%% And for decryption (in this crypto example we could use the same InitFun
+%% as for encryption):
+DecryptFun =
+    fun(EncryptedBin,Ivec) -&gt;
+        PlainBin = crypto:block_decrypt(aes_cbc256, Key, Ivec, EncryptedBin),
+       {ok, PlainBin, crypto:next_iv(aes_cbc,EncryptedBin)}
+    end,
+
+Cr = {InitFun,DecryptFun},
+{ok,HandleRead} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [read,{crypto,Cw}]),
+{ok,NameValueList} = erl_tar:extract(HandleRead,[memory]),
+ok = erl_tar:close(HandleRead),
+    </code></pre><a name="usersguide_creating_a_subsystem"></a><h4>Creating a Subsystem</h4><p>A small <strong>ssh</strong> subsystem that echoes N bytes can be implemented as shown
+in the following example:</p><pre><code class="erl">
+-module(ssh_echo_server).
+-behaviour(ssh_server_channel). % replaces ssh_daemon_channel
+-record(state, {
+	  n,
+	  id,
+	  cm
+	 }).
+-export([init/1, handle_msg/2, handle_ssh_msg/2, terminate/2]).
+
+init([N]) -&gt;
+    {ok, #state{n = N}}.
+
+handle_msg({ssh_channel_up, ChannelId, ConnectionManager}, State) -&gt;
+    {ok, State#state{id = ChannelId,
+		     cm = ConnectionManager}}.
+
+handle_ssh_msg({ssh_cm, CM, {data, ChannelId, 0, Data}}, #state{n = N} = State) -&gt;
+    M = N - size(Data),
+    case M &gt; 0 of
+	true -&gt;
+	   ssh_connection:send(CM, ChannelId, Data),
+	   {ok, State#state{n = M}};
+	false -&gt;
+	   &lt;&lt;SendData:N/binary, _/binary&gt;&gt; = Data,
+           ssh_connection:send(CM, ChannelId, SendData),
+           ssh_connection:send_eof(CM, ChannelId),
+	   {stop, ChannelId, State}
+    end;
+handle_ssh_msg({ssh_cm, _ConnectionManager,
+		{data, _ChannelId, 1, Data}}, State) -&gt;
+    error_logger:format(standard_error, " ~p~n", [binary_to_list(Data)]),
+    {ok, State};
+
+handle_ssh_msg({ssh_cm, _ConnectionManager, {eof, _ChannelId}}, State) -&gt;
+    {ok, State};
+
+handle_ssh_msg({ssh_cm, _, {signal, _, _}}, State) -&gt;
+    %% Ignore signals according to RFC 4254 section 6.9.
+    {ok, State};
+
+handle_ssh_msg({ssh_cm, _, {exit_signal, ChannelId, _, _Error, _}},
+	       State) -&gt;
+    {stop, ChannelId,  State};
+
+handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, _Status}}, State) -&gt;
+    {stop, ChannelId, State}.
+
+terminate(_Reason, _State) -&gt;
+    ok.
+ </code></pre><p>The subsystem can be run on the host <em>tarlop</em> with the generated keys,
+as described in Section <a href="#Running an Erlang ssh Daemon"> Running an Erlang ssh Daemon</a>:</p><pre><code class="erl">
+   1&gt; ssh:start().
+   ok
+   2&gt; ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
+                        {user_dir, "/tmp/otptest_user/.ssh"}
+                        {subsystems, [{"echo_n", {ssh_echo_server, [10]}}]}]).
+   {ok,&lt;0.54.0&gt;}
+   3&gt;
+ </code></pre><pre><code class="erl">
+   1&gt; ssh:start().
+   ok
+   2&gt;{ok, ConnectionRef} = ssh:connect("tarlop", 8989, [{user_dir, "/tmp/otptest_user/.ssh"}]).
+    {ok,&lt;0.57.0&gt;}
+   3&gt;{ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).
+   4&gt; success = ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", infinity).
+   5&gt; ok = ssh_connection:send(ConnectionRef, ChannelId, "0123456789", infinity).
+   6&gt; flush().
+   {ssh_msg, &lt;0.57.0&gt;, {data, 0, 1, "0123456789"}}
+   {ssh_msg, &lt;0.57.0&gt;, {eof, 0}}
+   {ssh_msg, &lt;0.57.0&gt;, {closed, 0}}
+   7&gt; {error, closed} = ssh_connection:send(ConnectionRef, ChannelId, "10", infinity).
+ </code></pre><p>See also <a href="ssh_client_channel">ssh_client_channel(3)</a> (replaces ssh_channel(3)).</p><h4>General Information</h4><p>In the following terms that may cause confusion are explained.
+</p><h4>The term "user"</h4><p>A "user" is a term that everyone understands intuitively. However, the understandings may differ which can
+cause confusion.
+</p><p>The term is used differently in <a href="http://www.openssh.com">OpenSSH</a> and SSH in Erlang/OTP.
+The reason is the different environments and use cases that are not immediatly obvious.
+</p><p>This chapter aims at explaining the differences and giving a rationale for why Erlang/OTP handles "user" as
+it does.
+</p><h4>In OpenSSH</h4><p>Many have been in contact with the command 'ssh' on a Linux machine (or similar) to remotly log in on
+another machine. One types 
+</p><pre><code class="">ssh host</code></pre><p>to log in on the machine named <strong>host</strong>. The command prompts for your password on the remote <strong>host</strong> and
+then you can read, write and execute as your <em>user name</em> has rights on the remote <strong>host</strong>. There are
+stronger variants with pre-distributed keys or certificates, but that are for now just details in the
+authentication process.
+</p><p>You could log in as the user <strong>anotheruser</strong> with
+</p><pre><code class="">ssh anotheruser@host</code></pre><p>and you will then be enabled to act as <strong>anotheruser</strong> on the <strong>host</strong> if authorized correctly.
+</p><p>So what does <em>"your user name has rights"</em> mean? In a UNIX/Linux/etc context it is exactly as that context:
+The <em>user</em> could read, write and execute programs according to the OS rules.
+In addition, the user has a home directory (<strong>$HOME</strong>) and there is a <strong>$HOME/.ssh/</strong> directory
+with ssh-specific files.
+</p><h4>SSH password authentication</h4><p>When SSH tries to log in to a host, the ssh protocol communicates the user name (as a string) and a password.
+The remote ssh server checks that there is such a user defined and that the provided password is acceptable.
+</p><p>If so, the user is authorized.
+</p><h4>SSH public key authentication</h4><p>This is a stronger method where the ssh protocol brings the user name, the user's public key and some
+cryptographic information which we could ignore here.
+</p><p>The ssh server on the remote host checks:
+</p><ul><li>That the <em>user</em> has a home directory,</li><li>that home directory contains a .ssh/ directory and</li><li>the .ssh/ directory contains the public key just received in the <strong>authorized_keys</strong> file</li></ul><p>if so, the user is authorized.
+</p><h4>The SSH server on UNIX/Linux/etc after a succesful authentication</h4><p>After a succesful incoming authentication, a new process runs as the just authenticated user.</p><p>Next step is to start a service according to the ssh request. In case of a request of a shell, 
+a new one is started which handles the OS-commands that arrives from the client (that's "you").
+</p><p>In case of a sftp request, an sftp server is started in with the user's rights. So it could read, write or delete
+files if allowed for that user.
+</p><h4>In Erlang/OTP SSH</h4><p>For the Erlang/OTP SSH server the situation is different. The server executes in an Erlang process
+in the Erlang emulator which in turn executes in an OS process. The emulator does not try to change its
+user when authenticated over the SSH protocol.
+So the remote user name is only for authentication purposes in the Erlang/OTP SSH application.
+</p><h4>Password authentication in Erlang SSH</h4><p>The Erlang/OTP SSH server checks the user name and password in the following order:
+</p><ul><li>If a  <a href="../ssh/ssh#option-pwdfun">ssh/ssh#option-pwdfun</a> is defined, that one is called and the returned boolean is the authentication result. </li><li>Else, if the  <a href="../ssh/ssh#option-user_passwords">ssh/ssh#option-user_passwords</a> option is defined and the username and the password matches, the authentication is a success. </li><li>Else, if the option  <a href="../ssh/ssh#option-password">ssh/ssh#option-password</a> is defined and matches the password the authentication is a success. Note that the use of this option is not recommended in non-test code. </li></ul><h4>Public key authentication in Erlang SSH</h4><p>The user name, public key and cryptographic data (a signature) that is sent by the client, are used as follows
+(some steps left out for clearity):
+</p><ul><li>A callback module is selected using the options  <a href="../ssh/ssh#type-key_cb_common_option">ssh/ssh#type-key_cb_common_option</a>. </li><li>The callback module is used to check that the provided public key is one of the user's pre-stored. In case of the default callback module, the files <strong>authorized_keys</strong> and <strong>authorized_keys2</strong> are searched in a directory found in the following order: <ul><li>If the option <a href="../ssh/ssh_file#type-user_dir_fun_common_option">ssh/ssh_file#type-user_dir_fun_common_option</a> is defined, that fun is called and the returned directory is used, </li><li>Else, If the option  <a href="../ssh/ssh_file#type-user_dir_common_option">ssh/ssh_file#type-user_dir_common_option</a> is defined, that directory is used, </li><li>Else the subdirectory <strong>.ssh</strong> in the home directory of the user executing the OS process of the Erlang emulator is used. </li></ul> If the provided public key is not found, the authentication fails. </li><li>Finally, if the provided public key is found, the signature provided by the client is checked with the public key. </li></ul><h4>The Erlang/OTP SSH server after a succesful authentication</h4><p>After a successful authentication an <em>Erlang process</em> is handling the service request from the remote
+ssh client. The rights of that process are those of the user of the OS process running the Erlang emulator.
+</p><p>If a shell service request arrives to the server, an <em>Erlang shell</em> is opened in the server's emulator.
+The rights in that shell is independent of the just authenticated user.
+</p><p>In case of an sftp request, an sftp server is started with the rights of the user of the Erlang emulator's OS
+process. So with sftp the authenticated user does not influence the rights.
+</p><p>So after an authentication, the user name is not used anymore and has no influence.
+</p><a name="introduction"></a><h4>Introduction</h4><p>To fully understand how to configure the algorithms, it is essential to have a basic understanding of the SSH protocol
+and how OTP SSH app handles the corresponding items</p><p>The first subsection will give a short background of the SSH protocol while later sections describes
+the implementation and provides some examples</p><h4>Basics of the ssh protocol's algorithms handling</h4><p>SSH uses different sets of algorithms in different phases of a session. Which
+algorithms to use is negotiated by the client and the server at the beginning of a session.
+See <a href="https://tools.ietf.org/html/rfc4253">RFC 4253</a>,
+"The Secure Shell (SSH) Transport Layer Protocol" for details.
+</p><p>The negotiation is simple: both peers sends their list of supported alghorithms to the other part.
+The first algorithm on the client's list that also in on the server's list is selected. So it is the
+client's orderering of the list that gives the priority for the algorithms.</p><p>There are five lists exchanged in the connection setup. Three of them are also divided in two
+directions, to and from the server.</p><p>The lists are (named as in the SSH application's options):</p><dl><dt><strong>kex</strong></dt><dd> <p>Key exchange.</p> <p>An algorithm is selected for computing a secret encryption key. Among examples are:
+the old nowadays week <strong>'diffie-hellman-group-exchange-sha1'</strong> and the very strong and modern
+<strong>'ecdh-sha2-nistp512'</strong>.</p> </dd><dt><strong>public_key</strong></dt><dd> <p>Server host key</p> <p>The asymetric encryption algorithm used in the server's private-public host key pair.
+Examples include the well-known RSA <strong>'ssh-rsa'</strong> and elliptic curve <strong>'ecdsa-sha2-nistp521'</strong>.
+</p> </dd><dt><strong>cipher</strong></dt><dd> <p>Symetric cipher algorithm used for the payload encryption. This algorithm will use the key calculated
+in the kex phase (together with other info) to genereate the actual key used. Examples are 
+tripple-DES <strong>'3des-cbc'</strong> and one of many AES variants <strong>'aes192-ctr'</strong>.
+</p> <p>This list is actually two - one for each direction server-to-client and client-to-server. Therefore it
+is possible but rare to have different algorithms in the two directions in one connection.</p> </dd><dt><strong>mac</strong></dt><dd> <p>Message authentication code</p> <p>"Check sum" of each message sent between the peers. Examples are SHA <strong>'hmac-sha1'</strong> and
+SHA2 <strong>'hmac-sha2-512'</strong>.</p> <p>This list is also divided into two for the both directions</p> </dd><dt><strong>compression</strong></dt><dd> <p>If and how to compress the message. Examples are <strong>none</strong>, that is, no compression and
+<strong>zlib</strong>.</p> <p>This list is also divided into two for the both directions</p> </dd></dl><h4>The SSH app's mechanism</h4><p>The set of algorithms that the SSH app uses by default depends on the algoritms supported by the:</p><ul><li><p><a href="./crypto">crypto</a> app,</p> </li><li><p>The cryptolib OTP is linked with, usally the one the OS uses, probably OpenSSL,</p> </li><li><p>and finaly what the SSH app implements</p> </li></ul><p>Due to this, it impossible to list in documentation what algorithms that are available in a certain installation.</p><p>There is an important command to list the actual algorithms and their ordering:
+<a href="./ssh#default_algorithms-0">ssh:default_algorithms/0</a>.</p><a name="example_default_algorithms"></a><pre><code class="erl">
+0&gt; ssh:default_algorithms().
+[{kex,['ecdh-sha2-nistp384','ecdh-sha2-nistp521',
+       'ecdh-sha2-nistp256','diffie-hellman-group-exchange-sha256',
+       'diffie-hellman-group16-sha512',
+       'diffie-hellman-group18-sha512',
+       'diffie-hellman-group14-sha256',
+       'diffie-hellman-group14-sha1',
+       'diffie-hellman-group-exchange-sha1']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+              'ecdsa-sha2-nistp256','ssh-rsa','rsa-sha2-256',
+              'rsa-sha2-512','ssh-dss']},
+ {cipher,[{client2server,['aes256-gcm@openssh.com',
+                          'aes256-ctr','aes192-ctr','aes128-gcm@openssh.com',
+                          'aes128-ctr','aes128-cbc','3des-cbc']},
+          {server2client,['aes256-gcm@openssh.com','aes256-ctr',
+                          'aes192-ctr','aes128-gcm@openssh.com','aes128-ctr',
+                          'aes128-cbc','3des-cbc']}]},
+ {mac,[{client2server,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']},
+       {server2client,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']}]},
+ {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
+               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+
+      </code></pre><p>To change the algorithm list, there are two options which can be used in 
+<a href="./ssh#connect-3">ssh:connect/2,3,4</a>
+and
+<a href="./ssh#daemon-2">ssh:daemon/2,3</a>. The options could of course
+be used in all other functions that initiates connections.</p><p>The options are <strong>preferred_algorithms</strong> and <strong>modify_algorithms</strong>. The first one
+replaces the default set, while the latter modifies the default set.</p><h4>Replacing the default set: preferred_algorithms</h4><p>See the <a href="./ssh#type-preferred_algorithms_common_option">Reference Manual</a> for details</p><p>Here follows a series of examples ranging from simple to more complex.</p><p>To forsee the effect of an option there is an experimental function <strong>ssh:chk_algos_opts(Opts)</strong>.
+It mangles the options <strong>preferred_algorithms</strong>
+and <strong>modify_algorithms</strong> in the same way as <strong>ssh:dameon</strong>, <strong>ssh:connect</strong> and their friends does.</p><h4>Example 1</h4><p>Replace the kex algorithms list with the single algorithm <strong>'diffie-hellman-group14-sha256'</strong>:</p><pre><code class="">
+1&gt; ssh:chk_algos_opts(
+               [{preferred_algorithms,
+                     [{kex, ['diffie-hellman-group14-sha256']}
+                     ]
+                }
+              ]).
+[{kex,['diffie-hellman-group14-sha256']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+              'ecdsa-sha2-nistp256','ssh-rsa','rsa-sha2-256',
+              'rsa-sha2-512','ssh-dss']},
+ {cipher,[{client2server,['aes256-gcm@openssh.com',
+                          'aes256-ctr','aes192-ctr','aes128-gcm@openssh.com',
+                          'aes128-ctr','aes128-cbc','3des-cbc']},
+          {server2client,['aes256-gcm@openssh.com','aes256-ctr',
+                          'aes192-ctr','aes128-gcm@openssh.com','aes128-ctr',
+                          'aes128-cbc','3des-cbc']}]},
+ {mac,[{client2server,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']},
+       {server2client,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']}]},
+ {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
+               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+      </code></pre><p>Note that the unmentioned lists (<strong>public_key</strong>, <strong>cipher</strong>, <strong>mac</strong> and <strong>compression</strong>)
+are un-changed.</p><h4>Example 2</h4><p>In the lists that are divided in two for the two directions (c.f <strong>cipher</strong>) it is possible
+to change both directions at once:</p><pre><code class="">
+2&gt; ssh:chk_algos_opts(
+               [{preferred_algorithms,
+                     [{cipher,['aes128-ctr']}
+                     ]
+                }
+              ]).
+[{kex,['ecdh-sha2-nistp384','ecdh-sha2-nistp521',
+       'ecdh-sha2-nistp256','diffie-hellman-group-exchange-sha256',
+       'diffie-hellman-group16-sha512',
+       'diffie-hellman-group18-sha512',
+       'diffie-hellman-group14-sha256',
+       'diffie-hellman-group14-sha1',
+       'diffie-hellman-group-exchange-sha1']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+              'ecdsa-sha2-nistp256','ssh-rsa','rsa-sha2-256',
+              'rsa-sha2-512','ssh-dss']},
+ {cipher,[{client2server,['aes128-ctr']},
+          {server2client,['aes128-ctr']}]},
+ {mac,[{client2server,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']},
+       {server2client,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']}]},
+ {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
+               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+      </code></pre><p>Note that both lists in <strong>cipher</strong> has been changed to the provided value (<strong>'aes128-ctr'</strong>).</p><h4>Example 3</h4><p>In the lists that are divided in two for the two directions (c.f <strong>cipher</strong>) it is possible
+to change only one of the directions:</p><pre><code class="">
+3&gt; ssh:chk_algos_opts(
+               [{preferred_algorithms,
+                     [{cipher,[{client2server,['aes128-ctr']}]}
+                     ]
+                }
+              ]).
+[{kex,['ecdh-sha2-nistp384','ecdh-sha2-nistp521',
+       'ecdh-sha2-nistp256','diffie-hellman-group-exchange-sha256',
+       'diffie-hellman-group16-sha512',
+       'diffie-hellman-group18-sha512',
+       'diffie-hellman-group14-sha256',
+       'diffie-hellman-group14-sha1',
+       'diffie-hellman-group-exchange-sha1']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+              'ecdsa-sha2-nistp256','ssh-rsa','rsa-sha2-256',
+              'rsa-sha2-512','ssh-dss']},
+ {cipher,[{client2server,['aes128-ctr']},
+          {server2client,['aes256-gcm@openssh.com','aes256-ctr',
+                          'aes192-ctr','aes128-gcm@openssh.com','aes128-ctr',
+                          'aes128-cbc','3des-cbc']}]},
+ {mac,[{client2server,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']},
+       {server2client,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']}]},
+ {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
+               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+      </code></pre><h4>Example 4</h4><p>It is of course possible to change more than one list:</p><pre><code class="">
+4&gt; ssh:chk_algos_opts(
+               [{preferred_algorithms,
+                     [{cipher,['aes128-ctr']},
+		      {mac,['hmac-sha2-256']},
+                      {kex,['ecdh-sha2-nistp384']},
+		      {public_key,['ssh-rsa']},
+		      {compression,[{server2client,[none]},
+		                    {client2server,[zlib]}]}
+                     ]
+                }
+              ]).
+[{kex,['ecdh-sha2-nistp384']},
+ {public_key,['ssh-rsa']},
+ {cipher,[{client2server,['aes128-ctr']},
+          {server2client,['aes128-ctr']}]},
+ {mac,[{client2server,['hmac-sha2-256']},
+       {server2client,['hmac-sha2-256']}]},
+ {compression,[{client2server,[zlib]},
+               {server2client,[none]}]}]
+
+      </code></pre><p>Note that the ordering of the tuples in the lists didn't matter.</p><h4>Modifying the default set: modify_algorithms</h4><p>A situation where it might be useful to add an algorithm is when one need to use a supported but disabled one.
+An example is the <strong>'diffie-hellman-group1-sha1'</strong> which nowadays is very unsecure and therefore disabled. It is 
+however still supported and might be used.</p><p>The option <strong>preferred_algorithms</strong> may be complicated to use for adding or removing single algorithms.
+First one has to list them with <strong>ssh:default_algorithms()</strong> and then do changes in the lists.</p><p>To facilitate addition or removal of algorithms the option <strong>modify_algorithms</strong> is available.
+See the <a href="./ssh#type-modify_algorithms_common_option">Reference Manual</a> for details.</p><p>The option takes a list with instructions to append, prepend or remove algorithms:</p><pre><code class="erl">
+{modify_algorithms, [{append,  ...},
+                     {prepend, ...},
+		     {rm,      ...}
+		    ]}
+    </code></pre><p>Each of the <strong>...</strong> can be a <strong>algs_list()</strong> as the argument to the  <strong>preferred_algorithms</strong> option.</p><h4>Example 5</h4><p>As an example let's add the Diffie-Hellman Group1 first in the kex list. It is supported according to 
+<a href="./SSH_app#supported_algos">Supported algoritms</a>.</p><pre><code class="erl">
+5&gt; ssh:chk_algos_opts(
+         [{modify_algorithms,
+	       [{prepend,
+	           [{kex,['diffie-hellman-group1-sha1']}]
+		   }
+	       ]
+          }
+        ]).
+[{kex,['diffie-hellman-group1-sha1','ecdh-sha2-nistp384',
+       'ecdh-sha2-nistp521','ecdh-sha2-nistp256',
+       'diffie-hellman-group-exchange-sha256',
+       'diffie-hellman-group16-sha512',
+       'diffie-hellman-group18-sha512',
+       'diffie-hellman-group14-sha256',
+       'diffie-hellman-group14-sha1',
+       'diffie-hellman-group-exchange-sha1']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+              'ecdsa-sha2-nistp256','ssh-rsa','rsa-sha2-256',
+              'rsa-sha2-512','ssh-dss']},
+ {cipher,[{client2server,['aes256-gcm@openssh.com',
+                          'aes256-ctr','aes192-ctr','aes128-gcm@openssh.com',
+                          'aes128-ctr','aes128-cbc','3des-cbc']},
+          {server2client,['aes256-gcm@openssh.com','aes256-ctr',
+                          'aes192-ctr','aes128-gcm@openssh.com','aes128-ctr',
+                          'aes128-cbc','3des-cbc']}]},
+ {mac,[{client2server,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']},
+       {server2client,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']}]},
+ {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
+               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+
+      </code></pre><p>And the result shows that the Diffie-Hellman Group1 is added at the head of the kex list</p><h4>Example 6</h4><p>In this example, we in put the 'diffie-hellman-group1-sha1' first and also move the
+<strong>'ecdh-sha2-nistp521'</strong> to the end in the kex list, that is, <strong>append</strong> it.</p><pre><code class="erl">
+6&gt; ssh:chk_algos_opts(
+         [{modify_algorithms,
+	       [{prepend,
+	           [{kex, ['diffie-hellman-group1-sha1']}
+		   ]},
+		{append,
+                   [{kex, ['ecdh-sha2-nistp521']}
+                   ]}
+	       ]
+          }
+        ]).
+[{kex,['diffie-hellman-group1-sha1','ecdh-sha2-nistp384',
+       'ecdh-sha2-nistp256','diffie-hellman-group-exchange-sha256',
+       'diffie-hellman-group16-sha512',
+       'diffie-hellman-group18-sha512',
+       'diffie-hellman-group14-sha256',
+       'diffie-hellman-group14-sha1',
+       'diffie-hellman-group-exchange-sha1','ecdh-sha2-nistp521']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+   .....
+] 
+      </code></pre><p>Note that the appended algorithm is removed from its original place and then appended to the same list.</p><h4>Example 7</h4><p>In this example, we use both options (<strong>preferred_algorithms</strong> and <strong>modify_algorithms</strong>) and
+also try to prepend an unsupported algorithm.   Any unsupported algorithm is quietly removed.</p><pre><code class="erl">
+7&gt; ssh:chk_algos_opts(
+         [{preferred_algorithms,
+               [{cipher,['aes128-ctr']},
+	        {mac,['hmac-sha2-256']},
+                {kex,['ecdh-sha2-nistp384']},
+		{public_key,['ssh-rsa']},
+		{compression,[{server2client,[none]},
+		              {client2server,[zlib]}]}
+               ]
+           },
+          {modify_algorithms,
+	       [{prepend,
+	           [{kex, ['some unsupported algorithm']}
+		   ]},
+		{append,
+                   [{kex, ['diffie-hellman-group1-sha1']}
+                   ]}
+	       ]
+          }
+        ]).
+[{kex,['ecdh-sha2-nistp384','diffie-hellman-group1-sha1']},
+ {public_key,['ssh-rsa']},
+ {cipher,[{client2server,['aes128-ctr']},
+          {server2client,['aes128-ctr']}]},
+ {mac,[{client2server,['hmac-sha2-256']},
+       {server2client,['hmac-sha2-256']}]},
+ {compression,[{client2server,[zlib]},
+               {server2client,[none]}]}]
+
+      </code></pre><p>It is of course questionable why anyone would like to use the both these options together,
+but it is possible if an unforeseen need should arise.</p><p>The <strong>ssh</strong> application is an Erlang implementation of the
+Secure Shell Protocol (SSH) as defined by RFC 4250 - 4254.</p><h3>SSH</h3><p>The ssh application implements the Secure Shell (SSH) protocol and
+  provides an SSH File Transfer Protocol (SFTP) client and server.</p><p>The <strong>ssh</strong> application is an implementation of the SSH protocol in Erlang.
+<strong>ssh</strong> offers API functions to write customized SSH clients and servers as well as
+making the Erlang shell available over SSH. An SFTP client, <strong>ssh_sftp</strong>, and server,
+<strong>ssh_sftpd</strong>, are also included.</p><h4>DEPENDENCIES</h4><p>The <strong>ssh</strong> application uses the applications
+<a href="./public_key">public_key</a> and
+<a href="./crypto">crypto</a> 
+to handle public keys and encryption. Hence, these
+applications must be loaded for the <strong>ssh</strong> application to work. In
+an embedded environment this means that they must be started with
+<a href="../kernel/application#start/1">application:start/1,2</a> before the
+<strong>ssh</strong> application is started.
+</p><h4>CONFIGURATION</h4><p>The <strong>ssh</strong> application does not have an application-
+specific configuration file, as described in <a href="./application">application(3)</a>.
+However, by default it use the following configuration files
+from OpenSSH:</p><ul><li><strong>known_hosts</strong></li><li><strong>authorized_keys</strong></li><li><strong>authorized_keys2</strong></li><li><strong>id_dsa</strong></li><li><strong>id_rsa</strong></li><li><strong>id_ecdsa</strong></li><li><strong>ssh_host_dsa_key</strong></li><li><strong>ssh_host_rsa_key</strong></li><li><strong>ssh_host_ecdsa_key</strong></li></ul><p>By default, <strong>ssh</strong> looks for <strong>id_dsa</strong>, <strong>id_rsa</strong>,
+<strong>id_ecdsa_key</strong>,
+<strong>known_hosts</strong>, and <strong>authorized_keys</strong> in ~/.ssh,
+and for the host key files in <strong>/etc/ssh</strong>. These locations can be changed
+by the options
+<a href="./ssh_file#type-user_dir_common_option">ssh_file#type-user_dir_common_option</a> and
+<a href="./ssh_file#type-system_dir_daemon_option">ssh_file#type-system_dir_daemon_option</a>.
+</p><p>Public key handling can also be customized through a callback module that
+implements the behaviors
+<a href="ssh_client_key_api">ssh_client_key_api</a> and
+<a href="ssh_server_key_api">ssh_server_key_api</a>.
+</p><p>See also the default callback module documentation in
+<a href="ssh_file">ssh_file</a>.
+</p><h4>Public Keys</h4><p><strong>id_dsa</strong>, <strong>id_rsa</strong> and <strong>id_ecdsa</strong> are the users private key files.
+Notice that the public key is part of the private key so the <strong>ssh</strong>
+application does not use the <strong>id_&lt;*&gt;.pub</strong> files. These are
+for the user's convenience when it is needed to convey the user's
+public key.
+</p><h4>Known Hosts</h4><p>The <strong>known_hosts</strong> file contains a list of approved servers and
+their public keys. Once a server is listed, it can be verified
+without user interaction.
+</p><h4>Authorized Keys</h4><p>The <strong>authorized_key</strong> file keeps track of the user's authorized
+public keys. The most common use of this file is to let users
+log in without entering their password, which is supported by the
+Erlang <strong>ssh</strong> daemon.
+</p><h4>Host Keys</h4><p>RSA, DSA and ECDSA host keys are supported and are
+expected to be found in files named <strong>ssh_host_rsa_key</strong>,
+<strong>ssh_host_dsa_key</strong> and <strong>ssh_host_ecdsa_key</strong>.
+</p><h4>ERROR LOGGER AND EVENT HANDLERS</h4><p>The <strong>ssh</strong> application uses the default <a href="./error_logger">OTP error logger</a> to log unexpected errors or print information about special events.</p><a name="supported"></a><h4>SUPPORTED SPECIFICATIONS AND STANDARDS</h4><p>The supported SSH version is 2.0.</p><h4>Algorithms</h4><p>The actual set of algorithms may vary depending on which OpenSSL crypto library that is installed on the machine.
+For the list on a particular installation, use the command
+<a href="../ssh/ssh#default_algorithms/0">ssh:default_algorithms/0</a>. 
+The user may override the default algorithm configuration both on the server side and the client side.
+See the options
+<a href="../ssh/ssh#type-preferred_algorithms_common_option">preferred_algorithms</a>
+and
+<a href="../ssh/ssh#type-modify_algorithms_common_option">modify_algorithms</a>
+in the <a href="../ssh/ssh#daemon/1">ssh:daemon/1,2,3</a> and
+<a href="../ssh/ssh#connect/3">ssh:connect/3,4</a> functions.
+</p><p>Supported algorithms are (in the default order):</p><a name="supported_algos"></a><dl><dt>Key exchange algorithms</dt><dd> <ul><li>ecdh-sha2-nistp384</li><li>ecdh-sha2-nistp521</li><li>ecdh-sha2-nistp256</li><li>diffie-hellman-group-exchange-sha256</li><li>diffie-hellman-group16-sha512</li><li>diffie-hellman-group18-sha512</li><li>diffie-hellman-group14-sha256</li><li>curve25519-sha256</li><li>curve25519-sha256@libssh.org</li><li>curve448-sha512</li><li>diffie-hellman-group14-sha1</li><li>diffie-hellman-group-exchange-sha1</li><li>(diffie-hellman-group1-sha1, retired: It can be enabled with the  <a href="../ssh/ssh#type-preferred_algorithms_common_option">preferred_algorithms</a> or <a href="../ssh/ssh#type-modify_algorithms_common_option">modify_algorithms</a> options)</li></ul> </dd><dt>Public key algorithms</dt><dd> <ul><li>ecdsa-sha2-nistp384</li><li>ecdsa-sha2-nistp521</li><li>ecdsa-sha2-nistp256</li><li>ssh-ed25519</li><li>ssh-ed448</li><li>ssh-rsa</li><li>rsa-sha2-256</li><li>rsa-sha2-512</li><li>ssh-dss</li></ul> </dd><dt>MAC algorithms</dt><dd> <ul><li>hmac-sha2-256</li><li>hmac-sha2-512</li><li>hmac-sha1</li></ul> </dd><dt>Encryption algorithms (ciphers)</dt><dd> <ul><li>chacha20-poly1305@openssh.com</li><li>aes256-gcm@openssh.com</li><li>aes256-ctr</li><li>aes192-ctr</li><li>aes128-gcm@openssh.com</li><li>aes128-ctr</li><li>aes128-cbc</li><li>3des-cbc</li><li>(AEAD_AES_128_GCM, not enabled per default)</li><li>(AEAD_AES_256_GCM, not enabled per default)</li></ul> <p>See the text at the description of <a href="#rfc5647_note">the rfc 5647 further down</a>
+for more information regarding AEAD_AES_*_GCM.
+</p> <p>Following the internet de-facto standard, the cipher and mac algorithm AEAD_AES_128_GCM is selected when the 
+cipher aes128-gcm@openssh.com is negotiated. The cipher and mac algorithm AEAD_AES_256_GCM is selected when the
+cipher aes256-gcm@openssh.com is negotiated.
+</p> </dd><dt>Compression algorithms</dt><dd> <ul><li>none</li><li>zlib@openssh.com</li><li>zlib</li></ul> </dd></dl><h4>Unicode support</h4><p>Unicode filenames are supported if the emulator and the underlaying OS support it. See section DESCRIPTION in the
+<a href="./file">file</a> manual page in Kernel for information about this subject.
+</p><p>The shell and the cli both support unicode.
+</p><h4>Rfcs</h4><p>The following rfc:s are supported:</p><ul><li><a href="https://tools.ietf.org/html/rfc4251">RFC 4251</a>, The Secure Shell (SSH) Protocol Architecture. <p>Except</p> <ul><li>9.4.6 Host-Based Authentication</li><li>9.5.2 Proxy Forwarding</li><li>9.5.3 X11 Forwarding</li></ul>  </li><li><a href="https://tools.ietf.org/html/rfc4252">RFC 4252</a>, The Secure Shell (SSH) Authentication Protocol. <p>Except</p> <ul><li>9. Host-Based Authentication: "hostbased"</li></ul>  </li><li><a href="https://tools.ietf.org/html/rfc4253">RFC 4253</a>, The Secure Shell (SSH) Transport Layer Protocol. <p>Except</p> <ul><li>8.1.  diffie-hellman-group1-sha1. Disabled by default, can be enabled with the  <a href="../ssh/ssh#type-preferred_algorithms_common_option">preferred_algorithms</a> or <a href="../ssh/ssh#type-modify_algorithms_common_option">modify_algorithms</a> options.</li></ul>  </li><li><a href="https://tools.ietf.org/html/rfc4254">RFC 4254</a>, The Secure Shell (SSH) Connection Protocol. <p>Except</p> <ul><li>6.3. X11 Forwarding</li><li>7. TCP/IP Port Forwarding</li></ul>  </li><li><a href="https://tools.ietf.org/html/rfc4256">RFC 4256</a>, Generic Message Exchange Authentication for the Secure Shell Protocol (SSH). <p>Except</p> <ul><li><strong>num-prompts &gt; 1</strong></li><li>password changing</li><li>other identification methods than userid-password</li></ul>  </li><li><a href="https://tools.ietf.org/html/rfc4419">RFC 4419</a>, Diffie-Hellman Group Exchange for the Secure Shell (SSH) Transport Layer Protocol.  </li><li><a href="https://tools.ietf.org/html/rfc4716">RFC 4716</a>, The Secure Shell (SSH) Public Key File Format.  </li><li><a href="https://tools.ietf.org/html/rfc5647">RFC 5647</a>, AES Galois Counter Mode for the Secure Shell Transport Layer Protocol. <p><a name="rfc5647_note"></a>There is an ambiguity in the synchronized selection of cipher and mac algorithm. 
+This is resolved by OpenSSH in the ciphers aes128-gcm@openssh.com and aes256-gcm@openssh.com which are implemented.
+If the explicit ciphers and macs AEAD_AES_128_GCM or AEAD_AES_256_GCM are needed, 
+they could be enabled with the options
+<a href="../ssh/ssh#type-preferred_algorithms_common_option">preferred_algorithms</a>
+or
+<a href="../ssh/ssh#type-modify_algorithms_common_option">modify_algorithms</a>.
+</p> <div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>
+If the client or the server is not Erlang/OTP, it is the users responsibility to check that 
+other implementation has the same interpretation of AEAD_AES_*_GCM as the Erlang/OTP SSH before
+enabling them. The  aes*-gcm@openssh.com variants are always safe to use since they lack the
+ambiguity.
+</p></div> <p>The second paragraph in section 5.1 is resolved as:</p> <ul><li>If the negotiated cipher is AEAD_AES_128_GCM, the mac algorithm is set to  AEAD_AES_128_GCM.</li><li>If the negotiated cipher is AEAD_AES_256_GCM, the mac algorithm is set to  AEAD_AES_256_GCM.</li><li>If the mac algorithm is AEAD_AES_128_GCM, the cipher is set to AEAD_AES_128_GCM.</li><li>If the mac algorithm is AEAD_AES_256_GCM, the cipher is set to AEAD_AES_256_GCM.</li></ul> <p>The first rule that matches when read in order from the top is applied</p> </li><li><a href="https://tools.ietf.org/html/rfc5656">RFC 5656</a>, Elliptic Curve Algorithm Integration in  the Secure Shell Transport Layer. <p>Except</p> <ul><li>5.   ECMQV Key Exchange</li><li>6.4. ECMQV Key Exchange and Verification Method Name</li><li>7.2. ECMQV Message Numbers</li><li>10.2. Recommended Curves</li></ul>  </li><li><a href="https://tools.ietf.org/html/rfc6668">RFC 6668</a>, SHA-2 Data Integrity Verification for the Secure Shell (SSH) Transport Layer Protocol <p>Comment: Defines hmac-sha2-256 and hmac-sha2-512
+</p> </li><li><a href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-kex-sha2">Draft-ietf-curdle-ssh-kex-sha2 (work in progress)</a>, Key Exchange (KEX) Method Updates and Recommendations for Secure Shell (SSH). <p>Deviations:</p> <ul><li>The <strong>diffie-hellman-group1-sha1</strong> is not enabled by default, but is still supported and can be enabled with the options <a href="../ssh/ssh#type-preferred_algorithms_common_option">preferred_algorithms</a> or <a href="../ssh/ssh#type-modify_algorithms_common_option">modify_algorithms</a>. </li><li>The questionable sha1-based algorithms <strong>diffie-hellman-group-exchange-sha1</strong> and <strong>diffie-hellman-group14-sha1</strong> are still enabled by default for compatibility with ancient clients and servers. They can be disabled with the options <a href="../ssh/ssh#type-preferred_algorithms_common_option">preferred_algorithms</a> or <a href="../ssh/ssh#type-modify_algorithms_common_option">modify_algorithms</a>. They will be disabled by default when the draft is turned into an RFC.</li></ul>  </li><li><a href="https://tools.ietf.org/html/rfc8332">RFC 8332</a>, Use of RSA Keys with SHA-256 and SHA-512 in the Secure Shell (SSH) Protocol. </li><li><a name="supported-ext-info"></a> <a href="https://tools.ietf.org/html/rfc8308">RFC 8308</a>, Extension Negotiation in the Secure Shell (SSH) Protocol. <p>Implemented are:</p> <ul><li>The Extension Negotiation Mechanism</li><li>The extension <strong>server-sig-algs</strong></li></ul>  </li><li> <a href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-curves">Secure Shell (SSH) Key Exchange Method using Curve25519 and Curve448 (work in progress)</a> </li><li> <a href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-ed25519-ed448">Ed25519 and Ed448 public key algorithms for the Secure Shell (SSH) protocol (work in progress)</a> </li></ul><h4>SEE ALSO</h4><p><a href="./application">application(3)</a></p><h3>ssh</h3><p>Main API of the ssh application</p><p>This is the interface module for the <strong>SSH</strong> application.
+The Secure Shell (SSH) Protocol is a protocol for secure remote login
+and other secure network services over an insecure network.
+See <a href="../ssh/SSH_app#supported">ssh(6)</a> for details of supported RFCs, versions,
+algorithms and unicode handling.
+With the SSH application it is possible to start <em>clients</em> and to start <em>daemons</em> (servers).
+Clients are started with
+<a href="#connect/2">connect/2</a>, 
+<a href="#connect/3">connect/3</a> or 
+<a href="#connect/4">connect/4</a>. They open an encrypted connection on top of TCP/IP.
+In that encrypted connection one or more channels could be opened with
+<a href="./ssh_connection#session_channel/2">ssh_connection:session_channel/2,4</a>.
+Each channel is an isolated "pipe" between a client-side process and a server-side process. Those process
+pairs could handle for example file transfers (sftp) or remote command execution (shell, exec and/or cli).
+If a custom shell is implemented, the user of the client could execute the special commands remotely. Note that
+the user is not necessarily a human but probably a system interfacing the SSH app.
+A server-side subssystem (channel) server is requested by the client with
+<a href="./ssh_connection#subsystem/4">ssh_connection:subsystem/4</a>. 
+A server (daemon) is started with 
+<a href="#daemon/2">daemon/1</a>,
+<a href="#daemon/2">daemon/2</a> or
+<a href="#daemon/2">daemon/3</a>.
+Possible channel handlers (subsystems) are declared with the
+<a href="#type-subsystem_daemon_option">subsystem</a> option when the daemon is started.
+To just run a shell on a remote machine, there are functions that bundles the needed 
+three steps needed into one:
+<a href="#shell/1">shell/1,2,3</a>.
+Similarily, to just open an sftp (file transfer) connection to a remote machine, the simplest way is to use
+<a href="./ssh_sftp#start_channel/1">ssh_sftp:start_channel/1,2,3</a>.
+To write your own client channel handler, use the behaviour 
+<a href="ssh_client_channel">ssh_client_channel</a>. For server channel handlers use 
+<a href="ssh_server_channel">ssh_server_channel</a> behaviour (replaces ssh_daemon_channel).
+Both clients and daemons accepts options that controls the exact behaviour. Some options are common to both.
+The three sets are called 
+<a href="#type-client_options">Client Options</a>, 
+<a href="#type-daemon_options">Daemon Options</a> and
+<a href="#type-common_options">Common Options</a>.
+The descriptions of the options uses the 
+<a href="./typespec">Erlang Type Language</a> with explaining text.
+</p><h4>Keys and files</h4><p>A number of objects must be present for the SSH application to work. 
+Thoose objects are per default stored in files.
+The default names, paths and file formats are the same as for
+<a href="http://www.openssh.com">OpenSSH</a>. Keys could be generated with the <strong>ssh-keygen</strong>
+program from OpenSSH. See the
+<a href="./using_ssh#running-an-erlang-ssh-daemon">User's Guide</a>.
+</p><p>The paths could easily be changed by options:
+<a href="./ssh_file#type-user_dir_common_option">ssh_file#type-user_dir_common_option</a> and
+<a href="./ssh_file#type-system_dir_daemon_option">ssh_file#type-system_dir_daemon_option</a>.
+</p><p>A completly different storage could be interfaced by writing call-back modules
+using the behaviours
+<a href="ssh_client_key_api">ssh_client_key_api</a> and/or
+<a href="ssh_server_key_api">ssh_server_key_api</a>.
+A callback module is installed with the option
+<a href="#type-key_cb_common_option">type-key_cb_common_option</a>
+to the client and/or the daemon.
+</p><h4>Daemons</h4><p>The keys are by default stored in files:</p><ul><li>Mandatory: one or more <em>Host key(s)</em>, both private and public. Default is to store them in the directory <strong>/etc/ssh</strong> in the files <ul><li><strong>ssh_host_dsa_key</strong> and <strong>ssh_host_dsa_key.pub</strong></li><li><strong>ssh_host_rsa_key</strong> and <strong>ssh_host_rsa_key.pub</strong></li><li><strong>ssh_host_ecdsa_key</strong> and <strong>ssh_host_ecdsa_key.pub</strong></li></ul> <p>The host keys directory could be changed with the option 
+<a href="./ssh_file#type-system_dir_daemon_option">ssh_file#type-system_dir_daemon_option</a>.</p> </li><li>Optional: one or more <em>User's public key</em> in case of <strong>publickey</strong> authorization. Default is to store them concatenated in the file <strong>.ssh/authorized_keys</strong> in the user's home directory. <p>The user keys directory could be changed with the option 
+<a href="./ssh_file#type-user_dir_common_option">ssh_file#type-user_dir_common_option</a>.</p> </li></ul><h4>Clients</h4><p>The keys and some other data are by default stored in files in the directory <strong>.ssh</strong>
+in the user's home directory.</p><p>The directory could be changed with the option 
+<a href="./ssh_file#type-user_dir_common_option">ssh_file#type-user_dir_common_option</a>.
+</p><ul><li>Optional: a list of <em>Host public key(s)</em> for previously connected hosts. This list is handled by the SSH application without any need of user assistance. The default is to store them in the file <strong>known_hosts</strong>. <p>The 
+<a href="#type-host_accepting_client_options">host_accepting_client_options()</a>
+are associated with this list of keys.
+</p> </li><li>Optional: one or more <em>User's private key(s)</em> in case of <strong>publickey</strong> authorization. The default files are <ul><li><strong>id_dsa</strong> and <strong>id_dsa.pub</strong></li><li><strong>id_rsa</strong> and <strong>id_rsa.pub</strong></li><li><strong>id_ecdsa</strong> and <strong>id_ecdsa.pub</strong></li></ul> </li></ul><h3>Data Types</h3><h4>Client Options</h4><span class="name">client_options</span><span class="name">client_option</span><p>Options for <a href="#connect/3">clients</a>.
+The individual options are further explained below or by following the hyperlinks.
+</p><span class="name">host_accepting_client_options</span><span class="name">accept_hosts</span><span class="name">fp_digest_alg</span><span class="name">accept_callback</span><span class="name">fingerprint</span><dl><dt><strong>silently_accept_hosts</strong></dt><dd> <p>This option guides the <strong>connect</strong> function on how to act when the connected server presents a Host 
+Key that the client has not seen before. The default is to ask the user with a question on stdio of whether to
+accept or reject the new Host Key.
+See the option <a href="./ssh_file#type-user_dir_common_option">ssh_file#type-user_dir_common_option</a>
+for specifying the path to the file <strong>known_hosts</strong> where previously accepted Host Keys are recorded.
+See also the option 
+<a href="#type-key_cb_common_option">key_cb</a>
+for the general way to handle keys.
+</p> <p>The option can be given in three different forms as seen above:</p> <ul><li>The value is a <strong>boolean()</strong>. The value <strong>true</strong> will make the client accept any unknown Host Key without any user interaction. The value <strong>false</strong> preserves the default behaviour of asking the user on stdio. </li><li>An <strong>accept_callback()</strong> will be called and the boolean return value <strong>true</strong> will make the client accept the Host Key. A return value of <strong>false</strong> will make the client to reject the Host Key and as a result the connection will be closed. The arguments to the fun are: <ul><li><strong>PeerName</strong> - a string with the name or address of the remote host.</li><li><strong>FingerPrint</strong> - the fingerprint of the Host Key as  <a href="../public_key/public_key#ssh_hostkey_fingerprint-1">public_key:ssh_hostkey_fingerprint/1</a> calculates it. </li></ul> </li><li>A tuple <strong>{HashAlgoSpec, accept_callback}</strong>. The <strong>HashAlgoSpec</strong> specifies which hash algorithm shall be used to calculate the fingerprint used in the call of the <strong>accept_callback()</strong>. The <strong>HashALgoSpec</strong> is either an atom or a list of atoms as the first argument in <a href="../public_key/public_key#ssh_hostkey_fingerprint-2">public_key:ssh_hostkey_fingerprint/2</a>. If it is a list of hash algorithm names, the <strong>FingerPrint</strong> argument in the <strong>accept_callback()</strong> will be  a list of fingerprints in the same order as the corresponding name in the <strong>HashAlgoSpec</strong> list. </li></ul> </dd><dt><strong>user_interaction</strong></dt><dd> <p>If <strong>false</strong>, disables the client to connect to the server
+if any user interaction is needed, such as accepting
+the server to be added to the <strong>known_hosts</strong> file, or
+supplying a password.</p> <p>Even if user interaction is allowed it can be
+suppressed by other options, such as <strong>silently_accept_hosts</strong>
+and <strong>password</strong>. However, those options are not always desirable
+to use from a security point of view.</p> <p>Defaults to <strong>true</strong>.</p> </dd><dt><strong>save_accepted_host</strong></dt><dd> <p>If <strong>true</strong>, the client saves an accepted host key to avoid the
+accept question the next time the same host is connected. If the option
+<a href="#type-key_cb_common_option">type-key_cb_common_option</a>
+is not present, the key is saved in the file "known_hosts". See option
+<a href="./ssh_file#type-user_dir_common_option">ssh_file#type-user_dir_common_option</a> for
+the location of that file.
+</p> <p>If <strong>false</strong>, the key is not saved and the key will still be unknown
+at the next access of the same host.
+</p> <p>Defaults to <strong>true</strong></p> </dd><dt><strong>quiet_mode</strong></dt><dd> <p>If <strong>true</strong>, the client does not print anything on authorization.</p> <p>Defaults to <strong>false</strong></p> </dd></dl><span class="name">authentication_client_options</span><dl><dt><strong>user</strong></dt><dd> <p>Provides the username. If this option is not given, <strong>ssh</strong>
+reads from the environment (<strong>LOGNAME</strong> or
+<strong>USER</strong> on UNIX,
+<strong>USERNAME</strong> on Windows).</p> </dd><dt><strong>password</strong></dt><dd> <p>Provides a password for password authentication.
+If this option is not given, the user is asked for a
+password, if the password authentication method is
+attempted.</p> </dd></dl><span class="name">diffie_hellman_group_exchange_client_option</span><p>Sets the three diffie-hellman-group-exchange parameters that guides the connected server in choosing a group.
+See
+<a href="https://tools.ietf.org/html/rfc4419">RFC 4419</a>
+for the details.  The default value is <strong>{1024, 6144, 8192}</strong>.
+</p><span class="name">connect_timeout_client_option</span><p>Sets a timeout on the transport layer connect time.
+For <a href="./gen_tcp">kernel/gen_tcp</a> the time is in milli-seconds and the default 
+value is <strong>infinity</strong>.
+</p><p>See the parameter <strong>Timeout</strong> in <a href="#connect/4">connect/4</a> for
+a timeout of the negotiation phase.
+</p><span class="name">recv_ext_info_client_option</span><p>Make the client tell the server that the client accepts extension negotiation, that is,
+include <strong>ext-info-c</strong> in the kexinit message sent.  See 
+<a href="https://tools.ietf.org/html/rfc8308">RFC 8308</a>
+for details and	<a href="./SSH_app#supported-ext-info">ssh(6)</a>
+for a list of currently implemented extensions.
+</p><p>
+Default value is <strong>true</strong> which is compatible with other implementations not supporting ext-info.
+</p><h4>Daemon Options (Server Options)</h4><span class="name">daemon_options</span><span class="name">daemon_option</span><p>Options for <a href="#daemon/1">daemons</a>.
+The individual options are further explained below or by following the hyperlinks.
+</p><span class="name">subsystem_daemon_option</span><span class="name">subsystem_spec</span><p>Defines a subsystem in the daemon.</p><p>The <strong>subsystem_name</strong> is the name that a client requests to start with for example
+<a href="./ssh_connection#subsystem/4">ssh_connection:subsystem/4</a>.
+</p><p>The <strong>channel_callback</strong> is the module that implements the
+<a href="ssh_server_channel">ssh_server_channel</a> (replaces ssh_daemon_channel)
+behaviour in the daemon. See the section 
+<a href="./using_ssh#usersguide_creating_a_subsystem">Creating a Subsystem</a>
+in the User's Guide for more information and an example.
+</p><p>If the subsystems option is not present, the value of <strong>ssh_sftpd:subsystem_spec([])</strong> is used.
+This enables the sftp subsystem by default.
+The option can be set to the empty list if you do not want the daemon to run any subsystems.</p><span class="name">shell_daemon_option</span><span class="name">'shell_fun/1'</span><span class="name">'shell_fun/2'</span><p>Defines the read-eval-print loop used in a daemon when a shell is requested by the client.
+The default is to use the Erlang shell: <strong>{shell, start, []}</strong>
+</p><p>See the option <a href="#type-exec_daemon_option">type-exec_daemon_option</a>
+for a description of how the daemon execute exec-requests depending on
+the shell- and exec-options.</p><span class="name">exec_daemon_option</span><span class="name">exec_spec</span><span class="name">exec_fun</span><span class="name">'exec_fun/1'</span><span class="name">'exec_fun/2'</span><span class="name">'exec_fun/3'</span><span class="name">exec_result</span><p>This option changes how the daemon execute exec-requests from clients. The term in the return value
+is formatted to a string if it is a non-string type. No trailing newline is added in the ok-case but in the
+error case.</p><p>Error texts are returned on channel-type 1 which usually is piped to <strong>stderr</strong> on e.g Linux systems.
+Texts from a successful execution will in similar manner be piped to <strong>stdout</strong>. The exit-status code
+is set to 0 for success and -1 for errors. The exact results presented on the client side depends on the
+client and the client's operating system.
+</p><p>The option cooperates with the daemon-option <a href="#type-shell_daemon_option">type-shell_daemon_option</a>
+in the following way:</p><dl><dt>1. If the exec-option is present (the shell-option may or may not be present):</dt><dd> <p>The exec-option fun is called with the same number of parameters as the arity of the fun,
+and the result is returned to the client.
+</p> </dd><dt>2. If the exec-option is absent, but a shell-option is present with the default Erlang shell:</dt><dd> <p>The default Erlang evaluator is used and the result is returned to the client.</p> </dd><dt>3. If the exec-option is absent, but a shell-option is present that is not the default Erlang shell:</dt><dd> <p>The exec-request is not evaluated and an error message is returned to the client.</p> </dd><dt>4. If neither the exec-option nor the shell-option is present:</dt><dd> <p>The default Erlang evaluator is used and the result is returned to the client.</p> </dd></dl><p>If a custom CLI is installed (see the option <a href="#type-ssh_cli_daemon_option">type-ssh_cli_daemon_option</a>)
+the rules above are replaced by thoose implied by the custom CLI.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The exec-option has existed for a long time but has not previously been documented. The old
+definition and behaviour are retained but obey the rules 1-4 above if conflicting.
+The old and undocumented style should not be used in new programs.</p></div><span class="name">ssh_cli_daemon_option</span><p>Provides your own CLI implementation in a daemon.</p><p>It is a channel callback module that implements a shell
+and command execution. The shell's read-eval-print loop can be customized, using the
+option <a href="#type-shell_daemon_option">type-shell_daemon_option</a>. This means less work than implementing
+an own CLI channel. If <strong>ssh_cli</strong> is set to <strong>no_cli</strong>, the CLI channels
+like <a href="#type-shell_daemon_option">type-shell_daemon_option</a>
+and <a href="#type-exec_daemon_option">type-exec_daemon_option</a>
+are disabled and only subsystem channels are allowed.</p><span class="name">authentication_daemon_options</span><span class="name">prompt_texts</span><span class="name">kb_int_tuple</span><span class="name">kb_int_fun_3</span><span class="name">pwdfun_2</span><span class="name">pwdfun_4</span><dl><dt><strong>auth_method_kb_interactive_data</strong></dt><dd> <p>Sets the text strings that the daemon sends to the client for presentation to the user when
+using <strong>keyboard-interactive</strong> authentication.</p> <p>If the fun/3 is used, it is called when the actual authentication occurs and may therefore
+return dynamic data like time, remote ip etc.</p> <p>The parameter <strong>Echo</strong> guides the client about need to hide the password.</p> <p>The default value is:
+<strong>{auth_method_kb_interactive_data, {"SSH server", "Enter password for \""++User++"\"", "password: ", false}&gt;</strong>
+</p> </dd><dt><a name="option-user_passwords"></a><strong>user_passwords</strong></dt><dd> <p>Provides passwords for password authentication. The passwords are used when someone tries
+to connect to the server and public key user-authentication fails. The option provides
+a list of valid usernames and the corresponding passwords.
+</p> </dd><dt><a name="option-password"></a><strong>password</strong></dt><dd> <p>Provides a global password that authenticates any user.</p> <div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>Intended to facilitate testing.</p><p>From a security perspective this option makes the server very vulnerable.</p></div> </dd><dt><a name="option-pwdfun"></a><strong>pwdfun</strong> with  <a href="#type-pwdfun_4">type-pwdfun_4</a> </dt><dd> <p>Provides a function for password validation. This could used for calling an external system or handeling
+passwords stored as hash values.
+</p> <p>This fun can also be used to make delays in authentication tries for example by calling
+<a href="../stdlib/timer#sleep/1">timer:sleep/1</a>.</p> <p>To facilitate for instance counting of failed tries,
+the <strong>State</strong> variable could be used. This state is per connection only. The first time the pwdfun
+is called for a connection, the <strong>State</strong> variable has the value <strong>undefined</strong>.
+</p> <p>The fun should return:
+</p> <ul><li><strong>true</strong> if the user and password is valid</li><li><strong>false</strong> if the user or password is invalid</li><li><strong>disconnect</strong> if a SSH_MSG_DISCONNECT message should be sent immediately. It will be followed by a close of the underlying tcp connection.</li><li><strong>{true,  NewState:any()}</strong> if the user and password is valid</li><li><strong>{false, NewState:any()}</strong> if the user or password is invalid</li></ul> <p>A third usage is to block login attempts from a missbehaving peer. The <strong>State</strong> described above 
+can be used for this. The return value <strong>disconnect</strong> is useful for this.</p> </dd><dt><strong>pwdfun</strong> with <a href="#type-pwdfun_2">type-pwdfun_2</a> </dt><dd> <p>Provides a function for password validation. This function is called with user and password
+as strings, and returns:</p> <ul><li><strong>true</strong> if the user and password is valid</li><li><strong>false</strong> if the user or password is invalid</li></ul> <p>This variant is kept for compatibility.</p> </dd></dl><span class="name">diffie_hellman_group_exchange_daemon_option</span><span class="name">explicit_group</span><span class="name">explicit_group_file</span><span class="name">ssh_moduli_file</span><dl><dt><strong>dh_gex_groups</strong></dt><dd> <p>Defines the groups the server may choose among when diffie-hellman-group-exchange is negotiated.
+See 
+<a href="https://tools.ietf.org/html/rfc4419">RFC 4419</a>
+for details. The three variants of this option are:
+</p> <dl><dt><strong>{Size=integer(),G=integer(),P=integer()}</strong></dt><dd>The groups are given explicitly in this list. There may be several elements with the same <strong>Size</strong>. In such a case, the server will choose one randomly in the negotiated Size. </dd><dt><strong>{file,filename()}</strong></dt><dd>The file must have one or more three-tuples <strong>{Size=integer(),G=integer(),P=integer()}</strong>  terminated by a dot. The file is read when the daemon starts. </dd><dt><strong>{ssh_moduli_file,filename()}</strong></dt><dd>The file must be in <a href="../public_key/public_key#dh_gex_group/4">ssh-keygen moduli file format</a>. The file is read when the daemon starts. </dd></dl> <p>The default list is fetched from the 
+<a href="../public_key/public_key#dh_gex_group/4">public_key</a> application.
+</p> </dd><dt><strong>dh_gex_limits</strong></dt><dd> <p>Limits what a client can ask for in diffie-hellman-group-exchange.
+The limits will be
+<strong>{MaxUsed = min(MaxClient,Max), MinUsed = max(MinClient,Min)}</strong> where <strong>MaxClient</strong> and 
+<strong>MinClient</strong> are the values proposed by a connecting client.
+</p> <p>The default value is <strong>{0,infinity}</strong>.
+</p> <p>If <strong>MaxUsed &lt; MinUsed</strong> in a key exchange, it will fail with a disconnect.
+</p> <p>See 
+<a href="https://tools.ietf.org/html/rfc4419">RFC 4419</a>
+for the function of the Max and Min values.</p> </dd></dl><span class="name">negotiation_timeout_daemon_option</span><p>Maximum time in milliseconds for the authentication negotiation.
+Defaults to 120000 ms (2 minutes). If the client fails to log in within this time,
+the connection is closed.
+</p><span class="name">hardening_daemon_options</span><dl><dt><strong>max_sessions</strong></dt><dd> <p>The maximum number of simultaneous sessions that are accepted at any time
+for this daemon. This includes sessions that are being authorized.
+Thus, if set to <strong>N</strong>, and <strong>N</strong> clients have connected but not started
+the login process, connection attempt <strong>N+1</strong> is aborted.
+If <strong>N</strong> connections are authenticated and still logged in, no more logins
+are accepted until one of the existing ones log out.
+</p> <p>The counter is per listening port. Thus, if two daemons are started, one with
+<strong>{max_sessions,N}</strong> and the other with <strong>{max_sessions,M}</strong>, in total
+<strong>N+M</strong> connections are accepted for the whole <strong>ssh</strong> application.
+</p> <p>Notice that if <strong>parallel_login</strong> is <strong>false</strong>, only one client
+at a time can be in the authentication phase.
+</p> <p>By default, this option is not set. This means that the number is not limited.
+</p> </dd><dt><strong>max_channels</strong></dt><dd> <p>The maximum number of channels with active remote subsystem that are accepted for
+each connection to this daemon</p> <p>By default, this option is not set. This means that the number is not limited.
+</p> </dd><dt><strong>parallel_login</strong></dt><dd> <p>If set to false (the default value), only one login is handled at a time.
+If set to true, an unlimited number of login attempts are allowed simultaneously.
+</p> <p>If the <strong>max_sessions</strong> option is set to <strong>N</strong> and <strong>parallel_login</strong>
+is set to <strong>true</strong>, the maximum number of simultaneous login attempts at any time is
+limited to <strong>N-K</strong>, where <strong>K</strong> is the number of authenticated connections present
+at this daemon.
+</p> <div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>Do not enable <strong>parallel_logins</strong> without protecting the server by other means,
+for example, by the <strong>max_sessions</strong> option or a firewall configuration. If set to
+<strong>true</strong>, there is no protection against DOS attacks.</p></div> </dd><dt><strong>minimal_remote_max_packet_size</strong></dt><dd> <p>The least maximum packet size that the daemon will accept in channel open requests from the client.
+The default value is 0.
+</p> </dd></dl><span class="name">callbacks_daemon_options</span><dl><dt><strong>connectfun</strong></dt><dd> <p>Provides a fun to implement your own logging when a user authenticates to the server.</p> </dd><dt><strong>failfun</strong></dt><dd> <p>Provides a fun to implement your own logging when a user fails to authenticate.</p> </dd></dl><span class="name">send_ext_info_daemon_option</span><p>Make the server (daemon) tell the client that the server accepts extension negotiation, that is,
+include <strong>ext-info-s</strong> in the kexinit message sent. See
+<a href="https://tools.ietf.org/html/rfc8308">RFC 8308</a>
+for details and	<a href="./SSH_app#supported-ext-info">ssh(6)</a>
+for a list of currently implemented extensions.
+</p><p>Default value is <strong>true</strong> which is compatible with other implementations not supporting ext-info.
+</p><h4>Options common to clients and daemons</h4><span class="name">common_options</span><span class="name">common_option</span><p>The options above can be used both in clients and in daemons (servers). They are further explained below.</p><span class="name">profile_common_option</span><p>Used together with <strong>ip-address</strong> and <strong>port</strong> to
+uniquely identify a ssh daemon. This can be useful in a
+virtualized environment, where there can be more that one
+server that has the same <strong>ip-address</strong> and
+<strong>port</strong>. If this property is not explicitly set, it is
+assumed that the the <strong>ip-address</strong> and <strong>port</strong>
+uniquely identifies the SSH daemon.
+</p><span class="name">max_idle_time_common_option</span><p>Sets a time-out on a connection when no channels are active. Defaults to <strong>infinity</strong>.</p><span class="name">rekey_limit_common_option</span><span class="name">limit_bytes</span><span class="name">limit_time</span><p>Sets the limit when rekeying is to be initiated. Both the max time and max amount of data
+could be configured:
+</p><ul><li><strong>{Minutes, Bytes}</strong> initiate rekeying when any of the limits are reached.</li><li><strong>Bytes</strong> initiate rekeying when <strong>Bytes</strong> number of bytes are transferred, or at latest after one hour.</li></ul><p>When a rekeying is done, both the timer and the byte counter are restarted.
+Defaults to one hour and one GByte.</p><p>If <strong>Minutes</strong> is set to <strong>infinity</strong>, no rekeying will ever occur due to that max time has passed.
+Setting <strong>Bytes</strong> to <strong>infinity</strong> will inhibit rekeying after a certain amount of data has been transferred.
+If the option value is set to <strong>{infinity, infinity}</strong>, no rekeying will be initiated. Note that rekeying initiated
+by the peer will still be performed.</p><span class="name">key_cb_common_option</span><p>Module implementing the behaviour
+<a href="ssh_client_key_api">ssh_client_key_api</a> and/or
+<a href="ssh_server_key_api">ssh_server_key_api</a>.
+Can be used to
+customize the handling of public keys. If callback options are provided
+along with the module name, they are made available to the callback
+module via the options passed to it under the key 'key_cb_private'.
+</p><p>The <strong>Opts</strong> defaults to <strong>[]</strong> when only the <strong>Module</strong> is specified.
+</p><p>The default value of this option is <strong>{ssh_file, []}</strong>. See also the manpage of
+<a href="./ssh_file">ssh_file</a>.
+</p><p>A call to the call-back function <strong>F</strong> will be</p><pre><code class="">
+	  Module:F(..., [{key_cb_private,Opts}|UserOptions])
+	</code></pre><p>where <strong>...</strong> are arguments to <strong>F</strong> as in 
+<a href="ssh_client_key_api">ssh_client_key_api</a> and/or
+<a href="ssh_server_key_api">ssh_server_key_api</a>.
+The <strong>UserOptions</strong> are the options given to 
+<a href="../ssh/ssh#connect-3">ssh:connect</a>,
+<a href="../ssh/ssh#shell-1">ssh:shell</a> or
+<a href="../ssh/ssh#daemon-2">ssh:daemon</a>.
+</p><span class="name">pref_public_key_algs_common_option</span><p>List of user (client) public key algorithms to try to use.</p><p>The default value is the <strong>public_key</strong> entry in the list returned by
+<a href="#default_algorithms/0">ssh:default_algorithms/0</a>.
+</p><p>If there is no public key of a specified type available, the corresponding entry is ignored.
+Note that the available set is dependent on the underlying cryptolib and current user's public keys.
+</p><p>See also the option <a href="./ssh_file#type-user_dir_common_option">ssh_file#type-user_dir_common_option</a>
+for specifying the path to the user's keys.
+</p><span class="name">disconnectfun_common_option</span><p>Provides a fun to implement your own logging when the peer disconnects.</p><span class="name">unexpectedfun_common_option</span><p>Provides a fun to implement your own logging or other action when an unexpected message arrives.
+If the fun returns <strong>report</strong> the usual info report is issued but if <strong>skip</strong> is returned no
+report is generated.</p><span class="name">ssh_msg_debug_fun_common_option</span><p>Provide a fun to implement your own logging of the SSH message SSH_MSG_DEBUG.
+The last three parameters are from the message, see 
+<a href="https://tools.ietf.org/html/rfc4253#section-11.3">RFC 4253, section 11.3</a>.
+The <a href="#type-connection_ref">type-connection_ref</a> is the reference
+to the connection on which the message arrived.
+The return value from the fun is not checked.
+</p><p>The default behaviour is ignore the message.
+To get a printout for each message with <strong>AlwaysDisplay = true</strong>,
+use for example <strong>{ssh_msg_debug_fun, fun(_,true,M,_)-&gt; io:format("DEBUG: ~p~n", [M]) end}</strong></p><span class="name">id_string_common_option</span><p>The string the daemon will present to a connecting peer initially.
+The default value is "Erlang/VSN" where VSN is the ssh application version number.
+</p><p>The value <strong>random</strong> will cause a random string to be created at each connection attempt.
+This is to make it a bit more difficult for a malicious peer to find the ssh software brand and version.
+</p><p>The value <strong>{random, Nmin, Nmax}</strong> will make a random string with at least <strong>Nmin</strong> characters and
+at most <strong>Nmax</strong> characters.
+</p><span class="name">preferred_algorithms_common_option</span><span class="name">algs_list</span><span class="name">alg_entry</span><span class="name">kex_alg</span><span class="name">pubkey_alg</span><span class="name">cipher_alg</span><span class="name">mac_alg</span><span class="name">compression_alg</span><span class="name">double_algs</span><p>List of algorithms to use in the algorithm negotiation. The default <strong>algs_list()</strong> can
+be obtained from <a href="#default_algorithms/0">default_algorithms/0</a>.
+</p><p>If an alg_entry() is missing in the algs_list(), the default value is used for that entry.</p><p>Here is an example of this option:</p><pre><code class="">
+	  {preferred_algorithms, 
+	  [{public_key,['ssh-rsa','ssh-dss']},
+	  {cipher,[{client2server,['aes128-ctr']},
+          {server2client,['aes128-cbc','3des-cbc']}]},
+	  {mac,['hmac-sha2-256','hmac-sha1']},
+	  {compression,[none,zlib]}
+	  ]
+	  }
+	</code></pre><p>The example specifies different algorithms in the two directions (client2server and server2client),
+for cipher but specifies the same algorithms for mac and compression in both directions.
+The kex (key exchange) is implicit but public_key is set explicitly.</p><p>For background and more examples see the <a href="./configure_algos#introduction">User's Guide</a>.</p><p>If an algorithm name occurs more than once in a list, the behaviour is undefined. The tags in the property lists
+are also assumed to occur at most one time.
+</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>Changing the values can make a connection less secure. Do not change unless you
+know exactly what you are doing. If you do not understand the values then you
+are not supposed to change them.</p></div><span class="name">modify_algorithms_common_option</span><span class="name">modify_algs_list</span><p>Modifies the list of algorithms to use in the algorithm negotiation. The modifications are
+applied after the option <strong>preferred_algorithms</strong> (if existing) is applied.</p><p>The algoritm for modifications works like this:</p><ul><li> <p>Input is the <strong>modify_algs_list()</strong> and a set of algorithms <strong>A</strong>
+obtained from the <strong>preferred_algorithms</strong> option if existing, or else from the
+<a href="./ssh#default_algorithms-0">ssh:default_algorithms/0</a>.
+</p> </li><li> <p>The head of the <strong>modify_algs_list()</strong> modifies <strong>A</strong> giving the result <strong>A'</strong>.</p> <p>The possible modifications are:</p> <ul><li> <p>Append or prepend supported but not enabled algorithm(s) to the list of
+algorithms. If the wanted algorithms already are in <strong>A</strong> they will first
+be removed and then appended or prepended,
+</p> </li><li> <p>Remove (rm) one or more algorithms from <strong>A</strong>.
+</p> </li></ul> </li><li> <p>Repeat the modification step with the tail of <strong>modify_algs_list()</strong> and the resulting
+<strong>A'</strong>.
+</p> </li></ul><p>If an unsupported algorithm is in the <strong>modify_algs_list()</strong>, it will be silently ignored</p><p>If there are more than one modify_algorithms options, the result is undefined.</p><p>Here is an example of this option:</p><pre><code class="">
+	  {modify_algorithms, 
+	  [{prepend, [{kex, ['diffie-hellman-group1-sha1']}],
+	  {rm,      [{compression, [none]}]}
+	  ]
+	  }
+	</code></pre><p>The example specifies that:</p><ul><li><p>the old key exchange algorithm 'diffie-hellman-group1-sha1' should be
+the main alternative. It will be the main alternative since it is prepened to the list</p> </li><li><p>The compression algorithm none (= no compression) is removed so compression is enforced</p> </li></ul><p>For background and more examples see the <a href="./configure_algos#introduction">User's Guide</a>.</p><span class="name">inet_common_option</span><p>IP version to use when the host address is specified as <strong>any</strong>.</p><span class="name">auth_methods_common_option</span><p>Comma-separated string that determines which authentication methods that the client shall
+support and in which order they are tried. Defaults to <strong>"publickey,keyboard-interactive,password"</strong>
+</p><p>Note that the client is free to use any order and to exclude methods.
+</p><span class="name">fd_common_option</span><p>Allows an existing file-descriptor to be used (passed on to the transport protocol).</p><h4>Other data types</h4><span class="name">host</span><span class="name">ip_port</span><span class="name">mod_args</span><span class="name">mod_fun_args</span><span class="name">open_socket</span><p>The socket is supposed to be result of a <a href="../kernel/gen_tcp#connect-3">gen_tcp:connect</a>
+or a <a href="../kernel/gen_tcp#accept-1">gen_tcp:accept</a>. The socket must be in passive
+mode (that is, opened with the option <strong>{active,false})</strong>.
+</p><span class="name">daemon_ref</span><p>Opaque data type representing a daemon.</p><p>Returned by the functions <a href="./ssh#daemon-1">ssh#daemon-1</a>.</p><span class="name">connection_ref()</span><p>Opaque data type representing a connection between a client and a server (daemon).</p><p>Returned by the functions
+<a href="./ssh#connect-3">ssh#connect-3</a> and
+<a href="./ssh_sftp#start_channel-2">ssh_sftp#start_channel-2</a>.
+</p><span class="name">channel_id</span><p>Opaque data type representing a channel inside a connection.</p><p>Returned by the functions
+<a href="./ssh_connection#session_channel/2">ssh_connection:session_channel/2,4</a>.
+</p><span class="name">opaque_client_options</span><span class="name">opaque_daemon_options</span><span class="name">opaque_common_options</span><a name="type-opaque_client_options"></a><a name="type-opaque_daemon_options"></a><a name="type-opaque_common_options"></a><p>Opaque types that define experimental options that are not to be used in products.</p><h3>Functions</h3><h4>close/1</h4><p>Closes an SSH connection.</p><p>Closes an SSH connection.</p><h4>connect(Host, Port, Options) -&gt; Result</h4><h4>connect(Host, Port, Options, NegotiationTimeout) -&gt; Result</h4><h4>connect(TcpSocket, Options) -&gt; Result</h4><h4>connect(TcpSocket, Options, NegotiationTimeout) -&gt; Result</h4><p>Connects to an SSH server.</p><ul><li><span class="v">Host = </span></li><li><span class="v">Port = </span></li><li><span class="v">Options = </span></li><li><span class="v">TcpSocket = </span></li><li><span class="v">NegotiationTimeout = timeout()</span></li><li><span class="v">Result = {ok, } | {error, term()}</span></li></ul><p>Connects to an SSH server at the <strong>Host</strong> on <strong>Port</strong>.
+</p><p>As an alternative, an already open TCP socket could be passed to the function in <strong>TcpSocket</strong>.
+The SSH initiation and negotiation will be initiated on that one with the SSH that should be at the
+other end.
+</p><p>No channel is started. This is done by calling <a href="./ssh_connection#session_channel/2"> ssh_connection:session_channel/[2, 4]</a>.
+</p><p>The <strong>NegotiationTimeout</strong> is in milli-seconds. The default value is <strong>infinity</strong>.
+For connection timeout, use the option
+<a href="#type-connect_timeout_client_option">type-connect_timeout_client_option</a>.
+</p><h4>connection_info/2</h4><p>Retrieves information about a connection.</p><p>Retrieves information about a connection. The list <strong>Keys</strong> defines which information that
+is returned.</p><h4>daemon(Port | TcpSocket) -&gt; Result</h4><h4>daemon(Port | TcpSocket, Options) -&gt; Result</h4><h4>daemon(HostAddress, Port, Options) -&gt; Result</h4><p>Starts a server listening for SSH connections.</p><ul><li><span class="v">Port = integer()</span></li><li><span class="v">TcpSocket = </span></li><li><span class="v">Options = </span></li><li><span class="v">HostAddress =  | any</span></li><li><span class="v">Result = {ok, } | {error, atom()}</span></li></ul><p>Starts a server listening for SSH connections on the given port. If the <strong>Port</strong> is 0,
+a random free port is selected. See <a href="#daemon_info/1">daemon_info/1</a>
+about how to find the selected port number.
+</p><p>As an alternative, an already open TCP socket could be passed to the function in <strong>TcpSocket</strong>.
+The SSH initiation and negotiation will be initiated on that one when an SSH starts at the other end
+of the TCP socket.
+</p><p>For a description of the options, see <a href="#type-daemon_options">Daemon Options</a>.
+</p><p>Please note that by historical reasons both the <strong>HostAddress</strong> argument and the
+<a href="../kernel/gen_tcp#type-connect_option">gen_tcp connect_option() </a>
+set the listening address. This is a source of possible inconsistent settings.
+</p><p>The rules for handling the two address passing options are:</p><ul><li>if <strong>HostAddress</strong> is an IP-address, that IP-address is the listening address. An 'ip'-option will be discarded if present.</li><li>if <strong>HostAddress</strong> is the atom <strong>loopback</strong>, the listening address is <strong>loopback</strong> and an loopback address will be choosen by the underlying layers. An 'ip'-option will be discarded if present.</li><li>if <strong>HostAddress</strong> is the atom <strong>any</strong> and no 'ip'-option is present, the listening address is <strong>any</strong> and the socket will listen to all addresses</li><li>if <strong>HostAddress</strong> is <strong>any</strong> and an 'ip'-option is present, the listening address is set to the value of the 'ip'-option</li></ul><h4>daemon_info/1</h4><p>Get info about a daemon</p><p>Returns a key-value list with information about the daemon.</p><h4>default_algorithms/0</h4><p>Get a list declaring the supported algorithms</p><p>Returns a key-value list, where the keys are the different types of algorithms and the values are the
+algorithms themselves.</p><p>See the <a href="./configure_algos#example_default_algorithms">User's Guide</a> for
+an example.</p><h4>shell(Host | TcpSocket) -&gt; Result</h4><h4>shell(Host | TcpSocket, Options) -&gt; Result</h4><h4>shell(Host, Port, Options) -&gt; Result</h4><p>Starts an interactive shell on a remote SSH server.</p><ul><li><span class="v">Host = </span></li><li><span class="v">TcpSocket = </span></li><li><span class="v">Port = </span></li><li><span class="v">Options = </span></li><li><span class="v">Result = ok | {error, Reason::term()}</span></li></ul><p>Connects to an SSH server at <strong>Host</strong> and <strong>Port</strong> (defaults to 22) and starts an
+interactive shell on that remote host.
+</p><p>As an alternative, an already open TCP socket could be passed to the function in <strong>TcpSocket</strong>.
+The SSH initiation and negotiation will be initiated on that one and finaly a shell will be started
+on the host at the other end of the TCP socket.
+</p><p>For a description of the options, see <a href="#type-client_options">Client Options</a>.</p><p>The function waits for user input, and does not return until the remote shell is ended (that is,
+exit from the shell).
+</p><h4>start/0</h4><h4>start/1</h4><p>Starts the SSH application.</p><p>Utility function that starts the applications <strong>crypto</strong>, <strong>public_key</strong>,
+and <strong>ssh</strong>. Default type is <strong>temporary</strong>.
+For more information, see the <a href="./application">application(3)</a>
+manual page in Kernel.</p><h4>stop/0</h4><p>Stops the <strong>ssh</strong> application.</p><p>Stops the <strong>ssh</strong> application.
+For more information, see the <a href="./application">application(3)</a>
+manual page in Kernel.</p><h4>stop_daemon/1</h4><h4>stop_daemon/2</h4><h4>stop_daemon/3</h4><p>Stops the listener and all connections started by the listener.</p><p>Stops the listener and all connections started by the listener.</p><h4>stop_listener/1</h4><h4>stop_listener/2</h4><h4>stop_listener/3</h4><p>Stops the listener, but leaves existing connections started by the listener operational.</p><p>Stops the listener, but leaves existing connections started by the listener operational.</p><h3>ssh_client_channel</h3><p>-behaviour(ssh_client_channel). (Replaces ssh_channel)
+</p><p>SSH services (clients and servers) are implemented as channels
+that are multiplexed over an SSH connection and communicates over
+the <a href="http://www.ietf.org/rfc/rfc4254.txt"> SSH Connection Protocol</a>. This module provides a callback API
+that takes care of generic channel aspects for clients, such as flow control
+and close messages. It lets the callback functions take care of
+the service (application) specific parts. This behavior also ensures
+that the channel process honors the principal of an OTP-process so
+that it can be part of a supervisor tree. This is a requirement of
+channel processes implementing a subsystem that will be added to
+the <strong>ssh</strong> applications supervisor tree.
+</p><h3>Functions</h3><h4>call(ChannelRef, Msg) -&gt;</h4><h4>call(ChannelRef, Msg, Timeout) -&gt; Reply | {error, Reason}</h4><p>Makes a synchronous call to a channel.</p><ul><li><span class="v">ChannelRef = pid() </span></li><li><span class="d">As returned by </span></li><li><span class="v">Msg = term()</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">Reply = term()</span></li><li><span class="v">Reason = closed | timeout</span></li></ul><p>Makes a synchronous call to the channel process by sending
+a message and waiting until a reply arrives, or a time-out
+occurs. The channel calls <a href="#Module:handle_call-3">Module:handle_call/3</a>
+to handle the message. If the channel process does not exist,
+<strong>{error, closed}</strong> is returned.
+</p><h4>cast(ChannelRef, Msg) -&gt; ok</h4><p>Sends an asynchronous message to the channel ChannelRef and returns ok.</p><ul><li><span class="v">ChannelRef = pid()</span></li><li><span class="d">As returned by </span></li><li><span class="v">Msg = term()</span></li></ul><p>Sends an asynchronous message to the channel process and
+returns ok immediately, ignoring if the destination node or
+channel process does not exist. The channel calls
+<a href="#Module:handle_cast-2">Module:handle_cast/2</a>
+to handle the message.
+</p><h4>enter_loop(State) -&gt; _</h4><p>Makes an existing process an ssh_client_channel (replaces ssh_channel) process.</p><ul><li><span class="v">State = term()</span></li><li><span class="d">as returned by </span></li></ul><p>Makes an existing process an <strong>ssh_client_channel</strong> (replaces ssh_channel)
+process. Does not return, instead the calling process
+enters the <strong>ssh_client_channel</strong> (replaces ssh_channel) process receive loop and become an
+<strong>ssh_client_channel</strong> process. The process must have been started using
+one of the start functions in <strong>proc_lib</strong>, see the <a href="./proc_lib">proc_lib(3)</a> manual page in STDLIB.
+The user is responsible for any initialization of the process
+and must call <a href="#init-1">init/1</a>.
+</p><h4>init(Options) -&gt; {ok, State} |  {ok, State, Timeout} | {stop, Reason}</h4><p>Initiates an <strong>ssh_client_channel</strong> process.</p><ul><li><span class="v">Options = [{Option, Value}]</span></li><li><span class="v">State = term()</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">Reason = term()</span></li></ul><p>
+The following options must be present:
+</p><dl><dt><strong>{channel_cb, atom()}</strong></dt><dd><p>The module that implements the channel behaviour.</p></dd><dt><strong>{init_args(), list()}</strong></dt><dd><p>The list of arguments to the <strong>init</strong> function of the callback module.</p></dd><dt><strong>{cm, ssh:connection_ref()}</strong></dt><dd><p>Reference to the <strong>ssh</strong> connection as returned by
+<a href="./ssh#connect-3">ssh:connect/3</a>.
+</p></dd><dt><strong>{channel_id, ssh:channel_id()}</strong></dt><dd><p>Id of the <strong>ssh</strong> channel as returned by
+<a href="./ssh_connection#session_channel/2">ssh_connection:session_channel/2,4</a>.
+</p></dd></dl><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This function is normally not called by the
+user. The user only needs to call if the
+channel process needs to be started with help of
+<strong>proc_lib</strong> instead of calling
+<strong>start/4</strong> or
+<strong>start_link/4</strong>.</p></div><h4>reply(Client, Reply) -&gt; _</h4><p>Sends a reply to a client.</p><ul><li><span class="v">Client = opaque()</span></li><li><span class="v">Reply = term()</span></li></ul><p>This function can be used by a channel to send a
+reply to a client that called <strong>call/[2,3]</strong> when the reply
+cannot be defined in the return value of
+<a href="#Module:handle_call-3">Module:handle_call/3</a>.</p><p><strong>Client</strong> must be the <strong>From</strong> argument provided to
+the callback function <strong>handle_call/3</strong>.
+<strong>Reply</strong> is an arbitrary term,
+which is given back to the client as the return value of
+<a href="#call-2">call/[2,3].</a></p><h4>start(SshConnection, ChannelId, ChannelCb, CbInitArgs) -&gt;</h4><h4>start_link(SshConnection, ChannelId, ChannelCb, CbInitArgs) -&gt;
+      {ok, ChannelRef} | {error, Reason}</h4><p>Starts a process that handles an SSH channel.</p><ul><li><span class="v">SshConnection = ssh:connection_ref()</span></li><li><span class="d">As returned by </span></li><li><span class="v">ChannelId = </span></li><li><span class="d">As returned by .</span></li><li><span class="v">ChannelCb = atom()</span></li><li><span class="d">Name of the module implementing the service-specific parts of the channel.</span></li><li><span class="v">CbInitArgs = [term()]</span></li><li><span class="d">Argument list for the init function in the callback module.</span></li><li><span class="v">ChannelRef = pid()</span></li></ul><p>Starts a process that handles an SSH channel. It is
+called internally, by the <strong>ssh</strong> daemon, or explicitly by the <strong>ssh</strong>
+client implementations. The behavior sets the
+<strong>trap_exit</strong> flag to <strong>true</strong>.
+</p><h4>Callback Functions</h4><p>
+The following functions are to be exported from a
+<strong>ssh_client_channel</strong> callback module.
+</p><a name="cb_timeouts"></a><h4>Callback timeouts</h4><p>The timeout values that can be returned by the callback functions
+have the same semantics as in a <a href="./gen_server">gen_server</a>.
+If the time-out occurs, <a href="#Module:handle_msg-2">handle_msg/2</a>
+is called as <strong>handle_msg(timeout, State)</strong>.</p><h3>Functions</h3><h4>Module:code_change(OldVsn, State, Extra) -&gt; {ok,
+      NewState}</h4><p>Converts process state when code is changed.</p><ul><li><span class="v">OldVsn = term()</span></li><li><span class="d">In the case of an upgrade, OldVsn is Vsn, and in the case of a downgrade, OldVsn is {down,Vsn}. Vsn is defined by the vsn attribute(s) of the old version of the callback module Module. If no such attribute is defined, the version is the checksum of the BEAM file.</span></li><li><span class="v">State = term()</span></li><li><span class="d">Internal state of the channel.</span></li><li><span class="v">Extra = term()</span></li><li><span class="d">Passed "as-is" from the {advanced,Extra} part of the update instruction.</span></li></ul><p>Converts process state when code is changed.</p><p>This function is called by a client-side channel when it
+is to update its internal state during a release
+upgrade or downgrade, that is, when the instruction
+<strong>{update,Module,Change,...}</strong>, where
+<strong>Change={advanced,Extra}</strong>, is given in the <strong>appup</strong>
+file. For more information, refer to Section 9.11.6
+Release Handling Instructions in the
+<a href="../doc/design_principles/release_handling#instr">System Documentation</a>.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Soft upgrade according to the OTP release concept
+is not straight forward for the server side, as subsystem
+channel processes are spawned by the <strong>ssh</strong> application and
+hence added to its supervisor tree. The subsystem channels can
+be upgraded when upgrading the user application, if the callback
+functions can handle two versions of the state, but this function
+cannot be used in the normal way.</p></div><h4>Module:init(Args) -&gt; {ok, State} | {ok, State, timeout()} |
+      {stop, Reason}</h4><p>Makes necessary initializations and returns the initial channel state if the initializations succeed.</p><ul><li><span class="v">Args = term()</span></li><li><span class="d">Last argument to start_link/4.</span></li><li><span class="v">State = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Makes necessary initializations and returns the initial channel
+state if the initializations succeed.
+</p><p>For more detailed information on time-outs, see Section
+<a href="#cb_timeouts">Callback timeouts</a>. </p><h4>Module:handle_call(Msg, From, State) -&gt; Result</h4><p>Handles messages sent by calling <strong>call/[2,3]</strong>.</p><ul><li><span class="v">Msg = term()</span></li><li><span class="v">From = opaque()</span></li><li><span class="d">Is to be used as argument to </span></li><li><span class="v">State = term()</span></li><li><span class="v">Result = {reply, Reply, NewState} | {reply, Reply, NewState, timeout()} | {noreply, NewState} | {noreply , NewState, timeout()} | {stop, Reason, Reply, NewState} | {stop, Reason, NewState} </span></li><li><span class="v">Reply = term()</span></li><li><span class="d">Will be the return value of </span></li><li><span class="v">NewState = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Handles messages sent by calling
+<a href="#call-2">call/[2,3]</a>
+</p><p>For more detailed information on time-outs,, see Section
+<a href="#cb_timeouts">Callback timeouts</a>.</p><h4>Module:handle_cast(Msg, State) -&gt; Result</h4><p>Handles messages sent by calling <strong>cast/2</strong>.</p><ul><li><span class="v">Msg = term()</span></li><li><span class="v">State = term()</span></li><li><span class="v">Result = {noreply, NewState} | {noreply, NewState, timeout()} | {stop, Reason, NewState}</span></li><li><span class="v">NewState = term() </span></li><li><span class="v">Reason = term()</span></li></ul><p>Handles messages sent by calling
+<strong>cast/2</strong>.
+</p><p>For more detailed information on time-outs, see Section
+<a href="#cb_timeouts">Callback timeouts</a>.</p><h4>Module:handle_msg(Msg, State) -&gt; {ok, State} |
+      {stop, ChannelId, State}</h4><p>Handles other messages than SSH connection protocol, call, or cast messages sent to the channel.</p><ul><li><span class="v">Msg = timeout | term()</span></li><li><span class="v">ChannelId = </span></li><li><span class="v">State = term() </span></li></ul><p>Handles other messages than SSH Connection Protocol, call, or
+cast messages sent to the channel. 
+</p><p>Possible Erlang 'EXIT' messages is to be handled by this
+function and all channels are to handle the following message.</p><dl><dt><strong>{ssh_channel_up, ssh:channel_id(), ssh:connection_ref()}</strong></dt><dd><p>This is the first message that the channel receives.
+It is sent just before the <a href="#init-1">init/1</a> function
+returns successfully. This is especially useful if the
+server wants to send a message to the client without first
+receiving a message from it. If the message is not
+useful for your particular scenario, ignore it by
+immediately returning <strong>{ok, State}</strong>.
+</p></dd></dl><h4>Module:handle_ssh_msg(Msg, State) -&gt; {ok, State} | {stop,
+      ChannelId, State}</h4><p>Handles <strong>ssh</strong> connection protocol messages.</p><ul><li><span class="v">Msg = ssh_connection:event()</span></li><li><span class="v">ChannelId = </span></li><li><span class="v">State = term()</span></li></ul><p>Handles SSH Connection Protocol messages that may need
+service-specific attention. For details,
+see <a href="ssh_connection"> ssh_connection:event()</a>.
+</p><p>The following message is taken care of by the
+<strong>ssh_client_channel</strong> behavior.</p><dl><dt><strong>{closed, ssh:channel_id()}</strong></dt><dd><p>The channel behavior sends a close message to the
+other side, if such a message has not already been sent.
+Then it terminates the channel with reason <strong>normal</strong>.</p></dd></dl><h4>Module:terminate(Reason, State) -&gt; _</h4><p>Does cleaning up before channel process termination. </p><ul><li><span class="v">Reason = term()</span></li><li><span class="v">State = term()</span></li></ul><p>This function is called by a channel process when it is
+about to terminate. Before this function is called, <a href="./ssh_connection#close-2"> ssh_connection:close/2 </a> is called, if it has not been called earlier.
+This function does any necessary cleaning
+up. When it returns, the channel process terminates with
+reason <strong>Reason</strong>. The return value is ignored.
+</p><h3>ssh_server_channel</h3><p>-behaviour(ssh_server_channel). (Replaces ssh_daemon_channel)
+</p><p>SSH services (clients and servers) are implemented as channels
+that are multiplexed over an SSH connection and communicates over
+the <a href="http://www.ietf.org/rfc/rfc4254.txt"> SSH Connection Protocol</a>. This module provides a callback API
+that takes care of generic channel aspects for daemons, such as flow control
+and close messages. It lets the callback functions take care of
+the service (application) specific parts. This behavior also ensures
+that the channel process honors the principal of an OTP-process so
+that it can be part of a supervisor tree. This is a requirement of
+channel processes implementing a subsystem that will be added to
+the <strong>ssh</strong> applications supervisor tree.
+</p><h4>Callback Functions</h4><p>
+The following functions are to be exported from a
+<strong>ssh_server_channel</strong> callback module.
+</p><h3>Functions</h3><h4>Module:init(Args) -&gt; {ok, State} | {ok, State, timeout()} |
+      {stop, Reason}</h4><p>Makes necessary initializations and returns the initial channel state if the initializations succeed.</p><ul><li><span class="v">Args = term()</span></li><li><span class="d">Last argument to start_link/4.</span></li><li><span class="v">State = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Makes necessary initializations and returns the initial channel
+state if the initializations succeed.
+</p><p>The time-out values that can be returned
+have the same semantics as in a <a href="./gen_server">gen_server</a>.
+If the time-out occurs, <a href="#Module:handle_msg-2">handle_msg/2</a>
+is called as <strong>handle_msg(timeout, State)</strong>.
+</p><h4>Module:handle_msg(Msg, State) -&gt; {ok, State} |
+      {stop, ChannelId, State}</h4><p>Handles other messages than SSH connection protocol, call, or cast messages sent to the channel.</p><ul><li><span class="v">Msg = timeout | term()</span></li><li><span class="v">ChannelId = </span></li><li><span class="v">State = term() </span></li></ul><p>Handles other messages than SSH Connection Protocol, call, or
+cast messages sent to the channel. 
+</p><p>Possible Erlang 'EXIT' messages is to be handled by this
+function and all channels are to handle the following message.</p><dl><dt><strong>{ssh_channel_up, ssh:channel_id(), ssh:connection_ref()}</strong></dt><dd><p>This is the first message that the channel receives.
+This is especially useful if the
+server wants to send a message to the client without first
+receiving a message from it. If the message is not
+useful for your particular scenario, ignore it by
+immediately returning <strong>{ok, State}</strong>.
+</p></dd></dl><h4>Module:handle_ssh_msg(Msg, State) -&gt; {ok, State} | {stop,
+      ChannelId, State}</h4><p>Handles <strong>ssh</strong> connection protocol messages.</p><ul><li><span class="v">Msg = ssh_connection:event()</span></li><li><span class="v">ChannelId = </span></li><li><span class="v">State = term()</span></li></ul><p>Handles SSH Connection Protocol messages that may need
+service-specific attention. For details,
+see <a href="ssh_connection"> ssh_connection:event()</a>.
+</p><p>The following message is taken care of by the
+<strong>ssh_server_channel</strong> behavior.</p><dl><dt><strong>{closed, ssh:channel_id()}</strong></dt><dd><p>The channel behavior sends a close message to the
+other side, if such a message has not already been sent.
+Then it terminates the channel with reason <strong>normal</strong>.</p></dd></dl><h4>Module:terminate(Reason, State) -&gt; _</h4><p>Does cleaning up before channel process termination. </p><ul><li><span class="v">Reason = term()</span></li><li><span class="v">State = term()</span></li></ul><p>This function is called by a channel process when it is
+about to terminate. Before this function is called, <a href="./ssh_connection#close-2"> ssh_connection:close/2 </a> is called, if it has not been called earlier.
+This function does any necessary cleaning
+up. When it returns, the channel process terminates with
+reason <strong>Reason</strong>. The return value is ignored.
+</p><h3>ssh_connection</h3><p>
+    This module provides API functions to send SSH Connection Protocol 
+    events to the other side of an SSH channel.
+</p><p>The <a href="http://www.ietf.org/rfc/rfc4254.txt">SSH Connection Protocol</a> 
+is used by clients and servers, that is, SSH channels, to communicate over the 
+SSH connection. The API functions in this module send SSH Connection Protocol events,
+which are received as messages by the remote channel.
+If the receiving channel is an Erlang process, the
+messages have the format
+<strong>{ssh_cm, connection_ref(), ssh_event_msg()}</strong>.
+If the <a href="ssh_client_channel">ssh_client_channel</a> behavior is used to
+implement the channel process, these messages are handled by
+<a href="./ssh_client_channel#Module:handle_ssh_msg-2">handle_ssh_msg/2</a>.</p><h4>DATA TYPES</h4><p>Type definitions that are used more than once in this module,
+or abstractions to indicate the intended use of the data
+type, or both:</p><dl><dt><strong>boolean() =</strong></dt><dd><p><strong>true | false </strong></p></dd><dt><strong>string() =</strong></dt><dd><p>list of ASCII characters</p></dd><dt><strong>timeout() =</strong></dt><dd><p><strong>infinity | integer()</strong> in milliseconds</p></dd><dt><strong>connection_ref() =</strong></dt><dd><p>opaque() -as returned by
+<strong>ssh:connect/3</strong> or sent to an SSH channel processes</p></dd><dt><strong>channel_id() =</strong></dt><dd><p><strong>integer()</strong></p></dd><dt><strong>ssh_data_type_code() =</strong></dt><dd><p><strong>1</strong> ("stderr") | <strong>0</strong> ("normal") are
+valid values, see
+<a href="http://www.ietf.org/rfc/rfc4254.txt">RFC 4254</a> Section 5.2.</p></dd><dt><strong>ssh_request_status() =</strong></dt><dd><p> <strong>success | failure</strong></p></dd><dt><strong>event() =</strong></dt><dd><p><strong>{ssh_cm, connection_ref(), ssh_event_msg()}</strong></p></dd><dt><strong>ssh_event_msg() =</strong></dt><dd><p><strong>data_events() | status_events() | terminal_events()</strong></p></dd><dt><strong>reason() =</strong></dt><dd><p><strong>timeout | closed</strong></p></dd></dl><dl><dt><em>data_events()</em></dt><dd> <dl><dt><strong>{data, channel_id(), ssh_data_type_code(), Data :: binary()}</strong></dt><dd><p>Data has arrived on the channel. This event is sent as a
+result of calling <a href="./ssh_connection#send-3"> ssh_connection:send/[3,4,5]</a>.</p></dd><dt><strong>{eof, channel_id()}</strong></dt><dd><p>Indicates that the other side sends no more data.
+This event is sent as a result of calling <a href="./ssh_connection#send_eof-2"> ssh_connection:send_eof/2</a>.
+</p></dd></dl> </dd><dt><em>status_events()</em></dt><dd> <dl><dt><strong>{signal, channel_id(), ssh_signal()}</strong></dt><dd><p>A signal can be delivered to the remote process/service
+using the following message. Some systems do not support
+signals, in which case they are to ignore this message. There is
+currently no function to generate this event as the signals
+referred to are on OS-level and not something generated by an
+Erlang program.</p></dd><dt><strong>{exit_signal, channel_id(), ExitSignal :: string(), ErrorMsg ::string(), LanguageString :: string()}</strong></dt><dd><p>A remote execution can terminate violently because of a signal.
+Then this message can be received. For details on valid string
+values, see <a href="http://www.ietf.org/rfc/rfc4254.txt">RFC 4254</a>
+Section 6.10, which shows a special case of these signals.</p></dd><dt><strong>{exit_status, channel_id(), ExitStatus :: integer()}</strong></dt><dd><p>When the command running at the other end terminates, the
+following message can be sent to return the exit status of the
+command. A zero <strong>exit_status</strong> usually means that the command
+terminated successfully. This event is sent as a result of calling
+<a href="./ssh_connection#exit_status-3"> ssh_connection:exit_status/3</a>.</p></dd><dt><strong>{closed, channel_id()}</strong></dt><dd><p>This event is sent as a result of calling
+<a href="./ssh_connection#close-2">ssh_connection:close/2</a>.
+Both the handling of this event and sending it are taken care of by the
+<a href="ssh_client_channel">ssh_client_channel</a> behavior.</p></dd></dl> </dd><dt><em>terminal_events()</em></dt><dd> <p>Channels implementing a shell and command execution on the
+server side are to handle the following messages that can be sent by client-
+channel processes.</p> <p>Events that include a <strong>WantReply</strong> expect the event handling
+process to call <a href="./ssh_connection#reply_request-4"> ssh_connection:reply_request/4</a>
+with the boolean value of <strong>WantReply</strong> as the second argument.</p> <dl><dt><strong>{env, channel_id(), WantReply :: boolean(), Var ::string(), Value :: string()}</strong></dt><dd><p>Environment variables can be passed to the shell/command
+to be started later. This event is sent as a result of calling <a href="./ssh_connection#setenv-5"> ssh_connection:setenv/5</a>.
+</p></dd><dt><strong>{pty, channel_id(), WantReply :: boolean(), {Terminal :: string(), CharWidth :: integer(), RowHeight :: integer(), PixelWidth :: integer(), PixelHeight :: integer(), TerminalModes :: [{Opcode  :: atom() | integer(), Value :: integer()}]}}</strong></dt><dd><p>A pseudo-terminal has been requested for the
+session. <strong>Terminal</strong> is the value of the TERM environment
+variable value, that is, <strong>vt100</strong>. Zero dimension parameters must
+be ignored. The character/row dimensions override the pixel
+dimensions (when non-zero). Pixel dimensions refer to the
+drawable area of the window. <strong>Opcode</strong> in the
+<strong>TerminalModes</strong> list is the mnemonic name, represented
+as a lowercase Erlang atom, defined in
+<a href="http://www.ietf.org/rfc/rfc4254.txt">RFC 4254</a>, Section 8.
+It can also be an <strong>Opcode</strong> if the mnemonic name is not listed in the
+RFC. Example: <strong>OP code: 53, mnemonic name ECHO erlang atom: echo</strong>. This event is sent as a result of calling <a href="./ssh_connection#ptty_alloc/4">ssh_connection:ptty_alloc/4</a>.</p></dd><dt><strong>{shell, WantReply :: boolean()}</strong></dt><dd><p>This message requests that the user default shell
+is started at the other end. This event is sent as a result of calling
+<a href="./ssh_connection#shell-2"> ssh_connection:shell/2</a>.
+</p></dd><dt><strong>{window_change, channel_id(), CharWidth() :: integer(), RowHeight :: integer(), PixWidth :: integer(), PixHeight :: integer()}</strong></dt><dd><p>When the window (terminal) size changes on the client
+side, it <em>can</em> send a message to the server side to inform it of
+the new dimensions. No API function generates this event.</p></dd><dt><strong>{exec, channel_id(), WantReply :: boolean(), Cmd :: string()}</strong></dt><dd><p>This message requests that the server starts
+execution of the given command. This event is sent as a result of calling <a href="./ssh_connection#exec-4">ssh_connection:exec/4 </a>.
+</p></dd></dl> </dd></dl><h3>Functions</h3><h4>adjust_window(ConnectionRef, ChannelId, NumOfBytes) -&gt; ok</h4><p>Adjusts the SSH flow control window.</p><ul><li><span class="v">ConnectionRef = connection_ref()</span></li><li><span class="v">ChannelId = channel_id()</span></li><li><span class="v">NumOfBytes = integer()</span></li></ul><p>Adjusts the SSH flow control window. This is to be done by both the
+client- and server-side channel processes.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Channels implemented with the <a href="ssh_client_channel"> ssh_client_channel</a>
+behavior do not normally need to call this function as flow control
+is handled by the behavior. The behavior adjusts the window every time
+the callback <a href="./ssh_client_channel#Module:handle_ssh_msg-2"> handle_ssh_msg/2</a> returns after processing channel data.</p></div><h4>close(ConnectionRef, ChannelId) -&gt; ok</h4><p>Sends a close message on the channel <strong>ChannelId</strong>.</p><ul><li><span class="v">ConnectionRef = connection_ref()</span></li><li><span class="v">ChannelId = channel_id()</span></li></ul><p>A server- or client-channel process can choose to close their session by
+sending a close event.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This function is called by the <strong>ssh_client_channel</strong>
+behavior when the channel is terminated, see <a href="ssh_client_channel"> ssh_client_channel(3)</a>. Thus, channels implemented
+with the behavior are not to call this function explicitly.</p></div><h4>exec(ConnectionRef, ChannelId, Command, TimeOut) -&gt; ssh_request_status() |
+     {error, reason()}</h4><p>Requests that the server starts the execution of the given command.</p><ul><li><span class="v">ConnectionRef = connection_ref()</span></li><li><span class="v">ChannelId = channel_id()</span></li><li><span class="v">Command = string()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Is to be called by a client-channel process to request that the server starts
+executing the given command. The result is several messages according to the
+following pattern. The last message is a channel close message, as the <strong>exec</strong>
+request is a one-time execution that closes the channel when it is done.</p><dl><dt><strong>N x {ssh_cm, connection_ref(), {data, channel_id(), ssh_data_type_code(), Data :: binary()}}</strong></dt><dd><p>The result of executing the command can be only one line
+or thousands of lines depending on the command.</p></dd><dt><strong>0 or 1 x {ssh_cm, connection_ref(), {eof, channel_id()}}</strong></dt><dd><p>Indicates that no more data is to be sent.</p></dd><dt><strong>0 or 1 x {ssh_cm, connection_ref(), {exit_signal, channel_id(), ExitSignal :: string(), ErrorMsg :: string(), LanguageString :: string()}}</strong></dt><dd><p>Not all systems send signals. For details on valid string
+values, see RFC 4254, Section 6.10</p></dd><dt><strong>0 or 1 x {ssh_cm, connection_ref(), {exit_status, channel_id(), ExitStatus :: integer()}}</strong></dt><dd><p>It is recommended by the SSH Connection Protocol to send this
+message, but that is not always the case.</p></dd><dt><strong>1 x {ssh_cm, connection_ref(), {closed, channel_id()}}</strong></dt><dd><p>Indicates that the <strong>ssh_client_channel</strong> started for the
+execution of the command has now been shut down.</p></dd></dl><h4>exit_status(ConnectionRef, ChannelId, Status) -&gt; ok</h4><p>Sends the exit status of a command to the client.</p><ul><li><span class="v">ConnectionRef = connection_ref() </span></li><li><span class="v">ChannelId = channel_id()</span></li><li><span class="v">Status = integer()</span></li></ul><p>Is to be called by a server-channel process to send the exit status of a command
+to the client.</p><h4>ptty_alloc(ConnectionRef, ChannelId, Options) -&gt;</h4><h4>ptty_alloc(ConnectionRef, ChannelId, Options, Timeout) -&gt;  &gt; ssh_request_status() |
+     {error, reason()}</h4><p>Sends an SSH Connection Protocol <strong>pty_req</strong>, to allocate a pseudo-terminal.</p><ul><li><span class="v">ConnectionRef = connection_ref()</span></li><li><span class="v">ChannelId = channel_id()</span></li><li><span class="v">Options = proplists:proplist()</span></li></ul><p>Sends an SSH Connection Protocol <strong>pty_req</strong>, to allocate a pseudo-terminal.
+Is to be called by an SSH client process.</p><p>Options:</p><dl><dt>{term, string()}</dt><dd><p>Defaults to <em>os:getenv("TERM")</em> or <em>vt100</em>
+if it is undefined.</p></dd><dt>{width, integer()}</dt><dd><p>Defaults to 80 if <strong>pixel_width</strong> is not defined.</p></dd><dt>{height, integer()}</dt><dd><p>Defaults to 24 if <strong>pixel_height</strong> is not defined.</p></dd><dt>{pixel_width, integer()}</dt><dd><p>Is disregarded if <strong>width</strong> is defined.</p></dd><dt>{pixel_height, integer()}</dt><dd><p>Is disregarded if <strong>height</strong> is defined.</p></dd><dt>{pty_opts, [{posix_atom(), integer()}]}</dt><dd><p>Option can be an empty list. Otherwise, see possible <em>POSIX</em> names
+in Section 8 in <a href="http://www.ietf.org/rfc/rfc4254.txt"> RFC 4254</a>.</p> </dd></dl><h4>reply_request(ConnectionRef, WantReply, Status, ChannelId) -&gt; ok</h4><p>Sends status replies to requests that want such replies.</p><ul><li><span class="v">ConnectionRef = connection_ref()</span></li><li><span class="v">WantReply =  boolean()</span></li><li><span class="v">Status = ssh_request_status()</span></li><li><span class="v">ChannelId = channel_id()</span></li></ul><p>Sends status replies to requests where the requester has
+stated that it wants a status report, that is, <strong>WantReply = true</strong>.
+If <strong>WantReply</strong> is <strong>false</strong>, calling this function becomes a
+"noop". Is to be called while handling an SSH Connection
+Protocol message containing a <strong>WantReply</strong> boolean value.</p><h4>send(ConnectionRef, ChannelId, Data) -&gt;</h4><h4>send(ConnectionRef, ChannelId, Data, Timeout) -&gt;</h4><h4>send(ConnectionRef, ChannelId, Type, Data) -&gt;</h4><h4>send(ConnectionRef, ChannelId, Type, Data, TimeOut) -&gt;
+       ok | {error, timeout} | {error, closed}</h4><p>Sends channel data.</p><ul><li><span class="v">ConnectionRef = connection_ref()</span></li><li><span class="v">ChannelId = channel_id()</span></li><li><span class="v">Data = binary()</span></li><li><span class="v">Type = ssh_data_type_code()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Is to be called by client- and server-channel processes to send data to each other.
+</p><p>The function <a href="../ssh/ssh_connection#subsystem/4">subsystem/4</a> and subsequent
+calls of <strong>send/3,4,5</strong> must be executed in the same process.
+</p><h4>send_eof(ConnectionRef, ChannelId) -&gt; ok | {error, closed}</h4><p>Sends EOF on channel <strong>ChannelId</strong>.</p><ul><li><span class="v">ConnectionRef = connection_ref()</span></li><li><span class="v">ChannelId = channel_id()</span></li></ul><p>Sends EOF on channel <strong>ChannelId</strong>.</p><h4>session_channel(ConnectionRef, Timeout) -&gt;</h4><h4>session_channel(ConnectionRef, InitialWindowSize,
+       MaxPacketSize, Timeout) -&gt; {ok, channel_id()} | {error, reason()}</h4><p>Opens a channel for an SSH session.</p><ul><li><span class="v">ConnectionRef = connection_ref()</span></li><li><span class="v">InitialWindowSize = integer()</span></li><li><span class="v">MaxPacketSize = integer()</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Opens a channel for an SSH session. The channel id returned from this function
+is the id used as input to the other functions in this module.</p><h4>setenv(ConnectionRef, ChannelId, Var, Value, TimeOut) -&gt; ssh_request_status() |
+      {error, reason()}</h4><p>Environment variables can be passed to the shell/command to be started later.</p><ul><li><span class="v">ConnectionRef = connection_ref()</span></li><li><span class="v">ChannelId = channel_id()</span></li><li><span class="v">Var = string()</span></li><li><span class="v">Value = string()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Environment variables can be passed before starting the
+shell/command. Is to be called by a client channel processes.</p><h4>shell(ConnectionRef, ChannelId) -&gt; ok | failure | {error, closed}
+</h4><p>Requests that the user default shell (typically defined in /etc/passwd in Unix systems) is to be executed at the server end.</p><ul><li><span class="v">ConnectionRef = connection_ref()</span></li><li><span class="v">ChannelId = channel_id()</span></li></ul><p>Is to be called by a client channel process to request that the user default
+shell (typically defined in /etc/passwd in Unix systems) is executed
+at the server end.</p><p>Note: the return value is <strong>ok</strong> instead of <strong>success</strong> unlike in other
+functions in this module. This is a fault that was introduced so long ago that
+any change would break a large number of existing software.
+</p><h4>subsystem(ConnectionRef, ChannelId, Subsystem, Timeout) -&gt; ssh_request_status() |
+      {error, reason()}</h4><p>Requests to execute a predefined subsystem on the server.</p><ul><li><span class="v">ConnectionRef = connection_ref()</span></li><li><span class="v">ChannelId = channel_id()</span></li><li><span class="v">Subsystem = string()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Is to be called by a client-channel process for requesting to execute a predefined
+subsystem on the server.
+</p><p>The function <strong>subsystem/4</strong> and subsequent calls of 
+<a href="../ssh/ssh_connection#send/3">send/3,4,5</a> must be executed in the same process.
+</p><h3>ssh_client_key_api</h3><p>
+     -behaviour(ssh_client_key_api).
+</p><p>Behavior describing the API for public key handling of an SSH client. By implementing
+the callbacks defined in this behavior, the public key handling of an SSH client can
+be customized. By default the <strong>ssh</strong> application implements this behavior
+with help of the standard OpenSSH files,
+see the <a href="SSH_app"> ssh(6)</a> application manual.</p><h3>Data Types</h3><span class="name">client_key_cb_options</span><p>Options provided to <a href="./ssh#connect-3">ssh:connect/[3,4]</a>.
+</p><p>The option list given in the
+<a href="./ssh#type-key_cb_common_option">ssh#type-key_cb_common_option</a>
+option is available with the key <strong>key_cb_private</strong>.
+</p><h3>Functions</h3><h4>Module:add_host_key(HostNames, PublicHostKey, ConnectOptions) -&gt; ok | {error, Reason}</h4><p>Adds a host key to the set of trusted host keys.</p><ul><li><span class="v">HostNames = string()</span></li><li><span class="d">Description of the host that owns the PublicHostKey.</span></li><li><span class="v">PublicHostKey = </span></li><li><span class="d">Of ECDSA keys, only the Normally an RSA, DSA or ECDSA public key, but handling of other public keys can be added.</span></li><li><span class="v">ConnectOptions =  </span></li></ul><p>Adds a host key to the set of trusted host keys.</p><h4>Module:is_host_key(Key, Host, Algorithm, ConnectOptions) -&gt; Result</h4><p>Checks if a host key is trusted.</p><ul><li><span class="v">Key = </span></li><li><span class="d">Normally an RSA, DSA or ECDSA public key, but handling of other public keys can be added.</span></li><li><span class="v">Host = string()</span></li><li><span class="d">Description of the host.</span></li><li><span class="v">Algorithm = </span></li><li><span class="d">Host key algorithm.</span></li><li><span class="v">ConnectOptions =  </span></li><li><span class="v">Result = boolean()</span></li></ul><p>Checks if a host key is trusted.</p><h4>Module:user_key(Algorithm, ConnectOptions) -&gt;
+      {ok, PrivateKey}  | {error, Reason}</h4><p>Fetches the users <em>public key</em> matching the <strong>Algorithm</strong>.</p><ul><li><span class="v">Algorithm = </span></li><li><span class="d">Host key algorithm.</span></li><li><span class="v">ConnectOptions =  </span></li><li><span class="v">PrivateKey = </span></li><li><span class="d">Private key of the user matching the Algorithm.</span></li><li><span class="v">Reason = term()</span></li></ul><p>Fetches the users <em>public key</em> matching the <strong>Algorithm</strong>.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The private key contains the public key.</p></div><h3>ssh_server_key_api</h3><p>
+    -behaviour(ssh_server_key_api).
+</p><p>Behaviour describing the API for public key handling of an SSH server. By implementing
+the callbacks defined in this behavior, the public key handling of an SSH server can
+be customized. By default the SSH application implements this behavior
+with help of the standard OpenSSH files,
+see the <a href="SSH_app"> ssh(6)</a> application manual.</p><h3>Data Types</h3><span class="name">daemon_key_cb_options</span><p>Options provided to <a href="./ssh#daemon-2">ssh:daemon/2,3</a>.
+</p><p>The option list given in the
+<a href="./ssh#type-key_cb_common_option">ssh#type-key_cb_common_option</a>
+option is available with the key <strong>key_cb_private</strong>.
+</p><h3>Functions</h3><h4>Module:host_key(Algorithm, DaemonOptions) -&gt;
+      {ok, Key} | {error, Reason}</h4><p>Fetches the hostâs private key.</p><ul><li><span class="v">Algorithm = </span></li><li><span class="d">Host key algorithm.</span></li><li><span class="v">DaemonOptions =  </span></li><li><span class="v">PrivateKey =  |  </span></li><li><span class="d">Private key of the host matching the Algorithm. It may be a reference to a 'ssh-rsa', rsa-sha2-* or 'ssh-dss' (NOT ecdsa) key stored in a loaded Engine.</span></li><li><span class="v">Reason = term()</span></li></ul><p>Fetches the private key of the host.</p><h4>Module:is_auth_key(PublicUserKey, User, DaemonOptions) -&gt; Result</h4><p>Checks if the user key is authorized.</p><ul><li><span class="v">PublicUserKey = </span></li><li><span class="d">Normally an RSA, DSA or ECDSA public key, but handling of other public keys can be added</span></li><li><span class="v">User = string()</span></li><li><span class="d">User owning the public key.</span></li><li><span class="v">DaemonOptions =  </span></li><li><span class="v">Result = boolean()</span></li></ul><p>Checks if the user key is authorized.</p><h3>ssh_file</h3><p>Default callback module for the client's and server's database operations in the ssh application</p><p>This module is the default callback handler for the client's and the server's user and host "database" operations.
+All data, for instance key pairs, are stored in files in the normal file system. This page documents the files, where they
+are stored and configuration options for this callback module.
+The intention is to be compatible with the
+<a href="http://www.openssh.com">OpenSSH</a>
+storage in files. Therefore it mimics directories and filenames of
+<a href="http://www.openssh.com">OpenSSH</a>.
+Ssh_file implements the <a href="./ssh_server_key_api">ssh_server_key_api</a> and
+the <a href="./ssh_client_key_api">ssh_client_key_api</a>.
+This enables the user to make an own interface using for example a database handler.
+Such another callback module could be used by setting the option
+<a href="../ssh/ssh#type-key_cb_common_option">ssh/ssh#type-key_cb_common_option</a>
+when starting a client or a server (with for example
+<a href="../ssh/ssh#connect-3">ssh:connect</a>,
+<a href="../ssh/ssh#daemon-2">ssh:daemon</a> of
+<a href="../ssh/ssh#shell-1">ssh:shell</a>
+).
+</p><h4>Files, directories and who uses them</h4><h4>Daemons</h4><p>Daemons uses all files stored in the <a href="#SYSDIR">SYSDIR</a> directory.
+</p><p>Optionaly, in case of <strong>publickey</strong> authorization, one or more of the remote user's public keys
+in the <a href="#USERDIR">USERDIR</a> directory are used.
+See the files 
+<a href="#USERDIR-authorized_keys">USERDIR-authorized_keys</a> and
+<a href="#USERDIR-authorized_keys2">USERDIR-authorized_keys2</a>.
+</p><h4>Clients</h4><p>Clients uses all files stored in the <a href="#USERDIR">USERDIR</a> directory.
+</p><h4>Directory contents</h4><dl><dt><a name="LOCALUSER"></a>LOCALUSER</dt><dd><p>The user name of the OS process running the Erlang virtual machine (emulator).</p> </dd><dt><a name="SYSDIR"></a>SYSDIR</dt><dd><p>This is the directory holding the server's files:</p> <ul><li><a name="SYSDIR-ssh_host_dsa_key"></a><strong>ssh_host_dsa_key</strong> - private dss host key (optional)</li><li><a name="SYSDIR-ssh_host_rsa_key"></a><strong>ssh_host_rsa_key</strong> - private rsa host key (optional)</li><li><a name="SYSDIR-ssh_host_ecdsa_key"></a><strong>ssh_host_ecdsa_key</strong> - private ecdsa host key (optional)</li><li><a name="SYSDIR-ssh_host_ed25519_key"></a><strong>ssh_host_ed25519_key</strong> - private eddsa host key for curve 25519 (optional)</li><li><a name="SYSDIR-ssh_host_ed448_key"></a><strong>ssh_host_ed448_key</strong> - private eddsa host key for curve 448 (optional)</li></ul> <p>At least one host key must be defined. The default value of SYSDIR is <a name="#/etc/ssh"></a><strong>/etc/ssh</strong>.
+</p> <p>For security reasons, this directory is normally accessible only to the root user.
+</p> <p>To change the SYSDIR, see the <a href="#type-system_dir_daemon_option">system_dir</a> option.
+</p> </dd><dt><a name="USERDIR"></a>USERDIR</dt><dd><p>This is the directory holding the files:</p> <ul><li><a name="USERDIR-authorized_keys"></a><strong>authorized_keys</strong> and, as second alternative <a name="USERDIR-authorized_keys2"></a><strong>authorized_keys2</strong> -  the user's public keys are stored concatenated in one of those files. </li><li><a name="USERDIR-known_hosts"></a><strong>known_hosts</strong> - host keys from hosts visited concatenated. The file is created and used by the client.</li><li><a name="USERDIR-id_dsa"></a><strong>id_dsa</strong> - private dss user key (optional)</li><li><a name="USERDIR-id_rsa"></a><strong>id_rsa</strong> - private rsa user key (optional)</li><li><a name="USERDIR-id_ecdsa"></a><strong>id_ecdsa</strong> - private ecdsa user key (optional)</li><li><a name="USERDIR-id_ed25519"></a><strong>id_ed25519</strong> - private eddsa user key for curve 25519 (optional)</li><li><a name="USERDIR-id_ed448"></a><strong>id_ed448</strong> - private eddsa user key for curve 448 (optional)</li></ul> <p>The default value of USERDIR is <strong>/home/</strong><a href="#LOCALUSER">LOCALUSER</a><strong>/.ssh</strong>.
+</p> <p>To change the USERDIR, see the <a href="#type-user_dir_common_option">user_dir</a> option
+</p> </dd></dl><h3>Data Types</h3><h4>Options for the default ssh_file callback module</h4><span class="name">user_dir_common_option</span><p>Sets the <a href="#USERDIR">user directory</a>.</p><span class="name">user_dir_fun_common_option</span><span class="name">user2dir</span><p>Sets the <a href="#USERDIR">user directory</a> dynamically
+by evaluating the <strong>user2dir</strong> function.
+</p><span class="name">system_dir_daemon_option</span><p>Sets the <a href="#SYSDIR">system directory</a>.</p><span class="name">pubkey_passphrase_client_options</span><p>If the user's DSA, RSA or ECDSA key is protected by a passphrase, it can be
+supplied with thoose options.
+</p><p>Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.</p><h3>Functions</h3><h4>host_key(Algorithm, DaemonOptions) -&gt; {ok, Key} | {error, Reason}</h4><p><span class="strong">Types and description</span></p><p>See the api description in
+<a href="../ssh/ssh_server_key_api#Module:host_key-2">ssh_server_key_api, Module:host_key/2</a>.
+</p><p><span class="strong">Options</span></p><ul><li><a href="#type-system_dir_daemon_option">system_dir</a></li></ul><p><span class="strong">Files</span></p><ul><li><a href="#SYSDIR-ssh_host_rsa_key">SYSDIR-ssh_host_rsa_key</a></li><li><a href="#SYSDIR-ssh_host_dsa_key">SYSDIR-ssh_host_dsa_key</a></li><li><a href="#SYSDIR-ssh_host_ecdsa_key">SYSDIR-ssh_host_ecdsa_key</a></li><li><a href="#SYSDIR-ssh_host_ed25519_key">SYSDIR-ssh_host_ed25519_key</a></li><li><a href="#SYSDIR-ssh_host_ed448_key">c&gt;</a></li></ul><h4>is_auth_key(PublicUserKey, User, DaemonOptions) -&gt; Result</h4><p><span class="strong">Types and description</span></p><p>See the api description in
+<a href="../ssh/ssh_server_key_api#Module:is_auth_key-3">ssh_server_key_api: Module:is_auth_key/3</a>.
+</p><p><span class="strong">Options</span></p><ul><li><a href="#type-user_dir_fun_common_option">user_dir_fun</a></li><li><a href="#type-user_dir_common_option">user_dir</a></li></ul><p><span class="strong">Files</span></p><ul><li><a href="#USERDIR-authorized_keys">USERDIR-authorized_keys</a></li><li><a href="#USERDIR-authorized_keys2">USERDIR-authorized_keys2</a></li></ul><h4>add_host_key(HostNames, PublicHostKey, ConnectOptions) -&gt; ok | {error, Reason}</h4><p><span class="strong">Types and description</span></p><p>See the api description in
+<a href="../ssh/ssh_client_key_api#Module:add_host_key-3">ssh_client_key_api, Module:add_host_key/3</a>.
+</p><p><span class="strong">Option</span></p><ul><li><a href="#type-user_dir_common_option">user_dir</a></li></ul><p><span class="strong">File</span></p><ul><li><a href="#USERDIR-known_hosts">USERDIR-known_hosts</a></li></ul><h4>is_host_key(Key, Host, Algorithm, ConnectOptions) -&gt; Result</h4><p><span class="strong">Types and description</span></p><p>See the api description in
+<a href="../ssh/ssh_client_key_api#Module:is_host_key-4">ssh_client_key_api, Module:is_host_key/4</a>.
+</p><p><span class="strong">Option</span></p><ul><li><a href="#type-user_dir_common_option">user_dir</a></li></ul><p><span class="strong">File</span></p><ul><li><a href="#USERDIR-known_hosts">USERDIR-known_hosts</a></li></ul><h4>user_key(Algorithm, ConnectOptions) -&gt; {ok, PrivateKey} | {error, Reason}</h4><p><span class="strong">Types and description</span></p><p>See the api description in
+<a href="../ssh/ssh_client_key_api#Module:user_key-2">ssh_client_key_api, Module:user_key/2</a>.
+</p><p><span class="strong">Options</span></p><ul><li><a href="#type-user_dir_common_option">user_dir</a></li><li><a href="#type-pubkey_passphrase_client_options">dsa_pass_phrase</a></li><li><a href="#type-pubkey_passphrase_client_options">rsa_pass_phrase</a></li><li><a href="#type-pubkey_passphrase_client_options">ecdsa_pass_phrase</a></li></ul><p>Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.</p><p><span class="strong">Files</span></p><ul><li><a href="#USERDIR-id_dsa">USERDIR-id_dsa</a></li><li><a href="#USERDIR-id_rsa">USERDIR-id_rsa</a></li><li><a href="#USERDIR-id_ecdsa">USERDIR-id_ecdsa</a></li><li><a href="#USERDIR-id_ed25519">USERDIR-id_ed25519</a></li><li><a href="#USERDIR-id_ed448">USERDIR-id_ed448</a></li></ul><h3>ssh_sftp</h3><p>SFTP client.</p><p>This module implements an SSH FTP (SFTP) client. SFTP is a
+secure, encrypted file transfer service available for
+SSH.</p><h4>DATA TYPES</h4><p>Type definitions that are used more than once in this module,
+or abstractions to indicate the intended use of the data type, or both:
+</p><dl><dt><strong>reason()</strong></dt><dd> <p>= <strong>atom() | string() | tuple() </strong>A description of the reason why an operation failed.</p> <p>
+The <strong>atom()</strong> value is formed from the sftp error codes in the protocol-level responses as defined in 
+<a href="https://tools.ietf.org/id/draft-ietf-secsh-filexfer-13.txt">draft-ietf-secsh-filexfer-13.txt</a>
+section 9.1.
+</p> <p>
+The codes are named as <strong>SSH_FX_*</strong> which are transformed into lowercase of the star-part.
+E.g. the error code <strong>SSH_FX_NO_SUCH_FILE</strong>
+will cause the <strong>reason()</strong> to be <strong>no_such_file</strong>.
+</p> <p>The <strong>string()</strong> reason is the error information from the server in case of an exit-signal.  If that information is empty, the reason is the exit signal name.
+</p> <p>The <strong>tuple()</strong> reason are other errors like the <strong>{exit_status,integer()}</strong> if the exit status is not 0.
+</p> </dd><dt><strong>connection_ref() =</strong></dt><dd><p><strong>opaque()</strong> - as returned by 
+<a href="./ssh#connect-3">ssh#connect-3</a></p></dd><dt><strong>timeout()</strong></dt><dd><p>= <strong>infinity | integer()</strong> in milliseconds. Default infinity.</p></dd></dl><h4>Time-outs</h4><p>If the request functions for the SFTP channel return <strong>{error, timeout}</strong>,
+no answer was received from the server within the expected time.</p><p>The request may have reached the server and may have been performed.
+However, no answer was received from the server within the expected time.</p><h3>Functions</h3><h4>apread(ChannelPid, Handle, Position, Len) -&gt; {async, N} | {error, reason()}</h4><p>Reads asynchronously from an open file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Position = integer()</span></li><li><span class="v">Len = integer()</span></li><li><span class="v">N = term()</span></li></ul><p>The <strong>apread/4</strong> function reads from a specified position,
+combining the <a href="#position-3">position-3</a> and 
+<a href="#aread-3">aread-3</a> functions.</p><h4>apwrite(ChannelPid, Handle, Position, Data) -&gt; {async, N} | {error, reason()}</h4><p>Writes asynchronously to an open file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Position = integer()</span></li><li><span class="v">Len = integer()</span></li><li><span class="v">Data = binary()</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">N = term()</span></li></ul><p>The <strong>apwrite/4</strong> function writes to a specified position,
+combining the <a href="#position-3">position-3</a> and 
+<a href="#awrite-3">awrite-3</a> functions.</p><h4>aread(ChannelPid, Handle, Len) -&gt; {async, N} | {error, reason()}</h4><p>Reads asynchronously from an open file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Position = integer()</span></li><li><span class="v">Len = integer()</span></li><li><span class="v">N = term()</span></li></ul><p>Reads from an open file, without waiting for the result. If the
+handle is valid, the function returns <strong>{async, N}</strong>, where <strong>N</strong>
+is a term guaranteed to be unique between calls of <strong>aread</strong>.
+The actual data is sent as a message to the calling process. This
+message has the form <strong>{async_reply, N, Result}</strong>, where
+<strong>Result</strong> is the result from the read, either <strong>{ok, Data}</strong>,
+<strong>eof</strong>, or <strong>{error, reason()}</strong>.</p><h4>awrite(ChannelPid, Handle, Data) -&gt; {async, N} | {error, reason()}</h4><p>Writes asynchronously to an open file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Position = integer()</span></li><li><span class="v">Len = integer()</span></li><li><span class="v">Data = binary()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Writes to an open file, without waiting for the result. If the
+handle is valid, the function returns <strong>{async, N}</strong>, where <strong>N</strong>
+is a term guaranteed to be unique between calls of
+<strong>awrite</strong>. The result of the <strong>write</strong> operation is sent
+as a message to the calling process. This message has the form
+<strong>{async_reply, N, Result}</strong>, where <strong>Result</strong> is the result
+from the write, either <strong>ok</strong>, or <strong>{error, reason()}</strong>.</p><h4>close(ChannelPid, Handle) -&gt;</h4><h4>close(ChannelPid, Handle, Timeout) -&gt; ok | {error, reason()}</h4><p>Closes an open handle.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Closes a handle to an open file or directory on the server.</p><h4>delete(ChannelPid, Name) -&gt;</h4><h4>delete(ChannelPid, Name, Timeout) -&gt; ok | {error, reason()}</h4><p>Deletes a file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Name = string()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Deletes the file specified by <strong>Name</strong>.
+</p><h4>del_dir(ChannelPid, Name) -&gt;</h4><h4>del_dir(ChannelPid, Name, Timeout) -&gt; ok | {error, reason()}</h4><p>Deletes an empty directory.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Name = string()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Deletes a directory specified by <strong>Name</strong>.
+The directory must be empty before it can be successfully deleted.
+</p><h4>list_dir(ChannelPid, Path) -&gt;</h4><h4>list_dir(ChannelPid, Path, Timeout) -&gt; {ok, Filenames} | {error, reason()}</h4><p>Lists the directory.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Path = string()</span></li><li><span class="v">Filenames = [Filename]</span></li><li><span class="v">Filename = string()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Lists the given directory on the server, returning the
+filenames as a list of strings.</p><h4>make_dir(ChannelPid, Name) -&gt;</h4><h4>make_dir(ChannelPid, Name, Timeout) -&gt; ok | {error, reason()}</h4><p>Creates a directory.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Name = string()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Creates a directory specified by <strong>Name</strong>. <strong>Name</strong>
+must be a full path to a new directory. The directory can only be
+created in an existing directory.</p><h4>make_symlink(ChannelPid, Name, Target) -&gt;</h4><h4>make_symlink(ChannelPid, Name, Target, Timeout) -&gt; ok | {error, reason()}</h4><p>Creates a symbolic link.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Name = string()</span></li><li><span class="v">Target = string()</span></li></ul><p>Creates a symbolic link pointing to <strong>Target</strong> with the
+name <strong>Name</strong>.
+</p><h4>open(ChannelPid, File, Mode) -&gt;</h4><h4>open(ChannelPid, File, Mode, Timeout) -&gt; {ok, Handle} | {error, reason()}</h4><p>Opens a file and returns a handle.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">File = string()</span></li><li><span class="v">Mode = [Modeflag]</span></li><li><span class="v">Modeflag = read | write | creat | trunc | append | binary</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">Handle = term()</span></li></ul><p>Opens a file on the server and returns a handle, which
+can be used for reading or writing.</p><h4>opendir(ChannelPid, Path) -&gt;</h4><h4>opendir(ChannelPid, Path, Timeout) -&gt; {ok, Handle} | {error, reason()}</h4><p>Opens a directory and returns a handle.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Path = string()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Opens a handle to a directory on the server. The handle
+can be used for reading directory contents.</p><h4>open_tar(ChannelPid, Path, Mode) -&gt;</h4><h4>open_tar(ChannelPid, Path, Mode, Timeout) -&gt; {ok, Handle} | {error, reason()}</h4><p>Opens a tar file on the server to which <strong>ChannelPid</strong> is connected and returns a handle.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Path = string()</span></li><li><span class="v">Mode = [read] | [write] | [read,EncryptOpt] | [write,DecryptOpt]</span></li><li><span class="v">EncryptOpt = {crypto,{InitFun,EncryptFun,CloseFun}}</span></li><li><span class="v">DecryptOpt = {crypto,{InitFun,DecryptFun}}</span></li><li><span class="v">InitFun = (fun() -&gt; {ok,CryptoState}) | (fun() -&gt; {ok,CryptoState,ChunkSize})</span></li><li><span class="v">CryptoState = any()</span></li><li><span class="v">ChunkSize = undefined | pos_integer()</span></li><li><span class="v">EncryptFun = (fun(PlainBin,CryptoState) -&gt; EncryptResult)</span></li><li><span class="v">EncryptResult = {ok,EncryptedBin,CryptoState} | {ok,EncryptedBin,CryptoState,ChunkSize}</span></li><li><span class="v">PlainBin = binary()</span></li><li><span class="v">EncryptedBin = binary()</span></li><li><span class="v">DecryptFun = (fun(EncryptedBin,CryptoState) -&gt; DecryptResult)</span></li><li><span class="v">DecryptResult = {ok,PlainBin,CryptoState} | {ok,PlainBin,CryptoState,ChunkSize}</span></li><li><span class="v">CloseFun = (fun(PlainBin,CryptoState) -&gt; {ok,EncryptedBin})</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Opens a handle to a tar file on the server, associated with <strong>ChannelPid</strong>.
+The handle can be used for remote tar creation and extraction, as defined by the
+<a href="../stdlib/erl_tar#init-3">erl_tar:init/3</a> function.
+</p><p> For code exampel see Section
+<a href="using_ssh">SFTP Client with TAR Compression and Encryption</a> in
+the ssh Users Guide. </p><p>The <strong>crypto</strong> mode option is applied to the generated stream of bytes prior to sending
+them to the SFTP server. This is intended for encryption but can be used for other
+purposes.
+</p><p>The <strong>InitFun</strong> is applied once
+prior to any other <strong>crypto</strong> operation. The returned <strong>CryptoState</strong> is then folded into
+repeated applications of the <strong>EncryptFun</strong> or <strong>DecryptFun</strong>. The binary returned
+from those funs are sent further to the remote SFTP server. Finally, if doing encryption,
+the <strong>CloseFun</strong> is applied to the last piece of data. The <strong>CloseFun</strong> is
+responsible for padding (if needed) and encryption of that last piece.
+</p><p>The <strong>ChunkSize</strong> defines the size of the <strong>PlainBin</strong>s that <strong>EncodeFun</strong> is applied
+to. If the <strong>ChunkSize</strong> is <strong>undefined</strong>, the size of the <strong>PlainBin</strong>s varies,
+because this is	intended for stream crypto, whereas a fixed <strong>ChunkSize</strong> is intended for block crypto.
+<strong>ChunkSize</strong>s can be changed in the return from the <strong>EncryptFun</strong> or
+<strong>DecryptFun</strong>. The value can be changed between <strong>pos_integer()</strong> and <strong>undefined</strong>.
+</p><h4>position(ChannelPid, Handle, Location) -&gt;</h4><h4>position(ChannelPid, Handle, Location, Timeout) -&gt; {ok, NewPosition | {error, reason()}</h4><p>Sets the file position of a file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Location = Offset | {bof, Offset} | {cur, Offset} | {eof, Offset} | bof | cur | eof</span></li><li><span class="v">Offset = integer()</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">NewPosition = integer()</span></li></ul><p>Sets the file position of the file referenced by <strong>Handle</strong>.
+Returns <strong>{ok, NewPosition}</strong> (as an absolute offset) if
+successful, otherwise <strong>{error, reason()}</strong>. <strong>Location</strong> is
+one of the following:</p><dl><dt><strong>Offset</strong></dt><dd> <p>The same as <strong>{bof, Offset}</strong>.</p> </dd><dt><strong>{bof, Offset}</strong></dt><dd> <p>Absolute offset.</p> </dd><dt><strong>{cur, Offset}</strong></dt><dd> <p>Offset from the current position.</p> </dd><dt><strong>{eof, Offset}</strong></dt><dd> <p>Offset from the end of file.</p> </dd><dt><strong>bof | cur | eof</strong></dt><dd> <p>The same as eariler with <strong>Offset</strong> 0,
+that is, <strong>{bof, 0} | {cur, 0} | {eof, 0}</strong>.
+</p> </dd></dl><h4>pread(ChannelPid, Handle, Position, Len) -&gt;</h4><h4>pread(ChannelPid, Handle, Position, Len, Timeout) -&gt; {ok, Data} | eof | {error, reason()}</h4><p>Reads from an open file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Position = integer()</span></li><li><span class="v">Len = integer()</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">Data = string() | binary()</span></li></ul><p>The <strong>pread/3,4</strong> function reads from a specified position,
+combining the <a href="#position-3">position-3</a> and 
+<a href="#read-3">read-3</a> functions.</p><h4>pwrite(ChannelPid, Handle, Position, Data) -&gt; ok</h4><h4>pwrite(ChannelPid, Handle, Position, Data, Timeout) -&gt; ok | {error, reason()}</h4><p>Writes to an open file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Position = integer()</span></li><li><span class="v">Data = iolist()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>The <strong>pwrite/3,4</strong> function writes to a specified position,
+combining the <a href="#position-3">position-3</a> and 
+<a href="#write-3">write-3</a> functions.</p><h4>read(ChannelPid, Handle, Len) -&gt;</h4><h4>read(ChannelPid, Handle, Len, Timeout) -&gt; {ok, Data} | eof | {error, reason()}</h4><p>Reads from an open file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Len = integer()</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">Data = string() | binary()</span></li></ul><p>Reads <strong>Len</strong> bytes from the file referenced by
+<strong>Handle</strong>. Returns <strong>{ok, Data}</strong>, <strong>eof</strong>, or
+<strong>{error, reason()}</strong>. If the file is opened with <strong>binary</strong>,
+<strong>Data</strong> is a binary, otherwise it is a string.</p><p>If the file is read past <strong>eof</strong>, only the remaining bytes
+are read and returned. If no bytes are read, <strong>eof</strong>
+is returned.</p><h4>read_file(ChannelPid, File) -&gt;</h4><h4>read_file(ChannelPid, File, Timeout) -&gt; {ok, Data} | {error, reason()}</h4><p>Reads a file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">File = string()</span></li><li><span class="v">Data = binary()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Reads a file from the server, and returns the data in a binary.</p><h4>read_file_info(ChannelPid, Name) -&gt;</h4><h4>read_file_info(ChannelPid, Name, Timeout) -&gt; {ok, FileInfo} | {error, reason()}</h4><p>Gets information about a file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Name = string()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">FileInfo = record()</span></li></ul><p>Returns a <strong>file_info</strong> record from the file system object specified by
+<strong>Name</strong> or <strong>Handle</strong>. See
+<a href="../kernel/file#read_file_info-2">file:read_file_info/2</a>
+for information about the record.
+</p><p>
+Depending on the underlying OS:es links might be followed and info on the final file, directory
+etc is returned. See <a href="#read_link_info-2">ssh_sftp::read_link_info/2</a>
+on how to get information on links instead.
+</p><h4>read_link(ChannelPid, Name) -&gt;</h4><h4>read_link(ChannelPid, Name, Timeout) -&gt; {ok, Target} | {error, reason()}</h4><p>Reads symbolic link.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Name = string()</span></li><li><span class="v">Target = string()</span></li></ul><p>Reads the link target from the symbolic link specified by <strong>name</strong>.
+</p><h4>read_link_info(ChannelPid, Name) -&gt; {ok, FileInfo} | {error, reason()}</h4><h4>read_link_info(ChannelPid, Name, Timeout) -&gt; {ok, FileInfo} | {error, reason()}</h4><p>Gets information about a symbolic link.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Name = string()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Timeout = timeout()</span></li><li><span class="v">FileInfo = record()</span></li></ul><p>Returns a <strong>file_info</strong> record from the symbolic
+link specified by <strong>Name</strong> or <strong>Handle</strong>.
+See
+<a href="../kernel/file#read_link_info-2">file:read_link_info/2</a>
+for information about the record.
+</p><h4>rename(ChannelPid, OldName, NewName) -&gt;</h4><h4>rename(ChannelPid, OldName, NewName, Timeout) -&gt; ok | {error, reason()}</h4><p>Renames a file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">OldName = string()</span></li><li><span class="v">NewName = string()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Renames a file named <strong>OldName</strong> and gives it the name
+<strong>NewName</strong>.
+</p><h4>start_channel(ConnectionRef) -&gt;</h4><h4>start_channel(ConnectionRef, Options) -&gt;
+      {ok, Pid} | {error, reason()|term()}</h4><h4>start_channel(Host, Options) -&gt;</h4><h4>start_channel(Host, Port, Options) -&gt; 
+      {ok, Pid, ConnectionRef} | {error, reason()|term()}</h4><h4>start_channel(TcpSocket) -&gt;</h4><h4>start_channel(TcpSocket, Options) -&gt;
+      {ok, Pid, ConnectionRef} | {error, reason()|term()}</h4><p>Starts an SFTP client.</p><ul><li><span class="v">Host = string()</span></li><li><span class="v">ConnectionRef = connection_ref()</span></li><li><span class="v">Port = integer()</span></li><li><span class="v">TcpSocket = port()</span></li><li><span class="d">The socket is supposed to be from  or  with option {active,false}</span></li><li><span class="v">Options = [{Option, Value}]</span></li></ul><p>If no connection reference is provided, a connection is set
+up, and the new connection is returned. An SSH channel process
+is started to handle the communication with the SFTP server.
+The returned <strong>pid</strong> for this process is to be used as input to
+all other API functions in this module.</p><p>Options:</p><dl><dt><strong>{timeout, timeout()}</strong></dt><dd> <p>There are two ways to set a timeout for the underlying ssh connection:</p> <ul><li>If the connection timeout option <strong>connect_timeout</strong> is set, that value is used also for the negotiation timeout and this option (<strong>timeout</strong>) is ignored.</li><li>Otherwise, this option (<strong>timeout</strong>) is used as the negotiation timeout only and there is no connection timeout set</li></ul> <p>The value defaults to <strong>infinity</strong>.</p> </dd><dt> <strong>{sftp_vsn, integer()}</strong> </dt><dd> <p>
+Desired SFTP protocol version.
+The actual version is the minimum of
+the desired version and the maximum supported
+versions by the SFTP server.
+</p> </dd></dl><p>All other options are directly passed to
+<a href="ssh">ssh:connect/3</a> or ignored if a
+connection is already provided.</p><h4>stop_channel(ChannelPid) -&gt; ok</h4><p>Stops the SFTP client channel.</p><ul><li><span class="v">ChannelPid = pid()</span></li></ul><p>Stops an SFTP channel. Does not close the SSH connection.
+Use <a href="./ssh#close-1">ssh:close/1</a> to close it.</p><h4>write(ChannelPid, Handle, Data) -&gt;</h4><h4>write(ChannelPid, Handle, Data, Timeout) -&gt; ok | {error, reason()}</h4><p>Writes to an open file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Handle = term()</span></li><li><span class="v">Position = integer()</span></li><li><span class="v">Data = iolist()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Writes <strong>data</strong> to the file referenced by <strong>Handle</strong>.
+The file is to be opened with <strong>write</strong> or <strong>append</strong>
+flag. Returns <strong>ok</strong> if successful or <strong>{error, reason()}</strong>
+otherwise.</p><h4>write_file(ChannelPid, File, Iolist) -&gt;</h4><h4>write_file(ChannelPid, File, Iolist, Timeout) -&gt; ok | {error, reason()}</h4><p>Writes a file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">File = string()</span></li><li><span class="v">Iolist = iolist()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Writes a file to the server.	The file is created if it does not exist
+but overwritten if it exists.</p><h4>write_file_info(ChannelPid, Name, Info) -&gt;</h4><h4>write_file_info(ChannelPid, Name, Info, Timeout) -&gt; ok | {error, reason()}</h4><p>Writes information for a file.</p><ul><li><span class="v">ChannelPid = pid()</span></li><li><span class="v">Name = string()</span></li><li><span class="v">Info = record()</span></li><li><span class="v">Timeout = timeout()</span></li></ul><p>Writes file information from a <strong>file_info</strong> record to the
+file specified by <strong>Name</strong>. See
+<a href="../kernel/file#write_file_info-2">file:write_file_info/[2,3]</a>
+for information about the record.
+</p><h3>ssh_sftpd</h3><p>Specifies the channel process to handle an SFTP subsystem.</p><p>Specifies a channel process to handle an SFTP subsystem.</p><h4>DATA TYPES</h4><dl><dt><strong>subsystem_spec() =</strong></dt><dd><p><strong>{subsystem_name(), {channel_callback(), channel_init_args()}}</strong></p></dd><dt><strong>subsystem_name() =</strong></dt><dd><p><strong>"sftp"</strong></p></dd><dt><strong>channel_callback() =</strong></dt><dd><p><strong>atom()</strong> - Name of the Erlang module implementing the subsystem using the
+<a href="ssh_server_channel">ssh_server_channel</a> (replaces ssh_daemon_channel) behaviour.</p></dd><dt><strong>channel_init_args() =</strong></dt><dd><p><strong>list()</strong> - The one given as argument to function <strong>subsystem_spec/1</strong>.</p></dd></dl><h3>Functions</h3><h4>subsystem_spec(Options) -&gt; subsystem_spec()</h4><p>Returns the subsystem specification that allows an SSH daemon to handle the subsystem "sftp".</p><ul><li><span class="v">Options = [{Option, Value}]</span></li></ul><p>Is to be used together with <strong>ssh:daemon/[1,2,3]</strong></p><p>Options:</p><dl><dt><strong>{cwd, String}</strong></dt><dd> <p>Sets the initial current working directory for the server.</p> </dd><dt><strong>{file_handler, CallbackModule}</strong></dt><dd> <p>Determines which module to call for accessing
+the file server. The default value is <strong>ssh_sftpd_file</strong>, which uses the
+<a href="./file">file</a> and <a href="./filelib">filelib</a>
+APIs to access the standard OTP file server. This option can be used to plug in
+other file servers.</p> </dd><dt><strong>{max_files, Integer}</strong></dt><dd> <p>The default value is <strong>0</strong>, which means that there is no upper limit.
+If supplied, the number of filenames returned to the SFTP client per <strong>READDIR</strong>
+request is limited to at most the given value.</p> </dd><dt><strong>{root, String}</strong></dt><dd> <p>Sets the SFTP root directory. Then the user cannot see any files
+above this root. If, for example, the root directory is set to <strong>/tmp</strong>,
+then the user sees this directory as <strong>/</strong>. If the user then writes
+<strong>cd /etc</strong>, the user moves to <strong>/tmp/etc</strong>.
+</p> </dd><dt><strong>{sftpd_vsn, integer()}</strong></dt><dd> <p>Sets the SFTP version to use. Defaults to 5. Version 6 is under
+development and limited.</p> </dd></dl></body></html>

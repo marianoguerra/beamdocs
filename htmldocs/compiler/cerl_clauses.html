@@ -1,0 +1,81 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>cerl_clauses</h1><h1>cerl_clauses</h1><p>Utility functions for Core Erlang case/receive clauses.</p><p>Utility functions for Core Erlang case/receive clauses.Syntax trees are defined in the module
+<a href="cerl">cerl</a>.</p><h2>DATA TYPES</h2><a name="types"></a><dl><dt><a name="type-cerl"></a>cerl() = <a href="./cerl#type-cerl">cerl:cerl()</a></dt><dd> </dd></dl><h1>Functions</h1><h2>any_catchall(Clauses::[]) -&gt; boolean()</h2><p>Returns true if any of the abstract clauses in the list is a catch-all, otherwise false.</p><a name="any_catchall-1"></a><p>Returns <strong>true</strong> if any of the abstract clauses in
+the list is a catch-all, otherwise <strong>false</strong>.  See
+<strong>is_catchall/1</strong> for details.</p><p>Note: each node in <strong>Clauses</strong> must have type
+<strong>clause</strong>.</p><p><em>See also:</em> <a href="#is_catchall-1">is_catchall/1</a>.</p><h2>eval_guard(Expr::) -&gt; none | {value, term()}</h2><p>Tries to reduce a guard expression to a single constant value, if possible.</p><a name="eval_guard-1"></a><p>Tries to reduce a guard expression to a single constant value,
+if possible. The returned value is <strong>{value, Term}</strong> if the
+guard expression <strong>Expr</strong> always yields the constant value
+<strong>Term</strong>, and is otherwise <strong>none</strong>.</p><p>Note that although guard expressions should only yield boolean
+values, this function does not guarantee that <strong>Term</strong> is
+either <strong>true</strong> or <strong>false</strong>. Also note that only
+simple constructs like let-expressions are examined recursively;
+general constant folding is not performed.</p><p><em>See also:</em> <a href="#is_catchall-1">is_catchall/1</a>.</p><h2>is_catchall(Clause::) -&gt; boolean()</h2><p>Returns true if an abstract clause is a catch-all, otherwise false.</p><a name="is_catchall-1"></a><p>Returns <strong>true</strong> if an abstract clause is a
+catch-all, otherwise <strong>false</strong>. A clause is a catch-all if
+all its patterns are variables, and its guard expression always
+evaluates to <strong>true</strong>; cf. <strong>eval_guard/1</strong>.</p><p>Note: <strong>Clause</strong> must have type
+<strong>clause</strong>.</p><p><em>See also:</em> <a href="#any_catchall-1">any_catchall/1</a>, <a href="#eval_guard-1">eval_guard/1</a>.</p><h2>match(Pattern::, E::Expr) -&gt; none | {true, Bindings} | {false, Bindings}</h2><p>Matches a pattern against an expression.</p><ul><li><span class="v">Expr = any | </span></li><li><span class="v">Bindings = [{, Expr}]</span></li></ul><a name="match-2"></a><p>Matches a pattern against an expression. The returned value is
+<strong>none</strong> if a match is impossible, <strong>{true, Bindings}</strong> if <strong>Pattern</strong> definitely matches
+<strong>Expr</strong>, and <strong>{false, Bindings}</strong> if a match is
+not definite, but cannot be excluded. <strong>Bindings</strong> is then
+a list of pairs <strong>{Var, SubExpr}</strong>, associating each
+variable in the pattern with either the corresponding subexpression
+of <strong>Expr</strong>, or with the atom <strong>any</strong> if no
+matching subexpression exists. (Recall that variables may not be
+repeated in a Core Erlang pattern.) The list of bindings is given
+in innermost-first order; this should only be of interest if
+<strong>Pattern</strong> contains one or more alias patterns. If the
+returned value is <strong>{true, []}</strong>, it implies that the  
+pattern and the expression are syntactically identical.</p><p>Instead of a syntax tree, the atom <strong>any</strong> can be
+passed for <strong>Expr</strong> (or, more generally, be used for any
+subtree of <strong>Expr</strong>, in as much the abstract syntax tree
+implementation allows it); this means that it cannot be decided
+whether the pattern will match or not, and the corresponding
+variable bindings will all map to <strong>any</strong>. The typical use
+is for producing bindings for <strong>receive</strong> clauses.</p><p>Note: Binary-syntax patterns are never structurally matched
+against binary-syntax expressions by this function.</p><p>Examples:
+</p><ul><li><p>Matching a pattern "<strong>{X, Y}</strong>" against the
+expression "<strong>{foo, f(Z)}</strong>" yields <strong>{true, Bindings}</strong> where <strong>Bindings</strong> associates
+"<strong>X</strong>" with the subtree "<strong>foo</strong>" and
+"<strong>Y</strong>" with the subtree "<strong>f(Z)</strong>".</p></li><li><p>Matching pattern "<strong>{X, {bar, Y}}</strong>" against
+expression "<strong>{foo, f(Z)}</strong>" yields <strong>{false, Bindings}</strong> where <strong>Bindings</strong> associates
+"<strong>X</strong>" with the subtree "<strong>foo</strong>" and
+"<strong>Y</strong>" with <strong>any</strong> (because it is not known
+if "<strong>{foo, Y}</strong>" might match the run-time value of
+"<strong>f(Z)</strong>" or not).</p></li><li><p>Matching pattern "<strong>{foo, bar}</strong>" against expression
+"<strong>{foo, f()}</strong>" yields <strong>{false, []}</strong>,
+telling us that there might be a match, but we cannot deduce any
+bindings.</p></li><li><p>Matching <strong>{foo, X = {bar, Y}}</strong> against expression
+"<strong>{foo, {bar, baz}}</strong>" yields <strong>{true, Bindings}</strong> where <strong>Bindings</strong> associates
+"<strong>Y</strong>" with "<strong>baz</strong>", and "<strong>X</strong>"
+with "<strong>{bar, baz}</strong>".</p></li><li><p>Matching a pattern "<strong>{X, Y}</strong>" against
+<strong>any</strong> yields <strong>{false, Bindings}</strong> where
+<strong>Bindings</strong> associates both "<strong>X</strong>" and
+"<strong>Y</strong>" with <strong>any</strong>.</p></li></ul><h2>match_list(Patterns::[], Exprs::[Expr]) -&gt; none | {true, Bindings} | {false, Bindings}</h2><p>Like match/2, but matching a sequence of patterns against a sequence of expressions.</p><ul><li><span class="v">Expr = any | </span></li><li><span class="v">Bindings = [{, }]</span></li></ul><a name="match_list-2"></a><p>Like <strong>match/2</strong>, but matching a sequence of patterns
+against a sequence of expressions. Passing an empty list for
+<strong>Exprs</strong> is equivalent to passing a list of
+<strong>any</strong> atoms of the same length as <strong>Patterns</strong>.
+</p><p><em>See also:</em> <a href="#match-2">match/2</a>.</p><h2>reduce(Cs::Clauses) -&gt; {true, {Clause, Bindings}} | {false, Clauses}</h2><p>Equivalent to reduce(Cs, []). </p><a name="reduce-1"></a><p>Equivalent to <a href="#reduce-2">reduce(Cs, [])</a>.</p><h2>reduce(Clauses::[Clause], Exprs::[Expr]) -&gt; {true, {Clause, Bindings}} | {false, [Clause]}</h2><p>Selects a single clause, if possible, or otherwise reduces the list of selectable clauses.</p><ul><li><span class="v">Clause = </span></li><li><span class="v">Expr = any | </span></li><li><span class="v">Bindings = [{, }]</span></li></ul><a name="reduce-2"></a><p>Selects a single clause, if possible, or otherwise reduces the
+list of selectable clauses. The input is a list <strong>Clauses</strong>
+of abstract clauses (i.e., syntax trees of type <strong>clause</strong>),
+and a list of switch expressions <strong>Exprs</strong>. The function
+tries to uniquely select a single clause or discard unselectable
+clauses, with respect to the switch expressions. All abstract clauses
+in the list must have the same number of patterns. If
+<strong>Exprs</strong> is not the empty list, it must have the same
+length as the number of patterns in each clause; see
+<strong>match_list/2</strong> for details.</p><p>A clause can only be selected if its guard expression always
+yields the atom <strong>true</strong>, and a clause whose guard
+expression always yields the atom <strong>false</strong> can never be
+selected. Other guard expressions are considered to have unknown
+value; cf. <strong>eval_guard/1</strong>.</p><p>If a particular clause can be selected, the function returns
+<strong>{true, {Clause, Bindings}}</strong>, where <strong>Clause</strong> is
+the selected clause and <strong>Bindings</strong> is a list of pairs
+<strong>{Var, SubExpr}</strong> associating the variables occurring in
+the patterns of <strong>Clause</strong> with the corresponding
+subexpressions in <strong>Exprs</strong>. The list of bindings is given
+in innermost-first order; see the <strong>match/2</strong> function for
+details.</p><p>If no clause could be definitely selected, the function returns
+<strong>{false, NewClauses}</strong>, where <strong>NewClauses</strong> is
+the list of entries in <strong>Clauses</strong> that remain after
+eliminating unselectable clauses, preserving the relative order.</p><p><em>See also:</em> <a href="#eval_guard-1">eval_guard/1</a>, <a href="#match-2">match/2</a>, <a href="#match_list-2">match_list/2</a>.</p><h1>Authors</h1><span class="aname">Richard Carlsson</span><span class="email">carlsson.richard@gmail.com</span></body></html>

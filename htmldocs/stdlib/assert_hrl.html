@@ -1,0 +1,47 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>assert.hrl</h1><h1>assert.hrl</h1><p>Assert macros.</p><p>The include file <strong>assert.hrl</strong> provides macros for inserting
+assertions in your program code.Include the following directive in the module from which the function is
+called:<pre><code class="">
+-include_lib("stdlib/include/assert.hrl").</code></pre>When an assertion succeeds, the assert macro yields the atom <strong>ok</strong>.
+When an assertion fails, an exception of type <strong>error</strong> is generated.
+The associated error term has the form <strong>{Macro, Info}</strong>. <strong>Macro</strong>
+is the macro name, for example, <strong>assertEqual</strong>. <strong>Info</strong> is a list
+of tagged values, such as <strong>[{module, M}, {line, L}, ...]</strong>, which
+gives more information about the location and cause of the exception. All
+entries in the <strong>Info</strong> list are optional; do not rely programmatically
+on any of them being present.Each assert macro has a corresponding version with an extra argument,
+for adding comments to assertions. These can for example be printed as
+part of error reports, to clarify the meaning of the check that
+failed. For example, <strong>?assertEqual(0, fib(0), "Fibonacci is defined for zero")</strong>. The comment text can be any character data (string,
+UTF8-binary, or deep list of such data), and will be included in the
+error term as <strong>{comment, Text}</strong>.If the macro <strong>NOASSERT</strong> is defined when <strong>assert.hrl</strong> is read
+by the compiler, the macros are defined as equivalent to the atom
+<strong>ok</strong>. The test will not be performed and there is no cost at runtime.For example, using <strong>erlc</strong> to compile your modules, the following
+disables all assertions:<pre><code class="">
+erlc -DNOASSERT=true *.erl</code></pre>(The value of <strong>NOASSERT</strong> does not matter, only the fact that it is
+defined.)A few other macros also have effect on the enabling or disabling of
+assertions:<ul><li><p>If <strong>NODEBUG</strong> is defined, it implies <strong>NOASSERT</strong> (unless
+<strong>DEBUG</strong> is also defined, which overrides <strong>NODEBUG</strong>).</p> </li><li><p>If <strong>ASSERT</strong> is defined, it overrides <strong>NOASSERT</strong>, that
+is, the assertions remain enabled.</p></li></ul>If you prefer, you can thus use only <strong>DEBUG</strong>/<strong>NODEBUG</strong> as the
+main flags to control the behavior of the assertions (which is useful if
+you have other compiler conditionals or debugging macros controlled by
+those flags), or you can use <strong>ASSERT</strong>/<strong>NOASSERT</strong> to control only
+the assert macros.</p><h2>Macros</h2><dl><dt><strong>assert(BoolExpr)</strong></dt><dd></dd><dt><strong>assert(BoolExpr, Comment)</strong></dt><dd> <p>Tests that <strong>BoolExpr</strong> completes normally returning
+<strong>true</strong>.</p> </dd><dt><strong>assertNot(BoolExpr)</strong></dt><dd></dd><dt><strong>assertNot(BoolExpr, Comment)</strong></dt><dd> <p>Tests that <strong>BoolExpr</strong> completes normally returning
+<strong>false</strong>.</p> </dd><dt><strong>assertMatch(GuardedPattern, Expr)</strong></dt><dd></dd><dt><strong>assertMatch(GuardedPattern, Expr, Comment)</strong></dt><dd> <p>Tests that <strong>Expr</strong> completes normally yielding a value that
+matches <strong>GuardedPattern</strong>, for example:</p> <pre><code class="">
+?assertMatch({bork, _}, f())</code></pre> <p>Notice that a guard <strong>when ...</strong> can be included:</p> <pre><code class="">
+?assertMatch({bork, X} when X &gt; 0, f())</code></pre> </dd><dt><strong>assertNotMatch(GuardedPattern, Expr)</strong></dt><dd></dd><dt><strong>assertNotMatch(GuardedPattern, Expr, Comment)</strong></dt><dd> <p>Tests that <strong>Expr</strong> completes normally yielding a value that does
+not match <strong>GuardedPattern</strong>.</p> <p>As in <strong>assertMatch</strong>, <strong>GuardedPattern</strong> can have a
+<strong>when</strong> part.</p> </dd><dt><strong>assertEqual(ExpectedValue, Expr)</strong></dt><dd></dd><dt><strong>assertEqual(ExpectedValue, Expr, Comment)</strong></dt><dd> <p>Tests that <strong>Expr</strong> completes normally yielding a value that is
+exactly equal to <strong>ExpectedValue</strong>.</p> </dd><dt><strong>assertNotEqual(ExpectedValue, Expr)</strong></dt><dd></dd><dt><strong>assertNotEqual(ExpectedValue, Expr, Comment)</strong></dt><dd> <p>Tests that <strong>Expr</strong> completes normally yielding a value that is
+not exactly equal to <strong>ExpectedValue</strong>.</p> </dd><dt><strong>assertException(Class, Term, Expr)</strong></dt><dd></dd><dt><strong>assertException(Class, Term, Expr, Comment)</strong></dt><dd> <p>Tests that <strong>Expr</strong> completes abnormally with an exception of type
+<strong>Class</strong> and with the associated <strong>Term</strong>. The assertion fails
+if <strong>Expr</strong> raises a different exception or if it completes
+normally returning any value.</p> <p>Notice that both <strong>Class</strong> and <strong>Term</strong> can be guarded
+patterns, as in <strong>assertMatch</strong>.</p> </dd><dt><strong>assertNotException(Class, Term, Expr)</strong></dt><dd></dd><dt><strong>assertNotException(Class, Term, Expr, Comment)</strong></dt><dd> <p>Tests that <strong>Expr</strong> does not evaluate abnormally with an
+exception of type <strong>Class</strong> and with the associated <strong>Term</strong>.
+The assertion succeeds if <strong>Expr</strong> raises a different exception or
+if it completes normally returning any value.</p> <p>As in <strong>assertException</strong>, both <strong>Class</strong> and <strong>Term</strong> can
+be guarded patterns.</p> </dd><dt><strong>assertError(Term, Expr)</strong></dt><dd></dd><dt><strong>assertError(Term, Expr, Comment)</strong></dt><dd> <p>Equivalent to <strong>assertException(error, Term, Expr)</strong></p> </dd><dt><strong>assertExit(Term, Expr)</strong></dt><dd></dd><dt><strong>assertExit(Term, Expr, Comment)</strong></dt><dd> <p>Equivalent to <strong>assertException(exit, Term, Expr)</strong></p> </dd><dt><strong>assertThrow(Term, Expr)</strong></dt><dd></dd><dt><strong>assertThrow(Term, Expr, Comment)</strong></dt><dd> <p>Equivalent to <strong>assertException(throw, Term, Expr)</strong></p> </dd></dl><h2>See Also</h2><p><a href="./compile">compiler/compile</a>,
+<a href="./erlc">erts/erlc</a></p></body></html>

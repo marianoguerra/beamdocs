@@ -1,0 +1,106 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Definition of Instrumentation Functions</h1><p>The section <em>Definition of Instrumentation Functions</em> describes
+the user defined functions, which the agent calls at different times.
+</p><h2>Variable Instrumentation</h2><p>For scalar variables, a function <strong>f(Operation, ...)</strong> must
+be defined.
+</p><p>The <strong>Operation</strong> can be <strong>new</strong>, <strong>delete</strong>,
+<strong>get</strong>, <strong>is_set_ok</strong>, <strong>set</strong>, or <strong>undo</strong>.
+</p><p>In case of an error, all instrumentation functions may return
+either an SNMPv1 or an SNMPv2 error code. If it returns an SNMPv2
+code, it is converted into an SNMPv1 code before it is sent to a
+SNMPv1 manager.  It is  recommended to use the SNMPv2 error codes
+for all instrumentation functions, as these provide more
+details. See <a href="snmp_app_a">Appendix A</a> for a
+description of error code conversions.
+</p><h2>f(new [, ExtraArgs])</h2><p>The function <strong>f(new [, ExtraArgs])</strong> is called for each
+variable in the MIB when the
+MIB is loaded into the agent. This makes it possible to perform
+necessary initialization.
+</p><p>This function is optional. The return value is discarded.</p><h2>f(delete [, ExtraArgs])</h2><p>The function <strong>f(delete [, ExtraArgs])</strong> is called
+for each object in an MIB when the
+MIB is unloaded from the agent. This makes it possible to
+perform necessary clean-up.
+</p><p>This function is optional. The return value is discarded.</p><h2>f(get [, ExtraArgs])</h2><p>The function <strong>f(get [, ExtraArgs])</strong> is called when a
+get-request or a get-next
+request refers to the variable.
+</p><p>This function is mandatory.
+</p><h2>Valid Return Values</h2><ul><li><strong>{value, Value}</strong>. The <strong>Value</strong> must be of correct type, length and within ranges, otherwise <strong>genErr</strong> is returned in the response PDU.  If the object is an enumerated integer, the symbolic enum value may be used as an atom. If the object is of type BITS, the return value shall be an integer or a list of bits that are set. </li><li><strong>{noValue, noSuchName}</strong>(SNMPv1) </li><li><strong>{noValue, noSuchObject | noSuchInstance} </strong>(SNMPv2) </li><li><strong>genErr</strong>.  Used if an error occurred.  Note, this should be an internal processing error, e.g. a caused by a programing fault somewhere.  If the variable does not exist, use <strong>{noValue, noSuchName}</strong> or <strong>{noValue, noSuchInstance}</strong>. </li></ul><h2>f(is_set_ok, NewValue [, ExtraArgs])</h2><p>The function <strong>f(is_set_ok, NewValue [, ExtraArgs])</strong> is
+called in phase one of the set-request
+processing so that the new value can be checked for
+inconsistencies.
+</p><p><strong>NewValue</strong> is guaranteed to be of the correct type,
+length and within ranges, as specified in the MIB.  If the
+object is an enumerated integer or of type BITS, the integer
+value is used.
+</p><p>This function is optional.
+</p><p>If this function is called, it will be called again, either
+with <strong>undo</strong> or with <strong>set</strong> as first argument.
+</p><h2>Valid return values</h2><ul><li><strong>noError</strong></li><li><strong>badValue | noSuchName | genErr</strong>(SNMPv1) </li><li><strong>noAccess | noCreation | inconsistentValue | resourceUnavailable | inconsistentName | genErr</strong>(SNMPv2)</li></ul><h2>f(undo, NewValue [, ExtraArgs])</h2><p>If an error occurred, this function is called after the
+<strong>is_set_ok</strong> function is called. If <strong>set</strong> is called for
+this object, <strong>undo</strong> is not called.
+</p><p><strong>NewValue</strong> is guaranteed to be of the correct type,
+length and within ranges, as specified in the MIB.  If the
+object is an enumerated integer or of type BITS, the integer
+value is used.
+</p><p>This function is optional.
+</p><h2>Valid return values</h2><ul><li><strong>noError</strong></li><li><strong>genErr</strong>(SNMPv1) </li><li><strong>undoFailed | genErr</strong>(SNMPv2)</li></ul><h2>f(set, NewValue [, ExtraArgs])</h2><p>This function is called to perform the set in phase two of
+the set-request processing. It is only called if the
+corresponding <strong>is_set_ok</strong> function is present and returns
+<strong>noError</strong>.
+</p><p><strong>NewValue</strong> is guaranteed to be of the correct type,
+length and within ranges, as specified in the MIB.  If the
+object is an enumerated integer or of type BITS, the integer
+value is used.
+</p><p>This function is mandatory.
+</p><h2>Valid return values</h2><ul><li><strong>noError</strong></li><li><strong>genErr</strong>(SNMPv1) </li><li><strong>commitFailed | undoFailed | genErr</strong>(SNMPv2)</li></ul><h2>Table Instrumentation</h2><p>For tables, a <strong>f(Operation, ...)</strong> function should be
+defined (the function shown is exemplified with <strong>f</strong>).
+</p><p>The <strong>Operation</strong> can be <strong>new</strong>, <strong>delete</strong>,
+<strong>get</strong>, <strong>next</strong>, <strong>is_set_ok</strong>, <strong>undo</strong> or
+<strong>set</strong>.
+</p><p>In case of an error, all instrumentation functions may return
+either an SNMPv1 or an SNMPv2 error code. If it returns an SNMPv2
+code, it is converted into an SNMPv1 code before it is sent to a
+SNMPv1 manager. It is  recommended to use the SNMPv2 error codes
+for all instrumentation functions, as these provide more
+details. See <a href="snmp_app_a">Appendix A</a> for a
+description of error code conversions.</p><h2>f(new [, ExtraArgs])</h2><p>The function <strong>f(new [, ExtraArgs])</strong> is called for each object in an MIB when the
+MIB is loaded into the agent. This makes it possible to perform
+the necessary initialization.
+</p><p>This function is optional. The return value is discarded.</p><h2>f(delete [, ExtraArgs])</h2><p>The function <strong>f(delete [, ExtraArgs])</strong> is called for each object in an MIB when the
+MIB is unloaded from the agent. This makes it possible to
+perform any necessary clean-up.
+</p><p>This function is optional. The return value is discarded.</p><h2>f(get, RowIndex, Cols [, ExtraArgs])</h2><p>The function <strong>f(get, RowIndex, Cols [, ExtraArgs])</strong> is
+called when a get-request refers to a table.
+</p><p>This function is mandatory.
+</p><h2>Arguments</h2><ul><li><strong>RowIndex</strong> is a list of integers which define the key values for the row. The <strong>RowIndex</strong> is the list representation (list of integers) which follow the <strong>Cols</strong> integer in the OBJECT IDENTIFIER. </li><li><strong>Cols</strong> is a list of integers which represent the column numbers. The <strong>Cols</strong> are sorted by increasing value and are guaranteed to be valid column numbers.</li></ul><h2>Valid Return Values</h2><ul><li> <p>A list with as many elements as the <strong>Cols</strong> list,
+where each element is the value of the corresponding
+column.  Each element can be:</p> <ul><li><strong>{value, Value}</strong>. The <strong>Value</strong> must be of correct type, length and within ranges, otherwise <strong>genErr</strong> is returned in the response PDU.  If the object is an enumerated integer, the symbolic enum value may be used (as an atom). If the object is of type BITS, the return value shall be an integer or a list of bits that are set. </li><li><strong>{noValue, noSuchName}</strong>(SNMPv1) </li><li><strong>{noValue, noSuchObject | noSuchInstance}</strong>(SNMPv2) </li></ul> </li><li><strong>{noValue, Error}</strong>. If the row does not exist, because all columns have <strong>{noValue, Error}</strong>), the single tuple <strong>{noValue, Error}</strong> can be returned. This is a shorthand for a list with all elements <strong>{noValue, Error}</strong>. </li><li><strong>genErr</strong>.  Used if an error occurred.  Note that this should be an internal processing error, e.g. a caused by a programing fault somewhere.  If some column does not exist, use <strong>{noValue, noSuchName}</strong> or <strong>{noValue, noSuchInstance}</strong>. </li></ul><h2>f(get_next, RowIndex, Cols [, ExtraArgs])</h2><p>The function <strong>f(get_next, RowIndex, Cols [, ExtraArgs])</strong> is 
+called when a get-next- or a
+get-bulk-request refers to the table.
+</p><p>The <strong>RowIndex</strong> argument may refer to an existing row or a
+non-existing row, or it may be unspecified. The <strong>Cols</strong> list
+may refer to inaccessible columns or non-existing columns. For
+each column in the <strong>Cols</strong> list, the corresponding next
+instance is determined, and the last part of its OBJECT
+IDENTIFIER and its value is returned.
+</p><p>This function is mandatory.
+</p><h2>Arguments</h2><ul><li><strong>RowIndex</strong> is a list of integers (possibly empty) that defines the key values for a row. The <strong>RowIndex</strong> is the list representation (list of integers), which follow the <strong>Cols</strong> integer in the OBJECT IDENTIFIER. </li><li><strong>Cols</strong> is a list of integers, greater than or equal to zero, which represents the column numbers.</li></ul><h2>Valid Return Values</h2><ul><li> <p>A list with as many elements as the <strong>Cols</strong> list
+Each element can be:</p> <ul><li><strong>{NextOid, NextValue}</strong>, where <strong>NextOid</strong> is the lexicographic next OBJECT IDENTIFIER for the corresponding column. This should be specified as the OBJECT IDENTIFER part following the table entry. This means that the first integer is the column number and the rest is a specification of the keys. <strong>NextValue</strong> is the value of this element. </li><li><strong>endOfTable</strong> if there are no accessible elements after this one. </li></ul> </li><li><strong>{genErr, Column}</strong> where <strong>Column</strong> denotes the column that caused the error.  <strong>Column</strong> must be one of the columns in the <strong>Cols</strong> list.  Note that this should be an internal processing error, e.g. a caused by a programing fault somewhere.  If some column does not exist, you must return the next accessible element (or <strong>endOfTable</strong>).  </li></ul><h2>f(is_set_ok, RowIndex, Cols [, ExtraArgs])</h2><p>The function <strong>f(is_set_ok, RowIndex, Cols [, ExtraArgs])</strong>
+is called in phase one of the set-request
+processing so that new values can be checked for
+inconsistencies.
+</p><p>If the function is called, it will be called again with
+<strong>undo</strong>, or with <strong>set</strong> as first argument.
+</p><p>This function is optional.
+</p><h2>Arguments</h2><ul><li><strong>RowIndex</strong> is a list of integers which define the key values for the row. The <strong>RowIndex</strong> is the list representation (list of integers) which follow the <strong>Cols</strong> integer in the OBJECT IDENTIFIER. </li><li><strong>Cols</strong> is a list of <strong>{Column, NewValue}</strong>, where <strong>Column</strong> is an integer, and <strong>NewValue</strong> is guaranteed to be of the correct type, length and within ranges, as specified in the MIB.  If the object is an enumerated integer or of type BITS, the integer value is used.  The list is sorted by <strong>Column</strong> (increasing) and each <strong>Column</strong> is guaranteed to be a valid column number.</li></ul><h2>Valid Return Values</h2><ul><li><strong>{noError, 0}</strong></li><li><strong>{Error, Column}</strong>, where <strong>Error</strong> is the same as for <strong>is_set_ok</strong> for variables, and <strong>Column</strong> denotes the faulty column.  <strong>Column</strong> must be one of the columns in the <strong>Cols</strong> list.</li></ul><h2>f(undo, RowIndex, Cols [, ExtraArgs])</h2><p>If an error occurs, The function
+<strong>f(undo, RowIndex, Cols [, ExtraArgs])</strong> is called after the
+<strong>is_set_ok</strong> function. If <strong>set</strong> is called for this
+object, <strong>undo</strong> is not called.
+</p><p>This function is optional.
+</p><h2>Arguments</h2><ul><li><strong>RowIndex</strong> is a list of integers which define the key values for the row. The <strong>RowIndex</strong> is the list representation (list of integers) which follow the <strong>Cols</strong> integer in the OBJECT IDENTIFIER. </li><li><strong>Cols</strong> is a list of <strong>{Column, NewValue}</strong>, where <strong>Column</strong> is an integer, and <strong>NewValue</strong> is guaranteed to be of the correct type, length and within ranges, as specified in the MIB.  If the object is an enumerated integer or of type BITS, the integer value is used.  The list is sorted by <strong>Column</strong> (increasing) and each <strong>Column</strong> is guaranteed to be a valid column number. </li></ul><h2>Valid Return Values</h2><ul><li><strong>{noError, 0}</strong></li><li><strong>{Error, Column}</strong> where <strong>Error</strong> is the same as for <strong>undo</strong> for variables, and <strong>Column</strong> denotes the faulty column.  <strong>Column</strong> must be one of the columns in the <strong>Cols</strong> list. </li></ul><h2>f(set, RowIndex, Cols [, ExtraArgs])</h2><p>The function <strong>f(set, RowIndex, Cols [, ExtraArgs])</strong> is
+called to perform the set in phase two of
+the set-request processing. It is only called if the
+corresponding <strong>is_set_ok</strong> function did not exist, or
+returned <strong>{noError, 0}</strong>.
+</p><p>This function is mandatory.
+</p><h2>Arguments</h2><ul><li><strong>RowIndex</strong> is a list of integers that define the key values for the row. The <strong>RowIndex</strong> is the list representation (list of integers) which follow the <strong>Cols</strong> integer in the OBJECT IDENTIFIER. </li><li><strong>Cols</strong> is a list of <strong>{Column, NewValue}</strong>, where <strong>Column</strong> is an integer, and <strong>NewValue</strong> is guaranteed to be of the correct type, length and within ranges, as specified in the MIB.  If the object is an enumerated integer or of type BITS, the integer value is used.  The list is sorted by <strong>Column</strong> (increasing) and each <strong>Column</strong> is guaranteed to be a valid column number. </li></ul><h2>Valid Return Values</h2><ul><li><strong>{noError, 0}</strong></li><li><strong>{Error, Column}</strong> where <strong>Error</strong> is the same as <strong>set</strong> for variables, and <strong>Column</strong> denotes the faulty column.  <strong>Column</strong> must be one of the columns in the <strong>Cols</strong> list.</li></ul></body></html>

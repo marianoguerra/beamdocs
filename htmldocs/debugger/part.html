@@ -1,0 +1,287 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Debugger User's Guide</h1><h3>Scope</h3><p>Debugger is a graphical user interface for the Erlang
+interpreter, which can be used for debugging and testing of
+Erlang programs. For example, breakpoints can be set, code can be
+single-stepped and variable values can be displayed and changed.
+</p><p>The Erlang interpreter can also be accessed through the interface
+module <a href="int">int</a>.
+</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>Debugger might at some point
+start tracing on the processes that execute the interpreted
+code. This means that a conflict occurs if tracing by other
+means is started on any of these processes.</p></div><h3>Prerequisites</h3><p>It is assumed that the reader is familiar with the Erlang
+programming language.</p><p>Modules to be debugged must include debug information,
+for example, <strong>erlc +debug_info MODULE.erl</strong>.</p><h3>Getting Started</h3><p>To use Debugger, the basic steps are as follows:</p><p><em>Step 1.</em> Start Debugger by calling
+<strong>debugger:start()</strong>.</p><p>The <a href="#monitor">Monitor window</a> is
+displayed with information about all debugged processes,
+interpreted modules, and selected options. Initially there are
+normally no debugged processes. First, it must be specified which
+modules that are to be <em>debugged</em> (also called
+<em>interpreted</em>). Proceed as follows:</p><p><em>Step 2.</em> Select <em>Module &gt; Interpret...</em> in the
+Monitor window.</p><p>The <a href="#interpret">Interpret Modules window</a>
+is displayed.</p><p><em>Step 3.</em> Select the appropriate modules from the Interpret
+Dialog window.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Only modules compiled with option <strong>debug_info</strong> set can be
+interpreted. Non-interpretable modules are displayed within
+parenthesis in the Interpret Modules window.</p></div><p><em>Step 4.</em> In the Monitor window, select
+<em>Module &gt; the module to be interpreted &gt; View</em>.</p><p>The contents of the source file is displayed in the
+<a href="#view">View Module window</a>.</p><p><em>Step 5.</em> Set the
+<a href="#breakpoints">breakpoints</a>, if any.</p><p><em>Step 6.</em> Start the program to be debugged. This is done
+the normal way from the Erlang shell.</p><p>All processes executing code in interpreted modules are displayed
+in the Monitor window.</p><p><em>Step 7.</em> To <em>attach</em> to one of these processes,
+double-click it, or select the process and then choose
+<em>Process &gt; Attach</em>. Attaching to a process opens an
+<a href="#attach">Attach Process window</a> for this
+process.</p><p><em>Step 8.</em> From the Attach Process window, you can control
+the process execution, inspect variable values, set breakpoints,
+and so on.</p><a name="breakpoints"></a><h3>Breakpoints and Break Dialog Windows</h3><p>Once the appropriate modules are interpreted, breakpoints can
+be set at relevant locations in the source code. Breakpoints are
+specified on a line basis. When a process reaches a breakpoint,
+it stops and waits for commands (<em>Step</em>, <em>Skip</em>,
+<em>Continue</em> ...) from the user.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>When a process reaches a breakpoint, only that process is
+stopped. Other processes are not affected.</p></div><p>Breakpoints are created and deleted using the <em>Break</em> menu of
+either the Monitor window, View Module window, or Attach Process
+window.</p><h3>Executable Lines</h3><p>To have an effect, a breakpoint must be set at an
+<em>executable line</em>, which is a line of code containing an
+executable expression such as a matching or a function call.
+A blank line or a line containing a comment, function head, or
+pattern in a <strong>case</strong> statement or <strong>receive</strong> statement is not
+executable.</p><p>In the following example, lines 2, 4, 6, 8, and 11 are
+executable lines:</p><pre>
+1: is_loaded(Module,Compiled) -&gt;
+2:   case get_file(Module,Compiled) of
+3:     {ok,File} -&gt;
+4:       case code:which(Module) of
+5:         ?TAG -&gt;
+6:           {loaded,File};
+7:         _ -&gt;
+8:           unloaded
+9:       end;
+10:    false -&gt;
+11:      false
+12:  end.</pre><h3>Status and Trigger Action</h3><p>A breakpoint can be either <em>active</em> or
+<em>inactive</em>. Inactive breakpoints are ignored.</p><p>Each breakpoint has a <em>trigger action</em> that specifies
+what is to happen when a process has reached it (and stopped):</p><ul><li><em>Enable</em> - Breakpoint is to remain active (default). </li><li><em>Disable</em> - Breakpoint is to be made inactive.</li><li><em>Delete</em> - Breakpoint is to be deleted.</li></ul><h3>Line Breakpoints</h3><p>A line breakpoint is created at a certain line in a module.</p><img src="images/line_break_dialog.jpg" title="Line Break Dialog Window"></img><p>Right-click the <em>Module</em> entry to open a popup menu from
+which the appropriate module can be selected.</p><p>A line breakpoint can also be created (and deleted) by
+double-clicking the line when the module is displayed in
+the View Module window or Attach Process window.</p><h3>Conditional Breakpoints</h3><p>A conditional breakpoint is created at a certain line in
+the module, but a process reaching the breakpoint stops
+only if a specified condition is true.</p><p>The condition is specified by the user as a module name
+<strong>CModule</strong> and a function name <strong>CFunction</strong>. When a
+process reaches the breakpoint,
+<strong>CModule:CFunction(Bindings)</strong> is evaluated. If and
+only if this function call returns <strong>true</strong>, the process
+stops. If the function call returns <strong>false</strong>,
+the breakpoint is silently ignored.</p><p><strong>Bindings</strong> is a list of variable bindings. To retrieve the
+value of <strong>Variable</strong> (given as an atom), use function
+<a href="./int#get_binding/2">int#get_binding/2</a>.
+The function returns <strong>unbound</strong> or <strong>{value,Value}</strong>.</p><img src="images/cond_break_dialog.jpg" title="Conditional Break Dialog Window"></img><p>Right-click the <em>Module</em> entry to open a popup menu from
+which the appropriate module can be selected.</p><p><em>Example:</em></p><p>A conditional breakpoint calling
+<strong>c_test:c_break/1</strong> is added at line 6 in module
+<strong>fact</strong>. Each time the breakpoint is reached, the function is
+called. When <strong>N</strong> is equal to 3, the function returns
+<strong>true</strong> and the process stops.</p><p>Extract from <strong>fact.erl</strong>:</p><pre>
+5. fac(0) -&gt; 1;
+6. fac(N) when N &gt; 0, is_integer(N) -&gt; N * fac(N-1).</pre><p>Definition of <strong>c_test:c_break/1</strong>:</p><pre>
+-module(c_test).
+-export([c_break/1]).
+
+c_break(Bindings) -&gt;
+    case int:get_binding('N', Bindings) of
+        {value, 3} -&gt;
+            true;
+        _ -&gt;
+            false
+    end.</pre><h3>Function Breakpoints</h3><p>A function breakpoint is a set of line breakpoints, one at
+the first line of each clause in the specified function.</p><img src="images/function_break_dialog.jpg" title="Function Break Dialog Window"></img><p>To open a popup menu from which the appropriate module can be
+selected, right-click the <em>Module</em> entry.</p><p>To bring up all functions of the module in the listbox,
+click the <em>OK</em> button (or press the <em>Return</em>
+or <em>Tab</em> key) when a module name has been specified,.</p><a name="stack_trace"></a><h3>Stack Trace</h3><p>The Erlang emulator keeps track of a <em>stack trace</em>,
+information about recent function calls. This information is
+used if an error occurs, for example:</p><pre>
+1&gt; <span class="input">catch a+1.</span>
+{'EXIT',{badarith,[{erlang,'+',[a,1],[]},
+                   {erl_eval,do_apply,6,[{file,"erl_eval.erl"},{line,573}]},
+                   {erl_eval,expr,5,[{file,"erl_eval.erl"},{line,357}]},
+                   {shell,exprs,7,[{file,"shell.erl"},{line,674}]},
+                   {shell,eval_exprs,7,[{file,"shell.erl"},{line,629}]},
+                   {shell,eval_loop,3,[{file,"shell.erl"},{line,614}]}]}}</pre><p>For details about the stack trace, see section
+<a href="./errors">Errors and Error Handling</a>
+in the Erlang Reference Manual.</p><p>Debugger emulates the stack trace by keeping track of recently
+called interpreted functions. (The real stack trace cannot be
+used, as it shows which functions of Debugger have been
+called, rather than which interpreted functions.)</p><p>This information can be used to traverse the chain of function
+calls, using the <em>Up</em> and <em>Down</em> buttons in the
+<a href="#attach">Attach Process window</a>.</p><p>By default, Debugger only saves information about recursive
+function calls, that is, function calls that have not yet returned
+a value (option <em>Stack On, No Tail</em>).</p><p>Sometimes, however, it can be useful to save all calls, even
+tail-recursive calls. This is done with option
+<em>Stack On, Tail</em>. Notice that this option consumes more
+memory and slows down execution of interpreted functions when there
+are many tail-recursive calls.</p><p>To turn off the Debugger stack trace facility, select option
+<em>Stack Off</em>.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>If an error occurs, the stack trace becomes empty in this
+case.</p></div><p>For information about how to change the stack trace option, see
+section <a href="#monitor">Monitor Window</a>.</p><a name="monitor"></a><h3>Monitor Window</h3><p>The Monitor window is the main window of Debugger and displays the
+following:</p><ul><li><p>A listbox containing the names of all interpreted
+modules</p> <p>Double-clicking a module brings up the View Module window.</p> </li><li><p>Which options are selected</p></li><li><p>Information about all debugged processes, that is, all
+processes that have been or are executing code in interpreted
+modules</p></li></ul><img src="images/monitor.jpg" title="Monitor Window"></img><p>The <em>Auto Attach</em> boxes, <em>Stack Trace</em> label,
+<em>Back Trace Size</em> label, and <em>Strings</em> box display
+some options set. For details about these options, see section
+<a href="#options">Options Menu</a>.</p><h3>Process Grid</h3><dl><dt><em>Pid</em></dt><dd><p>The process identifier.</p></dd><dt><em>Initial Call</em></dt><dd><p>The first call to an interpreted function by this
+process. (<strong>Module:Function/Arity</strong>)</p></dd><dt><em>Name</em></dt><dd><p>The registered name, if any. If a registered name is not
+displayed, it can be that Debugger received information about
+the process before the name was registered. Try selecting
+<em>Edit &gt; Refresh</em>.</p></dd><dt><em>Status</em></dt><dd><p>The current status, one of the following:</p> <dl><dt><em>idle</em></dt><dd><p>The interpreted function call has returned a value, and
+the process is no longer executing interpreted code.</p></dd><dt><em>running</em></dt><dd><p>The process is running.</p></dd><dt><em>waiting</em></dt><dd><p>The process is waiting in a <strong>receive</strong>
+statement.</p></dd><dt><em>break</em></dt><dd><p>The process is stopped at a breakpoint.</p></dd><dt><em>exit</em></dt><dd><p>The process has terminated.</p></dd><dt><em>no_conn</em></dt><dd><p>There is no connection to the node where
+the process is located.</p></dd></dl> </dd><dt><em>Information</em></dt><dd><p>More information, if any. If the process is
+stopped at a breakpoint, the field contains information
+about the location <strong>{Module,Line}</strong>. If the process has
+terminated, the field contains the exit reason.</p></dd></dl><h3>File Menu</h3><dl><dt><em>Load Settings...</em></dt><dd><p>Tries to load and restore Debugger settings from a file
+previously saved using <em>Save Settings...</em> (see below).
+Any errors are silently ignored.</p> <p>Notice that settings saved by Erlang/OTP R16B01 or later
+cannot be read by Erlang/OTP R16B or earlier.</p> </dd><dt><em>Save Settings...</em></dt><dd><p>Saves Debugger settings to a file. The settings include
+the set of interpreted files, breakpoints, and the selected
+options. The settings can be restored in a later Debugger
+session using <em>Load Settings...</em> (see above).
+Any errors are silently ignored.</p> </dd><dt><em>Exit</em></dt><dd><p>Stops Debugger.</p></dd></dl><h3>Edit Menu</h3><dl><dt><em>Refresh</em></dt><dd><p>Updates information about debugged processes. Information
+about all terminated processes are removed from the window. All
+Attach Process windows for terminated processes are closed.</p></dd><dt><em>Kill All</em></dt><dd><p>Terminates all processes listed in the window using
+<strong>exit(Pid,kill)</strong>.</p></dd></dl><h3>Module Menu</h3><dl><dt><em>Interpret...</em></dt><dd><p>Opens the
+<a href="#interpret">Interpret Modules window</a>,
+where new modules to be interpreted can be specified.</p></dd><dt><em>Delete All</em></dt><dd><p>Stops interpreting all modules. Processes executing in
+interpreted modules terminate.</p></dd></dl><p>For each interpreted module, a corresponding entry is added to
+the <em>Module</em> menu, with the following submenu:</p><dl><dt><em>Delete</em></dt><dd><p>Stops interpreting the selected module. Processes
+executing in this module terminate.</p></dd><dt><em>View</em></dt><dd><p>Opens a
+<a href="#view">View Module window</a>, displaying the
+contents of the selected module.</p></dd></dl><h3>Process Menu</h3><p>The following menu items apply to the currently selected
+process, provided it is stopped at a breakpoint (for details, see
+section 
+<a href="#attach">Attach Process window</a>):</p><dl><dt><em>Step</em></dt><dd></dd><dt><em>Next</em></dt><dd></dd><dt><em>Continue</em></dt><dd></dd><dt><em>Finish</em></dt><dd></dd></dl><p>The following menu items apply to the currently selected
+process:</p><dl><dt><em>Attach</em></dt><dd><p>Attaches to the process and open an
+<a href="#attach">Attach Process window</a>.</p></dd><dt><em>Kill</em></dt><dd><p>Terminates the process using <strong>exit(Pid,kill)</strong>.</p></dd></dl><h3>Break Menu</h3><p>The items in this menu are used to create and delete breakpoints.
+For details, see section
+<a href="#breakpoints">Breakpoints</a>.</p><dl><dt><em>Line Break...</em></dt><dd><p>Sets a line breakpoint.</p></dd><dt><em>Conditional Break...</em></dt><dd><p>Sets a conditional breakpoint.</p></dd><dt><em>Function Break...</em></dt><dd><p>Sets a function breakpoint.</p></dd><dt><em>Enable All</em></dt><dd><p>Enables all breakpoints.</p></dd><dt><em>Disable All</em></dt><dd><p>Disables all breakpoints.</p></dd><dt><em>Delete All</em></dt><dd><p>Removes all breakpoints.</p></dd></dl><p>For each breakpoint, a corresponding entry is added to the
+<em>Break</em> menu, from which it is possible to disable, enable,
+or delete the breakpoint, and to change its trigger action.</p><a name="options"></a><h3>Options Menu</h3><dl><dt><em>Trace Window</em></dt><dd><p>Sets the areas to be visible in an
+<a href="#attach">Attach Process window</a>.
+Does not affect existing Attach Process windows.</p> </dd><dt><em>Auto Attach</em></dt><dd><p>Sets the events a debugged process is to be attached
+to automatically. Affects existing debugged processes.</p> <ul><li><p><em>First Call</em> - The first time a process calls
+a function in an interpreted module.</p></li><li><p><em>On Exit</em> - At process termination.</p></li><li><p><em>On Break</em> - When a process reaches a
+breakpoint.</p></li></ul> </dd><dt><em>Stack Trace</em></dt><dd><p>Sets the stack trace option, see section
+<a href="#stack_trace">Stack Trace</a>. Does not
+affect existing debugged processes.</p> <ul><li><p><em>Stack On, Tail</em> - Saves information about all
+current calls.</p></li><li><p><em>Stack On, No Tail</em> - Saves information about
+current calls, discarding previous information when a tail
+recursive call is made.</p></li><li><p><em>Stack Off</em> - Does not save any information about
+current calls.</p></li></ul> </dd><dt><em>Strings</em></dt><dd><p>Sets the integer lists to be printed as strings.
+Does not affect existing debugged processes.</p> <ul><li><p><em>Use range of +pc flag</em> - Uses the printable
+character range set by the <strong>erl(1)</strong> flag
+<a href="../erts/erl#printable_character_range">erts/erl#printable_character_range</a>.</p> </li></ul> </dd><dt><em>Back Trace Size...</em></dt><dd><p>Sets how many call frames to be fetched when
+inspecting the call stack from the Attach Process window.
+Does not affect existing Attach Process windows.</p> </dd></dl><h3>Windows Menu</h3><p>Contains a menu item for each open Debugger window. Selecting
+one of the items raises the corresponding window.</p><h3>Help Menu</h3><dl><dt><em>Help</em></dt><dd><p>Shows the Debugger documentation. This function requires a
+web browser.</p></dd></dl><a name="interpret"></a><h3>Interpret Modules Window</h3><p>The Interpret Modules window is used for selecting which modules
+to interpret. Initially, the window displays the modules (<strong>erl</strong>
+files) and subdirectories of the current working directory.</p><p>Interpretable modules are modules for which a <strong>.beam</strong> file,
+compiled with option <strong>debug_info</strong> set, is located in the same
+directory as the source code, or in an <strong>ebin</strong> directory next
+to it.</p><p>Modules for which these requirements are not fulfilled are
+not interpretable and are therefore displayed within parentheses.</p><p>Option <strong>debug_info</strong> causes <em>debug information</em> or
+<em>abstract code</em> to be added to the <strong>.beam</strong> file.
+This increases the file size and makes it possible to
+reconstruct the source code. It is therefore recommended not to
+include debug information in code aimed for target systems.</p><p>An example of how to compile code with debug information using
+<strong>erlc</strong>:</p><pre>
+% erlc +debug_info module.erl</pre><p>An example of how to compile code with debug information from
+the Erlang shell:</p><pre>
+4&gt; c(module, debug_info).</pre><img src="images/interpret.jpg" title="Interpret Modules Window"></img><p>To browse the file hierarchy and interpret the appropriate modules,
+either select a module name and click <em>Choose</em> (or
+press carriage return), or double-click the module name.
+Interpreted modules have the type <strong>erl src</strong>.</p><p>To interpret all displayed modules in the chosen directory, click
+<em>All</em>.</p><p>To close the window, click <em>Done</em>.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>When Debugger is started in global mode (which is the default, see
+<a href="./debugger#start/0">debugger:start/0</a>),
+modules added (or deleted) for interpretation are added (or
+deleted) on all known Erlang nodes.</p></div><a name="attach"></a><h3>Attach Process Window</h3><p>From an Attach Process window, you can interact with a
+debugged process. One window is opened for each process that has
+been attached to. Notice that when attaching to a process, its
+execution is automatically stopped.</p><img src="images/attach.jpg" title="Attach Process Window"></img><p>The window is divided into the following five parts:</p><ul><li><p>The Code area, displaying the code being executed. The code
+is indented and each line is prefixed with its line number.
+If the process execution is stopped, the current line is
+marked with <strong>--&gt;</strong>. An existing break point at a line
+is marked with a stop symbol. In the example shown in the
+illustration, the execution stopped at line 6, before
+the execution of <strong>fac/1</strong>.</p> <p>Active breakpoints are displayed in red and inactive
+breakpoints in blue.</p> </li><li><p>The Button area, with buttons for quick access to frequently
+used functions in the <em>Process</em> menu.</p></li><li><p>The Evaluator area, where you can evaluate functions
+within the context of the debugged process, if that
+process execution is stopped.</p></li><li><p>The Bindings area, displaying all variables bindings. If you
+click a variable name, the value is displayed in the Evaluator area.
+Double-click a variable name to open a window where
+the variable value can be edited. Notice however that pid, port,
+reference, or fun
+values cannot be edited unless they can be represented in the
+running system.</p> </li><li><p>The Trace area, which displays a trace output for the
+process.</p> <dl><dt><strong>++ (N) &lt;L&gt;</strong></dt><dd><p>Function call, where <strong>N</strong> is the call level and
+<strong>L</strong> the line number.</p></dd><dt><strong>-- (N)</strong></dt><dd><p>Function return value</p>.</dd><dt><strong>==&gt; Pid : Msg</strong></dt><dd><p>The message <strong>Msg</strong> is sent to process
+<strong>Pid</strong>.</p></dd><dt><strong>&lt;== Msg</strong></dt><dd><p>The message <strong>Msg</strong> is received.</p></dd><dt><strong>++ (N) receive</strong></dt><dd><p>Waiting in a <strong>receive</strong>.</p></dd><dt><strong>++ (N) receive with timeout</strong></dt><dd><p>Waiting in a <strong>receive...after</strong>.</p></dd></dl> <p>The Trace area also displays Back Trace, a summary of the
+current function calls on the stack.</p> </li></ul><p>Using the <em>Options</em> menu, you can set which areas to be
+displayed. By default, all areas except the Trace area are displayed.</p><h3>File Menu</h3><dl><dt><em>Close</em></dt><dd><p>Closes this window and detach from the process.</p> </dd></dl><h3>Edit Menu</h3><dl><dt><em>Go to line...</em></dt><dd><p>Goes to a specified line number.</p></dd><dt><em>Search...</em></dt><dd><p>Searches for a specified string.</p></dd></dl><h3>Process Menu</h3><dl><dt><em>Step</em></dt><dd><p>Executes the current code line, stepping into any
+(interpreted) function calls.</p></dd><dt><em>Next</em></dt><dd><p>Executes the current code line and stop at the next
+line.</p></dd><dt><em>Continue</em></dt><dd><p>Continues the execution.</p></dd><dt><em>Finish</em></dt><dd><p>Continues the execution until the current function
+returns.</p></dd><dt><em>Skip</em></dt><dd><p>Skips the current code line and stop at the next
+line. If used on the last line in a function body,
+the function returns <strong>skipped</strong>.</p></dd><dt><em>Time Out</em></dt><dd><p>Simulates a time-out when executing a
+<strong>receive...after</strong> statement.</p></dd><dt><em>Stop</em></dt><dd><p>Stops the execution of a running process, that is, make
+the process stop at a breakpoint. The command takes
+effect (visibly) the next time the process receives a
+message.</p></dd><dt><em>Where</em></dt><dd><p>Verifies that the current location of the execution is
+visible in the code area.</p></dd><dt><em>Kill</em></dt><dd><p>Terminates the process using <strong>exit(Pid,kill)</strong>.</p> </dd><dt><em>Messages</em></dt><dd><p>Inspects the message queue of the process. The queue is
+displayed in the Evaluator area.</p></dd><dt><em>Back Trace</em></dt><dd><p>Displays the back trace of the process, a summary of
+the current function calls on the stack, in the Trace area.
+Requires that the Trace area is visible and that the Stack
+Trace option is <em>Stack On, Tail</em> or
+<em>Stack On, No Tail</em>.</p> </dd><dt><em>Up</em></dt><dd><p>Inspects the previous function call on the stack,
+showing the location and variable bindings.</p></dd><dt><em>Down</em></dt><dd><p>Inspects the next function call on the stack, showing
+the location and variable bindings.</p></dd></dl><h3>Options Menu</h3><dl><dt><em>Trace Window</em></dt><dd><p>Sets which areas are to be visible. Does not affect
+other Attach Process windows.</p></dd><dt><em>Stack Trace</em></dt><dd><p>Same as in the <a href="#monitor">Monitor window</a>, but only affects the debugged
+process the window is attached to.</p></dd><dt><em>Strings</em></dt><dd><p>Same as in the <a href="#monitor">Monitor window</a>, but only affects the debugged
+process the window is attached to.</p></dd><dt><em>Back Trace Size...</em></dt><dd><p>Sets how many call frames are to be fetched when
+inspecting the call stack. Does not affect other Attach
+Process windows.</p></dd></dl><h3>Break, Windows, and Help Menus</h3><p>The <em>Break</em>, <em>Windows</em>, and <em>Help</em> menus
+are the same as in the
+<a href="#monitor">Monitor Window</a>, except
+that the <em>Breaks</em> menu applies only to local
+breakpoints.</p><a name="view"></a><h3>View Module Window</h3><p>The View Module window displays the contents of an interpreted
+module and makes it possible to set breakpoints.</p><img src="images/view.jpg" title="View Module Window"></img><p>The source code is indented and each line is prefixed with its
+line number.</p><p>Clicking a line highlights it and selects it to be the target
+of the breakpoint functions available from the <em>Break</em> menu.
+To set a line breakpoint on a line, double-click it.
+To remove the breakpoint, double-click the line with an existing
+breakpoint.</p><p>Breakpoints are marked with a stop symbol.</p><h3>File and Edit Menus</h3><p>The <em>File</em> and <em>Edit</em> menus are the same as in the
+<a href="#attach">Attach Process Window</a>.</p><h3>Break, Windows, and Help Menus</h3><p>The <em>Break</em>, <em>Windows</em>, and <em>Help</em> menus
+are the same as in the
+<a href="#monitor">Monitor Window</a>, except
+that the <em>Break</em> menu applies only to local breakpoints.</p><h3>Performance</h3><p>Execution of interpreted code is naturally slower than for
+regularly compiled modules. Using Debugger also increases
+the number of processes in the system, as for each debugged
+process another process (the meta process) is created.</p><p>It is also worth to keep in mind that programs with timers can
+behave differently when debugged. This is especially true when
+stopping the execution of a process (for example, at a
+breakpoint). Time-outs can then occur in other processes that
+continue execution as normal.</p><h3>Code Loading Mechanism</h3><p>Code loading works almost as usual, except that interpreted
+modules are also stored in a database and debugged processes
+use only this stored code. Reinterpreting an interpreted
+module results in the new version being stored as well, but
+does not affect existing processes executing an older version
+of the code. This means that the code replacement mechanism of
+Erlang does not work for debugged processes.</p><h3>Debugging Remote Nodes</h3><p>By using
+<a href="./debugger#start/1">debugger:start/1</a>,
+you can specify if Debugger is to be started in local or global
+mode:</p><pre>
+debugger:start(local | global)</pre><p>If no argument is provided, Debugger starts in global mode.</p><p>In local mode, code is interpreted only at the current node.
+In global mode, code is interpreted at all known nodes. Processes
+at other nodes executing interpreted code are automatically
+displayed in the Monitor window and can be attached to like any other
+debugged process.</p><p>It is possible, but definitely not recommended, to start Debugger
+in global mode on more than one node in a network, as the nodes
+interfere with each other, leading to inconsistent behavior.</p></body></html>

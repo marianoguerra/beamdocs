@@ -1,0 +1,50 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>wrap_log_reader</h1><h1>wrap_log_reader</h1><p>A service to read internally formatted wrap disk logs.
+</p><p>This module makes it possible to read internally formatted
+wrap disk logs, see
+<a href="disk_log">disk_log</a>.
+<strong>wrap_log_reader</strong> does not
+interfere with <strong>disk_log</strong> activities; there is however a bug in this
+version of the <strong>wrap_log_reader</strong>, see section
+<a href="#bugs">Known Limitations</a>.A wrap disk log file consists of many files, called index files. A log
+file can be opened and closed. Also, a single index file can be opened
+separately. If a non-existent or non-internally formatted file is opened,
+an error message is returned. If the file is corrupt, no attempt is made
+to repair it, but an error message is returned.If a log is configured to be distributed, it is possible that all items
+are not logged on all nodes. <strong>wrap_log_reader</strong> only reads the log on
+the called node; it is up to the user to be sure that all items
+are read.</p><h1>Data Types</h1><span class="name">continuation</span><p>Continuation returned by <strong>open/1,2</strong> or <strong>chunk/1,2</strong>.</p><h1>Functions</h1><h2>chunk/1</h2><h2>chunk/2</h2><p>Read a chunk of objects written to a wrap log.</p><ul><li>chunk_ret</li></ul><p>Enables to efficiently read the
+terms that are appended to a log. Minimises disk
+I/O by reading 64 kilobyte chunks from the file.</p><p>The first time <strong>chunk()</strong> is called, an initial
+continuation returned from <strong>open/1</strong> or <strong>open/2</strong> must be
+provided.</p><p>When <strong>chunk/3</strong> is called, <strong><span class="anno">N</span></strong> controls the
+maximum number of terms that are read from the log in each
+chunk. Defaults to <strong>infinity</strong>, which means that all the
+terms contained in the 8K chunk are read. If less than
+<strong><span class="anno">N</span></strong> terms are returned, this does not necessarily
+mean that end of file is reached.</p><p>Returns a tuple <strong>{<span class="anno">Continuation2</span>, <span class="anno">Terms</span>}</strong>, where <strong><span class="anno">Terms</span></strong> is a list
+of terms found in the log. <strong><span class="anno">Continuation2</span></strong> is yet
+another continuation that  must be passed on to any
+subsequent calls to <strong>chunk()</strong>. With a series of calls to
+<strong>chunk()</strong>, it is then possible to extract all terms from a log.</p><p>Returns a tuple <strong>{<span class="anno">Continuation2</span>, <span class="anno">Terms</span>, <span class="anno">Badbytes</span>}</strong> if the log is opened
+in read only mode and the read chunk is corrupt.
+<strong><span class="anno">Badbytes</span></strong>
+indicates the number of non-Erlang terms found in the chunk.
+Notice that the log is not repaired.</p><p>Returns <strong>{<span class="anno">Continuation2</span>, eof}</strong> when
+the end of the log is reached, and <strong>{error, <span class="anno">Reason</span>}</strong>
+if an error occurs.</p><p>The returned continuation either is or is not valid in the next call
+to this function. This is because the log can wrap and delete
+the file into which the continuation points. To ensure
+this does not occur, the log can be blocked during the search.</p><h2>close/1</h2><p>Close a log.</p><p>Closes a log file properly.</p><h2>open/1</h2><h2>open/2</h2><p>Open a log file.</p><ul><li>open_ret</li></ul><p><strong><span class="anno">Filename</span></strong> specifies the name of the file to be
+read.</p><p><strong><span class="anno">N</span></strong> specifies the index of the file to be read.
+If <strong><span class="anno">N</span></strong> is omitted, the whole wrap log file is read;
+if it is specified, only the specified index file is read.</p><p>Returns <strong>{ok, <span class="anno">Continuation</span>}</strong> if the
+log/index file is opened successfully.
+<strong><span class="anno">Continuation</span></strong>
+is to be used when chunking or closing the file.</p><p>Returns <strong>{error, <span class="anno">Reason</span>}</strong> for all errors.</p><h2>Known Limitations</h2><a name="bugs"></a><p>This version of <strong>wrap_log_reader</strong> does not detect if
+<strong>disk_log</strong> wraps to a new index file between a call to
+<strong>wrap_log_reader:open()</strong> and the first call to
+<strong>wrap_log_reader:chunk()</strong>.
+If this occurs, the call to <strong>chunk()</strong> reads the last logged
+items in the log file, as the opened index file was truncated by
+<strong>disk_log</strong>.</p><h2>See Also</h2><p><a href="disk_log">disk_log</a></p></body></html>

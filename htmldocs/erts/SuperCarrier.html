@@ -1,0 +1,167 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Super Carrier</h1><p>
+A super carrier is large memory area, allocated at VM start, which can
+be used during runtime to allocate normal carriers from.
+</p><p>
+The super carrier feature was introduced in OTP R16B03. It is
+enabled with command line option +MMscs &lt;size in Mb&gt;
+and can be configured with other options.
+</p><a name="Problem"></a><h2>Problem</h2><p>
+The initial motivation for this feature was customers asking for a way
+to pre-allocate physcial memory at VM start for it to use.
+</p><p>
+Other problems were different experienced limitations of the OS
+implementation of mmap:
+</p><ul><li> Increasingly bad performance of mmap/munmap as the number of mmap'ed areas grow. </li><li> Fragmentation problem between mmap'ed areas. </li></ul><p>
+A third problem was management of low memory in the halfword
+emulator. The implementation used a naive linear search structure to
+hold free segments which would lead to poor performance when
+fragmentation increased.
+</p><a name="Solution"></a><h2>Solution</h2><p>
+Allocate one large continious area of address space at VM start and
+then use that area to satisfy our dynamic memory need during
+runtime. In other words: implement our own mmap.
+</p><a name="Solution_Use-cases"></a><h2>Use cases</h2><p>
+If command line option +MMscrpm (Reserve Physical Memory) is set to
+false, only virtual space is allocated for the super carrier from
+start. The super carrier then acts as an "alternative mmap" implementation
+without changing the consumption of physical memory pages. Physical
+pages will be reserved on demand when an allocation is done from the super
+carrier and be unreserved when the memory is released back to the
+super carrier.
+</p><p>
+If +MMscrpm is set to true, which is default, the initial allocation
+will reserve physical memory for the entire super carrier. This can be
+used by users that want to ensure a certain <em>minimum</em> amount of
+physical memory for the VM.
+</p><p>
+However, what reservation of physical memory actually means highly
+depends on the operating system, and how it is configured. For
+example, different memory overcommit settings on Linux drastically
+change the behaviour.
+</p><p>
+A third feature is to have the super carrier limit the <em>maximum</em>
+amount of memory used by the VM. If +MMsco (Super Carrier Only) is set
+to true, which is default, allocations will only be done from the
+super carrier. When the super carrier gets full, the VM will fail due
+to out of memory.
+If +MMsco is false, allocations will use mmap directly if the super
+carrier is full.
+</p><a name="Solution_Implementation"></a><h2>Implementation</h2><p>
+The entire super carrier implementation is kept in erl_mmap.c. The
+name suggest that it can be viewed as our own mmap implementation.
+</p><p>
+A super carrier needs to satisfy two slightly different kinds of
+allocation requests; multi block carriers (MBC) and single block
+carriers (SBC). They are both rather large blocks of continious
+memory, but MBCs and SBCs have different demands on alignment and
+size.
+</p><p>
+SBCs can have arbitrary size and do only need minimum 8-byte
+alignment.
+</p><p>
+MBCs are more restricted. They can only have a number of fixed
+sizes that are powers of 2. The start address need to have a very
+large aligment (currently 256 kb, called "super alignment"). This is a
+design choice that allows very low overhead per allocated block in the
+MBC.
+</p><p>
+To reduce fragmentation within the super carrier, it is good to keep SBCs
+and MBCs apart. MBCs with their uniform alignment and sizes can be
+packed very efficiently together. SBCs without demand for aligment can
+also be allocated quite efficiently together. But mixing them can lead
+to a lot of memory wasted when we need to create large holes of
+padding to the next alignment limit.
+</p><p>
+The super carrier thus contains two areas. One area for MBCs growing from
+the bottom and up. And one area for SBCs growing from the top and
+down. Like a process with a heap and a stack growing towards each
+other.
+</p><a name="Solution_Data-structures"></a><h2>Data structures</h2><p>
+The MBC area is called <em>sa</em> as in super aligned and the SBC area is
+called <em>sua</em> as in super un-aligned.
+</p><p>
+Note that the "super" in super alignment and the "super" in super
+carrier has nothing to do with each other. We could have choosen
+another naming to avoid confusion, such as "meta" carrier or "giant"
+aligment.
+</p><pre><code class="">
++-------+ &lt;---- sua.top
+|  sua  |
+|       |
+|-------| &lt;---- sua.bot
+|       |
+|       |
+|       |
+|-------| &lt;---- sa.top
+|       |
+|  sa   |
+|       |
++-------+ &lt;---- sa.bot
+</code></pre><p>
+When a carrier is deallocated a free memory segment will be created
+inside the corresponding area, unless the carrier was at the very top
+(in <strong>sa</strong>) or bottom (in <strong>sua</strong>) in which case the area will just shrink
+down or up.
+</p><p>
+We need to keep track of all the free segments in order to reuse them
+for new carrier allocations. One initial idea was to use the same
+mechanism that is used to keep track of free blocks within MBCs
+(alloc_util and the different strategies). However, that would not be
+as straight forward as one can think and can also waste quite a lot of
+memory as it uses prepended block headers. The granularity of the
+super carrier is one memory page (usually 4kb). We want to allocate
+and free entire pages and we don't want to waste an entire page just
+to hold the block header of the following pages.
+</p><p>
+Instead we store the meta information about all the free segments in a
+dedicated area apart from the <strong>sa</strong> and <strong>sua</strong> areas. Every free segment is
+represented by a descriptor struct (<strong>ErtsFreeSegDesc</strong>).
+</p><pre><code class="">
+typedef struct {
+    RBTNode snode;      /* node in 'stree' */
+    RBTNode anode;      /* node in 'atree' */
+    char* start;
+    char* end;
+}ErtsFreeSegDesc;
+</code></pre><p>
+To find the smallest free segment that will satisfy a carrier allocation
+(best fit), the free segments are organized in a tree sorted by
+size (<strong>stree</strong>). We search in this tree at allocation. If no free segment of
+sufficient size was found, the area (<strong>sa</strong> or <strong>sua</strong>) is instead expanded.
+If two or more free segments with equal size exist, the one at lowest
+address is chosen for <strong>sa</strong> and highest address for <strong>sua</strong>.
+</p><p>
+At carrier deallocation, we want to coalesce with any adjacent free
+segments, to form one large free segment. To do that, all free
+segments are also organized in a tree sorted in address order (<strong>atree</strong>).
+</p><p>
+So, in total we keep four trees of free descriptors for the super
+carrier; two for <strong>sa</strong> and two for <strong>sua</strong>. They all use the same
+red-black-tree implementation that support the different sorting
+orders used.
+</p><p>
+When allocating a new MBC we first search after a free segment in <strong>sa</strong>,
+then try to raise <strong>sa.top</strong>, and then as a fallback try to search after a
+free segment in <strong>sua</strong>. When an MBC is allocated in <strong>sua</strong>, a larger segment
+is allocated which is then trimmed to obtain the right
+alignment. Allocation search for an SBC is done in reverse order. When
+an SBC is allocated in <strong>sa</strong>, the size is aligned up to super aligned
+size.
+</p><a name="Solution_The-free-descriptor-area"></a><h2>The free descriptor area</h2><p>
+As mentioned above, the descriptors for the free segments are
+allocated in a separate area. This area has a constant configurable
+size (+MMscrfsd) that defaults to 65536 descriptors. This should be
+more than enough in most cases. If the descriptors area should fill up,
+new descriptor areas will be allocated first directly from the OS, and
+then from <strong>sua</strong> and <strong>sa</strong> in the super carrier, and lastly from the memory
+segment itself which is being deallocated. Allocating free descriptor
+areas from the super carrier is only a last resort, and should be
+avoided, as it creates fragmentation.
+</p><a name="Solution_Halfword-emulator"></a><h2>Halfword emulator</h2><p>
+The halfword emulator uses the super carrier implementation to manage
+its low memory mappings thar are needed for all term storage. The
+super carrier can here not be configured by command line options. One
+could imagine a second configurable instance of the super carrier used
+by high memory allocation, but that has not been implemented.
+</p></body></html>

@@ -1,0 +1,41 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>mnesia_frag_hash</h1><h1>mnesia_frag_hash</h1><p>Defines mnesia_frag_hash callback behavior</p><p>This module defines a callback behavior for user-defined hash
+functions of fragmented tables.Which module that is selected to implement the <strong>mnesia_frag_hash</strong>
+behavior for a particular fragmented table is specified together
+with the other <strong>frag_properties</strong>. The <strong>hash_module</strong> defines
+the module name. The <strong>hash_state</strong> defines the initial hash state.This module implements dynamic hashing, which is a kind of hashing
+that grows nicely when new fragments are added. It is well
+suited for scalable hash tables.</p><h1>Functions</h1><h2>init_state(Tab, State) -&gt; NewState | abort(Reason)</h2><p>Initiates the hash state for a new table.</p><ul><li><span class="v">Tab = atom()</span></li><li><span class="v">State = term()</span></li><li><span class="v">NewState = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Starts when a fragmented table is
+created with the function <strong>mnesia:create_table/2</strong> or
+when a normal (unfragmented) table is converted to be a
+fragmented table with <strong>mnesia:change_table_frag/2</strong>.</p><p>Notice that the function <strong>add_frag/2</strong> is started
+one time for each of the other fragments (except number 1)
+as a part of the table creation procedure.</p><p><strong>State</strong> is the initial value of the <strong>hash_state</strong>
+<strong>frag_property</strong>. <strong>NewState</strong> is stored as
+<strong>hash_state</strong> among the other <strong>frag_properties</strong>.</p><h2>add_frag(State) -&gt; {NewState, IterFrags, AdditionalLockFrags} | abort(Reason)</h2><p>Starts when a new fragment is added to a fragmented table.</p><ul><li><span class="v">State = term()</span></li><li><span class="v">NewState = term()</span></li><li><span class="v">IterFrags = [integer()]</span></li><li><span class="v">AdditionalLockFrags = [integer()]</span></li><li><span class="v">Reason = term()</span></li></ul><p>To scale well, it is a good idea to ensure that the
+records are evenly distributed over all fragments, including
+the new one.</p><p><strong>NewState</strong> is stored as <strong>hash_state</strong> among the
+other <strong>frag_properties</strong>.</p><p>As a part of the <strong>add_frag</strong> procedure, Mnesia iterates
+over all fragments corresponding to the <strong>IterFrags</strong> numbers
+and starts <strong>key_to_frag_number(NewState,RecordKey)</strong> for
+each record. If the new fragment differs from the old
+fragment, the record is moved to the new fragment.</p><p>As the <strong>add_frag</strong> procedure is a part of a schema
+transaction, Mnesia acquires write locks on the
+affected tables. That is, both the fragments corresponding
+to <strong>IterFrags</strong> and those corresponding to
+<strong>AdditionalLockFrags</strong>.</p><h2>del_frag(State) -&gt;  {NewState, IterFrags, AdditionalLockFrags} | abort(Reason)</h2><p>Starts when a fragment is deleted from a fragmented table.</p><ul><li><span class="v">State = term()</span></li><li><span class="v">NewState = term()</span></li><li><span class="v">IterFrags = [integer()]</span></li><li><span class="v">AdditionalLockFrags = [integer()]</span></li><li><span class="v">Reason = term()</span></li></ul><p><strong>NewState</strong> is stored as <strong>hash_state</strong> among the
+other <strong>frag_properties</strong>.</p><p>As a part of the <strong>del_frag</strong> procedure, Mnesia iterates
+over all fragments corresponding to the <strong>IterFrags</strong> numbers
+and starts <strong>key_to_frag_number(NewState,RecordKey)</strong> for
+each record. If the new fragment differs from the old
+fragment, the record is moved to the new fragment.</p><p>Notice that all records in the last fragment must be moved to
+another fragment, as the entire fragment is deleted.</p><p>As the <strong>del_frag</strong> procedure is a part of a schema
+transaction, Mnesia acquires write locks on the
+affected tables. That is, both the fragments corresponding
+to <strong>IterFrags</strong> and those corresponding to
+<strong>AdditionalLockFrags</strong>.</p><h2>key_to_frag_number(State, Key) -&gt; FragNum | abort(Reason)</h2><p>Resolves the key of a record into a fragment number.</p><ul><li><span class="v">FragNum = integer()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Starts whenever Mnesia needs to determine
+which fragment a certain record belongs to. It is typically
+started at <strong>read</strong>, <strong>write</strong>, and <strong>delete</strong>.</p><h2>match_spec_to_frag_numbers(State, MatchSpec) -&gt; FragNums | abort(Reason)</h2><p>Resolves a <strong>MatchSpec</strong> into a list of fragment numbers.</p><ul><li><span class="v">MatcSpec = ets_select_match_spec()</span></li><li><span class="v">FragNums = [FragNum]</span></li><li><span class="v">FragNum = integer()</span></li><li><span class="v">Reason = term()</span></li></ul><p>This function is called whenever Mnesia needs to determine
+which fragments that need to be searched for a <strong>MatchSpec</strong>.
+It is typically called by <strong>select</strong> and
+<strong>match_object</strong>.</p><h2>See Also</h2><p><a href="./mnesia">mnesia(3)</a></p></body></html>

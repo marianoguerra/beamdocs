@@ -1,0 +1,114 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>app</h1><h1>app</h1><p>Application resource file.</p><p>The <em>application resource file</em> specifies the resources an
+application uses, and how the application is started. There must
+always be one application resource file called
+<strong>Application.app</strong> for each application <strong>Application</strong> in
+the system.The file is read by the application controller when an
+application is loaded/started. It is also used by the functions in
+<strong>systools</strong>, for example when generating start scripts.</p><h2>File Syntax</h2><p>The application resource file is to be called
+<strong>Application.app</strong>, where <strong>Application</strong> is the
+application name. The file is to be located in directory <strong>ebin</strong>
+for the application.</p><p>The file must contain a single Erlang term, which is called an
+<em>application specification</em>:</p><pre><code class="">
+{application, Application,
+  [{description,  Description},
+   {id,           Id},
+   {vsn,          Vsn},
+   {modules,      Modules},
+   {maxP,         MaxP},
+   {maxT,         MaxT},
+   {registered,   Names},
+   {included_applications, Apps},
+   {applications, Apps},
+   {env,          Env},
+   {mod,          Start},
+   {start_phases, Phases},
+   {runtime_dependencies, RTDeps}]}.
+
+             Value                Default
+             -----                -------
+Application  atom()               -
+Description  string()             ""
+Id           string()             ""
+Vsn          string()             ""
+Modules      [Module]             []
+MaxP         int()                infinity
+MaxT         int()                infinity
+Names        [Name]               []
+Apps         [App]                []
+Env          [{Par,Val}]          []
+Start        {Module,StartArgs}   []
+Phases       [{Phase,PhaseArgs}]  undefined
+RTDeps       [ApplicationVersion] []
+
+Module = Name = App = Par = Phase = atom()
+Val = StartArgs = PhaseArgs = term()
+ApplicationVersion = string()</code></pre><dl><dt><strong>Application</strong></dt><dd>Application name.</dd></dl><p>For the application controller, all keys are optional.
+The respective default values are used for any omitted keys.</p><p>The functions in <strong>systools</strong> require more information. If
+they are used, the following keys are mandatory:</p><ul><li><strong>description</strong></li><li><strong>vsn</strong></li><li><strong>modules</strong></li><li><strong>registered</strong></li><li><strong>applications</strong></li></ul><p>The other keys are ignored by <strong>systools</strong>.</p><dl><dt><strong>description</strong></dt><dd> <p>A one-line description of the application.</p> </dd><dt><strong>id</strong></dt><dd> <p>Product identification, or similar.</p> </dd><dt><strong>vsn</strong></dt><dd> <p>Version of the application.</p> </dd><dt><strong>modules</strong></dt><dd> <p>All modules introduced by this application. <strong>systools</strong>
+uses this list when generating start scripts and tar files. A
+module can only be defined in one application.</p> </dd><dt><strong>maxP</strong></dt><dd> <p><em>Deprecated - is ignored</em></p> <p>Maximum number of processes allowed in the application.</p> </dd><dt><strong>maxT</strong></dt><dd> <p>Maximum time, in milliseconds, that the application is
+allowed to run. After the specified time, the application
+terminates automatically.</p> </dd><dt><strong>registered</strong></dt><dd> <p>All names of registered processes started in this
+application. <strong>systools</strong> uses this list to detect name
+clashes between different applications.</p> </dd><dt><strong>included_applications</strong></dt><dd> <p>All applications included by this application.
+When this application is started, all included applications
+are loaded automatically, but not started, by
+the application controller. It is assumed that the top-most
+supervisor of the included application is started by a
+supervisor of this application.</p> </dd><dt><strong>applications</strong></dt><dd> <p>All applications that must be started before this
+application is allowed to be started. <strong>systools</strong> uses
+this list to generate correct start scripts. Defaults to
+the empty list, but notice that all applications have
+dependencies to (at least) Kernel and STDLIB.</p> </dd><dt><strong>env</strong></dt><dd> <p>Configuration parameters used by the application. The value
+of a configuration parameter is retrieved by calling
+<strong>application:get_env/1,2</strong>. The values in the application
+resource file can be overridden by values in a configuration
+file (see <a href="config">config</a>)
+or by command-line flags (see
+<a href="./erl">erts/erl</a>).</p> </dd><dt><strong>mod</strong></dt><dd> <p>Specifies the application callback module and a start argument, see
+<a href="application">application</a>.</p> <p>Key <strong>mod</strong> is necessary for an application
+implemented as a supervision tree, otherwise the application
+controller does not know how to start it. <strong>mod</strong>
+can be omitted for applications without processes, typically
+code libraries, for example, STDLIB.</p> </dd><dt><strong>start_phases</strong></dt><dd> <p>A list of start phases and corresponding start arguments for
+the application. If this key is present, the application
+master, in addition to the usual call to
+<strong>Module:start/2</strong>, also calls
+<strong>Module:start_phase(Phase,Type,PhaseArgs)</strong> for each
+start phase defined by key <strong>start_phases</strong>. Only
+after this extended start procedure,
+<strong>application:start(Application)</strong> returns.</p> <p>Start phases can be used to synchronize startup of an
+application and its included applications. In this case,
+key <strong>mod</strong> must be specified as follows:</p> <pre><code class="">
+{mod, {application_starter,[Module,StartArgs]}}</code></pre> <p>The application master then calls <strong>Module:start/2</strong>
+for the primary application, followed by calls to
+<strong>Module:start_phase/3</strong> for each start phase (as defined
+for the primary application), both for the primary application
+and for each of its included applications, for which the start
+phase is defined.</p> <p>This implies that for an included application, the set of
+start phases must be a subset of the set of phases defined
+for the primary application. For more information, see
+<a href="./applications">OTP Design Principles</a>.
+</p> </dd><dt> <a name="runtime_dependencies"></a> <strong>runtime_dependencies</strong></dt><dd> <p>A list of application versions that the application
+depends on. An example of such an application version is
+<strong>"kernel-3.0"</strong>. Application versions specified as runtime
+dependencies are minimum requirements. That is, a larger
+application version than the one specified in the
+dependency satisfies the requirement. For information about
+how to compare application versions, see section
+<a href="./versions">Versions</a>
+in the System Principles User's Guide.</p> <p>Notice that the application version
+specifies a source code version. One more, indirect,
+requirement is that the installed binary application of
+the specified version is built so that it is
+compatible with the rest of the system.</p> <p>Some dependencies can only be required in specific runtime
+scenarios. When such optional dependencies exist, these are
+specified and documented in the corresponding "App" documentation
+of the specific application.</p> <div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>The <strong>runtime_dependencies</strong> key was introduced in
+OTP 17.0. The type of its value might be subject to changes during
+the OTP 17 release.</p></div> <div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>All runtime dependencies specified in OTP applications
+during the OTP 17 release may not be completely correct. This
+is actively being worked on. Declared runtime dependencies in OTP
+applications are expected to be correct in OTP 18.</p></div> </dd></dl><h2>See Also</h2><p><a href="application">application</a>,
+<a href="./systools">sasl/systools</a></p></body></html>

@@ -1,0 +1,124 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Using Common Test for Large-Scale Testing</h1><a name="general"></a><h2>General</h2><p>Large-scale automated testing requires running multiple independent 
+test sessions in parallel. This is accomplished by running
+some <strong>Common Test</strong> nodes on one or more hosts, testing
+different target systems. Configuring, starting, and controlling the
+test nodes independently can be a cumbersome operation. To aid
+this kind of automated large-scale testing, <strong>Common Test</strong> offers a master 
+test node component, <strong>Common Test</strong> Master, which handles central configuration and control
+in a system of distributed <strong>Common Test</strong> nodes.</p><p>The <strong>Common Test</strong> Master server runs on one dedicated Erlang node and uses distributed
+Erlang to communicate with any number of <strong>Common Test</strong> test nodes, each hosting a regular
+<strong>Common Test</strong> server. Test specifications are used as input to specify what to test on which 
+test nodes, using what configuration.</p><p>The <strong>Common Test</strong> Master server writes progress information to HTML log files similarly 
+to the regular <strong>Common Test</strong> server. The logs contain test statistics and links to the 
+log files written by each independent <strong>Common Test</strong> server.</p><p>The <strong>Common Test</strong> Master API is exported by module 
+<a href="ct_master">ct_master</a>.</p><h2>Use</h2><p><strong>Common Test</strong> Master requires all test nodes to be on the same network and share a common 
+file system. <strong>Common Test</strong> Master cannot start test nodes
+automatically. The nodes must be started in advance for <strong>Common Test</strong> Master to be 
+able to start test sessions on them.</p><p>Tests are started by calling 
+<a href="./ct_master#run-1">ct_master#run-1</a> or 
+<a href="./ct_master#run-3">ct_master#run-3</a></p><p><strong>TestSpecs</strong> is either the name of a test specification file (string) or a list 
+of test specifications. If it is a list, the specifications are handled (and
+the corresponding tests executed) in sequence. An element in a <strong>TestSpecs</strong> list 
+can also be list of test specifications. The specifications in such a list are 
+merged into one combined specification before test execution.</p><p><em>Example:</em></p><pre>
+ ct_master:run(["ts1","ts2",["ts3","ts4"]])</pre><p>Here, the tests specified by "ts1" run first, then the tests specified by "ts2",
+and finally the tests specified by both "ts3" and "ts4".</p><p>The <strong>InclNodes</strong> argument to <strong>run/3</strong> is a list of node names. Function
+<strong>run/3</strong> runs the tests in <strong>TestSpecs</strong> just like <strong>run/1</strong>, but also 
+takes any test in <strong>TestSpecs</strong>, which is not explicitly tagged with a particular 
+node name, and execute it on the nodes listed in <strong>InclNodes</strong>. By using <strong>run/3</strong> 
+this way, any test specification can be used, with or without node information, 
+in a large-scale test environment.</p><p><strong>ExclNodes</strong> is a list of nodes to be
+excluded from the test. That is, tests that are specified in the test specification 
+to run on a particular node are not performed if that node is 
+listed in <strong>ExclNodes</strong> at runtime.</p><p>If <strong>Common Test</strong> Master fails initially to connect to any of the test nodes specified in a 
+test specification or in the <strong>InclNodes</strong> list, the operator is prompted with 
+the option to either start over again (after manually checking the status of the 
+nodes in question), to run without the missing nodes, or to abort the operation.</p><p>When tests start, <strong>Common Test</strong> Master displays information to console about the involved nodes.  
+<strong>Common Test</strong> Master also reports when tests finish, successfully or unsuccessfully. If
+connection is lost to a node, the test on that node is considered finished. <strong>Common Test</strong> Master 
+does not attempt to re-establish contact with the failing node.</p><p>At any time, to get the current status of the test nodes, call function 
+<a href="./ct_master#progress-0">ct_master#progress-0</a>.</p><p>To stop one or more tests, use function
+<a href="./ct_master#abort-0">ct_master#abort-0</a> (to stop all) or
+<a href="./ct_master#abort-1">ct_master#abort-1</a>.</p><p>For details about the <strong>Common Test</strong> Master API, see module
+<a href="ct_master">ct_master</a>.</p><a name="test_specifications"></a><h2>Test Specifications</h2><p>The test specifications used as input to <strong>Common Test</strong> Master are fully compatible with the
+specifications used as input to the regular <strong>Common Test</strong> server. The syntax is described in section 
+<a href="./run_test_chapter#test_specifications">Test Specifications</a>
+in section Running Tests and Analyzing Results.</p><p>All test specification terms can have a <strong>NodeRefs</strong> element. This element
+specifies which node or nodes a configuration operation or a test is to be executed 
+on. <strong>NodeRefs</strong> is defined as follows:</p><p><strong>NodeRefs = all_nodes | [NodeRef] | NodeRef</strong></p><p><strong>NodeRef = NodeAlias | node() | master</strong></p><p>A <strong>NodeAlias</strong> (<strong>atom()</strong>) is used in a test specification as a 
+reference to a node name (so the node name only needs to be declared once,
+which also can be achieved using constants). 
+The alias is declared with a <strong>node</strong> term as follows:</p><p><strong>{node, NodeAlias, NodeName}</strong></p><p>If <strong>NodeRefs</strong> has the value <strong>all_nodes</strong>, the operation or test
+is performed on all specified test nodes. (Declaring a term without a <strong>NodeRefs</strong> 
+element has the same effect). If <strong>NodeRefs</strong> has the value 
+<strong>master</strong>, the operation is only performed on the <strong>Common Test</strong> Master node (namely set 
+the log directory or install an event handler).</p><p>Consider the example in section 
+<a href="./run_test_chapter#test_specifications">Test Specifications</a>
+in section Running Tests and Analysing Results,
+now extended with node information and intended to be executed by
+<strong>Common Test</strong> Master:</p><pre>
+ {define, 'Top', "/home/test"}.
+ {define, 'T1', "'Top'/t1"}.
+ {define, 'T2', "'Top'/t2"}.
+ {define, 'T3', "'Top'/t3"}.
+ {define, 'CfgFile', "config.cfg"}.
+ {define, 'Node', ct_node}.
+
+ {node, node1, 'Node@host_x'}.
+ {node, node2, 'Node@host_y'}.
+
+ {logdir, master, "'Top'/master_logs"}.
+ {logdir, "'Top'/logs"}.
+
+ {config, node1, "'T1'/'CfgFile'"}.
+ {config, node2, "'T2'/'CfgFile'"}.
+ {config, "'T3'/'CfgFile'"}.
+
+ {suites, node1, 'T1', all}.
+ {skip_suites, node1, 'T1', [t1B_SUITE,t1D_SUITE], "Not implemented"}.
+ {skip_cases, node1, 'T1', t1A_SUITE, [test3,test4], "Irrelevant"}.
+ {skip_cases, node1, 'T1', t1C_SUITE, [test1], "Ignore"}.
+
+ {suites, node2, 'T2', [t2B_SUITE,t2C_SUITE]}.
+ {cases, node2, 'T2', t2A_SUITE, [test4,test1,test7]}.
+
+ {skip_suites, 'T3', all, "Not implemented"}.</pre><p>This example specifies the same tests as the original example. But 
+now if started with a call to <strong>ct_master:run(TestSpecName)</strong>, test 
+<strong>t1</strong> is executed on node <strong>ct_node@host_x</strong> (<strong>node1</strong>), test
+<strong>t2</strong> on <strong>ct_node@host_y</strong> (<strong>node2</strong>) and test <strong>t3</strong>
+on both <strong>node1</strong> and <strong>node2</strong>. Configuration file <strong>t1</strong> is only read on
+<strong>node1</strong> and configuration file <strong>t2</strong> only on <strong>node2</strong>, while the 
+configuration file <strong>t3</strong> is read on both <strong>node1</strong> and <strong>node2</strong>. 
+Both test nodes write log files to the same directory. (However, the <strong>Common Test</strong> Master 
+node uses a different log directory than the test nodes.)</p><p>If the test session is instead started with a call to 
+<strong>ct_master:run(TestSpecName, [ct_node@host_z], [ct_node@host_x])</strong>, 
+the result is that test <strong>t1</strong> does not run on 
+<strong>ct_node@host_x</strong> (or any other node) while test <strong>t3</strong> runs on both
+<strong>ct_node@host_y</strong> and <strong>ct_node@host_z</strong>.</p><p>A nice feature is that a test specification that includes node 
+information can still be used as input to the regular <strong>Common Test</strong> server 
+(as described in section
+<a href="./run_test_chapter#test_specifications">Test Specifications</a>). 
+The result is that any test specified to run on a node with the same
+name as the <strong>Common Test</strong> node in question (typically <strong>ct@somehost</strong> if started
+with the <strong>ct_run</strong> program), is performed. Tests without explicit
+node association are always performed too, of course.</p><h2>Automatic Startup of Test Target Nodes</h2><a name="ct_slave"></a><p>Initial actions can be started and performed automatically on
+test target nodes using test specification term <strong>init</strong>.</p><p>Two subterms are supported, <strong>node_start</strong> and <strong>eval</strong>.</p><p><em>Example:</em></p><pre>
+ {node, node1, node1@host1}.
+ {node, node2, node1@host2}.
+ {node, node3, node2@host2}.
+ {node, node4, node1@host3}.
+ {init, node1, [{node_start, [{callback_module, my_slave_callback}]}]}.
+ {init, [node2, node3], {node_start, [{username, "ct_user"}, {password, "ct_password"}]}}.
+ {init, node4, {eval, {module, function, []}}}.</pre><p>This test specification declares that <strong>node1@host1</strong> is to be started using
+the user callback function <strong>callback_module:my_slave_callback/0</strong>, and nodes
+<strong>node1@host2</strong> and <strong>node2@host2</strong> are to be started with the default callback
+module <strong>ct_slave</strong>. The specified username and password are used to log on to remote
+host <strong>host2</strong>. Also, function <strong>module:function/0</strong> is evaluated on
+<strong>node1@host3</strong>, and the result of this call is printed to the log.</p><p>The default callback module <a href="ct_slave">ct_slave</a>,
+has the following features:
+</p><ul><li>Starting Erlang target nodes on local or remote hosts (application <strong>SSH</strong> is used for communication). </li><li>Ability to start an Erlang emulator with more flags (any flags supported by <strong>erl</strong> are supported). </li><li>Supervision of a node being started using internal callback functions. Used to prevent hanging nodes. (Configurable.) </li><li>Monitoring of the master node by the slaves. A slave node can be stopped if the master node terminates. (Configurable.) </li><li>Execution of user functions after a slave node is started. Functions can  be specified as a list of <strong>{Module, Function, Arguments}</strong> tuples. </li></ul><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>An <strong>eval</strong> term for the node and
+<strong>startup_functions</strong> in the <strong>node_start</strong> options list can be specified. 
+In this case, the node is started first, then the <strong>startup_functions</strong> are
+executed, and finally functions specified with <strong>eval</strong> are called.
+</p></div></body></html>

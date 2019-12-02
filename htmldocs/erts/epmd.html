@@ -1,0 +1,115 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>epmd</h1><h1>epmd</h1><p>Erlang Port Mapper Daemon</p><p><dl><dt><strong>epmd [-d|-debug] [DbgExtra...] [-address Addresses] [-port No] [-daemon] [-relaxed_command_check]</strong></dt><dd> <p>Starts the port mapper daemon.</p> </dd><dt><strong>epmd [-d|-debug] [-port No] [-names|-kill|-stop Name]</strong></dt><dd> <p>Communicates with a running port mapper daemon.</p> </dd></dl>This daemon acts as a name server on all hosts involved in
+distributed Erlang computations. When an Erlang node starts,
+the node has a name and it obtains an address from the host
+OS kernel. The name and address are sent to the
+<strong>epmd</strong> daemon running on the local host.
+In a TCP/IP environment, the address consists
+of the IP address and a port number. The node name is
+an atom on the form of <strong>Name@Node</strong>.
+The job of the <strong>epmd</strong> daemon is to keep track of which
+node name listens on which address. Hence, <strong>epmd</strong> maps
+symbolic node names to machine addresses.The TCP/IP <strong>epmd</strong> daemon only keeps track of
+the <strong>Name</strong> (first) part of an Erlang node name. The <strong>Host</strong>
+part (whatever is after the <strong>@</strong>) is implicit in the
+node name where the <strong>epmd</strong> daemon was contacted,
+as is the IP address where the Erlang node can be
+reached. Consistent and correct TCP naming services are
+therefore required for an Erlang network to function
+correctly.<dl><dt>Starting the port mapper daemon</dt><dd> <p>The daemon is started automatically by command
+<a href="erl">erl</a>
+if the node is to be distributed and no running
+instance is present. If automatically launched
+environment variables must be used to change the behavior
+of the daemon; see section
+<a href="#environment_variables">Environment Variables</a>.</p> <p>If argument <strong>-daemon</strong> is not specified,
+<strong>epmd</strong> runs as a normal program with the
+controlling terminal of the shell in which it is
+started. Normally, it is to be run as a daemon.</p> <p>Regular startup options are described in section
+<a href="#daemon_flags">Regular Options</a>.</p> <p>The <strong>DbgExtra</strong> options are described in section
+<a href="#debug_flags">DbgExtra Options</a>.</p> </dd><dt>Communicating with a running port mapper daemon</dt><dd> <p>Communicating with the running <strong>epmd</strong> daemon by the
+<strong>epmd</strong> program is done primarily for debugging purposes.</p> <p>The different queries are described in section <a href="#interactive_flags">Interactive options</a>.</p> </dd></dl></p><a name="daemon_flags"></a><h2>Regular Options</h2><p>These options are available when starting the name server. The name
+server is normally started automatically by command
+<a href="erl">erl</a> (if not already available),
+but it can also be started at system startup.</p><dl><dt><strong>-address List</strong></dt><dd> <p>Lets this instance of <strong>epmd</strong> listen only on the
+comma-separated list of IP addresses and on the loopback address
+(which is implicitly added to the list if it has not been
+specified). This can also be set using environment variable
+<strong>ERL_EPMD_ADDRESS</strong>; see section <a href="#environment_variables">Environment Variables</a>.</p> </dd><dt><strong>-port No</strong></dt><dd> <p>Lets this instance of <strong>epmd</strong> listen to another TCP port than
+default 4369. This can also be set using environment variable
+<strong>ERL_EPMD_PORT</strong>; see section <a href="#environment_variables">Environment Variables</a>.</p> </dd><dt><strong>-d | -debug</strong></dt><dd> <p>Enables debug output. The more <strong>-d</strong> flags specified, the more
+debug output you will get (to a certain limit). This option is  most
+useful when the <strong>epmd</strong> daemon is not started as a daemon.</p> </dd><dt><strong>-daemon</strong></dt><dd> <p>Starts <strong>epmd</strong> detached from the controlling terminal. Logging
+ends up in syslog when available and correctly configured. If the
+<strong>epmd</strong> daemon is started at boot, this option is definitely
+to be used. It is also used when command <strong>erl</strong> automatically
+starts <strong>epmd</strong>.</p> </dd><dt><strong>-relaxed_command_check</strong></dt><dd> <p>Starts the <strong>epmd</strong> program with relaxed command checking
+(mostly for backward compatibility). This affects the following:</p> <ul><li> <p>With relaxed command checking, the <strong>epmd</strong> daemon can be
+killed from the local host with, for example, command
+<strong>epmd -kill</strong> even if active nodes are registered. Normally
+only daemons with an empty node database can be killed with
+<strong>epmd -kill</strong>.</p> </li><li> <p>Command <strong>epmd -stop</strong> (and the corresponding messages to
+<strong>epmd</strong>, as can be specified using <a href="./ei">erl_interface/ei</a>) is
+normally always ignored. This because it can cause a strange
+situation where two nodes of the same name can be alive at the
+same time. A node unregisters itself by only closing the
+connection to <strong>epmd</strong>, which is why command <strong>stop</strong>
+was only intended for use in debugging situations.</p> <p>With relaxed command checking enabled, you can forcibly
+unregister live nodes.</p> </li></ul> <p>Relaxed command checking can also be enabled by setting environment
+variable <strong>ERL_EPMD_RELAXED_COMMAND_CHECK</strong> before starting
+<strong>epmd</strong>.</p> <p>Use relaxed command checking only on systems with very limited
+interactive usage.</p> </dd></dl><a name="debug_flags"></a><h2>DbgExtra Options</h2><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>These options are only for debugging and testing <strong>epmd</strong> clients.
+They are not to be used in normal operation.</p></div><dl><dt><strong>-packet_timeout Seconds</strong></dt><dd> <p>Sets the number of seconds a connection can be
+inactive before <strong>epmd</strong> times out and closes the
+connection. Defaults to 60.</p> </dd><dt><strong>-delay_accept Seconds</strong></dt><dd> <p>To simulate a busy server, you can insert a delay between when
+<strong>epmd</strong> gets notified that a new connection is requested and
+when the connection gets accepted.</p> </dd><dt><strong>-delay_write Seconds</strong></dt><dd> <p>Also a simulation of a busy server. Inserts
+a delay before a reply is sent.</p> </dd></dl><a name="interactive_flags"></a><h2>Interactive Options</h2><p>These options make <strong>epmd</strong> run as an interactive command,
+displaying the results of sending queries to an already running
+instance of <strong>epmd</strong>. The <strong>epmd</strong> contacted is always on the
+local node, but option <strong>-port</strong> can be used to select between
+instances if several are running using different ports on the host.</p><dl><dt><strong>-port No</strong></dt><dd> <p>Contacts the <strong>epmd</strong> listening on the specified TCP port
+number (default 4369). This can also be set using environment
+variable <strong>ERL_EPMD_PORT</strong>; see section <a href="#environment_variables">Environment Variables</a>.</p> </dd><dt><strong>-names</strong></dt><dd> <p>Lists names registered with the currently running <strong>epmd</strong>.</p> </dd><dt><strong>-kill</strong></dt><dd> <p>Kills the currently running <strong>epmd</strong>.</p> <p>Killing the running <strong>epmd</strong> is only allowed if
+<strong>epmd -names</strong> shows an empty database or if
+<strong>-relaxed_command_check</strong> was specified when the running
+instance of <strong>epmd</strong> was started.</p> <p>Notice that <strong>-relaxed_command_check</strong> is specified when
+starting the daemon that is to accept killing when it has live
+nodes registered. When running <strong>epmd</strong> interactively,
+<strong>-relaxed_command_check</strong> has no effect. A daemon that is
+started without relaxed command checking must be killed using,
+for example, signals or some other OS-specific method if it has
+active clients registered.</p> </dd><dt><strong>-stop Name</strong></dt><dd> <p>Forcibly unregisters a live node from the <strong>epmd</strong> database.</p> <p>This command can only be used when contacting <strong>epmd</strong>
+instances started with flag <strong>-relaxed_command_check</strong>.</p> <p>Notice that relaxed command checking must enabled for the
+<strong>epmd</strong> daemon contacted. When running <strong>epmd</strong>
+interactively, <strong>-relaxed_command_check</strong> has no effect.</p> </dd></dl><a name="environment_variables"></a><h2>Environment Variables</h2><dl><dt><strong>ERL_EPMD_ADDRESS</strong></dt><dd> <p>Can be set to a comma-separated
+list of IP addresses, in which case the <strong>epmd</strong> daemon
+will listen only on the specified address(es) and on the
+loopback address (which is implicitly added to the list if it
+has not been specified). The default behavior is to listen on
+all available IP addresses.</p> </dd><dt><strong>ERL_EPMD_PORT</strong></dt><dd> <p>Can contain the port number <strong>epmd</strong> will use.
+The default port will work fine in most cases. A different port can
+be specified to allow several instances of <strong>epmd</strong>, representing
+independent clusters of nodes, to co-exist on the same host.
+All nodes in a cluster must use the same <strong>epmd</strong> port number.</p> </dd><dt><strong>ERL_EPMD_RELAXED_COMMAND_CHECK</strong></dt><dd> <p>If set before start, the <strong>epmd</strong> daemon behaves
+as if option <strong>-relaxed_command_check</strong> was specified at
+startup. Consequently, if this option is set before starting
+the Erlang virtual machine, the automatically started
+<strong>epmd</strong> accepts the <strong>-kill</strong> and <strong>-stop</strong>
+commands without restrictions.</p> </dd></dl><h2>Logging</h2><p>On some operating systems <em>syslog</em> will be used for
+error reporting when <strong>epmd</strong> runs as a daemon. To enable
+the error logging, you must edit the
+<span class="path">/etc/syslog.conf</span> file and add an
+entry:</p><pre><code class="">
+  !epmd
+  *.*&lt;TABs&gt;/var/log/epmd.log
+</code></pre><p>where <strong>&lt;TABs&gt;</strong> are at least one real tab character.
+Spaces are silently ignored.</p><h2>Access Restrictions</h2><p>The <strong>epmd</strong> daemon accepts messages from both the local host and
+remote hosts. However, only the query commands are answered (and
+acted upon) if the query comes from a remote host. It is always an
+error to try to register a node name if the client is not a process
+on the same host as the <strong>epmd</strong> instance is running on. Such
+requests are considered hostile and the connection is closed
+immediately.</p><p>The following queries are accepted from remote nodes:</p><ul><li> <p>Port queries, that is, on which port the node with a specified
+name listens</p> </li><li> <p>Name listing, that is, gives a list of all names registered on
+the host</p> </li></ul><p>To restrict access further, firewall software must be used.</p></body></html>

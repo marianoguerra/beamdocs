@@ -1,0 +1,171 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>registry</h1><h1>registry</h1><p>Store and back up key-value pairs.</p><p>This module provides support for storing key-value
+pairs in a table known as a registry, backing up registries to
+<a href="./mnesia">Mnesia</a>
+in an atomic manner, and later restoring the contents of a
+registry from <strong>Mnesia</strong>.</p><h1>Functions</h1><h2>ei_reg_close(reg):int</h2><p>Close a registry.</p><ul><li><span class="v">ei_reg *reg;</span></li></ul><p>A registry that has previously been created with
+<strong>ei_reg_open()</strong> is closed, and all the objects it
+contains are freed.</p><p><strong>reg</strong> is the registry to close.</p><p>Returns <strong>0</strong>.</p><h2>ei_reg_delete(reg,key):int</h2><p>Delete an object from the registry.</p><ul><li><span class="v">ei_reg *reg;</span></li><li><span class="v">const char *key;</span></li></ul><p>Deletes an object from the registry. The object is not
+removed from the registry, it is only marked for later
+removal so that on later backups to <strong>Mnesia</strong>, the
+corresponding object can be removed from the <strong>Mnesia</strong> table as
+well. If another object is later created with the same key, the
+object will be reused. </p><p>The object is removed from the registry after a call to
+<strong>ei_reg_dump()</strong> or <strong>ei_reg_purge()</strong>.
+</p><ul><li><strong>reg</strong> is the registry containing <strong>key</strong>.</li><li><strong>key</strong> is the object to remove.</li></ul><p>Returns <strong>0</strong> on success, otherwise <strong>-1</strong>.</p><h2>ei_reg_dump(fd,reg,mntab,flags):int</h2><p>Back up a registry to Mnesia.</p><ul><li><span class="v">int fd;</span></li><li><span class="v">ei_reg *reg;</span></li><li><span class="v">const char *mntab;</span></li><li><span class="v">int flags;</span></li></ul><p>Dumps the contents of a registry to a <strong>Mnesia</strong> table in an
+atomic manner, that is, either all data or no data is updated.
+If any errors are encountered while backing up
+the data, the entire operation is aborted.</p><ul><li><strong>fd</strong> is an open connection to Erlang. <strong>Mnesia</strong> 3.0 or later must be running on the Erlang node. </li><li><strong>reg</strong> is the registry to back up.</li><li><strong>mntab</strong> is the name of the <strong>Mnesia</strong> table where the backed up data is to be placed. If the table does not exist, it is created automatically using configurable defaults. For information about configuring this behavior, see <a href="./mnesia">mnesia/mnesia</a>.</li></ul><p>If <strong>flags</strong> is <strong>0</strong>, the backup includes only
+those objects that have been created, modified, or deleted since the
+last backup or restore (that is, an incremental backup). After the
+backup, any objects that were marked dirty are now clean, and any
+objects that had been marked for deletion are deleted.</p><p>Alternatively, setting flags to <strong>EI_FORCE</strong> causes a full
+backup to be done, and <strong>EI_NOPURGE</strong> causes the deleted objects
+to be left in the registry afterwards. These can be bitwise OR'ed
+together if both behaviors are desired. If <strong>EI_NOPURGE</strong> was
+specified, <strong>ei_reg_purge()</strong> can be used to
+explicitly remove the deleted items from the registry later.</p><p>Returns <strong>0</strong> on success, otherwise <strong>-1</strong>.</p><h2>ei_reg_getfval(reg,key):double</h2><p>Get a floating point object.</p><ul><li><span class="v">ei_reg *reg;</span></li><li><span class="v">const char *key;</span></li></ul><p>Gets the value associated with <strong>key</strong> in the
+registry. The value must be a floating point type.</p><ul><li><strong>reg</strong> is the registry where the object will be looked up.</li><li><strong>key</strong> is the name of the object to look up. </li></ul><p>On success, the function returns the value associated with
+<strong>key</strong>.
+If the object is not found or if it is not a floating point
+object, <strong>-1.0</strong> is returned. To avoid problems with in-band error
+reporting (that is, if you cannot distinguish between <strong>-1.0</strong> and
+a valid result), use the more general function
+<strong>ei_reg_getval()</strong> instead.</p><h2>ei_reg_getival(reg,key):int</h2><p>Get an integer object.</p><ul><li><span class="v">ei_reg *reg;</span></li><li><span class="v">const char *key;</span></li></ul><p>Gets the value associated with <strong>key</strong> in the
+registry. The value must be an integer.</p><ul><li><strong>reg</strong> is the registry where the object will be looked up.</li><li><strong>key</strong> is the name of the object to look up. </li></ul><p>On success, the function returns the value associated with
+<strong>key</strong>.
+If the object is not found or if it is not an integer
+object, <strong>-1</strong> is returned. To avoid problems with in-band error
+reporting (that is, if you cannot distinguish between <strong>-1</strong> and a
+valid result), use the more general function
+<strong>ei_reg_getval()</strong> instead.</p><h2>ei_reg_getpval(reg,key,size):const void *</h2><p>Get a binary object.</p><ul><li><span class="v">ei_reg *reg;</span></li><li><span class="v">const char *key;</span></li><li><span class="v">int size;</span></li></ul><p>Gets the value associated with <strong>key</strong> in the
+registry. The value must be a binary (pointer) type.</p><ul><li><strong>reg</strong> is the registry where the object will be looked up.</li><li><strong>key</strong> is the name of the object to look up. </li><li><strong>size</strong> is initialized to contain the length in bytes of the object, if it is found.</li></ul><p>On success, the function returns the value associated with
+<strong>key</strong> and indicates its length in
+<strong>size</strong>.
+If the object is not found or if it is not a binary object,
+<strong>NULL</strong> is returned. To avoid problems with in-band error
+reporting (that is, if you cannot distinguish between <strong>NULL</strong> and
+a valid result), use the more general function
+<strong>ei_reg_getval()</strong> instead.</p><h2>ei_reg_getsval(reg,key):const char *</h2><p>Get a string object.</p><ul><li><span class="v">ei_reg *reg;</span></li><li><span class="v">const char *key;</span></li></ul><p>Gets the value associated with <strong>key</strong> in the
+registry. The value must be a string.</p><ul><li><strong>reg</strong> is the registry where the object will be looked up.</li><li><strong>key</strong> is the name of the object to look up. </li></ul><p>On success, the function returns the value associated with
+<strong>key</strong>. If the object is not found or if it is not a
+string, <strong>NULL</strong> is returned. To avoid problems with in-band error
+reporting (that is, if you cannot distinguish between <strong>NULL</strong> and
+a valid result), use the more general function
+<strong>ei_reg_getval()</strong> instead.</p><h2>ei_reg_getval(reg,key,flags,v,...):int</h2><p>Get any object.</p><ul><li><span class="v">ei_reg *reg;</span></li><li><span class="v">const char *key;</span></li><li><span class="v">int flags;</span></li><li><span class="v">void *v (see below)</span></li></ul><p>A general function for retrieving any kind of
+object from the registry.</p><ul><li> <p><strong>reg</strong> is the registry where the object will be
+looked up.</p> </li><li> <p><strong>key</strong> is the name of the object to look up.</p> </li><li> <p><strong>flags</strong> indicates the type of object that you
+are looking for. If <strong>flags</strong> is <strong>0</strong>, any
+kind of object is returned.
+If <strong>flags</strong> is <strong>EI_INT</strong>, <strong>EI_FLT</strong>,
+<strong>EI_STR</strong>, or <strong>EI_BIN</strong>, then only values of
+that kind are returned.</p> <p>The buffer pointed to by <strong>v</strong>
+must be large enough to hold the return data, that is, it must be
+a pointer to one of <strong>int</strong>,
+<strong>double</strong>, <strong>char*</strong>, or
+<strong>void*</strong>, respectively.</p> <p>If <strong>flags</strong> is <strong>EI_BIN</strong>, a fifth argument
+<strong>int *size</strong> is required, so that the size of the
+object can be returned.</p> </li></ul><p>On success, <strong>v</strong> (and <strong>size</strong> if the
+object is binary) is initialized with the value associated
+with <strong>key</strong>, and the function returns <strong>EI_INT</strong>,
+<strong>EI_FLT</strong>, <strong>EI_STR</strong>, or <strong>EI_BIN</strong>, indicating the type
+of object. On failure, <strong>-1</strong> is returned and the
+arguments are not updated.</p><h2>ei_reg_markdirty(reg,key):int</h2><p>Mark an object as dirty.</p><ul><li><span class="v">ei_reg *reg;</span></li><li><span class="v">const char *key;</span></li></ul><p>Marks a registry object as dirty. This ensures that
+it is included in the next backup to <strong>Mnesia</strong>. Normally this
+operation is not necessary, as all of the normal registry
+'set' functions do this automatically. However, if you have
+retrieved the value of a string or binary object from the
+registry and modified the contents, then the change is
+invisible to the registry and the object is assumed to be
+unmodified. This function allows you to make such modifications
+and then let the registry know about them.</p><ul><li><strong>reg</strong> is the registry containing the object. </li><li><strong>key</strong> is the name of the object to mark. </li></ul><p>Returns <strong>0</strong> on success, otherwise <strong>-1</strong>.</p><h2>ei_reg_open(size):ei_reg *</h2><p>Create and open a registry.</p><ul><li><span class="v">int size;</span></li></ul><p>Opens (creates) a registry, which initially is empty. To
+close the registry later, use <strong>ei_reg_close()</strong>.</p><p><strong>size</strong> is the approximate number of objects you
+intend to store in the registry. As the registry uses a hash table
+with collision chaining, no absolute upper limit exists on the
+number of objects that can be stored in it. However, for reasons
+of efficiency, it is a good idea to choose a number that is
+appropriate for your needs. To change the size later, use
+<strong>ei_reg_resize()</strong>. Notice that the number
+you provide is increased to the nearest larger prime number.</p><p>Returns an empty registry on success, otherwise <strong>NULL</strong>.</p><h2>ei_reg_purge(reg):int</h2><p>Remove deleted objects.</p><ul><li><span class="v">ei_reg *reg;</span></li></ul><p>Removes all objects marked for deletion. When objects
+are deleted with <strong>ei_reg_delete()</strong> they are not
+removed from the registry, only marked for later removal.
+On a later backup to <strong>Mnesia</strong>, the
+objects can also be removed from the <strong>Mnesia</strong> table. If you are
+not backing up to <strong>Mnesia</strong>, you may wish to remove the objects
+manually with this function.</p><p><strong>reg</strong> is a registry containing objects marked for
+deletion.</p><p>Returns <strong>0</strong> on success, otherwise <strong>-1</strong>.</p><h2>ei_reg_resize(reg,newsize):int</h2><p>Resize a registry.</p><ul><li><span class="v">ei_reg *reg;</span></li><li><span class="v">int newsize;</span></li></ul><p>Changes the size of a registry.</p><p><strong>newsize</strong> is the new size to make the registry. The
+number is increased to the nearest larger prime number.</p><p>On success, the registry is resized, all contents
+rehashed, and <strong>0</strong> is returned. On failure, the
+registry is left unchanged and <strong>-1</strong> is returned.</p><h2>ei_reg_restore(fd,reg,mntab):int</h2><p>Restore a registry from Mnesia.</p><ul><li><span class="v">int fd;</span></li><li><span class="v">ei_reg *reg;</span></li><li><span class="v">const char *mntab;</span></li></ul><p>The contents of a <strong>Mnesia</strong> table are read into the registry.</p><ul><li><strong>fd</strong> is an open connection to Erlang. <strong>Mnesia</strong> 3.0 or later must be running on the Erlang node. </li><li><strong>reg</strong> is the registry where the data is to be placed.</li><li><strong>mntab</strong> is the name of the <strong>Mnesia</strong> table to read data from.</li></ul><p>Notice that only tables of a certain format can be
+restored, that is, those that have been created and backed up to
+with <strong>ei_reg_dump()</strong>. If the registry was not empty
+before the operation, the contents of the table are added to the
+contents of the registry. If the table contains objects with the
+same keys as those already in the registry, the registry objects
+are overwritten with the new values. If the registry
+contains objects that were not in the table, they are
+unchanged by this operation.</p><p>After the restore operation, the entire contents of the
+registry is marked as unmodified. Notice that this includes any
+objects that were modified before the restore and not
+overwritten by the restore.</p><p>Returns <strong>0</strong> on success, otherwise <strong>-1</strong>.</p><h2>ei_reg_setfval(reg,key,f):int</h2><p>Assign a floating point object.</p><ul><li><span class="v">ei_reg *reg;</span></li><li><span class="v">const char *key;</span></li><li><span class="v">double f;</span></li></ul><p>Creates a key-value pair with the specified <strong>key</strong>
+and floating point value <strong>f</strong>. If an object already
+exists with the same <strong>key</strong>, the new value replaces
+the old one. If the previous value was a binary or string, it is
+freed with <strong>free()</strong>.</p><ul><li><strong>reg</strong> is the registry where the object is to be placed.</li><li><strong>key</strong> is the object name.</li><li><strong>f</strong> is the floating point value to assign. </li></ul><p>Returns <strong>0</strong> on success, otherwise <strong>-1</strong>.</p><h2>ei_reg_setival(reg,key,i):int</h2><p>Assign an integer object.</p><ul><li><span class="v">ei_reg *reg;</span></li><li><span class="v">const char *key;</span></li><li><span class="v">int i;</span></li></ul><p>Creates a key-value pair with the specified <strong>key</strong>
+and integer value <strong>i</strong>. If an object already exists
+with the same <strong>key</strong>, the new value replaces the old
+one. If the previous value was a binary or string, it is freed with
+<strong>free()</strong>.</p><ul><li><strong>reg</strong> is the registry where the object is to be placed.</li><li><strong>key</strong> is the object name.</li><li><strong>i</strong> is the integer value to assign.</li></ul><p>Returns <strong>0</strong> on success, otherwise <strong>-1</strong>.</p><h2>ei_reg_setpval(reg,key,p,size):int</h2><p>Assign a binary object.</p><ul><li><span class="v">ei_reg *reg;</span></li><li><span class="v">const char *key;</span></li><li><span class="v">const void *p;</span></li><li><span class="v">int size;</span></li></ul><p>Creates a key-value pair with the specified <strong>key</strong>
+whose "value" is the binary object pointed to by <strong>p</strong>.
+If an object already exists with the same <strong>key</strong>,
+the new value replaces the old one. If the previous value was a
+binary or string, it is freed with <strong>free()</strong>.</p><ul><li><strong>reg</strong> is the registry where the object is to be placed.</li><li><strong>key</strong> is the object name.</li><li><strong>p</strong> is a pointer to the binary object. The object itself must have been created through a single call to <strong>malloc()</strong> or a similar function, so that the registry can later delete it if necessary by calling <strong>free()</strong>.</li><li><strong>size</strong> is the length in bytes of the binary object.</li></ul><p>Returns <strong>0</strong> on success, otherwise <strong>-1</strong>.</p><h2>ei_reg_setsval(reg,key,s):int</h2><p>Assign a string object.</p><ul><li><span class="v">ei_reg *reg;</span></li><li><span class="v">const char *key;</span></li><li><span class="v">const char *s;</span></li></ul><p>Creates a key-value pair with the specified <strong>key</strong>
+whose "value" is the specified string <strong>s</strong>. If an
+object already exists with the same <strong>key</strong>, the new
+value replaces the old one. If the previous value was a binary or
+string, it is freed with <strong>free()</strong>.</p><ul><li><strong>reg</strong> is the registry where the object is to be placed.</li><li><strong>key</strong> is the object name.</li><li><strong>s</strong> is the string to assign. The string itself must have been created through a single call to <strong>malloc()</strong> or similar a function, so that the registry can later delete it if necessary by calling <strong>free()</strong>.</li></ul><p>Returns <strong>0</strong> on success, otherwise <strong>-1</strong>.</p><h2>ei_reg_setval(reg,key,flags,v,...):int</h2><p>Assign a value to any object type.</p><ul><li><span class="v">ei_reg *reg;</span></li><li><span class="v">const char *key;</span></li><li><span class="v">int flags;</span></li><li><span class="v">v (see below)</span></li></ul><p>Creates a key-value pair with the specified <strong>key</strong>
+whose value is specified by <strong>v</strong>. If an object already
+exists with the same <strong>key</strong>, the new value replaces
+the old one. If the previous value was a binary or string, it is freed
+with <strong>free()</strong>.</p><ul><li> <p><strong>reg</strong> is the registry where the object is to be
+placed.</p> </li><li> <p><strong>key</strong> is the object name.</p> </li><li> <p><strong>flags</strong> indicates the type of the object
+specified by <strong>v</strong>. Flags must be one of
+<strong>EI_INT</strong>, <strong>EI_FLT</strong>, <strong>EI_STR</strong>, and <strong>EI_BIN</strong>,
+indicating whether
+<strong>v</strong> is <strong>int</strong>,
+<strong>double</strong>, <strong>char*</strong>, or
+<strong>void*</strong>.</p> <p>If <strong>flags</strong> is <strong>EI_BIN</strong>, a fifth argument
+<strong>size</strong> is required, indicating the size
+in bytes of the object pointed to by <strong>v</strong>.</p> </li></ul><p>If you wish to store an arbitrary pointer in the registry,
+specify a <strong>size</strong> of <strong>0</strong>. In this case, the
+object itself is not transferred by an
+<strong>ei_reg_dump()</strong> operation, only the pointer
+value.</p><p>Returns <strong>0</strong> on success, otherwise <strong>-1</strong>.</p><h2>ei_reg_stat(reg,key,obuf):int</h2><p>Get object information.</p><ul><li><span class="v">ei_reg *reg;</span></li><li><span class="v">const char *key;</span></li><li><span class="v">struct ei_reg_stat *obuf;</span></li></ul><p>Returns information about an object.</p><ul><li><strong>reg</strong> is the registry containing the object. </li><li><strong>key</strong> is the object name.</li><li><strong>obuf</strong> is a pointer to an <strong>ei_reg_stat</strong> structure, defined as follows:</li></ul><pre><code class="">
+struct ei_reg_stat {
+  int attr;
+  int size;
+};
+        </code></pre><p>In <strong>attr</strong> the attributes of the object are stored
+as the logical <em>OR</em> of its type (one of <strong>EI_INT</strong>,
+<strong>EI_FLT</strong>, <strong>EI_BIN</strong>, and <strong>EI_STR</strong>),
+whether it is marked for deletion (<strong>EI_DELET</strong>), and whether it
+has been modified since the last backup to <strong>Mnesia</strong>
+(<strong>EI_DIRTY</strong>).</p><p>Field <strong>size</strong> indicates the size in bytes required
+to store <strong>EI_STR</strong> (including the terminating <strong>0</strong>) and
+<strong>EI_BIN</strong> objects, or <strong>0</strong> for <strong>EI_INT</strong> and
+<strong>EI_FLT</strong>.</p><p>Returns <strong>0</strong> and initializes <strong>obuf</strong> on success,
+otherwise <strong>-1</strong>.</p><h2>ei_reg_tabstat(reg,obuf):int</h2><p>Get registry information.</p><ul><li><span class="v">ei_reg *reg;</span></li><li><span class="v">struct ei_reg_tabstat *obuf;</span></li></ul><p>Returns information about a registry. Using information
+returned by this function, you can see whether the size of the
+registry is suitable for the amount of data it contains.</p><ul><li><strong>reg</strong> is the registry to return information about.</li><li><strong>obuf</strong> is a pointer to an <strong>ei_reg_tabstat</strong> structure, defined as follows: </li></ul><pre><code class="">
+struct ei_reg_tabstat {
+  int size;  
+  int nelem; 
+  int npos;  
+  int collisions; 
+};
+        </code></pre><p>Field <strong>size</strong> indicates the number of hash positions
+in the registry. This is the number you provided when you
+created or last resized the registry, rounded up to the nearest
+prime number.</p><ul><li><strong>nelem</strong> indicates the number of elements stored in the registry. It includes objects that are deleted but not purged.</li><li><strong>npos</strong> indicates the number of unique positions that are occupied in the registry.</li><li><strong>collisions</strong> indicates how many elements are sharing positions in the registry.</li></ul><p>On success, <strong>0</strong> is returned and
+<strong>obuf</strong> is initialized to contain table statistics,
+otherwise <strong>-1</strong> is returned.</p></body></html>

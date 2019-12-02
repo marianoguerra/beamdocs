@@ -1,0 +1,345 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>logger</h1><h1>logger</h1><p>API module for Logger, the standard logging facility
+    in Erlang/OTP.</p><p>This module implements the main API for logging in
+Erlang/OTP. To create a log event, use the
+<a href="#logging_API">API functions</a> or the
+log
+<a href="#macros">macros</a>, for example:<pre><code class="">
+?LOG_ERROR("error happened because: ~p", [Reason]).   % With macro
+logger:error("error happened because: ~p", [Reason]). % Without macro
+    </code></pre>To configure the Logger backend,
+use <a href="./kernel_app#logger">Kernel configuration parameters</a>
+or <a href="#configuration_API">configuration functions</a> in the Logger API.By default, the Kernel application installs one log handler at
+system start. This handler is named <strong>default</strong>. It receives
+and processes standard log events produced by the Erlang runtime
+system, standard behaviours and different Erlang/OTP
+applications. The log events are by default printed to the
+terminal.If you want your systems logs to be printed to a file instead,
+you must configure the default handler to do so. The simplest
+way is to include the following in
+your <a href="config">config</a>:<pre><code class="">
+[{kernel,
+  [{logger,
+    [{handler, default, logger_std_h,
+      #{config =&gt; #{file =&gt; "path/to/file.log"}}}]}]}].
+      </code></pre>
+For more information about:
+<ul><li>the Logger facility in general, see the <a href="logger_chapter">User's Guide</a>.</li><li>how to configure Logger, see the <a href="./logger_chapter#configuration">Configuration</a> section in the User's Guide.</li><li>the built-in handlers, see <a href="logger_std_h">logger_std_h</a> and <a href="logger_disk_log_h">logger_disk_log_h</a>.</li><li>the built-in formatter, see <a href="logger_formatter">logger_formatter</a>.</li><li>built-in filters, see <a href="logger_filters">logger_filters</a>.</li></ul></p><h1>Data Types</h1><span class="name">filter</span><p>A filter which can be installed as a handler filter, or as
+a primary filter in Logger.</p><span class="name">filter_arg</span><p>The second argument to the filter fun.</p><span class="name">filter_id</span><p>A unique identifier for a filter.</p><span class="name">filter_return</span><p>The return value from the filter fun.</p><span class="name">formatter_config</span><p>Configuration data for the
+formatter. See <a href="logger_formatter">logger_formatter</a>
+for an example of a formatter implementation.</p><span class="name">handler_config</span><p>Handler configuration data for Logger. The following
+default values apply:</p><ul><li><strong>level =&gt; all</strong></li><li><strong>filter_default =&gt; log</strong></li><li><strong>filters =&gt; []</strong></li><li><strong>formatter =&gt; {logger_formatter, DefaultFormatterConfig</strong>}</li></ul><p>In addition to these, the following fields are
+automatically inserted by Logger, values taken from the
+two first parameters
+to <a href="#add_handler-3">add_handler-3</a>:</p><ul><li><strong>id =&gt; HandlerId</strong></li><li><strong>module =&gt; Module</strong></li></ul><p>These are read-only and cannot be changed in runtime.</p><p>Handler specific configuration data is inserted by the
+handler callback itself, in a sub structure associated with
+the field named <strong>config</strong>. See
+the <a href="logger_std_h">logger_std_h</a>
+and <a href="logger_disk_log_h">logger_disk_log_h</a>
+manual pages for information about the specifc configuration
+for these handlers.</p><p>See the <a href="./logger_formatter#type-config">logger_formatter#type-config</a> manual page for
+information about the default configuration for this
+formatter.</p><span class="name">handler_id</span><p>A unique identifier for a handler instance.</p><span class="name">level</span><p>The severity level for the message to be logged.</p><span class="name">log_event</span><span class="name">metadata</span><p>Metadata for the log event.</p><p>Logger adds the following metadata to each log event:</p><ul><li><strong>pid  =&gt; self()</strong></li><li><strong>gl   =&gt; group_leader()</strong></li><li><strong>time =&gt; logger:timestamp()</strong></li></ul><p>When a log macro is used, Logger also inserts location
+information:</p><ul><li><strong>mfa  =&gt; {?MODULE, ?FUNCTION_NAME, ?FUNCTION_ARITY}</strong></li><li><strong>file =&gt; ?FILE</strong></li><li><strong>line =&gt; ?LINE</strong></li></ul><p>You can add custom metadata, either by specifying a map as
+the last parameter to any of the log macros or the API
+functions, or by setting process metadata
+with <a href="#set_process_metadata-1">set_process_metadata-1</a>
+or <a href="#update_process_metadata-1">update_process_metadata-1</a>.</p><p>Logger merges all the metadata maps before forwarding the
+log event to the handlers. If the same keys occur, values
+from the log call overwrite process metadata, which in turn
+overwrite values set by Logger.</p><p>The following custom metadata keys have special meaning:</p><dl><dt><strong>domain</strong></dt><dd> <p>The value associated with this key is used by filters
+for grouping log events originating from, for example,
+specific functional
+areas. See <a href="./logger_filters#domain-2">logger_filters#domain-2</a>
+for a description of how this field can be used.</p> </dd><dt><strong>report_cb</strong></dt><dd> <p>If the log message is specified as
+a <a href="#type-report">type-report</a>,
+the <strong>report_cb</strong> key can be associated with a fun
+(report callback) that converts the report to a format
+string and arguments, or directly to a string. See the
+type definition
+of <a href="#type-report_cb">type-report_cb</a>,
+and
+section <a href="./logger_chapter#log_message">Log Message</a> in the User's Guide for more
+information about report callbacks.</p> </dd></dl><span class="name">msg_fun</span><span class="name">olp_config</span><span class="name">primary_config</span><p>Primary configuration data for Logger. The following
+default values apply:</p><ul><li><strong>level =&gt; info</strong></li><li><strong>filter_default =&gt; log</strong></li><li><strong>filters =&gt; []</strong></li></ul><span class="name">report</span><span class="name">report_cb</span><p>A fun which converts a <a href="#type-report">type-report</a> to a format string and arguments, or directly to a string.
+See section <a href="./logger_chapter#log_message">Log Message</a> in the User's Guide for more
+information.</p><span class="name">report_cb_config</span><span class="name">timestamp</span><p>A timestamp produced
+with <a href="#timestamp-0">timestamp-0</a>.</p><h2>Macros</h2><p>The following macros are defined in <strong>logger.hrl</strong>, which
+is included in a module with the directive</p><pre><code class="">
+    -include_lib("kernel/include/logger.hrl").</code></pre><ul><li><strong>?LOG_EMERGENCY(StringOrReport[,Metadata])</strong></li><li><strong>?LOG_EMERGENCY(FunOrFormat,Args[,Metadata])</strong></li><li><strong>?LOG_ALERT(StringOrReport[,Metadata])</strong></li><li><strong>?LOG_ALERT(FunOrFormat,Args[,Metadata])</strong></li><li><strong>?LOG_CRITICAL(StringOrReport[,Metadata])</strong></li><li><strong>?LOG_CRITICAL(FunOrFormat,Args[,Metadata])</strong></li><li><strong>?LOG_ERROR(StringOrReport[,Metadata])</strong></li><li><strong>?LOG_ERROR(FunOrFormat,Args[,Metadata])</strong></li><li><strong>?LOG_WARNING(StringOrReport[,Metadata])</strong></li><li><strong>?LOG_WARNING(FunOrFormat,Args[,Metadata])</strong></li><li><strong>?LOG_NOTICE(StringOrReport[,Metadata])</strong></li><li><strong>?LOG_NOTICE(FunOrFormat,Args[,Metadata])</strong></li><li><strong>?LOG_INFO(StringOrReport[,Metadata])</strong></li><li><strong>?LOG_INFO(FunOrFormat,Args[,Metadata])</strong></li><li><strong>?LOG_DEBUG(StringOrReport[,Metadata])</strong></li><li><strong>?LOG_DEBUG(FunOrFormat,Args[,Metadata])</strong></li><li><strong>?LOG(Level,StringOrReport[,Metadata])</strong></li><li><strong>?LOG(Level,FunOrFormat,Args[,Metadata])</strong></li></ul><p>All macros expand to a call to Logger, where <strong>Level</strong> is
+taken from the macro name, or from the first argument in the
+case of the <strong>?LOG</strong> macro. Location data is added to the
+metadata as described under
+the <a href="#type-metadata">type-metadata</a>
+type definition.</p><p>The call is wrapped in a case statement and will be evaluated
+only if <strong>Level</strong> is equal to or below the configured log
+level.</p><a name="logging_API"></a><h2>Logging API functions</h2><h1>Functions</h1><h2>emergency(StringOrReport[,Metadata])</h2><h2>emergency(Format,Args[,Metadata])</h2><h2>emergency(Fun,FunArgs[,Metadata])</h2><p>Logs the given message as level <strong>emergency</strong>.</p><p>Equivalent to
+<a href="#log-2">log-2</a>.</p><h2>alert(StringOrReport[,Metadata])</h2><h2>alert(Format,Args[,Metadata])</h2><h2>alert(Fun,FunArgs[,Metadata])</h2><p>Logs the given message as level <strong>alert</strong>.</p><p>Equivalent to
+<a href="#log-2">log-2</a>.</p><h2>critical(StringOrReport[,Metadata])</h2><h2>critical(Format,Args[,Metadata])</h2><h2>critical(Fun,FunArgs[,Metadata])</h2><p>Logs the given message as level <strong>critical</strong>.</p><p>Equivalent to
+<a href="#log-2">log-2</a>.</p><h2>error(StringOrReport[,Metadata])</h2><h2>error(Format,Args[,Metadata])</h2><h2>error(Fun,FunArgs[,Metadata])</h2><p>Logs the given message as level <strong>error</strong>.</p><p>Equivalent to
+<a href="#log-2">log-2</a>.</p><h2>warning(StringOrReport[,Metadata])</h2><h2>warning(Format,Args[,Metadata])</h2><h2>warning(Fun,FunArgs[,Metadata])</h2><p>Logs the given message as level <strong>warning</strong>.</p><p>Equivalent to
+<a href="#log-2">log-2</a>.</p><h2>notice(StringOrReport[,Metadata])</h2><h2>notice(Format,Args[,Metadata])</h2><h2>notice(Fun,FunArgs[,Metadata])</h2><p>Logs the given message as level <strong>notice</strong>.</p><p>Equivalent to
+<a href="#log-2">log-2</a>.</p><h2>info(StringOrReport[,Metadata])</h2><h2>info(Format,Args[,Metadata])</h2><h2>info(Fun,FunArgs[,Metadata])</h2><p>Logs the given message as level <strong>info</strong>.</p><p>Equivalent to
+<a href="#log-2">log-2</a>.</p><h2>debug(StringOrReport[,Metadata])</h2><h2>debug(Format,Args[,Metadata])</h2><h2>debug(Fun,FunArgs[,Metadata])</h2><p>Logs the given message as level <strong>debug</strong>.</p><p>Equivalent to
+<a href="#log-2">log-2</a>.</p><h2>log/2</h2><h2>log/3</h2><h2>log/3</h2><h2>log/3</h2><h2>log/4</h2><h2>log/4</h2><p>Logs the given message.</p><ul><li>Level</li></ul><ul><li>StringOrReport</li></ul><ul><li>Format</li></ul><ul><li>Args</li></ul><ul><li>Fun</li></ul><ul><li>FunArgs</li></ul><ul><li>Metadata</li></ul><p>Log the given message.</p><a name="configuration_API"></a><h2>Configuration API functions</h2><h1>Functions</h1><h2>add_handler/3</h2><p>Add a handler with the given configuration.</p><p>Add a handler with the given configuration.</p><p><strong><span class="anno">HandlerId</span></strong> is a unique identifier which
+must be used in all subsequent calls referring to this
+handler.</p><h2>add_handler_filter/3</h2><p>Add a filter to the specified handler.</p><p>Add a filter to the specified handler.</p><p>The filter fun is called with the log event as the first
+parameter, and the specified <strong>filter_args()</strong> as the
+second parameter.</p><p>The return value of the fun specifies if a log event is to
+be discarded or forwarded to the handler callback:</p><dl><dt><strong>log_event()</strong></dt><dd> <p>The filter <em>passed</em>. The next handler filter, if
+any, is applied. If no more filters exist for this
+handler, the log event is forwarded to the handler
+callback.</p> </dd><dt><strong>stop</strong></dt><dd> <p>The filter <em>did not pass</em>, and the log event is
+immediately discarded.</p> </dd><dt><strong>ignore</strong></dt><dd> <p>The filter has no knowledge of the log event. The next
+handler filter, if any, is applied. If no more filters
+exist for this handler, the value of
+the <strong>filter_default</strong> configuration parameter for
+the handler specifies if the log event shall be
+discarded or forwarded to the handler callback.</p> </dd></dl><p>See
+section <a href="./logger_chapter#filters">Filters</a>
+in the User's Guide for more information about filters.</p><p>Some built-in filters exist. These are defined in
+<a href="logger_filters">logger_filters</a>.</p><h2>add_handlers/1</h2><p>Set up log handlers from the application's configuration parameters.</p><p>Reads the application configuration parameter <strong>logger</strong> and
+calls <strong>add_handlers/1</strong> with its contents.</p><h2>add_handlers/1</h2><p>Setup logger handlers.</p><ul><li>config_handler</li></ul><p>This function should be used by custom Logger handlers to make
+configuration consistent no matter which handler the system uses.
+Normal usage is to add a call to <strong>logger:add_handlers/1</strong>
+just after the processes that the handler needs are started,
+and pass the application's <strong>logger</strong> configuration as the argument.
+For example:</p><pre><code class="">
+-behaviour(application).
+start(_, []) -&gt;
+    case supervisor:start_link({local, my_sup}, my_sup, []) of
+        {ok, Pid} -&gt;
+            ok = logger:add_handlers(my_app),
+            {ok, Pid, []};
+        Error -&gt; Error
+     end.</code></pre><p>This reads the <strong>logger</strong> configuration parameter from
+the <strong>my_app</strong> application and starts the configured
+handlers. The contents of the configuration use the same
+rules as the
+<a href="./logger_chapter#handler-configuration">logger handler configuration</a>.
+</p><p>If the handler is meant to replace the default handler, the Kernel's
+default handler have to be disabled before the new handler is added.
+A <strong>sys.config</strong> file that disables the Kernel handler and adds
+a custom handler could look like this:</p><pre><code class="">
+[{kernel,
+  [{logger,
+    %% Disable the default Kernel handler
+    [{handler, default, undefined}]}]},
+ {my_app,
+  [{logger,
+    %% Enable this handler as the default
+    [{handler, default, my_handler, #{}}]}]}].
+         </code></pre><h2>add_primary_filter/2</h2><p>Add a primary filter to Logger.</p><p>Add a primary filter to Logger.</p><p>The filter fun is called with the log event as the first
+parameter, and the specified <strong>filter_args()</strong> as the
+second parameter.</p><p>The return value of the fun specifies if a log event is to
+be discarded or forwarded to the handlers:</p><dl><dt><strong>log_event()</strong></dt><dd> <p>The filter <em>passed</em>. The next primary filter, if
+any, is applied. If no more primary filters exist, the
+log event is forwarded to the handler part of Logger,
+where handler filters are applied.</p> </dd><dt><strong>stop</strong></dt><dd> <p>The filter <em>did not pass</em>, and the log event is
+immediately discarded.</p> </dd><dt><strong>ignore</strong></dt><dd> <p>The filter has no knowledge of the log event. The next
+primary filter, if any, is applied. If no more primary
+filters exist, the value of the
+primary <strong>filter_default</strong> configuration parameter
+specifies if the log event shall be discarded or
+forwarded to the handler part.</p> </dd></dl><p>See section <a href="./logger_chapter#filters"> Filters</a> in the User's Guide for more information
+about filters.</p><p>Some built-in filters exist. These are defined
+in <a href="logger_filters">logger_filters</a>.</p><h2>get_config/0</h2><p>Look up the current Logger configuration</p><p>Look up all current Logger configuration, including primary,
+handler, and proxy configuration, and module level settings.</p><h2>get_handler_config/0</h2><p>Look up the current configuration for all handlers.</p><p>Look up the current configuration for all handlers.</p><h2>get_handler_config/1</h2><p>Look up the current configuration for the given handler.</p><p>Look up the current configuration for the given handler.</p><h2>get_handler_ids/0</h2><p>Look up the identities for all installed handlers.</p><p>Look up the identities for all installed handlers.</p><h2>get_primary_config/0</h2><p>Look up the current primary configuration for Logger.</p><p>Look up the current primary configuration for Logger.</p><h2>get_proxy_config/0</h2><p>Look up the current configuration for the Logger proxy.</p><p>Look up the current configuration for the Logger proxy.</p><p>For more information about the proxy, see
+section <a href="./logger_chapter#proxy">Logger Proxy</a> in the Kernel User's Guide.</p><h2>get_module_level/0</h2><p>Look up all current module levels.</p><p>Look up all current module levels. Returns a list
+containing one <strong>{Module,Level}</strong> element for each module
+for which the module level was previously set
+with <a href="#set_module_level-2">set_module_level-2</a>.</p><h2>get_module_level/1</h2><p>Look up the current level for the given modules.</p><p>Look up the current level for the given modules. Returns a
+list containing one <strong>{Module,Level}</strong> element for each
+of the given modules for which the module level was
+previously set with <a href="#set_module_level-2">set_module_level-2</a>.</p><h2>get_process_metadata/0</h2><p>Retrieve data set with set_process_metadata/1.</p><p>Retrieve data set
+with <a href="#set_process_metadata-1">set_process_metadata-1</a> or
+<a href="#update_process_metadata-1">update_process_metadata-1</a>.</p><h2>i/0</h2><h2>i/1</h2><p>Pretty print the Logger configuration.</p><p>Pretty print the Logger configuration.</p><h2>remove_handler/1</h2><p>Remove the handler with the specified identity.</p><p>Remove the handler identified by <strong><span class="anno">HandlerId</span></strong>.</p><h2>remove_handler_filter/2</h2><p>Remove a filter from the specified handler.</p><p>Remove the filter identified
+by <strong><span class="anno">FilterId</span></strong> from the handler identified
+by <strong><span class="anno">HandlerId</span></strong>.</p><h2>remove_primary_filter/1</h2><p>Remove a primary filter from Logger.</p><p>Remove the primary filter identified
+by <strong><span class="anno">FilterId</span></strong> from Logger.</p><h2>set_application_level/2</h2><p>Set the log level for all modules in the specified application.</p><p>Set the log level for all the modules of the specified application.</p><p>This function is a convenience function that calls
+<a href="#set_module_level/2">logger:set_module_level/2</a>
+for each module associated with an application.</p><h2>set_handler_config/2</h2><p>Set configuration data for the specified handler.</p><p>Set configuration data for the specified handler. This
+overwrites the current handler configuration.</p><p>To modify the existing configuration,
+use <a href="#update_handler_config-2">update_handler_config-2</a>, or, if a more
+complex merge is needed, read the current configuration
+with <a href="#get_handler_config-1">get_handler_config-1</a>, then do the merge before writing the new
+configuration back with this function.</p><p>If a key is removed compared to the current configuration,
+and the key is known by Logger, the default value is used. If
+it is a custom key, then it is up to the handler
+implementation if the value is removed or a default value is
+inserted.</p><h2>set_handler_config/3</h2><h2>set_handler_config/3</h2><h2>set_handler_config/3</h2><h2>set_handler_config/3</h2><h2>set_handler_config/3</h2><p>Add or update configuration data for the specified handler.</p><ul><li>HandlerId</li></ul><ul><li>Level</li></ul><ul><li>FilterDefault</li></ul><ul><li>Filters</li></ul><ul><li>Formatter</li></ul><ul><li>Config</li></ul><ul><li>Return</li></ul><p>Add or update configuration data for the specified
+handler. If the given <strong><span class="anno">Key</span></strong> already
+exists, its associated value will be changed
+to the given value. If it does not exist, it will
+be added.</p><p>If the value is incomplete, which for example can be the
+case for the <strong>config</strong> key, it is up to the handler
+implementation how the unspecified parts are set. For all
+handlers in the Kernel application, unspecified data for
+the <strong>config</strong> key is set to default values. To update
+only specified data, and keep the existing configuration for
+the rest, use <a href="#update_handler_config-3">update_handler_config-3</a>.</p><p>See the definition of
+the <a href="#type-handler_config">type-handler_config</a> type for more
+information about the different parameters.</p><h2>set_primary_config/1</h2><p>Set primary configuration data for Logger.</p><p>Set primary configuration data for Logger. This
+overwrites the current configuration.</p><p>To modify the existing configuration,
+use <a href="#update_primary_config-1">update_primary_config-1</a>, or, if a more
+complex merge is needed, read the current configuration
+with <a href="#get_primary_config-0">get_primary_config-0</a>, then do the merge before writing the new
+configuration back with this function.</p><p>If a key is removed compared to the current configuration,
+the default value is used.</p><h2>set_primary_config/2</h2><h2>set_primary_config/2</h2><h2>set_primary_config/2</h2><p>Add or update primary configuration data for Logger.</p><ul><li>Level</li></ul><ul><li>FilterDefault</li></ul><ul><li>Filters</li></ul><p>Add or update primary configuration data for Logger. If the
+given <strong><span class="anno">Key</span></strong> already exists, its associated
+value will be changed to the given value. If it does not
+exist, it will be added.</p><h2>set_proxy_config/1</h2><p>Set configuration data for the Logger proxy.</p><p>Set configuration data for the Logger proxy. This
+overwrites the current proxy configuration. Keys that are not
+specified in the <strong><span class="anno">Config</span></strong> map gets default
+values.</p><p>To modify the existing configuration,
+use <a href="#update_proxy_config-1">update_proxy_config-1</a>, or, if a more
+complex merge is needed, read the current configuration
+with <a href="#get_proxy_config-0">get_proxy_config-0</a>, then do the merge before writing the new
+configuration back with this function.</p><p>For more information about the proxy, see
+section <a href="./logger_chapter#proxy">Logger Proxy</a> in the Kernel User's Guide.</p><h2>set_module_level/2</h2><p>Set the log level for the specified modules.</p><p>Set the log level for the specified modules.</p><p>The log level for a module overrides the primary log level
+of Logger for log events originating from the module in
+question. Notice, however, that it does not override the
+level configuration for any handler.</p><p>For example: Assume that the primary log level for Logger
+is <strong>info</strong>, and there is one handler, <strong>h1</strong>, with
+level <strong>info</strong> and one handler, <strong>h2</strong>, with
+level <strong>debug</strong>.</p><p>With this configuration, no debug messages will be logged,
+since they are all stopped by the primary log level.</p><p>If the level for <strong>mymodule</strong> is now set
+to <strong>debug</strong>, then debug events from this module will be
+logged by the handler <strong>h2</strong>, but not by
+handler <strong>h1</strong>.</p><p>Debug events from other modules are still not logged.</p><p>To change the primary log level for Logger, use
+<a href="#set_primary_config/2">set_primary_config/2</a>.</p><p>To change the log level for a handler, use
+<a href="#set_handler_config/3">set_handler_config/3</a>.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The originating module for a log event is only detected
+if the key <strong>mfa</strong> exists in the metadata, and is
+associated with <strong>{Module, Function, Arity}</strong>. When log
+macros are used, this association is automatically added
+to all log events. If an API function is called directly,
+without using a macro, the logging client must explicitly
+add this information if module levels shall have any
+effect.</p></div><h2>set_process_metadata/1</h2><p>Set metadata to use when logging from current process.</p><p>Set metadata which Logger shall automatically insert in
+all log events produced on the current process.</p><p>Location data produced by the log macros, and/or metadata
+given as argument to the log call (API function or macro),
+are merged with the process metadata. If the same keys
+occur, values from the metadata argument to the log call
+overwrite values from the process metadata, which in turn
+overwrite values from the location data.</p><p>Subsequent calls to this function overwrites previous data
+set. To update existing data instead of overwriting it,
+see <a href="#update_process_metadata-1">update_process_metadata-1</a>.</p><h2>unset_application_level/1</h2><p>Unset the log level for all modules in the specified application.</p><p>Unset the log level for all the modules of the specified application.</p><p>This function is a convinience function that calls
+<a href="#unset_module_level/1">logger:unset_module_level/2</a>
+for each module associated with an application.</p><h2>unset_module_level/0</h2><p>Remove module specific log settings for all modules.</p><p>Remove module specific log settings. After this, the
+primary log level is used for all modules.</p><h2>unset_module_level/1</h2><p>Remove module specific log settings for the given modules.</p><p>Remove module specific log settings. After this, the
+primary log level is used for the specified modules.</p><h2>unset_process_metadata/0</h2><p>Delete data set with set_process_metadata/1.</p><p>Delete data set
+with <a href="#set_process_metadata-1">set_process_metadata-1</a> or
+<a href="#update_process_metadata-1">update_process_metadata-1</a>.</p><h2>update_formatter_config/2</h2><p>Update the formatter configuration for the specified handler.</p><p>Update the formatter configuration for the specified handler.</p><p>The new configuration is merged with the existing formatter
+configuration.</p><p>To overwrite the existing configuration without any merge,
+use</p><pre>
+.</pre><h2>update_formatter_config/3</h2><p>Update the formatter configuration for the specified handler.</p><p>Update the formatter configuration for the specified handler.</p><p>This is equivalent to</p><pre>
+</pre><h2>update_handler_config/2</h2><p>Update configuration data for the specified handler.</p><p>Update configuration data for the specified handler. This function
+behaves as if it was implemented as follows:</p><pre><code class="erl">
+{ok, {_, Old}} = logger:get_handler_config(HandlerId),
+logger:set_handler_config(HandlerId, maps:merge(Old, Config)).
+	</code></pre><p>To overwrite the existing configuration without any merge,
+use <a href="#set_handler_config-2">set_handler_config-2</a>.</p><h2>update_handler_config/3</h2><h2>update_handler_config/3</h2><h2>update_handler_config/3</h2><h2>update_handler_config/3</h2><h2>update_handler_config/3</h2><p>Add or update configuration data for the specified handler.</p><ul><li>HandlerId</li></ul><ul><li>Level</li></ul><ul><li>FilterDefault</li></ul><ul><li>Filters</li></ul><ul><li>Formatter</li></ul><ul><li>Config</li></ul><ul><li>Return</li></ul><p>Add or update configuration data for the specified
+handler. If the given <strong><span class="anno">Key</span></strong> already
+exists, its associated value will be changed
+to the given value. If it does not exist, it will
+be added.</p><p>If the value is incomplete, which for example can be the
+case for the <strong>config</strong> key, it is up to the handler
+implementation how the unspecified parts are set. For all
+handlers in the Kernel application, unspecified data for
+the <strong>config</strong> key is not changed. To reset unspecified
+data to default values,
+use <a href="#set_handler_config-3">set_handler_config-3</a>.</p><p>See the definition of
+the <a href="#type-handler_config">type-handler_config</a> type for more
+information about the different parameters.</p><h2>update_primary_config/1</h2><p>Update primary configuration data for Logger.</p><p>Update primary configuration data for Logger. This function
+behaves as if it was implemented as follows:</p><pre><code class="erl">
+Old = logger:get_primary_config(),
+logger:set_primary_config(maps:merge(Old, Config)).
+	</code></pre><p>To overwrite the existing configuration without any merge,
+use <a href="#set_primary_config-1">set_primary_config-1</a>.</p><h2>update_process_metadata/1</h2><p>Set or update metadata to use when logging from current process.</p><p>Set or update metadata to use when logging from current
+process</p><p>If process metadata exists for the current process, this
+function behaves as if it was implemented as follows:</p><pre><code class="erl">
+logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
+	</code></pre><p>If no process metadata exists, the function behaves as
+<a href="#set_process_metadata-1">set_process_metadata-1</a>.</p><h2>update_proxy_config/1</h2><p>Update configuration data for the Logger proxy.</p><p>Update configuration data for the Logger proxy. This function
+behaves as if it was implemented as follows:</p><pre><code class="erl">
+Old = logger:get_proxy_config(),
+logger:set_proxy_config(maps:merge(Old, Config)).
+	</code></pre><p>To overwrite the existing configuration without any merge,
+use <a href="#set_proxy_config-1">set_proxy_config-1</a>.</p><p>For more information about the proxy, see
+section <a href="./logger_chapter#proxy">Logger Proxy</a> in the Kernel User's Guide.</p><a name="misc_API"></a><h2>Miscellaneous API functions</h2><h1>Functions</h1><h2>compare_levels/2</h2><p>Compare the severity of two log levels.</p><p>Compare the severity of two log levels. Returns <strong>gt</strong>
+if <strong>Level1</strong> is more severe than
+<strong>Level2</strong>, <strong>lt</strong> if <strong>Level1</strong> is less severe,
+and <strong>eq</strong> if the levels are equal.</p><h2>format_report/1</h2><p>Convert a log message on report form to {Format, Args}.</p><p>Convert a log message on report form to <strong>{Format, Args}</strong>. This is the default report callback used
+by <a href="logger_formatter">logger_formatter</a> when no custom report
+callback is found. See
+section <a href="./logger_chapter#log_message">Log Message</a> in the Kernel User's Guide for
+information about report callbacks and valid forms of log
+messages.</p><p>The function produces lines of <strong>Key: Value</strong> from
+key-value lists. Strings are printed with <strong>~ts</strong> and
+other terms with <strong>~tp</strong>.</p><p>If <strong><span class="anno">Report</span></strong> is a map, it is converted to
+a key-value list before formatting as such.</p><h2>timestamp/0</h2><p>Return a timestamp to insert in meta data for a log event.</p><p>Return a timestamp that can be inserted as the <strong>time</strong>
+field in the meta data for a log event. It is produced with
+<a href="../kernel/os#system_time-1">kernel/os#system_time-1</a>.</p><p>Notice that Logger automatically inserts a timestamp in the
+meta data unless it already exists. This function is
+exported for the rare case when the timestamp must be taken
+at a different point in time than when the log event is
+issued.</p><a name="handler_callback_functions"></a><h2>Handler Callback Functions</h2><p>The following functions are to be exported from a handler
+callback module.</p><h1>Functions</h1><h2>HModule:adding_handler(Config1) -&gt; {ok, Config2} | {error,
+	Reason}</h2><p>An instance of this handler is about to be added.</p><ul><li><span class="v">Config1 = Config2 = </span></li><li><span class="v">Reason = term()</span></li></ul><p>This callback function is optional.</p><p>The function is called on a temporary process when an new
+handler is about to be added. The purpose is to verify the
+configuration and initiate all resources needed by the
+handler.</p><p>The handler identity is associated with the <strong>id</strong> key
+in <strong>Config1</strong>.</p><p>If everything succeeds, the callback function can add
+possible default values or internal state values to the
+configuration, and return the adjusted map
+in <strong>{ok,Config2}</strong>.</p><p>If the configuration is faulty, or if the initiation fails,
+the callback function must return <strong>{error,Reason}</strong>.</p><h2>HModule:changing_config(SetOrUpdate, OldConfig, NewConfig) -&gt; {ok, Config} | {error, Reason}</h2><p>The configuration for this handler is about to change.</p><ul><li><span class="v">SetOrUpdate = set | update</span></li><li><span class="v">OldConfig = NewConfig = Config = </span></li><li><span class="v">Reason = term()</span></li></ul><p>This callback function is optional.</p><p>The function is called on a temporary process when the
+configuration for a handler is about to change. The purpose
+is to verify and act on the new configuration.</p><p><strong>OldConfig</strong> is the existing configuration
+and <strong>NewConfig</strong> is the new configuration.</p><p>The handler identity is associated with the <strong>id</strong> key
+in <strong>OldConfig</strong>.</p><p><strong>SetOrUpdate</strong> has the value <strong>set</strong> if the
+configuration change originates from a call to
+<a href="#set_handler_config-2">set_handler_config-2</a>, and <strong>update</strong>
+if it originates from <a href="#update_handler_config-2">update_handler_config-2</a>. The handler can
+use this parameteter to decide how to update the value of
+the <strong>config</strong> field, that is, the handler specific
+configuration data. Typically, if <strong>SetOrUpdate</strong>
+equals <strong>set</strong>, values that are not specified must be
+given their default values. If <strong>SetOrUpdate</strong>
+equals <strong>update</strong>, the values found in <strong>OldConfig</strong>
+must be used instead.</p><p>If everything succeeds, the callback function must return a
+possibly adjusted configuration in <strong>{ok,Config}</strong>.</p><p>If the configuration is faulty, the callback function must
+return <strong>{error,Reason}</strong>.</p><h2>HModule:filter_config(Config) -&gt; FilteredConfig</h2><p>Remove internal data from configuration.</p><ul><li><span class="v">Config = FilteredConfig = </span></li></ul><p>This callback function is optional.</p><p>The function is called when one of the Logger API functions
+for fetching the handler configuration is called, for
+example
+<a href="#get_handler_config-1">get_handler_config-1</a>.</p><p>It allows the handler to remove internal data fields from
+its configuration data before it is returned to the
+caller.</p><h2>HModule:log(LogEvent, Config) -&gt; void()</h2><p>Log the given log event.</p><ul><li><span class="v">LogEvent = </span></li><li><span class="v">Config = </span></li></ul><p>This callback function is mandatory.</p><p>The function is called when all primary filters and all
+handler filters for the handler in question have passed for
+the given log event. It is called on the client process, that
+is, the process that issued the log event.</p><p>The handler identity is associated with the <strong>id</strong> key
+in <strong>Config</strong>.</p><p>The handler must log the event.</p><p>The return value from this function is ignored by
+Logger.</p><h2>HModule:removing_handler(Config) -&gt; ok</h2><p>The given handler is about to be removed.</p><ul><li><span class="v">Config = </span></li></ul><p>This callback function is optional.</p><p>The function is called on a temporary process when a
+handler is about to be removed. The purpose is to release
+all resources used by the handler.</p><p>The handler identity is associated with the <strong>id</strong> key
+in <strong>Config</strong>.</p><p>The return value is ignored by Logger.</p><a name="formatter_callback_functions"></a><h2>Formatter Callback Functions</h2><p>The following functions are to be exported from a formatter
+callback module.</p><h1>Functions</h1><h2>FModule:check_config(FConfig) -&gt; ok | {error, Reason}</h2><p>Validate the given formatter configuration.</p><ul><li><span class="v">FConfig = </span></li><li><span class="v">Reason = term()</span></li></ul><p>This callback function is optional.</p><p>The function is called by a Logger when formatter
+configuration is set or modified. The formatter must
+validate the given configuration and return <strong>ok</strong> if it
+is correct, and <strong>{error,Reason}</strong> if it is faulty.</p><p>The following Logger API functions can trigger this callback:</p><ul><li><a href="./logger#add_handler-3">logger#add_handler-3</a></li><li><a href="./logger#set_handler_config-2">logger#set_handler_config-2</a></li><li><a href="./logger#update_handler_config-2">logger#update_handler_config-2</a></li><li><a href="./logger#update_formatter_config-2">logger#update_formatter_config-2</a></li></ul><p>See <a href="logger_formatter">logger_formatter</a>
+for an example implementation. <strong>logger_formatter</strong> is the
+default formatter used by Logger.</p><h2>FModule:format(LogEvent, FConfig) -&gt; FormattedLogEntry</h2><p>Format the given log event.</p><ul><li><span class="v">LogEvent = </span></li><li><span class="v">FConfig = </span></li><li><span class="v">FormattedLogEntry = </span></li></ul><p>This callback function is mandatory.</p><p>The function can be called by a log handler to convert a
+log event term to a printable string. The returned value
+can, for example, be printed as a log entry to the console
+or a file using <a href="../stdlib/io#put_chars-1">stdlib/io#put_chars-1</a>.</p><p>See <a href="logger_formatter">logger_formatter</a>
+for an example implementation. <strong>logger_formatter</strong> is the
+default formatter used by Logger.</p><h2>See Also</h2><p>
+<a href="config">config</a>,
+<a href="./erlang">erts/erlang</a>,
+<a href="./io">stdlib/io</a>,
+<a href="logger_disk_log_h">logger_disk_log_h</a>,
+<a href="logger_filters">logger_filters</a>,
+<a href="logger_formatter">logger_formatter</a>,
+<a href="logger_std_h">logger_std_h</a>,
+<a href="./unicode">stdlib/unicode</a>
+</p></body></html>

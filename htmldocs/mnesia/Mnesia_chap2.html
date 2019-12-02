@@ -1,0 +1,368 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Getting Started</h1><a name="getting_started"></a><p>This section introduces <strong>Mnesia</strong> with an example database.
+This example is referenced in the
+following sections, where the example is modified to
+illustrate various program constructs. This section illustrates
+the following mandatory procedures through examples:</p><ul><li>Starting the Erlang session. </li><li>Specifying the <strong>Mnesia</strong> directory where the database is to be stored. </li><li>Initializing a new database schema with an attribute that specifies on which node, or nodes, that database is to operate. </li><li>Starting <strong>Mnesia</strong>. </li><li>Creating and populating the database tables. </li></ul><h2>Starting Mnesia for the First Time</h2><p>This section provides a simplified demonstration of a <strong>Mnesia</strong>
+system startup. The dialogue from the Erlang shell is as follows:</p><pre>
+        unix&gt;  erl -mnesia dir '"/tmp/funky"'
+        Erlang (BEAM) emulator version 4.9
+        
+        Eshell V4.9  (abort with ^G)
+        1&gt; 
+        1&gt; mnesia:create_schema([node()]).
+        ok
+        2&gt; mnesia:start().
+        ok
+        3&gt; mnesia:create_table(funky, []).
+        {atomic,ok}
+        4&gt; mnesia:info().
+        ---&gt; Processes holding locks &lt;--- 
+        ---&gt; Processes waiting for locks &lt;--- 
+        ---&gt; Pending (remote) transactions &lt;--- 
+        ---&gt; Active (local) transactions &lt;---
+        ---&gt; Uncertain transactions &lt;--- 
+        ---&gt; Active tables &lt;--- 
+        funky          : with 0 records occupying 269 words of mem 
+        schema         : with 2 records occupying 353 words of mem 
+        ===&gt; System info in version "1.0", debug level = none &lt;===
+        opt_disc. Directory "/tmp/funky" is used.
+        use fall-back at restart = false
+        running db nodes = [nonode@nohost]
+        stopped db nodes = [] 
+        remote           = []
+        ram_copies       = [funky]
+        disc_copies      = [schema]
+        disc_only_copies = []
+        [{nonode@nohost,disc_copies}] = [schema]
+        [{nonode@nohost,ram_copies}] = [funky]
+        1 transactions committed, 0 aborted, 0 restarted, 1 logged to disc
+        0 held locks, 0 in queue; 0 local transactions, 0 remote
+        0 transactions waits for other nodes: []
+        ok      
+    </pre><p>In this example, the following actions are performed:</p><ul><li><em>Step 1:</em> The Erlang system is started from the UNIX prompt with a flag <strong>-mnesia dir '"/tmp/funky"'</strong>, which indicates in which directory to store the data. </li><li><em>Step 2:</em> A new empty schema is initialized on the local node by evaluating <a href="./mnesia#create_schema/1">mnesia:create_schema([node()])</a>. The schema contains information about the database in general. This is explained in detail later. </li><li><em>Step 3:</em> The DBMS is started by evaluating <a href="./mnesia#start/0">mnesia:start()</a>. </li><li><em>Step 4:</em> A first table is created, called <strong>funky</strong>, by evaluating the expression <strong>mnesia:create_table(funky, [])</strong>. The table is given default properties. </li><li><em>Step 5:</em> <a href="./mnesia#info/0">mnesia:info()</a> is evaluated to display information on the terminal about the status of the database. </li></ul><h2>Example</h2><p>A <strong>Mnesia</strong> database is organized as a set of tables.
+Each table is populated with instances (Erlang records).
+A table has also a number of properties, such as location and
+persistence.</p><h2>Database</h2><p>This example shows how to create a database called <strong>Company</strong>
+and the relationships shown in the following diagram:</p><img src="company.gif" title="Company Entity-Relation Diagram"></img><p>The database model is as follows:</p><ul><li>There are three entities: department, employee, and project. </li><li> <p>There are three relationships between these entities:</p> <ul><li>A department is managed by an employee, hence the <strong>manager</strong> relationship. </li><li>An employee works at a department, hence the <strong>at_dep</strong> relationship. </li><li>Each employee works on a number of projects, hence the <strong>in_proj</strong> relationship. </li></ul> </li></ul><h2>Defining Structure and Content</h2><p>First the record definitions are entered into a text file
+named <strong>company.hrl</strong>. This file defines the following
+structure for the example database: </p><pre><code class="">
+
+-record(employee, {emp_no,
+                   name,
+                   salary,
+                   sex,
+                   phone,
+                   room_no}).
+
+-record(dept, {id, 
+               name}).
+
+-record(project, {name,
+                  number}).
+
+
+-record(manager, {emp,
+                  dept}).
+
+-record(at_dep, {emp,
+                 dept_id}).
+
+-record(in_proj, {emp,
+                  proj_name}).
+</code></pre><p>The structure defines six tables in the database. In <strong>Mnesia</strong>,
+the function
+<a href="./mnesia#create_table/2">mnesia:create_table(Name, ArgList)</a>
+creates tables. <strong>Name</strong> is the table name.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The current version of <strong>Mnesia</strong> does not require that
+the name of the table is the same as the record name, see
+<a href="./Mnesia_chap4#recordnames_tablenames">Record Names versus Table Names.</a>.</p></div><p>For example, the table for employees is created with the
+function <strong>mnesia:create_table(employee, [{attributes, record_info(fields, employee)}])</strong>. The table
+name <strong>employee</strong> matches the name for records specified
+in <strong>ArgList</strong>. The expression
+<strong>record_info(fields, RecordName)</strong> is processed by the Erlang
+preprocessor and evaluates to a list containing the names of the
+different fields for a record.</p><h2>Program</h2><p>The following shell interaction starts <strong>Mnesia</strong> and
+initializes the schema for the <strong>Company</strong> database:</p><pre>
+        % <span class="input">erl -mnesia dir '"/ldisc/scratch/Mnesia.Company"'</span>
+         Erlang (BEAM) emulator version 4.9
+          
+          Eshell V4.9  (abort with ^G)
+          1&gt; mnesia:create_schema([node()]).
+          ok
+          2&gt; mnesia:start().
+          ok</pre><p>The following program module creates and populates previously
+defined tables:</p><pre><code class="">
+
+
+-include_lib("stdlib/include/qlc.hrl").
+-include("company.hrl").
+
+init() -&gt;
+    mnesia:create_table(employee,
+                        [{attributes, record_info(fields, employee)}]),
+    mnesia:create_table(dept,
+                        [{attributes, record_info(fields, dept)}]),
+    mnesia:create_table(project,
+                        [{attributes, record_info(fields, project)}]),
+    mnesia:create_table(manager, [{type, bag}, 
+                                  {attributes, record_info(fields, manager)}]),
+    mnesia:create_table(at_dep,
+                         [{attributes, record_info(fields, at_dep)}]),
+    mnesia:create_table(in_proj, [{type, bag}, 
+                                  {attributes, record_info(fields, in_proj)}]).
+</code></pre><h2>Program Explained</h2><p>The following commands and functions are used to initiate the
+<strong>Company</strong> database:</p><ul><li><strong>% erl -mnesia dir '"/ldisc/scratch/Mnesia.Company"'</strong>. This is a UNIX command-line entry that starts the Erlang system. The flag <strong>-mnesia dir Dir</strong> specifies the location of the database directory. The system responds and waits for further input with the prompt <strong>1&gt;</strong>. </li><li> <a href="./mnesia#create_schema/1">mnesia:create_schema([node()])</a>. This function has the format <strong>mnesia:create_schema(DiscNodeList)</strong> and initiates a new schema. In this example, a non-distributed system using only one node is created. Schemas are fully explained in <a href="./Mnesia_chap3#def_schema">Define a Schema</a>. </li><li><a href="./mnesia#start/0">mnesia:start()</a>. This function starts <strong>Mnesia</strong> and is fully explained in <a href="./Mnesia_chap3#start_mnesia">Start Mnesia</a>. </li></ul><p>Continuing the dialogue with the Erlang shell produces the
+following:</p><pre>
+        3&gt; company:init().
+        {atomic,ok}
+        4&gt; mnesia:info().
+        ---&gt; Processes holding locks &lt;--- 
+        ---&gt; Processes waiting for locks &lt;--- 
+        ---&gt; Pending (remote) transactions &lt;--- 
+        ---&gt; Active (local) transactions &lt;---
+        ---&gt; Uncertain transactions &lt;--- 
+        ---&gt; Active tables &lt;--- 
+        in_proj        : with 0 records occuping 269 words of mem 
+        at_dep         : with 0 records occuping 269 words of mem 
+        manager        : with 0 records occuping 269 words of mem 
+        project        : with 0 records occuping 269 words of mem 
+        dept           : with 0 records occuping 269 words of mem 
+        employee       : with 0 records occuping 269 words of mem 
+        schema         : with 7 records occuping 571 words of mem 
+        ===&gt; System info in version "1.0", debug level = none &lt;===
+        opt_disc. Directory "/ldisc/scratch/Mnesia.Company" is used.
+        use fall-back at restart = false
+        running db nodes = [nonode@nohost]
+        stopped db nodes = [] 
+        remote           = []
+        ram_copies       =
+            [at_dep,dept,employee,in_proj,manager,project]
+        disc_copies      = [schema]
+        disc_only_copies = []
+        [{nonode@nohost,disc_copies}] = [schema]
+        [{nonode@nohost,ram_copies}] =
+            [employee,dept,project,manager,at_dep,in_proj]
+        6 transactions committed, 0 aborted, 0 restarted, 6 logged to disc
+        0 held locks, 0 in queue; 0 local transactions, 0 remote
+        0 transactions waits for other nodes: []
+        ok
+      </pre><p>A set of tables is created. The function
+<a href="./mnesia#create_table/2">mnesia:create_table(Name, ArgList)</a>
+creates the required database tables. The
+options available with <strong>ArgList</strong> are explained in
+<a href="./Mnesia_chap3#create_tables">Create New Tables</a>.</p><p>The function <strong>company:init/0</strong> creates the tables. Two tables
+are of type <strong>bag</strong>. This is the <strong>manager</strong> relation as well
+the <strong>in_proj</strong> relation. This is interpreted as: an
+employee can be manager over several departments, and an employee
+can participate in several projects. However, the <strong>at_dep</strong>
+relation is <strong>set</strong>, as an employee can only work in one department.
+In this data model, there are examples of relations that are 1-to-1
+(<strong>set</strong>) and  1-to-many (<strong>bag</strong>).</p><p><a href="./mnesia#info/0">mnesia:info()</a>
+now indicates that a database has seven
+local tables, where six are the user-defined tables and one is
+the schema. Six transactions have been committed, as six successful
+transactions were run when creating the tables.</p><p>To write a function that inserts an employee record into the
+database, there must be an <strong>at_dep</strong> record and a set of
+<strong>in_proj</strong> records inserted. Examine the following
+code used to complete this action:</p><pre><code class="">
+
+
+insert_emp(Emp, DeptId, ProjNames) -&gt;
+    Ename = Emp#employee.name,
+    Fun = fun() -&gt;
+                  mnesia:write(Emp),
+                  AtDep = #at_dep{emp = Ename, dept_id = DeptId},
+                  mnesia:write(AtDep),
+                  mk_projs(Ename, ProjNames)
+          end,
+    mnesia:transaction(Fun).
+
+
+mk_projs(Ename, [ProjName|Tail]) -&gt;
+    mnesia:write(#in_proj{emp = Ename, proj_name = ProjName}),
+    mk_projs(Ename, Tail);
+mk_projs(_, []) -&gt; ok.
+    
+</code></pre><ul><li> <p>The <strong>insert_emp/3</strong> arguments are as follows:</p> <ul><li><strong>Emp</strong> is an employee record. </li><li><strong>DeptId</strong> is the identity of the department where the employee works. </li><li><strong>ProjNames</strong> is a list of the names of the projects where the employee works.</li></ul> </li></ul><p>The function <strong>insert_emp/3</strong> creates a Functional Object (Fun).
+<strong>Fun</strong> is passed
+as a single argument to the function
+<a href="./mnesia#transaction/2">mnesia:transaction(Fun)</a>.
+This means that <strong>Fun</strong> is
+run as a transaction with the following properties:</p><ul><li>A <strong>Fun</strong> either succeeds or fails. </li><li>Code that manipulates the same data records can be run concurrently without the different processes interfering with each other.  </li></ul><p>The function can be used as follows:</p><pre><code class="">
+          Emp  = #employee{emp_no= 104732,
+                           name = klacke,
+                           salary = 7,
+                           sex = male,
+                           phone = 98108,
+                           room_no = {221, 015}},
+        insert_emp(Emp, 'B/SFR', [Erlang, mnesia, otp]).</code></pre><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>For information about Funs, see "Fun Expressions" in
+section <strong>Erlang Reference Manual</strong> in System
+Documentation..</p></div><h2>Initial Database Content</h2><p>After the insertion of the  employee named <strong>klacke</strong>,
+the database has the following records:</p><a name="table2_1"></a><table class="table table-bordered table-hover table-striped"><caption>employee Database Record</caption><tbody><tr><td>emp_no</td><td>name</td><td>salary</td><td>sex</td><td>phone</td><td>room_no</td></tr><tr><td>104732</td><td>klacke</td><td>7</td><td>male</td><td>98108</td><td>{221, 015}</td></tr></tbody></table><p>This <strong>employee</strong> record has the Erlang record/tuple
+representation
+<strong>{employee, 104732, klacke, 7, male, 98108, {221, 015}}</strong>.</p><a name="table2_2"></a><table class="table table-bordered table-hover table-striped"><caption>at_dep Database Record</caption><tbody><tr><td>emp</td><td>dept_name</td></tr><tr><td>klacke</td><td>B/SFR</td></tr></tbody></table><p>This <strong>at_dep</strong> record has the Erlang tuple representation
+<strong>{at_dep, klacke, 'B/SFR'}</strong>.</p><a name="table3_3"></a><table class="table table-bordered table-hover table-striped"><caption>in_proj Database Record</caption><tbody><tr><td>emp</td><td>proj_name</td></tr><tr><td>klacke</td><td>Erlang</td></tr><tr><td>klacke</td><td>otp</td></tr><tr><td>klacke</td><td>mnesia</td></tr></tbody></table><p>This <strong>in_proj</strong> record has the Erlang tuple representation
+<strong>{in_proj, klacke, 'Erlang', klacke, 'otp', klacke, 'mnesia'}</strong>.</p><p>There is no difference between rows in a table and <strong>Mnesia</strong>
+records. Both concepts are the same and are used
+interchangeably throughout this User's Guide.</p><p>A <strong>Mnesia</strong> table is populated by <strong>Mnesia</strong> records. For
+example, the tuple <strong>{boss, klacke, bjarne}</strong> is a record. The
+second element in this tuple is the key. To identify a table
+uniquely, both the key and the table name is needed.
+The term Object Identifier (OID) is
+sometimes used for the arity two tuple {Tab, Key}. The OID for
+the record <strong>{boss, klacke, bjarne}</strong> is the arity two
+tuple <strong>{boss, klacke}</strong>. The first element of the tuple is
+the type of the record and the second element is the key. An
+OID can lead to zero, one, or more records depending on
+whether the table type is <strong>set</strong> or <strong>bag</strong>.</p><p>The record <strong>{boss, klacke, bjarne}</strong> can also be inserted.
+This record contains an implicit reference to
+another employee that does not yet exist in the
+database. <strong>Mnesia</strong> does not enforce this.</p><h2>Adding Records and Relationships to Database</h2><p>After adding more records to the <strong>Company</strong> database, the
+result can be the following records:</p><p><strong>employees</strong>:</p><pre><code class="">
+        {employee, 104465, "Johnson Torbjorn",   1, male,  99184, {242,038}}.
+        {employee, 107912, "Carlsson Tuula",     2, female,94556, {242,056}}.
+        {employee, 114872, "Dacker Bjarne",      3, male,  99415, {221,035}}.
+        {employee, 104531, "Nilsson Hans",       3, male,  99495, {222,026}}.
+        {employee, 104659, "Tornkvist Torbjorn", 2, male,  99514, {222,022}}.
+        {employee, 104732, "Wikstrom Claes",     2, male,  99586, {221,015}}.
+        {employee, 117716, "Fedoriw Anna",       1, female,99143, {221,031}}.
+        {employee, 115018, "Mattsson Hakan",     3, male,  99251, {203,348}}.</code></pre><p><strong>dept</strong>:</p><pre><code class="">
+        {dept, 'B/SF',  "Open Telecom Platform"}.
+        {dept, 'B/SFP', "OTP - Product Development"}.
+        {dept, 'B/SFR', "Computer Science Laboratory"}.</code></pre><p><strong>projects</strong>:</p><pre><code class="">
+        %% projects
+        {project, erlang, 1}.
+        {project, otp, 2}.
+        {project, beam, 3}.
+        {project, mnesia, 5}.
+        {project, wolf, 6}.
+        {project, documentation, 7}.
+        {project, www, 8}.</code></pre><p>These three tables, <strong>employees</strong>, <strong>dept</strong>, and
+<strong>projects</strong>, are
+made up of real records. The following database content is
+stored in the tables and is built on
+relationships. These tables are <strong>manager</strong>,
+<strong>at_dep</strong>, and <strong>in_proj</strong>.</p><p><strong>manager</strong>:</p><pre><code class="">
+        {manager, 104465, 'B/SF'}.
+        {manager, 104465, 'B/SFP'}.
+        {manager, 114872, 'B/SFR'}.</code></pre><p><strong>at_dep</strong>:</p><pre><code class="">
+        {at_dep, 104465, 'B/SF'}.
+        {at_dep, 107912, 'B/SF'}.
+        {at_dep, 114872, 'B/SFR'}.
+        {at_dep, 104531, 'B/SFR'}.
+        {at_dep, 104659, 'B/SFR'}.
+        {at_dep, 104732, 'B/SFR'}.
+        {at_dep, 117716, 'B/SFP'}.
+        {at_dep, 115018, 'B/SFP'}.</code></pre><p><strong>in_proj</strong>:</p><pre><code class="">
+        {in_proj, 104465, otp}.
+        {in_proj, 107912, otp}.
+        {in_proj, 114872, otp}.
+        {in_proj, 104531, otp}.
+        {in_proj, 104531, mnesia}.
+        {in_proj, 104545, wolf}.
+        {in_proj, 104659, otp}.
+        {in_proj, 104659, wolf}.
+        {in_proj, 104732, otp}.
+        {in_proj, 104732, mnesia}.
+        {in_proj, 104732, erlang}.
+        {in_proj, 117716, otp}.
+        {in_proj, 117716, documentation}.
+        {in_proj, 115018, otp}.
+        {in_proj, 115018, mnesia}.</code></pre><p>The room number is an attribute of the employee
+record. This is a structured attribute that consists of a
+tuple. The first element of the tuple identifies a corridor,
+and the second element identifies the room in that
+corridor. An alternative is to represent this as a record
+<strong>-record(room, {corr, no}).</strong> instead of an anonymous
+tuple representation.</p><p>The <strong>Company</strong> database is now initialized and contains
+data.</p><h2>Writing Queries</h2><p>Retrieving data from DBMS is usually to be done with the
+functions
+<a href="./mnesia#read/3">mnesia:read/3</a> or
+<a href="./mnesia#read/2">mnesia:read/1</a>.
+The following function raises the salary:</p><pre><code class="">
+
+raise(Eno, Raise) -&gt;
+    F = fun() -&gt;
+                [E] = mnesia:read(employee, Eno, write),
+                Salary = E#employee.salary + Raise,
+                New = E#employee{salary = Salary},
+                mnesia:write(New)
+        end,
+    mnesia:transaction(F).</code></pre><p>Since it is desired to update the record using the function
+<a href="./mnesia#write/1">mnesia:write/1</a>
+after the salary has been increased, a write
+lock (third argument to <strong>read</strong>) is acquired when the record from
+the table is read.</p><p>To read the values from the table directly is not always possible.
+It can be needed to search one or more tables to get the
+wanted data, and this is done by writing database queries. Queries
+are always more expensive operations than direct lookups done with
+<strong>mnesia:read</strong>. Therefore, avoid queries in
+performance-critical code.</p><p>Two methods are available for writing database queries:</p><ul><li><strong>Mnesia</strong> functions</li><li>QLC</li></ul><h2>Using Mnesia Functions</h2><p>The following function extracts the names of the female employees
+stored in the database:</p><pre>
+mnesia:select(employee, [{#employee{sex = female, name = '$1', _ = '_'},[], ['$1']}]).</pre><p><strong>select</strong> must always run within an activity, such as a
+transaction. The following function can be constructed to call
+from the shell:</p><pre><code class="">
+
+all_females() -&gt;
+    F = fun() -&gt;
+		Female = #employee{sex = female, name = '$1', _ = '_'},
+		mnesia:select(employee, [{Female, [], ['$1']}])
+        end,
+    mnesia:transaction(F).</code></pre><p>The <strong>select</strong> expression matches all entries in table
+employee with the field <strong>sex</strong> set to <strong>female</strong>.</p><p>This function can be called from the shell as follows:</p><pre>
+          (klacke@gin)1&gt; <span class="input">company:all_females().</span>
+          {atomic,  ["Carlsson Tuula", "Fedoriw Anna"]}</pre><p>For a description of <strong>select</strong> and its syntax, see
+<a href="./Mnesia_chap4#matching">Pattern Matching</a>.
+</p><h2>Using QLC</h2><p>This section contains simple introductory examples only. For
+a full description of the QLC query language, see the
+<a href="./qlc">qlc</a> manual page in
+<strong>STDLIB</strong>.</p><p>Using QLC can be more expensive than using <strong>Mnesia</strong>
+functions directly but offers a nice syntax.</p><p>The following function extracts a list of female employees
+from the database:</p><pre>
+          Q = qlc:q([E#employee.name || E &lt;- mnesia:table(employee),
+                                E#employee.sex == female]),
+          qlc:e(Q),</pre><p>Accessing <strong>Mnesia</strong> tables from a QLC list comprehension must
+always be done within a transaction. Consider the following
+function:</p><pre><code class="">
+
+females() -&gt;
+    F = fun() -&gt;
+		Q = qlc:q([E#employee.name || E &lt;- mnesia:table(employee),
+					      E#employee.sex == female]),
+		qlc:e(Q)
+	end,
+    mnesia:transaction(F).</code></pre><p>This function can be called from the shell as follows:</p><pre>
+          (klacke@gin)1&gt; <span class="input">company:females().</span>
+          {atomic, ["Carlsson Tuula", "Fedoriw Anna"]}</pre><p>In traditional relational database terminology, this
+operation is called a selection, followed by a projection.</p><p>The previous list comprehension expression contains a
+number of syntactical elements:</p><ul><li>The first <strong>[</strong> bracket is read as "build the list". </li><li>The <strong>||</strong> "such that" and the arrow <strong>&lt;-</strong> is read as "taken from". </li></ul><p>Hence, the previous list comprehension demonstrates the
+formation of the list <strong>E#employee.name</strong> such that <strong>E</strong> is
+taken from the table of employees, and attribute <strong>sex</strong>
+of each record is equal to the atom <strong>female</strong>.</p><p>The whole list comprehension must be given to the function
+<strong>qlc:q/1</strong>.</p><p>List comprehensions with low-level <strong>Mnesia</strong> functions
+can be combined in the same transaction. To raise the
+salary of all female employees, execute the following:</p><pre><code class="">
+
+raise_females(Amount) -&gt;
+    F = fun() -&gt;
+                Q = qlc:q([E || E &lt;- mnesia:table(employee),
+                                E#employee.sex == female]),
+		Fs = qlc:e(Q),
+                over_write(Fs, Amount)
+        end,
+    mnesia:transaction(F).
+
+over_write([E|Tail], Amount) -&gt;
+    Salary = E#employee.salary + Amount,
+    New = E#employee{salary = Salary},
+    mnesia:write(New),
+    1 + over_write(Tail, Amount);
+over_write([], _) -&gt;
+    0.</code></pre><p>The function <strong>raise_females/1</strong> returns the tuple
+<strong>{atomic, Number}</strong>, where <strong>Number</strong> is the number of
+female employees who received a salary increase. If an error
+occurs, the value <strong>{aborted, Reason}</strong> is returned, and
+<strong>Mnesia</strong> guarantees that the salary is not
+raised for any employee.</p><p><em>Example:</em></p><pre>
+          33&gt;<span class="input">company:raise_females(33).</span>
+          {atomic,2}</pre></body></html>

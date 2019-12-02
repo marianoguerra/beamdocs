@@ -1,0 +1,82 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>sasl</h1><h1>sasl</h1><p>The SASL application</p><p>The SASL application provides the following services:<ul><li><strong>alarm_handler</strong></li><li><strong>release_handler</strong></li><li><strong>systools</strong></li></ul></p><h2>Configuration</h2><p>The following configuration parameters are defined for the SASL
+application. For more information about configuration parameters, see
+<a href="./app">kernel/app</a> in Kernel.</p><p>All configuration parameters are optional.</p><dl><dt><strong>start_prg = string() </strong></dt><dd> <p>Specifies the program to be used when restarting the system
+during release installation. Default is
+<strong>$OTP_ROOT/bin/start</strong>.</p> </dd><dt><strong>masters = [atom()] </strong></dt><dd> <p>Specifies the nodes used by this node to read/write release
+information. This parameter is ignored if parameter
+<strong>client_directory</strong> is not set.</p> </dd><dt><strong>client_directory = string() </strong></dt><dd> <p>This parameter specifies the client directory at the master
+nodes. For details, see
+<a href="./release_handling">Release Handling</a>
+in <em>OTP Design Principles</em>. This parameter is
+ignored if parameter <strong>masters</strong> is not set.</p> </dd><dt><strong>static_emulator = true | false </strong></dt><dd> <p>Indicates if the Erlang emulator is statically installed. A
+node with a static emulator cannot switch dynamically to a
+new emulator, as the executable files are written into memory
+statically. This parameter is ignored if parameters <strong>masters</strong>
+and <strong>client_directory</strong> are not set.</p> </dd><dt><strong>releases_dir = string() </strong></dt><dd> <p>Indicates where the <strong>releases</strong> directory is located.
+The release handler writes all its files to this directory.
+If this parameter is not set, the OS environment parameter
+<strong>RELDIR</strong> is used. By default, this is
+<strong>$OTP_ROOT/releases</strong>.</p> </dd></dl><a name="deprecated_error_logger_config"></a><h2>Deprecated Error Logger Event Handlers and Configuration</h2><p>In Erlang/OTP 21.0, a new API for logging was added. The
+old <strong>error_logger</strong> event manager, and event handlers
+running on this manager, still work, but they are not used
+by default.</p><p>The error logger event handlers <strong>sasl_report_tty_h</strong>
+and <strong>sasl_report_file_h</strong>, were earlier used for printing
+the so called SASL reports, i.e. <em>supervisor reports</em>, <em>crash reports</em>, and <em>progress reports</em>. These reports are now also printed by the default
+logger handler started by the Kernel application. Progress
+reports are by default stopped by the primary log level, but can
+be enabled by setting this level to <strong>info</strong>, for example by
+using the Kernel configuration
+parameter <a href="../kernel/kernel_app#logger_level">kernel/kernel_app#logger_level</a>.</p><p>If the old error logger event handlers are still desired, they
+must be added by
+calling <strong>error_logger:add_report_handler/1,2</strong>.</p><dl><dt><strong>sasl_report_tty_h</strong></dt><dd> <p>Formats and writes <em>supervisor reports</em>, <em>crash reports</em>, and <em>progress reports</em> to <strong>stdio</strong>.
+This error logger event handler uses
+<a href="../kernel/kernel_app#deprecated-configuration-parameters">kernel/kernel_app#deprecated-configuration-parameters</a>
+in the Kernel application to limit how much detail is printed
+in crash and supervisor reports.</p> </dd><dt><strong>sasl_report_file_h</strong></dt><dd> <p>Formats and writes <em>supervisor reports</em>, <em>crash report</em>, and <em>progress report</em> to a single file.
+This error logger event handler uses
+<a href="../kernel/kernel_app#deprecated-configuration-parameters">kernel/kernel_app#deprecated-configuration-parameters</a>
+in the Kernel application to limit the details printed in
+crash and supervisor reports.</p> </dd></dl><p>A similar behaviour, but still using the new logger API, can be
+obtained by setting the Kernel application environment
+variable <a href="../kernel/kernel_app#logger_sasl_compatible">kernel/kernel_app#logger_sasl_compatible</a> to <strong>true</strong>. This
+adds a second instance of the standard Logger handler,
+named <strong>sasl</strong>, which only prints the SASL reports. No SASL
+reports are then printed by the Kernel logger handler.</p><p>The <strong>sasl</strong> handler is configured according to the values
+of the following SASL application environment variables.</p><dl><dt><strong>sasl_error_logger = Value </strong></dt><dd> <p><strong>Value</strong> is one of the following:</p> <dl><dt><strong>tty</strong></dt><dd><p>Installs <strong>sasl_report_tty_h</strong> in the error logger.
+This is the default option.</p></dd><dt><strong>{file,FileName}</strong></dt><dd><p>Installs <strong>sasl_report_file_h</strong> in the error logger.
+All reports go to file <strong>FileName</strong>, which is a
+string. The file is opened in <strong>write</strong> mode with encoding
+<strong>utf8</strong>.</p></dd><dt><strong>{file,FileName,Modes}</strong></dt><dd><p>Same as <strong>{file,FileName}</strong>, except that <strong>Modes</strong>
+allows you to specify the modes used for opening the <strong>FileName</strong>
+given to the <a href="../kernel/file#open/2">file:open/2</a>
+call. By default, the file is opened in <strong>write</strong> mode
+with encoding <strong>utf8</strong>. Use <strong>[append]</strong> to have
+the <strong>FileName</strong> open in append mode. A different
+encoding can also be specified.
+<strong>FileName</strong> is a string.</p></dd><dt><strong>false</strong></dt><dd><p>No SASL error logger handler is installed.</p></dd></dl> </dd><dt><strong>errlog_type = error | progress | all </strong></dt><dd> <p>Restricts the error logging performed by the specified
+<strong>sasl_error_logger</strong> to error reports or progress reports,
+or both. Default is <strong>all</strong>.</p> </dd><dt><a name="utc_log"></a><strong>utc_log = true | false </strong></dt><dd> <p>If set to <strong>true</strong>, all dates in textual log outputs are
+displayed in Universal Coordinated Time with the string
+<strong>UTC</strong> appended.</p> </dd></dl><p>The error logger event handler <strong>log_mf_h</strong> can also still
+be used. This event handler writes <em>all</em> events sent to
+the error logger to disk. Multiple files and log rotation are
+used. For efficiency reasons, each event is written as a
+binary. For more information about this handler,
+see <a href="./log_mf_h">the STDLIB Reference Manual</a>.</p><p>To activate this event handler, three SASL configuration
+parameters must be
+set:</p><dl><dt><strong>error_logger_mf_dir = string() | false </strong></dt><dd> <p>Specifies in which directory <strong>log_mf_h</strong> is to store
+its files. If this parameter is undefined or <strong>false</strong>,
+the <strong>log_mf_h</strong> handler is not installed.</p> </dd><dt><strong>error_logger_mf_maxbytes = integer() </strong></dt><dd> <p>Specifies the maximum size of each individual file written
+by <strong>log_mf_h</strong>. If this parameter is undefined,
+the <strong>log_mf_h</strong> handler is not installed.</p> </dd><dt><strong>error_logger_mf_maxfiles = 0&lt;integer()&lt;256 </strong></dt><dd> <p>Specifies the number of files used by <strong>log_mf_h</strong>. If
+this parameter is undefined, the <strong>log_mf_h</strong> handler is
+not installed.</p> </dd></dl><p>The new <a href="./logger_disk_log_h">kernel/logger_disk_log_h</a> might be an alternative
+to <strong>log_mf_h</strong> if log rotation is desired. This does,
+however, write the log events in clear text and not as binaries.</p><h2>See Also</h2><p><a href="alarm_handler">alarm_handler</a>,
+<a href="./error_logger">kernel/error_logger</a>,
+<a href="./logger">kernel/logger</a>,
+<a href="./log_mf_h">stdlib/log_mf_h</a>,
+<a href="rb">rb</a>,
+<a href="release_handler">release_handler</a>,
+<a href="systools">systools</a></p></body></html>

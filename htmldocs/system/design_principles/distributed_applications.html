@@ -1,0 +1,91 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Distributed Applications</h1><a name="distributed appl"></a><h2>Introduction</h2><p>In a distributed system with several Erlang nodes, it can be
+necessary to control applications in a distributed manner. If
+the node, where a certain application is running, goes down,
+the application is to be restarted at another node.</p><p>Such an application is called a <em>distributed application</em>.
+Notice that it is the control of the application that is distributed.
+All applications can be distributed in the sense that they,
+for example, use services on other nodes.</p><p>Since a distributed application can move between nodes, some
+addressing mechanism is required to ensure that it can be
+addressed by other applications, regardless on which node it
+currently executes. This issue is not addressed here, but the
+<strong>global</strong> or <strong>pg2</strong> modules in Kernel
+can be used for this purpose.</p><h2>Specifying Distributed Applications</h2><p>Distributed applications are controlled by both the application
+controller and a distributed application controller process,
+<strong>dist_ac</strong>. Both these processes are part of the Kernel
+application. Distributed applications are thus specified by
+configuring the Kernel application, using the following
+configuration parameter (see also <strong>kernel(6)</strong>):</p><p><strong>distributed = [{Application, [Timeout,] NodeDesc}]</strong></p><ul><li>Specifies where the application <strong>Application = atom()</strong> can execute.</li><li>&gt;<strong>NodeDesc = [Node | {Node,...,Node}]</strong> is a list of node names in priority order. The order between nodes in a tuple is undefined.</li><li><strong>Timeout = integer()</strong> specifies how many milliseconds to wait before restarting the application at another node. It defaults to 0.</li></ul><p>For distribution of application control to work properly,
+the nodes where a distributed application can run must contact
+each other and negotiate where to start the application. This is
+done using the following configuration parameters in
+Kernel:</p><ul><li><strong>sync_nodes_mandatory = [Node]</strong> - Specifies which other nodes must be started (within the time-out specified by <strong>sync_nodes_timeout</strong>).</li><li><strong>sync_nodes_optional = [Node]</strong> - Specifies which other nodes can be started (within the time-out specified by <strong>sync_nodes_timeout</strong>).</li><li><strong>sync_nodes_timeout = integer() | infinity</strong> - Specifies how many milliseconds to wait for the other nodes to start.</li></ul><p>When started, the node waits for all nodes specified by
+<strong>sync_nodes_mandatory</strong> and <strong>sync_nodes_optional</strong> to
+come up. When all nodes are up, or when all mandatory nodes
+are up and the time specified by <strong>sync_nodes_timeout</strong>
+has elapsed, all applications start. If not all
+mandatory nodes are up, the node terminates.</p><p><em>Example:</em></p><p>An application <strong>myapp</strong> is to run at the node
+<strong>cp1@cave</strong>. If this node goes down, <strong>myapp</strong> is to
+be restarted at <strong>cp2@cave</strong> or <strong>cp3@cave</strong>. A system
+configuration file <strong>cp1.config</strong> for <strong>cp1@cave</strong> can
+look as follows:</p><pre><code class="">
+[{kernel,
+  [{distributed, [{myapp, 5000, [cp1@cave, {cp2@cave, cp3@cave}]}]},
+   {sync_nodes_mandatory, [cp2@cave, cp3@cave]},
+   {sync_nodes_timeout, 5000}
+  ]
+ }
+].</code></pre><p>The system configuration files for <strong>cp2@cave</strong> and
+<strong>cp3@cave</strong> are identical, except for the list of mandatory
+nodes, which is to be <strong>[cp1@cave, cp3@cave]</strong> for
+<strong>cp2@cave</strong> and <strong>[cp1@cave, cp2@cave]</strong> for
+<strong>cp3@cave</strong>.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>All involved nodes must have the same value for
+<strong>distributed</strong> and <strong>sync_nodes_timeout</strong>.
+Otherwise the system behaviour is undefined.</p></div><h2>Starting and Stopping Distributed Applications</h2><p>When all involved (mandatory) nodes have been started,
+the distributed application can be started by calling
+<strong>application:start(Application)</strong> at <em>all of these nodes.</em></p><p>A boot script (see
+<a href="release_structure">Releases</a>)
+can be used that automatically starts the application.</p><p>The application is started at the first operational node that
+is listed in the list of nodes in the <strong>distributed</strong>
+configuration parameter. The application is started as usual.
+That is, an application master is created and calls the
+application callback function:</p><pre><code class="">
+Module:start(normal, StartArgs)</code></pre><p>Example:</p><p>Continuing the example from the previous section, the three nodes
+are started, specifying the system configuration file:</p><pre>
+&gt; <span class="input">erl -sname cp1 -config cp1</span>
+&gt; <span class="input">erl -sname cp2 -config cp2</span>
+&gt; <span class="input">erl -sname cp3 -config cp3</span></pre><p>When all nodes are operational, <strong>myapp</strong> can be started.
+This is achieved by calling <strong>application:start(myapp)</strong> at
+all three nodes. It is then started at <strong>cp1</strong>, as shown in
+the following figure:</p><a name="dist1"></a><img src="../design_principles/dist1.gif" title="Application myapp - Situation 1"></img><p>Similarly, the application must be stopped by calling
+<strong>application:stop(Application)</strong> at all involved nodes.</p><h2>Failover</h2><p>If the node where the application is running goes down,
+the application is restarted (after the specified time-out) at
+the first operational node that is listed in the list of nodes
+in the <strong>distributed</strong> configuration parameter. This is called a
+<em>failover</em>.</p><p>The application is started the normal way at the new node,
+that is, by the application master calling:</p><pre><code class="">
+Module:start(normal, StartArgs)</code></pre><p>An exception is if the application has the <strong>start_phases</strong>
+key defined
+(see <a href="included_applications">Included Applications</a>).
+The application is then instead started by calling:</p><pre><code class="">
+Module:start({failover, Node}, StartArgs)</code></pre><p>Here <strong>Node</strong> is the terminated node.</p><p><em>Example:</em></p><p> If <strong>cp1</strong> goes down, the system checks which one of
+the other nodes, <strong>cp2</strong> or <strong>cp3</strong>, has the least number of
+running applications, but waits for 5 seconds for <strong>cp1</strong> to
+restart. If <strong>cp1</strong> does not restart and <strong>cp2</strong> runs fewer
+applications than <strong>cp3</strong>, <strong>myapp</strong> is restarted on
+<strong>cp2</strong>.</p><a name="dist2"></a><img src="../design_principles/dist2.gif" title="Application myapp - Situation 2"></img><p>Suppose now that <strong>cp2</strong> goes also down and does not
+restart within 5 seconds. <strong>myapp</strong> is now restarted on
+<strong>cp3</strong>.</p><a name="dist3"></a><img src="../design_principles/dist3.gif" title="Application myapp - Situation 3"></img><h2>Takeover</h2><p>If a node is started, which has higher priority according
+to <strong>distributed</strong> than the node where a distributed
+application is running, the application is restarted at the
+new node and stopped at the old node. This is
+called a <em>takeover</em>.</p><p>The application is started by the application master calling:</p><pre><code class="">
+Module:start({takeover, Node}, StartArgs)</code></pre><p>Here <strong>Node</strong> is the old node.</p><p><em>Example: </em></p><p>If <strong>myapp</strong> is running at <strong>cp3</strong>, and if
+<strong>cp2</strong> now restarts, it does not restart <strong>myapp</strong>,
+as the order between the <strong>cp2</strong> and <strong>cp3</strong> nodes is
+undefined.</p><a name="dist4"></a><img src="../design_principles/dist4.gif" title="Application myapp - Situation 4"></img><p>However, if <strong>cp1</strong> also restarts, the function
+<strong>application:takeover/2</strong> moves <strong>myapp</strong> to <strong>cp1</strong>,
+as <strong>cp1</strong> has a higher priority than <strong>cp3</strong> for this
+application. In this case,
+<strong>Module:start({takeover, cp3@cave}, StartArgs)</strong> is
+executed at <strong>cp1</strong> to start the application.</p><a name="dist5"></a><img src="../design_principles/dist5.gif" title="Application myapp - Situation 5"></img></body></html>

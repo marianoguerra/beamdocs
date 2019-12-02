@@ -1,0 +1,204 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Using TLS for Erlang Distribution</h1><p>This section describes how the Erlang distribution can use 
+TLS to get extra verification and security.</p><p>The Erlang distribution can in theory use almost any 
+connection-based protocol as bearer. However, a module that 
+implements the protocol-specific parts of the connection setup is 
+needed. The default distribution module is <strong>inet_tcp_dist</strong> 
+in the Kernel application. When starting an
+Erlang node distributed, <strong>net_kernel</strong> uses this module to
+set up listen ports and connections.</p><p>In the SSL application, an extra distribution
+module, <strong>inet_tls_dist</strong>, can be used as an
+alternative. All distribution connections will use TLS and
+all participating Erlang nodes in a distributed system must use
+this distribution module.</p><p>The security level depends on the parameters provided to the
+TLS connection setup. Erlang node cookies are however always
+used, as they can be used to differentiate between two different
+Erlang networks.</p><p>To set up Erlang distribution over TLS:</p><ul><li><em>Step 1:</em> Build boot scripts including the SSL application.</li><li><em>Step 2:</em> Specify the distribution module for  <strong>net_kernel</strong>.</li><li><em>Step 3:</em> Specify the security options and other  SSL options.</li><li><em>Step 4:</em> Set up the environment to always use TLS.</li></ul><p>The following sections describe these steps.</p><h2>Building Boot Scripts Including the SSL Application</h2><p>Boot scripts are built using the <strong>systools</strong> utility in the
+SASL application. For more information on <strong>systools</strong>,
+see the SASL documentation. This is only an example of
+what can be done.</p><p>The simplest boot script possible includes only the Kernel 
+and STDLIB applications. Such a script is located in the 
+<strong>bin</strong> directory of the Erlang distribution. The source for the 
+script is found under the Erlang installation top directory under
+<strong>releases/&lt;OTP version&gt;/start_clean.rel</strong>.</p><p>Do the following:</p><ul><li><p>Copy that script to another location (and preferably another 
+name).</p></li><li><p>Add the applications Crypto, Public Key, and 
+SSL with their current version numbers after the 
+STDLIB application.</p></li></ul><p>The following shows an example <strong>.rel</strong> file with TLS 
+added:</p><pre><code class="">
+      {release, {"OTP  APN 181 01","R15A"}, {erts, "5.9"},
+      [{kernel,"2.15"},
+      {stdlib,"1.18"},
+      {crypto, "2.0.3"},
+      {public_key, "0.12"},
+      {asn1, "4.0"},
+      {ssl, "5.0"}
+      ]}.
+   </code></pre><p>The version numbers differ in your system. Whenever one of the 
+applications included in the script is upgraded, change the script.</p><p>Do the following:</p><ul><li><p>Build the boot script.</p> <p>Assuming the <strong>.rel file</strong> is stored in a file
+<strong>start_ssl.rel</strong> in the current directory, a boot script
+can be built as follows:</p></li></ul><pre><code class="">
+   1&gt; systools:make_script("start_ssl",[]).    </code></pre><p>There is now a <strong>start_ssl.boot</strong> file in the current
+directory.</p><p>Do the following:</p><ul><li><p>Test the boot script. To do this, start Erlang with the
+<strong>-boot</strong> command-line parameter specifying this boot script
+(with its full path, but without the <strong>.boot</strong> suffix). In
+UNIX it can look as follows:</p></li></ul><pre><code class="">
+$ erl -boot /home/me/ssl/start_ssl
+Erlang (BEAM) emulator version 5.0
+ 
+Eshell V5.0  (abort with ^G)
+1&gt; whereis(ssl_manager).
+&lt;0.41.0&gt;    </code></pre><p>The <strong>whereis</strong> function-call verifies that the SSL 
+application is started.</p><p>As an alternative to building a bootscript, you can explicitly
+add the path to the SSL <strong>ebin</strong> directory on the command
+line. This is done with command-line option <strong>-pa</strong>. This
+works as the SSL application does not need to be started for the
+distribution to come up, as a clone of the SSL application is
+hooked into the Kernel application. So, as long as the
+SSL application code can be reached, the distribution starts. 
+The <strong>-pa</strong> method is only recommended for testing purposes.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The clone of the SSL application must
+enable the use of the SSL code in such an early bootstage as
+needed to set up the distribution. However, this makes it
+impossible to soft upgrade the SSL application.</p></div><h2>Specifying Distribution Module for net_kernel</h2><p>The distribution module for SSL/TLS is named <strong>inet_tls_dist</strong>
+and is specified on the command line with option <strong>-proto_dist</strong>.
+The argument to <strong>-proto_dist</strong> is to be the module
+name without suffix <strong>_dist</strong>. So, this distribution
+module is specified with <strong>-proto_dist inet_tls</strong> on the
+command line.</p><p>Extending the command line gives the following:</p><pre><code class="">
+$ erl -boot /home/me/ssl/start_ssl -proto_dist inet_tls    </code></pre><p>For the distribution to be started, give the emulator a name as well:</p><pre><code class="">
+$ erl -boot /home/me/ssl/start_ssl -proto_dist inet_tls -sname ssl_test
+Erlang (BEAM) emulator version 5.0 [source]
+ 
+Eshell V5.0  (abort with ^G)
+(ssl_test@myhost)1&gt;     </code></pre><p>However, a node started in this way refuses to talk
+to other nodes, as no TLS parameters are supplied
+(see the next section).</p><h2>Specifying SSL/TLS Options</h2><p>
+The SSL/TLS distribution options can be written into a file
+that is consulted when the node is started.  This file name
+is then specified with the command line argument
+<strong>-ssl_dist_optfile</strong>.
+</p><p>
+Any available SSL/TLS option can be specified in an options file,
+but note that options that take a <strong>fun()</strong> has to use
+the syntax <strong>fun Mod:Func/Arity</strong> since a function
+body cannot be compiled when consulting a file.
+</p><p>
+Do not tamper with the socket options
+<strong>list</strong>, <strong>binary</strong>, <strong>active</strong>, <strong>packet</strong>,
+<strong>nodelay</strong> and <strong>deliver</strong> since they are used
+by the distribution protocol handler itself.
+Other raw socket options such as <strong>packet_size</strong> may
+interfere severely, so beware!
+</p><p>
+For SSL/TLS to work, at least a public key and a certificate
+must be specified for the server side.
+In the following example, the PEM file
+<strong>"/home/me/ssl/erlserver.pem"</strong> contains both
+the server certificate and its private key.
+</p><p>
+Create a file named for example
+<strong>"/home/me/ssl/ssl_test@myhost.conf"</strong>:
+</p><pre><code class="">
+[{server,
+  [{certfile, "/home/me/ssl/erlserver.pem"},
+   {secure_renegotiate, true}]},
+ {client,
+  [{secure_renegotiate, true}]}].
+    </code></pre><p>
+And then start the node like this
+(line breaks in the command are for readability,
+and shall not be there when typed):
+</p><pre><code class="">
+$ erl -boot /home/me/ssl/start_ssl -proto_dist inet_tls
+  -ssl_dist_optfile "/home/me/ssl/ssl_test@myhost.conf"
+  -sname ssl_test
+    </code></pre><p>
+The options in the <strong>{server, Opts}</strong> tuple are used
+when calling <strong>ssl:ssl_accept/3</strong>, and the options in the
+<strong>{client, Opts}</strong> tuple are used when calling
+<strong>ssl:connect/4</strong>.
+</p><p>
+For the client, the option
+<strong>{server_name_indication, atom_to_list(TargetNode)}</strong>
+is added when connecting.
+This makes it possible to use the client option
+<strong>{verify, verify_peer}</strong>,
+and the client will verify that the certificate matches
+the node name you are connecting to.
+This only works if the the server certificate is issued
+to the name <strong>atom_to_list(TargetNode)</strong>.
+</p><p>
+For the server it is also possible to use the option
+<strong>{verify, verify_peer}</strong> and the server will only accept
+client connections with certificates that are trusted by
+a root certificate that the server knows.
+A client that presents an untrusted certificate will be rejected.
+This option is preferably combined with
+<strong>{fail_if_no_peer_cert, true}</strong> or a client will
+still be accepted if it does not present any certificate.
+</p><p>
+A node started in this way is fully functional, using TLS
+as the distribution protocol.
+</p><h2>Specifying SSL/TLS Options (Legacy)</h2><p>
+As in the previous section the PEM file
+<strong>"/home/me/ssl/erlserver.pem"</strong> contains both
+the server certificate and its private key.
+</p><p>On the <strong>erl</strong> command line you can specify options that the
+SSL/TLS distribution adds when creating a socket.</p><p>The simplest SSL/TLS options in the following list can be specified 
+by adding the 
+prefix <strong>server_</strong> or <strong>client_</strong> to the option name:</p><ul><li><strong>certfile</strong></li><li><strong>keyfile</strong></li><li><strong>password</strong></li><li><strong>cacertfile</strong></li><li><strong>verify</strong></li><li><strong>verify_fun</strong> (write as <strong>{Module, Function, InitialUserState}</strong>)</li><li><strong>crl_check</strong></li><li><strong>crl_cache</strong> (write as Erlang term)</li><li><strong>reuse_sessions</strong></li><li><strong>secure_renegotiate</strong></li><li><strong>depth</strong></li><li><strong>hibernate_after</strong></li><li><strong>ciphers</strong> (use old string format)</li></ul><p>Note that <strong>verify_fun</strong> needs to be written in a different
+form than the corresponding SSL/TLS option, since funs are not
+accepted on the command line.</p><p>The server can also take the options <strong>dhfile</strong> and
+<strong>fail_if_no_peer_cert</strong> (also prefixed).</p><p><strong>client_</strong>-prefixed options are used when the distribution 
+initiates a connection to another node. <strong>server_</strong>-prefixed 
+options are used when accepting a connection from a remote node.</p><p>Raw socket options, such as <strong>packet</strong> and <strong>size</strong> must not 
+be specified on the command line.</p><p>The command-line argument for specifying the SSL/TLS options is named
+<strong>-ssl_dist_opt</strong> and is to be followed by pairs of
+SSL options and their values. Argument <strong>-ssl_dist_opt</strong> can
+be repeated any number of times.</p><p>
+An example command line doing the same as the example
+in the previous section can now look as follows
+(line breaks in the command are for readability, 
+and shall not be there when typed):
+</p><pre><code class="">
+$ erl -boot /home/me/ssl/start_ssl -proto_dist inet_tls
+  -ssl_dist_opt server_certfile "/home/me/ssl/erlserver.pem"
+  -ssl_dist_opt server_secure_renegotiate true client_secure_renegotiate true
+  -sname ssl_test
+Erlang (BEAM) emulator version 5.0 [source]
+
+Eshell V5.0  (abort with ^G)
+(ssl_test@myhost)1&gt;
+    </code></pre><h2>Setting up Environment to Always Use SSL/TLS (Legacy)</h2><p>A convenient way to specify arguments to Erlang is to use environment 
+variable <strong>ERL_FLAGS</strong>. All the flags needed to
+use the SSL/TLS distribution can be specified in that variable and are
+then interpreted as command-line arguments for all
+subsequent invocations of Erlang.</p><p>In a Unix (Bourne) shell, it can look as follows (line breaks are for
+readability, they are not to be there when typed):</p><pre><code class="">
+$ ERL_FLAGS="-boot /home/me/ssl/start_ssl -proto_dist inet_tls
+  -ssl_dist_opt server_certfile /home/me/ssl/erlserver.pem
+  -ssl_dist_opt server_secure_renegotiate true client_secure_renegotiate true"
+$ export ERL_FLAGS
+$ erl -sname ssl_test
+Erlang (BEAM) emulator version 5.0 [source]
+ 
+Eshell V5.0  (abort with ^G)
+(ssl_test@myhost)1&gt; init:get_arguments().
+[{root,["/usr/local/erlang"]},
+ {progname,["erl "]},
+ {sname,["ssl_test"]},
+ {boot,["/home/me/ssl/start_ssl"]},
+ {proto_dist,["inet_tls"]},
+ {ssl_dist_opt,["server_certfile","/home/me/ssl/erlserver.pem"]},
+ {ssl_dist_opt,["server_secure_renegotiate","true",
+                "client_secure_renegotiate","true"]
+ {home,["/home/me"]}]    </code></pre><p>The <strong>init:get_arguments()</strong> call verifies that the correct
+arguments are supplied to the emulator.</p><h2>Using SSL/TLS distribution over IPv6</h2><p>It is possible to use SSL/TLS distribution over IPv6 instead of
+IPv4. To do this, pass the option <strong>-proto_dist inet6_tls</strong>
+instead of <strong>-proto_dist inet_tls</strong> when starting Erlang,
+either on the command line or in the <strong>ERL_FLAGS</strong> environment
+variable.</p><p>An example command line with this option would look like this:</p><pre><code class="">
+$ erl -boot /home/me/ssl/start_ssl -proto_dist inet6_tls
+  -ssl_dist_optfile "/home/me/ssl/ssl_test@myhost.conf"
+  -sname ssl_test
+    </code></pre><p>A node started in this way will only be able to communicate with
+other nodes using SSL/TLS distribution over IPv6.</p></body></html>

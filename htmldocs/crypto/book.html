@@ -1,0 +1,1097 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>crypto</h1><h1>crypto</h1><p>The <em>Crypto</em> application provides functions for
+computation of message digests, and functions for encryption and
+decryption.
+This product includes software developed by the OpenSSL Project
+for use in the OpenSSL Toolkit (http://www.openssl.org/).
+This product includes cryptographic software written by Eric
+Young (eay@cryptsoft.com).
+This product includes software written by Tim Hudson
+(tjh@cryptsoft.com).
+For full OpenSSL and SSLeay license texts, see <a href="./licenses#licenses">Licenses</a>.
+</p><p>    <a name="licenses"></a>
+This chapter contains in extenso versions
+of the OpenSSL and SSLeay licenses.
+</p><h4>OpenSSL License</h4><pre><code class="">
+/* ====================================================================
+ * Copyright (c) 1998-2011 The OpenSSL Project.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer. 
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. All advertising materials mentioning features or use of this
+ *    software must display the following acknowledgment:
+ *    "This product includes software developed by the OpenSSL Project
+ *    for use in the OpenSSL Toolkit. (http://www.openssl.org/)"
+ *
+ * 4. The names "OpenSSL Toolkit" and "OpenSSL Project" must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission. For written permission, please contact
+ *    openssl-core@openssl.org.
+ *
+ * 5. Products derived from this software may not be called "OpenSSL"
+ *    nor may "OpenSSL" appear in their names without prior written
+ *    permission of the OpenSSL Project.
+ *
+ * 6. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by the OpenSSL Project
+ *    for use in the OpenSSL Toolkit (http://www.openssl.org/)"
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE OpenSSL PROJECT ``AS IS'' AND ANY
+ * EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE OpenSSL PROJECT OR
+ * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ * ====================================================================
+ *
+ * This product includes cryptographic software written by Eric Young
+ * (eay@cryptsoft.com).  This product includes software written by Tim
+ * Hudson (tjh@cryptsoft.com).
+ *
+ */    </code></pre><h4>SSLeay License</h4><pre><code class="">
+/* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
+ * All rights reserved.
+ *
+ * This package is an SSL implementation written
+ * by Eric Young (eay@cryptsoft.com).
+ * The implementation was written so as to conform with Netscapes SSL.
+ * 
+ * This library is free for commercial and non-commercial use as long as
+ * the following conditions are aheared to.  The following conditions
+ * apply to all code found in this distribution, be it the RC4, RSA,
+ * lhash, DES, etc., code; not just the SSL code.  The SSL documentation
+ * included with this distribution is covered by the same copyright terms
+ * except that the holder is Tim Hudson (tjh@cryptsoft.com).
+ * 
+ * Copyright remains Eric Young's, and as such any Copyright notices in
+ * the code are not to be removed.
+ * If this package is used in a product, Eric Young should be given attribution
+ * as the author of the parts of the library used.
+ * This can be in the form of a textual message at program startup or
+ * in documentation (online or textual) provided with the package.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ *    "This product includes cryptographic software written by
+ *     Eric Young (eay@cryptsoft.com)"
+ *    The word 'cryptographic' can be left out if the rouines from the library
+ *    being used are not cryptographic related :-).
+ * 4. If you include any Windows specific code (or a derivative thereof) from 
+ *    the apps directory (application code) you must include an acknowledgement:
+ *    "This product includes software written by Tim Hudson (tjh@cryptsoft.com)"
+ * 
+ * THIS SOFTWARE IS PROVIDED BY ERIC YOUNG ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ * 
+ * The licence and distribution terms for any publically available version or
+ * derivative of this code cannot be changed.  i.e. this code cannot simply be
+ * copied and put under another distribution licence
+ * [including the GNU Public Licence.]
+ */    </code></pre><p>
+<a name="fips"></a>
+This chapter describes FIPS mode support in the crypto application.
+</p><h4>Background</h4><p>OpenSSL can be built to provide FIPS 140-2 validated
+cryptographic services. It is not the OpenSSL application that is
+validated, but a special software component called the OpenSSL
+FIPS Object Module. However applications do not use this Object
+Module directly, but through the regular API of the OpenSSL
+library.</p><p>The crypto application supports using OpenSSL in FIPS mode. In
+this scenario only the validated algorithms provided by the Object
+Module are accessible, other algorithms usually available in
+OpenSSL (like md5) or implemented in the Erlang code (like SRP)
+are disabled.</p><h4>Enabling FIPS mode</h4><ul><li> <p>Build or install the FIPS Object Module and a FIPS enabled
+OpenSSL library.</p> <p>You should read and precisely follow the instructions of
+the <a href="http://csrc.nist.gov/groups/STM/cmvp/documents/140-1/140sp/140sp1747.pdf">Security Policy</a> and <a href="https://www.openssl.org/docs/fips/UserGuide-2.0.pdf">User Guide</a>.</p> <div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>It is very easy to build a working OpenSSL FIPS
+Object Module and library from the source. However it <em>does not</em> qualify as FIPS 140-2 validated if the numerous
+restrictions in the Security Policy are not properly
+followed.</p></div> </li><li> <p>Configure and build Erlang/OTP with FIPS support:</p> <pre>
+$ <span class="input">cd $ERL_TOP</span>
+$ <span class="input">./otp_build configure --enable-fips</span>
+...
+checking for FIPS_mode_set... yes
+...
+$ <span class="input">make</span>
+        </pre> <p>If <strong>FIPS_mode_set</strong> returns <strong>no</strong> the OpenSSL
+library is not FIPS enabled and crypto won't support FIPS mode
+either.</p> </li><li> <p>Set the <strong>fips_mode</strong> configuration setting of the
+crypto application to <strong>true</strong> <em>before loading the crypto module</em>.</p> <p>The best place is in the <strong>sys.config</strong> system
+configuration file of the release.</p> </li><li> Start and use the crypto application as usual. However take care to avoid the non-FIPS validated algorithms, they will all throw exception <strong>not_supported</strong>. </li></ul><p>Entering and leaving FIPS mode on a node already running crypto
+is not supported. The reason is that OpenSSL is designed to
+prevent an application requesting FIPS mode to end up accidentally
+running in non-FIPS mode. If entering FIPS mode fails (e.g. the
+Object Module is not found or is compromised) any subsequent use
+of the OpenSSL API would terminate the emulator.</p><p>An on-the-fly FIPS mode change would thus have to be performed
+in a critical section protected from any concurrently running
+crypto operations. Furthermore in case of failure all crypto calls
+would have to be disabled from the Erlang or nif code. This would
+be too much effort put into this not too important feature.</p><h4>Incompatibilities with regular builds</h4><p>The Erlang API of the crypto application is identical
+regardless of building with or without FIPS support. However the
+nif code internally uses a different OpenSSL API.</p><p>This means that the context (an opaque type) returned from
+streaming crypto functions (<strong>hash_(init|update|final)</strong>,
+<strong>hmac_(init|update|final)</strong> and
+<strong>stream_(init|encrypt|decrypt)</strong>) is different and
+incompatible with regular builds when compiling crypto with FIPS
+support.</p><h4>Common caveats</h4><p>In FIPS mode non-validated algorithms are disabled. This may
+cause some unexpected problems in application relying on
+crypto.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>Do not try to work around these problems by using
+alternative implementations of the missing algorithms! An
+application can only claim to be using a FIPS 140-2 validated
+cryptographic module if it uses it exclusively for every
+cryptographic operation.</p></div><h4>Restrictions on key sizes</h4><p>Although public key algorithms are supported in FIPS mode
+they can only be used with secure key sizes. The Security Policy
+requires the following minimum values:
+</p><dl><dt>RSA</dt><dd>1024 bit</dd><dt>DSS</dt><dd>1024 bit</dd><dt>EC algorithms</dt><dd>160 bit</dd></dl><h4>Restrictions on elliptic curves</h4><p>The Erlang API allows using arbitrary curve parameters, but
+in FIPS mode only those allowed by the Security Policy shall be
+used.</p><h4>Avoid md5 for hashing</h4><p>Md5 is a popular choice as a hash function, but it is not
+secure enough to be validated. Try to use sha instead wherever
+possible.</p><p>For exceptional, non-cryptographic use cases one may consider
+switching to <strong>erlang:md5/1</strong> as well.</p><h4>Certificates and encrypted keys</h4><p>As md5 is not available in FIPS mode it is only possible to
+use certificates that were signed using sha hashing. When
+validating an entire certificate chain all certificates
+(including the root CA's) must comply with this rule.</p><p>For similar dependency on the md5 and des algorithms most
+encrypted private keys in PEM format do not work
+either. However, the PBES2 encryption scheme allows the use of
+stronger FIPS verified algorithms which is a viable
+alternative.</p><h4>SNMP v3 limitations</h4><p>It is only possible to use <strong>usmHMACSHAAuthProtocol</strong> and
+<strong>usmAesCfb128Protocol</strong> for authentication and privacy
+respectively in FIPS mode. The snmp application however won't
+restrict selecting disabled protocols in any way, and using them
+would result in run time crashes.</p><h4>TLS 1.2 is required</h4><p>All SSL and TLS versions prior to TLS 1.2 use a combination
+of md5 and sha1 hashes in the handshake for various purposes:</p><ul><li>Authenticating the integrity of the handshake messages.</li><li>In the exchange of DH parameters in cipher suites providing non-anonymous PFS (perfect forward secrecy).</li><li>In the PRF (pseud-random function) to generate keying materials in cipher suites not using PFS.</li></ul><p>OpenSSL handles these corner cases in FIPS mode, however the
+Erlang crypto and ssl applications are not prepared for them and
+therefore you are limited to TLS 1.2 in FIPS mode.</p><p>On the other hand it worth mentioning that at least all
+cipher suites that would rely on non-validated algorithms are
+automatically disabled in FIPS mode.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Certificates using weak (md5) digests may also cause
+problems in TLS. Although TLS 1.2 has an extension for
+specifying which type of signatures are accepted, and in FIPS
+mode the ssl application will use it properly, most TLS
+implementations ignore this extension and simply send whatever
+certificates they were configured with.</p></div><p>
+<a name="engine_load"></a>
+This chapter describes the support for loading encryption engines in the crypto application.
+</p><h4>Background</h4><p>
+OpenSSL exposes an Engine API, which makes it possible to plug in alternative
+implementations for some or all of the cryptographic operations implemented by OpenSSL.
+When configured appropriately, OpenSSL calls the engine's implementation of these
+operations instead of its own.
+</p><p>
+Typically, OpenSSL engines provide a hardware implementation of specific cryptographic
+operations. The hardware implementation usually offers improved performance over its
+software-based counterpart, which is known as cryptographic acceleration.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The file name requirement on the engine dynamic library can differ between SSL versions.</p></div><h4>Use Cases</h4><h4>Dynamically load an engine from default directory</h4><p>
+If the engine is located in the OpenSSL/LibreSSL installation <strong>engines</strong> directory.
+</p><pre><code class="">
+1&gt; {ok, Engine} = crypto:engine_load(&lt;&lt;"otp_test_engine"&gt;&gt;, [], []).
+ {ok, #Ref}</code></pre><h4>Load an engine with the dynamic engine</h4><p>
+Load an engine with the help of the dynamic engine by giving the path to the library.
+</p><pre><code class="">
+ 2&gt; {ok, Engine} = crypto:engine_load(&lt;&lt;"dynamic"&gt;&gt;,
+                                      [{&lt;&lt;"SO_PATH"&gt;&gt;,
+                                        &lt;&lt;"/some/path/otp_test_engine.so"&gt;&gt;},
+                                       {&lt;&lt;"ID"&gt;&gt;, &lt;&lt;"MD5"&gt;&gt;},
+                                       &lt;&lt;"LOAD"&gt;&gt;],
+                                      []).
+ {ok, #Ref}</code></pre><h4>Load an engine and replace some methods</h4><p>
+Load an engine with the help of the dynamic engine and just
+replace some engine methods.
+</p><pre><code class="">
+ 3&gt; Methods = crypto:engine_get_all_methods() -- [engine_method_dh,engine_method_rand,
+engine_method_ciphers,engine_method_digests, engine_method_store,
+engine_method_pkey_meths, engine_method_pkey_asn1_meths].
+[engine_method_rsa,engine_method_dsa,
+ engine_method_ecdh,engine_method_ecdsa]
+ 4&gt; {ok, Engine} = crypto:engine_load(&lt;&lt;"dynamic"&gt;&gt;,
+                                      [{&lt;&lt;"SO_PATH"&gt;&gt;,
+                                        &lt;&lt;"/some/path/otp_test_engine.so"&gt;&gt;},
+                                       {&lt;&lt;"ID"&gt;&gt;, &lt;&lt;"MD5"&gt;&gt;},
+                                       &lt;&lt;"LOAD"&gt;&gt;],
+                                      [],
+		                      Methods).
+ {ok, #Ref}</code></pre><h4>Load with the ensure loaded function</h4><p>
+This function makes sure the engine is loaded just once and the ID is added to the internal
+engine list of OpenSSL. The following calls to the function will check if the ID is loaded
+and then just get a new reference to the engine.
+</p><pre><code class="">
+ 5&gt; {ok, Engine} = crypto:ensure_engine_loaded(&lt;&lt;"MD5"&gt;&gt;,
+                                               &lt;&lt;"/some/path/otp_test_engine.so"&gt;&gt;).
+ {ok, #Ref}</code></pre><p>
+To unload it use crypto:ensure_engine_unloaded/1 which removes the ID from the internal list
+before unloading the engine.
+</p><pre><code class="">
+ 6&gt; crypto:ensure_engine_unloaded(&lt;&lt;"MD5"&gt;&gt;).
+ ok</code></pre><h4>List all engines currently loaded</h4><pre><code class="">
+ 5&gt; crypto:engine_list().
+[&lt;&lt;"dynamic"&gt;&gt;, &lt;&lt;"MD5"&gt;&gt;]</code></pre><p>
+<a name="engine_key"></a>
+This chapter describes the support in the crypto application for using public and private keys stored in encryption engines.
+</p><h4>Background</h4><p>
+<a href="https://www.openssl.org/">OpenSSL</a> exposes an Engine API, which makes 
+it possible to plug in alternative implementations for some of the cryptographic
+operations implemented by OpenSSL.
+See the chapter <a href="../crypto/engine_load#engine_load">Engine Load</a>
+for details and how to load an Engine.
+</p><p>
+An engine could among other tasks provide a storage for
+private or public keys. Such a storage could be made safer than the normal file system. Those techniques are not
+described in this User's Guide.  Here we concentrate on how to use private or public keys stored in
+such an engine.
+</p><p>
+The storage engine must call <strong>ENGINE_set_load_privkey_function</strong> and <strong>ENGINE_set_load_pubkey_function</strong>.
+See the OpenSSL cryptolib's <a href="https://www.openssl.org/docs/manpages.html">manpages</a>.
+</p><p>
+OTP/Crypto requires that the user provides two or three items of information about the key. The application used
+by the user is usually on a higher level, for example in
+<a href="../ssl/ssl#type-key">SSL</a>. If using
+the crypto application directly, it is required that:
+</p><ul><li>an Engine is loaded, see the chapter on <a href="../crypto/engine_load#engine_load">Engine Load</a> or the <a href="../crypto/crypto#engine_load-3">Reference Manual</a> </li><li>a reference to a key in the Engine is available. This should be an Erlang string or binary and depends on the Engine loaded </li><li>an Erlang map is constructed with the Engine reference, the key reference and possibly a key passphrase if needed by the Engine. See the <a href="../crypto/crypto#type-engine_key_ref">Reference Manual</a> for details of the map. </li></ul><h4>Use Cases</h4><h4>Sign with an engine stored private key</h4><p>
+This example shows how to construct a key reference that is used in a sign operation.
+The actual key is stored in the engine that is loaded at prompt 1.
+</p><pre><code class="">
+1&gt; {ok, EngineRef} = crypto:engine_load(....).
+...
+{ok,#Ref&lt;0.2399045421.3028942852.173962&gt;}
+2&gt; PrivKey = #{engine =&gt; EngineRef,
+               key_id =&gt; "id of the private key in Engine"}.
+...
+3&gt; Signature = crypto:sign(rsa, sha, &lt;&lt;"The message"&gt;&gt;, PrivKey).
+&lt;&lt;65,6,125,254,54,233,84,77,83,63,168,28,169,214,121,76,
+  207,177,124,183,156,185,160,243,36,79,125,230,231,...&gt;&gt;
+      </code></pre><h4>Verify with an engine stored public key</h4><p>
+Here the signature and message in the last example is verifyed using the public key.
+The public key is stored in an engine, only to exemplify that it is possible. The public
+key could of course be handled openly as usual.
+</p><pre><code class="">
+4&gt; PublicKey = #{engine =&gt; EngineRef,
+                 key_id =&gt; "id of the public key in Engine"}.
+...
+5&gt; crypto:verify(rsa, sha, &lt;&lt;"The message"&gt;&gt;, Signature, PublicKey).
+true
+6&gt; 
+      </code></pre><h4>Using a password protected private key</h4><p>
+The same example as the first sign example, except that a password protects the key down in the Engine.
+</p><pre><code class="">
+6&gt; PrivKeyPwd = #{engine =&gt; EngineRef,
+                  key_id =&gt; "id of the pwd protected private key in Engine",
+		  password =&gt; "password"}.
+...
+7&gt; crypto:sign(rsa, sha, &lt;&lt;"The message"&gt;&gt;, PrivKeyPwd).
+&lt;&lt;140,80,168,101,234,211,146,183,231,190,160,82,85,163,
+  175,106,77,241,141,120,72,149,181,181,194,154,175,76,
+  223,...&gt;&gt;
+8&gt; 
+      </code></pre><p>
+This chapter describes details of algorithms in the crypto application.
+</p><p>The tables only documents the supported cryptos and key lengths. The user should not draw any conclusion
+on security from the supplied tables.
+</p><h4>Ciphers</h4><h4>Block Ciphers</h4><p>To be used in
+<a href="./crypto#block_encrypt-3">block_encrypt/3</a>,
+<a href="./crypto#block_encrypt-4">block_encrypt/4</a>,
+<a href="./crypto#block_decrypt-3">block_decrypt/3</a> and
+<a href="./crypto#block_decrypt-4">block_decrypt/4</a>.
+</p><p>Available in all OpenSSL compatible with Erlang CRYPTO if not disabled by configuration.
+</p><p>To dynamically check availability, check that the name in the <em>Cipher and Mode</em> column is present in the
+list with the <strong>cipher</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><table class="table table-bordered table-hover table-striped"><caption>Block cipher key lengths</caption><tbody><tr><td><span class="strong">Cipher and Mode</span></td><td><span class="strong">Key length</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">IV length</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">Block size</span><br/><span class="strong">[bytes]</span></td></tr><tr><td><strong>aes_cbc</strong></td><td>16, 24, 32</td><td>16</td><td>16</td></tr><tr><td><strong>aes_cbc128</strong></td><td>16</td><td>16</td><td>16</td></tr><tr><td><strong>aes_cbc256</strong></td><td>32</td><td>16</td><td>16</td></tr><tr><td><strong>aes_cfb8</strong></td><td>16, 24, 32</td><td>16</td><td>any</td></tr><tr><td><strong>aes_ecb</strong></td><td>16, 24, 32</td><td> </td><td>16</td></tr><tr><td><strong>aes_ige256</strong></td><td>16</td><td>32</td><td>16</td></tr><tr><td><strong>blowfish_cbc</strong></td><td>4-56</td><td>8</td><td>8</td></tr><tr><td><strong>blowfish_cfb64</strong></td><td>â¥1</td><td>8</td><td>any</td></tr><tr><td><strong>blowfish_ecb</strong></td><td>â¥1</td><td> </td><td>8</td></tr><tr><td><strong>blowfish_ofb64</strong></td><td>â¥1</td><td>8</td><td>any</td></tr><tr><td><strong>des3_cbc</strong><br/><em>(=DES EDE3 CBC)</em></td><td>[8,8,8]</td><td>8</td><td>8</td></tr><tr><td><strong>des3_cfb</strong><br/><em>(=DES EDE3 CFB)</em></td><td>[8,8,8]</td><td>8</td><td>any</td></tr><tr><td><strong>des_cbc</strong></td><td>8</td><td>8</td><td>8</td></tr><tr><td><strong>des_cfb</strong></td><td>8</td><td>8</td><td>any</td></tr><tr><td><strong>des_ecb</strong></td><td>8</td><td> </td><td>8</td></tr><tr><td><strong>des_ede3</strong><br/><em>(=DES EDE3 CBC)</em></td><td>[8,8,8]</td><td>8</td><td>8</td></tr><tr><td><strong>rc2_cbc</strong></td><td>â¥1</td><td>8</td><td>8</td></tr></tbody></table><h4>AEAD Ciphers</h4><p>To be used in <a href="./crypto#block_encrypt-4">block_encrypt/4</a> and
+<a href="./crypto#block_decrypt-4">block_decrypt/4</a>.
+</p><p>To dynamically check availability, check that the name in the <em>Cipher and Mode</em> column is present in the
+list with the <strong>cipher</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><table class="table table-bordered table-hover table-striped"><caption>AEAD cipher key lengths</caption><tbody><tr><td><span class="strong">Cipher and Mode</span></td><td><span class="strong">Key length</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">IV length</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">AAD length</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">Tag length</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">Block size</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">Supported with</span><br/><span class="strong">OpenSSL versions</span></td></tr><tr><td><strong>aes_ccm</strong></td><td>16,24,32</td><td>7-13</td><td>any</td><td>even 4-16<br/>default: 12</td><td>any</td><td>â¥1.1.0</td></tr><tr><td><strong>aes_gcm</strong></td><td>16,24,32</td><td>â¥1</td><td>any</td><td>1-16<br/>default: 16</td><td>any</td><td>â¥1.1.0</td></tr><tr><td><strong>chacha20_poly1305</strong></td><td>32</td><td>1-16</td><td>any</td><td>16</td><td>any</td><td>â¥1.1.0</td></tr></tbody></table><h4>Stream Ciphers</h4><p>To be used in <a href="./crypto#stream_init-2">stream_init/2</a> and
+<a href="./crypto#stream_init/3">stream_init/3</a>.
+</p><p>To dynamically check availability, check that the name in the <em>Cipher and Mode</em> column is present in the
+list with the <strong>cipher</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><table class="table table-bordered table-hover table-striped"><caption>Stream cipher key lengths</caption><tbody><tr><td><span class="strong">Cipher and Mode</span></td><td><span class="strong">Key length</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">IV length</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">Supported with</span><br/><span class="strong">OpenSSL versions</span></td></tr><tr><td><strong>aes_ctr</strong></td><td>16, 24, 32</td><td>16</td><td>â¥1.0.1</td></tr><tr><td><strong>rc4</strong></td><td>â¥1</td><td> </td><td>all</td></tr></tbody></table><h4>Message Authentication Codes (MACs)</h4><h4>CMAC</h4><p>To be used in <a href="./crypto#cmac-3">cmac/3</a> and
+<a href="./crypto#cmac-3">cmac/4</a>.
+</p><p>CMAC with the following ciphers are available with OpenSSL 1.0.1 or later if not disabled by configuration.
+</p><p>To dynamically check availability, check that the name <strong>cmac</strong> is present in the
+list with the <strong>macs</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+Also check that the name in the <em>Cipher and Mode</em> column is present in the
+list with the <strong>cipher</strong> tag in the return value.
+</p><table class="table table-bordered table-hover table-striped"><caption>CMAC cipher key lengths</caption><tbody><tr><td><span class="strong">Cipher and Mode</span></td><td><span class="strong">Key length</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">Max Mac Length</span><br/><span class="strong">[bytes]</span></td></tr><tr><td><strong>aes_cbc</strong></td><td>16, 24, 32</td><td>16</td></tr><tr><td><strong>aes_cbc128</strong></td><td>16</td><td>16</td></tr><tr><td><strong>aes_cbc256</strong></td><td>32</td><td>16</td></tr><tr><td><strong>aes_cfb8</strong></td><td>16</td><td>1</td></tr><tr><td><strong>blowfish_cbc</strong></td><td>4-56</td><td>8</td></tr><tr><td><strong>blowfish_cfb64</strong></td><td>â¥1</td><td>1</td></tr><tr><td><strong>blowfish_ecb</strong></td><td>â¥1</td><td>8</td></tr><tr><td><strong>blowfish_ofb64</strong></td><td>â¥1</td><td>1</td></tr><tr><td><strong>des3_cbc</strong><br/><em>(=DES EDE3 CBC)</em></td><td>[8,8,8]</td><td>8</td></tr><tr><td><strong>des3_cfb</strong><br/><em>(=DES EDE3 CFB)</em></td><td>[8,8,8]</td><td>1</td></tr><tr><td><strong>des_cbc</strong></td><td>8</td><td>8</td></tr><tr><td><strong>des_cfb</strong></td><td>8</td><td>1</td></tr><tr><td><strong>des_ecb</strong></td><td>8</td><td>1</td></tr><tr><td><strong>rc2_cbc</strong></td><td>â¥1</td><td>8</td></tr></tbody></table><h4>HMAC</h4><p>Available in all OpenSSL compatible with Erlang CRYPTO if not disabled by configuration.
+</p><p>To dynamically check availability, check that the name <strong>hmac</strong> is present in the
+list with the <strong>macs</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><h4>POLY1305</h4><p>POLY1305 is available with OpenSSL 1.1.1 or later if not disabled by configuration.
+</p><p>To dynamically check availability, check that the name <strong>poly1305</strong> is present in the
+list with the <strong>macs</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><h4>Hash</h4><p>To dynamically check availability, check that the wanted name in the <em>Names</em> column is present in the
+list with the <strong>hashs</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><table class="table table-bordered table-hover table-striped"><tbody><tr><td><span class="strong">Type</span></td><td><span class="strong">Names</span></td><td><span class="strong">Supported with</span><br/><span class="strong">OpenSSL versions</span></td></tr><tr><td>SHA1</td><td>sha</td><td>all</td></tr><tr><td>SHA2</td><td>sha224, sha256, sha384, sha512</td><td>all</td></tr><tr><td>SHA3</td><td>sha3_224, sha3_256, sha3_384, sha3_512</td><td>â¥1.1.1</td></tr><tr><td>MD4</td><td>md4</td><td>all</td></tr><tr><td>MD5</td><td>md5</td><td>all</td></tr><tr><td>RIPEMD</td><td>ripemd160</td><td>all</td></tr></tbody></table><h4>Public Key Cryptography</h4><h4>RSA</h4><p>RSA is available with all OpenSSL versions compatible with Erlang CRYPTO if not disabled by configuration.
+To dynamically check availability, check that the atom <strong>rsa</strong> is present in the
+list with the <strong>public_keys</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>The RSA options are experimental.
+</p><p>The exact set of options and there syntax <em>may</em> be changed
+without prior notice.</p></div><table class="table table-bordered table-hover table-striped"><tbody><tr><td><span class="strong">Option</span></td><td><span class="strong">sign/verify</span></td><td><span class="strong">public encrypt</span><br/><span class="strong">private decrypt</span></td><td><span class="strong">private encrypt</span><br/><span class="strong">public decrypt</span></td></tr><tr><td>{rsa_padding,rsa_x931_padding}</td><td>x</td><td></td><td>x</td></tr><tr><td>{rsa_padding,rsa_pkcs1_padding}</td><td>x</td><td>x</td><td>x</td></tr><tr><td>{rsa_padding,rsa_pkcs1_pss_padding}<br/> {rsa_pss_saltlen, -2..}<br/> {rsa_mgf1_md, atom()} </td><td>x (2)<br/> x (2)<br/> x (2)</td><td></td><td></td></tr><tr><td>{rsa_padding,rsa_pkcs1_oaep_padding}<br/> {rsa_mgf1_md, atom()}<br/> {rsa_oaep_label, binary()}}<br/> {rsa_oaep_md, atom()} </td><td></td><td>x (2)<br/> x (2)<br/> x (3)<br/> x (3) </td><td></td></tr><tr><td>{rsa_padding,rsa_no_padding}</td><td>x (1)</td><td></td><td></td></tr></tbody></table><p>Notes:</p><ul><li>(1)  OpenSSL â¤ 1.0.0</li><li>(2)  OpenSSL â¥ 1.0.1</li><li>(3)  OpenSSL â¥ 1.1.0</li></ul><h4>DSS</h4><p>DSS is available with OpenSSL versions compatible with Erlang CRYPTO if not disabled by configuration.
+To dynamically check availability, check that the atom <strong>dss</strong> is present in the
+list with the <strong>public_keys</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><h4>ECDSA</h4><p>ECDSA is available with OpenSSL 0.9.8o or later if not disabled by configuration.
+To dynamically check availability, check that the atom <strong>ecdsa</strong> is present in the
+list with the <strong>public_keys</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+If the atom <strong>ec_gf2m</strong> characteristic two field curves are available.
+</p><p>The actual supported named curves could be checked by examining the list with the
+<strong>curves</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><h4>EdDSA</h4><p>EdDSA is available with OpenSSL 1.1.1 or later if not disabled by configuration.
+To dynamically check availability, check that the atom <strong>eddsa</strong> is present in the
+list with the <strong>public_keys</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><p>Support for the curves ed25519 and ed448 is implemented.
+The actual supported named curves could be checked by examining the list with the
+<strong>curves</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><h4>Diffie-Hellman</h4><p>Diffie-Hellman computations are available with OpenSSL versions compatible with Erlang CRYPTO
+if not disabled by configuration.
+To dynamically check availability, check that the atom <strong>dh</strong> is present in the
+list with the <strong>public_keys</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><h4>Elliptic Curve Diffie-Hellman</h4><p>Elliptic Curve Diffie-Hellman is available with OpenSSL 0.9.8o or later if not disabled by configuration.
+To dynamically check availability, check that the atom <strong>ecdh</strong> is present in the
+list with the <strong>public_keys</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><p>The Edward curves <strong>x25519</strong> and <strong>x448</strong> are supported with OpenSSL 1.1.1 or later
+if not disabled by configuration.
+</p><p>The actual supported named curves could be checked by examining the list with the
+<strong>curves</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><p>
+This chapter describes the new api to encryption and decryption.
+</p><h4>Background</h4><p>The CRYPTO app has evolved during its lifetime. Since also the OpenSSL cryptolib has changed the
+API several times, there are parts of the CRYPTO app that uses a very old one internally and
+other parts that uses the latest one. The internal definitions of e.g cipher names was a bit hard
+to maintain.
+</p><p>It turned out that using the old api in the new way (more about that later), and still keep it
+backwards compatible, was not possible. Specially as more precision in the error messages was wanted
+it could not be combined with the old standard.
+</p><p>Therefore the old api (see next section) is kept for now but internally implemented with new primitives.
+</p><h4>The old API</h4><p>The old functions - not recommended for new programs - are:</p><ul><li><a href="./crypto#block_encrypt-3">block_encrypt/3</a></li><li><a href="./crypto#block_encrypt-4">block_encrypt/4</a></li><li><a href="./crypto#block_decrypt-3">block_decrypt/3</a></li><li><a href="./crypto#block_decrypt-4">block_decrypt/4</a></li><li><a href="./crypto#stream_init-2">stream_init/2</a></li><li><a href="./crypto#stream_init-2">stream_init/3</a></li><li><a href="./crypto#stream_encrypt-2">stream_encrypt/2</a></li><li><a href="./crypto#stream_decrypt-2">stream_decrypt/2</a></li><li><a href="./crypto#supports-0">supports/0</a></li></ul><p>They are not deprecated for now, but may be in a future release.
+</p><h4>The new API</h4><p>The new functions for encrypting or decrypting one single binary are:
+</p><ul><li><a href="./crypto#crypto_one_time/4">crypto_one_time/4</a></li><li><a href="./crypto#crypto_one_time/5">crypto_one_time/5</a></li><li><a href="./crypto#crypto_one_time_aead/6">crypto_one_time_aead/6</a></li><li><a href="./crypto#crypto_one_time_aead/7">crypto_one_time_aead/7</a></li></ul><p>In those functions the internal crypto state is first created and initialized
+with the cipher type, the key and possibly other data. Then the single binary is encrypted
+or decrypted,
+the crypto state is de-allocated and the result of the crypto operation is returned.
+</p><p>The <strong>crypto_one_time_aead</strong> functions are for the ciphers of mode <strong>ccm</strong> or
+<strong>gcm</strong>, and for the cipher <strong>chacha20-poly1305</strong>.
+</p><p>For repeated encryption or decryption of a text divided in parts, where the internal
+crypto state is initialized once, and then many binaries are encrypted or decrypted with
+the same state, the functions are:
+</p><ul><li><a href="./crypto#crypto_init/4">crypto_init/4</a></li><li><a href="./crypto#crypto_init/3">crypto_init/3</a></li><li><a href="./crypto#crypto_update/2">crypto_update/2</a></li></ul><p>The <strong>crypto_init</strong> initialies an internal cipher state, and one or more calls of
+<strong>crypto_update</strong> does the acual encryption or decryption. Note that AEAD ciphers
+can't be handled this way due to their nature.
+</p><p>For repeated encryption or decryption of a text divided in parts where the
+same cipher and same key is used, but a new initialization vector (nounce) should be applied
+for each part, the functions are:
+</p><ul><li><a href="./crypto#crypto_dyn_iv_init/3">crypto_dyn_iv_init/3</a></li><li><a href="./crypto#crypto_dyn_iv_update/3">crypto_dyn_iv_update/3</a></li></ul><p>An example of where those functions are needed, is when handling the TLS protocol.</p><p>For information about available algorithms, use:
+</p><ul><li><a href="./crypto#supports-1">supports/1</a></li><li><a href="./crypto#hash_info-1">hash_info/1</a></li><li><a href="./crypto#cipher_info-1">cipher_info/1</a></li></ul><h4>Examples of crypto_init/4 and crypto_update/2</h4><p>The functions <a href="./crypto#crypto_init/4">crypto_init/4</a>
+and <a href="./crypto#crypto_update/2">crypto_update/2</a> are intended
+to be used for encrypting or decrypting a sequence of blocks. First one call of
+<strong>crypto_init/4</strong> initialises the crypto context. One or more calls <strong>crypto_update/2</strong>
+does the actual encryption or decryption for each block.
+</p><p>This example shows first the encryption of two blocks and then decryptions of the cipher
+text, but divided into three blocks just to show that it is possible to divide the plain text and
+cipher text differently for some ciphers:</p><pre><code class="erl">
+	1&gt; crypto:start().
+	ok
+	2&gt; Key = &lt;&lt;1:128&gt;&gt;.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1&gt;&gt;
+	3&gt; IV = &lt;&lt;0:128&gt;&gt;.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0&gt;&gt;
+	4&gt; StateEnc = crypto:crypto_init(aes_128_ctr, Key, IV, true). % encrypt -&gt; true
+	#Ref&lt;0.3768901617.1128660993.124047&gt;
+	5&gt; crypto:crypto_update(StateEnc, &lt;&lt;"First bytes"&gt;&gt;).
+	&lt;&lt;67,44,216,166,25,130,203,5,66,6,162&gt;&gt;
+	6&gt; crypto:crypto_update(StateEnc, &lt;&lt;"Second bytes"&gt;&gt;).
+	&lt;&lt;16,79,94,115,234,197,94,253,16,144,151,41&gt;&gt;
+	7&gt;
+	7&gt; StateDec = crypto:crypto_init(aes_128_ctr, Key, IV, false). % decrypt -&gt; false
+	#Ref&lt;0.3768901617.1128660994.124255&gt;
+	8&gt; crypto:crypto_update(StateDec, &lt;&lt;67,44,216,166,25,130,203&gt;&gt;).
+	&lt;&lt;"First b"&gt;&gt;
+	9&gt; crypto:crypto_update(StateDec, &lt;&lt;5,66,6,162,16,79,94,115,234,197,
+                                            94,253,16,144,151&gt;&gt;).
+	&lt;&lt;"ytesSecond byte"&gt;&gt;
+	10&gt; crypto:crypto_update(StateDec, &lt;&lt;41&gt;&gt;).
+	&lt;&lt;"s"&gt;&gt;
+	11&gt;
+      </code></pre><p>Note that the internal data that the <strong>StateEnc</strong> and <strong>StateDec</strong> references are
+destructivly updated by the calls to <a href="./crypto#crypto_update/2">crypto_update/2</a>.
+This is to gain time in the calls of the nifs interfacing the cryptolib. In a loop where the
+state is saved in the loop's state, it also saves one update of the loop state per crypto operation.
+</p><p>For example, a simple server receiving text parts to encrypt and send the result back to the
+one who sent them (the <strong>Requester</strong>):
+</p><pre><code class="erl">
+	encode(Crypto, Key, IV) -&gt;
+	    crypto_loop(crypto:crypto_init(Crypto, Key, IV, true)).
+
+	crypto_loop(State) -&gt;
+	    receive
+                {Text, Requester} -&gt;
+                    Requester ! crypto:crypto_update(State, Text),
+	            loop(State)
+	    end.
+      </code></pre><h4>Example of crypto_one_time/5</h4><p>The same example as in the
+<a href="#examples-of-crypto_init-4-and-crypto_update-2">previous section</a>,
+but now with one call to <a href="./crypto#crypto_one_time/5">crypto_one_time/5</a>:
+</p><pre><code class="">
+	1&gt; Key = &lt;&lt;1:128&gt;&gt;.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1&gt;&gt;
+	2&gt; IV = &lt;&lt;0:128&gt;&gt;.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0&gt;&gt;
+	3&gt; Txt = [&lt;&lt;"First bytes"&gt;&gt;,&lt;&lt;"Second bytes"&gt;&gt;].
+	[&lt;&lt;"First bytes"&gt;&gt;,&lt;&lt;"Second bytes"&gt;&gt;]
+	4&gt; crypto:crypto_one_time(aes_128_ctr, Key, IV, Txt, true).
+	&lt;&lt;67,44,216,166,25,130,203,5,66,6,162,16,79,94,115,234,
+	197,94,253,16,144,151,41&gt;&gt;
+	5&gt;
+      </code></pre><p>The <strong>[&lt;&lt;"First bytes"&gt;&gt;,&lt;&lt;"Second bytes"&gt;&gt;]</strong> could of course have been one
+single binary: <strong>&lt;&lt;"First bytesSecond bytes"&gt;&gt;</strong>.
+</p><h4>Example of crypto_one_time_aead/6</h4><p>The same example as in the
+<a href="#example-of-crypto_one_time-5">previous section</a>,
+but now with one call to <a href="./crypto#crypto_one_time_aead/6">crypto_one_time_aead/6</a>:
+</p><pre><code class="">
+	1&gt; Key = &lt;&lt;1:128&gt;&gt;.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1&gt;&gt;
+	2&gt; IV = &lt;&lt;0:128&gt;&gt;.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0&gt;&gt;
+	3&gt; Txt = [&lt;&lt;"First bytes"&gt;&gt;,&lt;&lt;"Second bytes"&gt;&gt;].
+	[&lt;&lt;"First bytes"&gt;&gt;,&lt;&lt;"Second bytes"&gt;&gt;]
+	4&gt; AAD = &lt;&lt;"Some bytes"&gt;&gt;.
+	&lt;&lt;"Some bytes"&gt;&gt;
+	5&gt; crypto:crypto_one_time_aead(aes_128_gcm, Key, IV, Txt, AAD, true).
+	{&lt;&lt;240,130,38,96,130,241,189,52,3,190,179,213,132,1,72,
+	192,103,176,90,104,15,71,158&gt;&gt;,
+	&lt;&lt;131,47,45,91,142,85,9,244,21,141,214,71,31,135,2,155&gt;&gt;}
+	9&gt;
+      </code></pre><p>The <strong>[&lt;&lt;"First bytes"&gt;&gt;,&lt;&lt;"Second bytes"&gt;&gt;]</strong> could of course have been one
+single binary: <strong>&lt;&lt;"First bytesSecond bytes"&gt;&gt;</strong>.
+</p><h4>Retired cipher names</h4><p>This table lists the retired cipher names in the first column and suggests names to replace them with
+in the second column.
+</p><p>The new names follows the OpenSSL libcrypto names. The format is ALGORITM_KEYSIZE_MODE.
+</p><p>Examples of algorithms are aes, chacha20 and des.  The keysize is the number of bits
+and examples of the mode are cbc, ctr and gcm. The mode may be followed by a number depending
+on the mode. An example is the ccm mode which has a variant called ccm8 where the so called tag
+has a length of eight bits.
+</p><p>The old names had by time lost any common naming which the new names now introduces. The new names include
+the key length which improves the error checking in the lower levels of the crypto application.
+</p><table class="table table-bordered table-hover table-striped"><tbody><tr><td><span class="strong">Instead of:</span></td><td><span class="strong">Use:</span> </td></tr><tr><td><strong>aes_cbc128</strong>   </td><td> <strong>aes_128_cbc</strong> </td></tr><tr><td><strong>aes_cbc256</strong>   </td><td> <strong>aes_256_cbc</strong> </td></tr><tr><td><strong>aes_cbc</strong>      </td><td> <strong>aes_128_cbc, aes_192_cbc, aes_256_cbc</strong></td></tr><tr><td><strong>aes_ccm</strong>      </td><td> <strong>aes_128_ccm, aes_192_ccm, aes_256_ccm</strong></td></tr><tr><td><strong>aes_cfb128</strong>   </td><td> <strong>aes_128_cfb128, aes_192_cfb128, aes_256_cfb128</strong></td></tr><tr><td><strong>aes_cfb8</strong>     </td><td> <strong>aes_128_cfb8, aes_192_cfb8, aes_256_cfb8</strong></td></tr><tr><td><strong>aes_ctr</strong>      </td><td> <strong>aes_128_ctr, aes_192_ctr, aes_256_ctr</strong></td></tr><tr><td><strong>aes_gcm</strong>      </td><td> <strong>aes_128_gcm, aes_192_gcm, aes_256_gcm</strong></td></tr><tr><td><strong>des3_cbc</strong>     </td><td> <strong>des_ede3_cbc</strong></td></tr><tr><td><strong>des3_cbf</strong>     </td><td> <strong>des_ede3_cfb</strong></td></tr><tr><td><strong>des3_cfb</strong>     </td><td> <strong>des_ede3_cfb</strong></td></tr><tr><td><strong>des_ede3</strong>     </td><td> <strong>des_ede3_cbc</strong></td></tr><tr><td><strong>des_ede3_cbf</strong> </td><td> <strong>des_ede3_cfb</strong></td></tr></tbody></table><p>The Crypto Application provides functions for computation of 
+message digests, and encryption and decryption functions.
+This product includes software developed by the OpenSSL Project for
+use in the OpenSSL Toolkit (http://www.openssl.org/).
+This product includes cryptographic software written by Eric Young
+(eay@cryptsoft.com).  
+This product includes software written by Tim Hudson
+(tjh@cryptsoft.com).
+For full OpenSSL and SSLeay license texts, see <a href="./licenses#licenses">Licenses</a>.</p><h3>crypto</h3><p>The Crypto Application</p><p>The purpose of the Crypto application is to provide an Erlang API
+to cryptographic functions, see <a href="crypto">crypto(3)</a>.
+Note that the API is on a fairly low level and there are some
+corresponding API functions available in <a href="./public_key">public_key(3)</a>,
+on a higher abstraction level, that uses the crypto application in its implementation.
+</p><h4>DEPENDENCIES</h4><p>The current crypto implementation uses nifs to interface
+OpenSSLs crypto library and may work with limited functionality
+with as old versions as <em>OpenSSL</em> 0.9.8c.
+FIPS mode support requires at least
+version 1.0.1 and a FIPS capable OpenSSL installation. We recommend using a
+version that is officially supported by the OpenSSL project. API compatible backends like
+LibreSSL should also work.</p><p>Source releases of OpenSSL can be downloaded from the <a href="http://www.openssl.org">OpenSSL</a> project home page,
+or mirror sites listed there.
+</p><h4>CONFIGURATION</h4><p>The following configuration parameters are defined for the
+crypto application. See <strong>app(3)</strong> for more information about
+configuration parameters.</p><dl><dt><strong>fips_mode = boolean()</strong></dt><dd> <p>Specifies whether to run crypto in FIPS mode. This setting
+will take effect when the nif module is loaded. If FIPS mode
+is requested but not available at run time the nif module and
+thus the crypto module will fail to load. This mechanism
+prevents the accidental use of non-validated algorithms.</p> </dd><dt><strong>rand_cache_size = integer()</strong></dt><dd> <p>
+Sets the cache size in bytes to use by
+<a href="./crypto#rand_seed_alg-1">crypto#rand_seed_alg-1</a> and
+<a href="./crypto#rand_seed_alg_s-1">crypto#rand_seed_alg_s-1</a>.
+This parameter is read when a seed function is called,
+and then kept in generators state object.  It has a rather
+small default value that causes reads of strong random bytes
+about once per hundred calls for a random value.
+The set value is rounded up to an integral number of words
+of the size these seed functions use.
+</p> </dd></dl><h4>SEE ALSO</h4><p>application(3)</p><h3>crypto</h3><p>Crypto Functions</p><p>This module provides a set of cryptographic functions.
+<dl><dt>Hash functions</dt><dd>  <dl><dt>SHA1, SHA2</dt><dd> <a href="https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf"> Secure Hash Standard [FIPS PUB 180-4] </a> </dd><dt>SHA3</dt><dd> <a href="https://www.nist.gov/publications/sha-3-standard-permutation-based-hash-and-extendable-output-functions?pub_id=919061"> SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions [FIPS PUB 202] </a>		 </dd><dt>BLAKE2</dt><dd> <a href="https://blake2.net/">BLAKE2 â fast secure hashing</a> </dd><dt>MD5</dt><dd> <a href="http://www.ietf.org/rfc/rfc1321.txt">The MD5 Message Digest Algorithm [RFC 1321]</a> </dd><dt>MD4</dt><dd> <a href="http://www.ietf.org/rfc/rfc1320.txt">The MD4 Message Digest Algorithm [RFC 1320]</a> </dd></dl>  </dd><dt>MACs - Message Authentication Codes</dt><dd>  <dl><dt>Hmac functions</dt><dd> <a href="http://www.ietf.org/rfc/rfc2104.txt"> Keyed-Hashing for Message Authentication [RFC 2104] </a> </dd><dt>Cmac functions</dt><dd> <a href="http://www.ietf.org/rfc/rfc4493.txt"> The AES-CMAC Algorithm [RFC 4493] </a> </dd><dt>POLY1305</dt><dd> <a href="http://www.ietf.org/rfc/rfc7539.txt"> ChaCha20 and Poly1305 for IETF Protocols [RFC 7539] </a> </dd></dl>  </dd><dt>Symmetric Ciphers</dt><dd>  <dl><dt>DES, 3DES and AES</dt><dd> <a href="https://csrc.nist.gov/projects/block-cipher-techniques">Block Cipher Techniques [NIST]</a> </dd><dt>Blowfish</dt><dd> <a href="https://www.schneier.com/academic/archives/1994/09/description_of_a_new.html"> Fast Software Encryption, Cambridge Security Workshop Proceedings (December 1993), Springer-Verlag, 1994, pp. 191-204. </a> </dd><dt>Chacha20</dt><dd> <a href="http://www.ietf.org/rfc/rfc7539.txt"> ChaCha20 and Poly1305 for IETF Protocols [RFC 7539] </a> </dd><dt>Chacha20_poly1305</dt><dd> <a href="http://www.ietf.org/rfc/rfc7539.txt"> ChaCha20 and Poly1305 for IETF Protocols [RFC 7539] </a> </dd></dl>  </dd><dt>Modes</dt><dd>  <dl><dt>ECB, CBC, CFB, OFB and CTR</dt><dd> <a href="https://csrc.nist.gov/publications/detail/sp/800-38a/final"> Recommendation for Block Cipher Modes of Operation: Methods and Techniques [NIST SP 800-38A] </a> </dd><dt>GCM</dt><dd> <a href="https://csrc.nist.gov/publications/detail/sp/800-38d/final"> Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC [NIST SP 800-38D] </a> </dd><dt>CCM</dt><dd> <a href="https://nvlpubs.nist.gov/nistpubs/legacy/sp/nistspecialpublication800-38c.pdf"> Recommendation for Block Cipher Modes of Operation: The CCM Mode for Authentication and Confidentiality [NIST SP 800-38C] </a> </dd></dl>  </dd><dt>Asymetric Ciphers - Public Key Techniques</dt><dd>  <dl><dt>RSA</dt><dd> <a href="http://www.ietf.org/rfc/rfc3447.txt"> PKCS #1: RSA Cryptography Specifications [RFC 3447] </a> </dd><dt>DSS</dt><dd> <a href="https://csrc.nist.gov/publications/detail/fips/186/4/final"> Digital Signature Standard (DSS) [FIPS 186-4] </a> </dd><dt>ECDSA</dt><dd> <a href="http://csrc.nist.gov/groups/STM/cavp/documents/dss2/ecdsa2vs.pdf"> Elliptic Curve Digital Signature Algorithm [ECDSA] </a> </dd><dt>SRP</dt><dd> <a href="http://www.ietf.org/rfc/rfc2945.txt"> The SRP Authentication and Key Exchange System [RFC 2945] </a> </dd></dl>  </dd></dl>The <a href="users_guide">CRYPTO User's Guide</a> has more information on
+FIPS, Engines and Algorithm Details like key lengths.
+</p><h3>Data Types</h3><h4>Ciphers, new API</h4><span class="name">cipher</span><span class="name">cipher_no_iv</span><span class="name">cipher_iv</span><span class="name">cipher_aead</span><p>Ciphers known by the CRYPTO application when using the
+<a href="../crypto/new_api#the-new-api">new API</a>.</p><p>Note that this list might be reduced if the underlying libcrypto does not support all of them.</p><h4>Ciphers, old API</h4><span class="name">block_cipher_with_iv</span><span class="name">block_cipher_without_iv</span><span class="name">stream_cipher</span><span class="name">aead_cipher</span><span class="name">cbc_cipher</span><span class="name">cfb_cipher</span><span class="name">ctr_cipher</span><span class="name">ecb_cipher</span><p>Ciphers known by the CRYPTO application when using the
+<a href="../crypto/new_api#the-old-api">old API</a>.</p><p>Note that this list might be reduced if the underlying libcrypto does not support all of them.</p><span class="name">retired_cbc_cipher_aliases</span><span class="name">retired_cfb_cipher_aliases</span><span class="name">retired_ctr_cipher_aliases</span><span class="name">retired_ecb_cipher_aliases</span><p>Alternative, old names of ciphers known by the CRYPTO application when using the
+<a href="../crypto/new_api#the-old-api">old API</a>.
+See <a href="../crypto/new_api#retired-cipher-names">Retired cipher names</a> for names to
+use instead to be prepared for an easy convertion to the
+<a href="../crypto/new_api#the-new-api">new API</a>.
+</p><p>Note that this list might be reduced if the underlying libcrypto does not support all of them.</p><h4>Digests and hash</h4><span class="name">hash_algorithm</span><span class="name">hmac_hash_algorithm</span><span class="name">rsa_digest_type</span><span class="name">dss_digest_type</span><span class="name">ecdsa_digest_type</span><span class="name">sha1</span><span class="name">sha2</span><span class="name">sha3</span><span class="name">blake2</span><span class="name">compatibility_only_hash</span><p>The <strong>compatibility_only_hash()</strong> algorithms are recommended only for compatibility with existing applications.</p><h4>Elliptic Curves</h4><span class="name">ec_named_curve</span><span class="name">edwards_curve_dh</span><span class="name">edwards_curve_ed</span><p>Note that some curves are disabled if FIPS is enabled.</p><span class="name">ec_explicit_curve</span><span class="name">ec_field</span><span class="name">ec_curve</span><p>Parametric curve definition.</p><span class="name">ec_prime_field</span><span class="name">ec_characteristic_two_field</span><span class="name">ec_basis</span><p>Curve definition details.</p><h4>Keys</h4><span class="name">key</span><span class="name">des3_key</span><p>For keylengths, iv-sizes and blocksizes see the
+<a href="../crypto/algorithm_details#ciphers">User's Guide</a>.
+</p><p>A key for des3 is a list of three iolists</p><span class="name">key_integer</span><p>Always <strong>binary()</strong> when used as return value</p><h4>Public/Private Keys</h4><span class="name">rsa_public</span><span class="name">rsa_private</span><span class="name">rsa_params</span><pre><code class="">rsa_public() = [E, N]</code></pre><pre><code class="">rsa_private() = [E, N, D] | [E, N, D, P1, P2, E1, E2, C]</code></pre><p>Where E is the public exponent, N is public modulus and D is
+the private exponent. The longer key format contains redundant
+information that will make the calculation faster. P1,P2 are first
+and second prime factors. E1,E2 are first and second exponents. C
+is the CRT coefficient. Terminology is taken from <a href="http://www.ietf.org/rfc/rfc3477.txt"> RFC 3447</a>.</p><span class="name">dss_public</span><span class="name">dss_private</span><pre><code class="">dss_public() = [P, Q, G, Y] </code></pre><p>Where P, Q and G are the dss parameters and Y is the public key.</p><pre><code class="">dss_private() = [P, Q, G, X] </code></pre><p>Where P, Q and G are the dss parameters and X is the private key.</p><span class="name">ecdsa_public</span><span class="name">ecdsa_private</span><span class="name">ecdsa_params</span><span class="name">eddsa_public</span><span class="name">eddsa_private</span><span class="name">eddsa_params</span><span class="name">srp_public</span><span class="name">srp_private</span><pre><code class="">srp_public() = key_integer() </code></pre><p>Where is <strong>A</strong> or <strong>B</strong> from <a href="http://srp.stanford.edu/design.html">SRP design</a></p><pre><code class="">srp_private() = key_integer() </code></pre><p>Where is  <strong>a</strong> or <strong>b</strong> from <a href="http://srp.stanford.edu/design.html">SRP design</a></p><span class="name">srp_gen_params</span><span class="name">srp_comp_params</span><a name="type-srp_user_gen_params"></a><pre><code class="">srp_user_gen_params() = [DerivedKey::binary(), Prime::binary(), Generator::binary(), Version::atom()]</code></pre><a name="type-srp_host_gen_params"></a><pre><code class="">srp_host_gen_params() = [Verifier::binary(), Prime::binary(), Version::atom() ]</code></pre><a name="type-srp_user_comp_params"></a><pre><code class="">srp_user_comp_params() = [DerivedKey::binary(), Prime::binary(), Generator::binary(), Version::atom() | ScramblerArg::list()]</code></pre><a name="type-srp_host_comp_params"></a><pre><code class="">srp_host_comp_params() = [Verifier::binary(), Prime::binary(), Version::atom() | ScramblerArg::list()]</code></pre><p>Where Verifier is <strong>v</strong>, Generator is <strong>g</strong> and Prime is<strong> N</strong>, DerivedKey is <strong>X</strong>, and Scrambler is
+<strong>u</strong> (optional will be generated if not provided) from <a href="http://srp.stanford.edu/design.html">SRP design</a>
+Version = '3' |  '6' |  '6a'
+</p><h4>Public Key Ciphers</h4><span class="name">pk_encrypt_decrypt_algs</span><p>Algorithms for public key encrypt/decrypt. Only RSA is supported.</p><span class="name">pk_encrypt_decrypt_opts</span><span class="name">rsa_opt</span><span class="name">rsa_padding</span><p>Options for public key encrypt/decrypt. Only RSA is supported.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>The RSA options are experimental.
+</p><p>The exact set of options and there syntax <em>may</em> be changed
+without prior notice.</p></div><span class="name">rsa_compat_opts</span><p>Those option forms are kept only for compatibility and should not be used in new code.</p><h4>Public Key Sign and Verify</h4><span class="name">pk_sign_verify_algs</span><p>Algorithms for sign and verify.</p><span class="name">pk_sign_verify_opts</span><span class="name">rsa_sign_verify_opt</span><span class="name">rsa_sign_verify_padding</span><p>Options for sign and verify.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>The RSA options are experimental.
+</p><p>The exact set of options and there syntax <em>may</em> be changed
+without prior notice.</p></div><h4>Diffie-Hellman Keys and parameters</h4><span class="name">dh_public</span><span class="name">dh_private</span><span class="name">dh_params</span><pre><code class="">dh_params() = [P, G] | [P, G, PrivateKeyBitLength]</code></pre><span class="name">ecdh_public</span><span class="name">ecdh_private</span><span class="name">ecdh_params</span><h4>Types for Engines</h4><span class="name">engine_key_ref</span><span class="name">engine_ref</span><p>The result of a call to <a href="#engine_load-3">engine_load/3</a>.
+</p><span class="name">key_id</span><p>Identifies the key to be used. The format depends on the loaded engine. It is passed to
+the <strong>ENGINE_load_(private|public)_key</strong> functions in libcrypto.
+</p><span class="name">password</span><p>The password of the key stored in an engine.
+</p><span class="name">engine_method_type</span><span class="name">engine_cmnd</span><p>Pre and Post commands for <a href="#engine_load-3">engine_load/3 and /4</a>.
+</p><h4>Internal data types</h4><span class="name">stream_state</span><span class="name">hmac_state</span><span class="name">hash_state</span><span class="name">crypto_state</span><p>Contexts with an internal state that should not be manipulated but passed between function calls.
+</p><h4>Error types</h4><span class="name">run_time_error</span><p>The exception <strong>error:badarg</strong> signifies that one or more arguments are of wrong data type,
+or are otherwise badly formed.
+</p><p>The exception <strong>error:notsup</strong> signifies that the algorithm is known but is not supported
+by current underlying libcrypto or explicitly disabled when building that.
+</p><p>For a list of supported algorithms, see <a href="#supports-0">supports/0</a>.
+</p><span class="name">descriptive_error</span><p>This is a more developed variant of the older
+<a href="#type-run_time_error">run_time_error()</a>.
+</p><p>The exception is:</p><pre>
+	  {Tag, {C_FileName,LineNumber}, Description}
+
+	   Tag = badarg | notsup | error
+	   C_FileName = string()
+	   LineNumber = integer()
+	   Description = string()
+	</pre><p>It is like the older type an exception of the <strong>error</strong> class. In addition they contain
+a descriptive text in English. That text is targeted to a developer. Examples are "Bad key size"
+or "Cipher id is not an atom".
+</p><p>The exception tags are:</p><dl><dt><strong>badarg</strong></dt><dd><p>Signifies that one or more arguments are of wrong data type or are otherwise badly formed.</p> </dd><dt><strong>notsup</strong></dt><dd><p>Signifies that the algorithm is known but is not supported by current underlying libcrypto
+or explicitly disabled when building that one.</p> </dd><dt><strong>error</strong></dt><dd><p>An error condition that should not occur, for example a memory allocation failed or
+the underlying cryptolib returned an error code, for example "Can't initialize context, step 1".
+Thoose text usually needs searching the C-code to be understood.</p> </dd></dl><p>To catch the exception, use for example:</p><pre><code class="">
+	  try crypto:crypto_init(Ciph, Key, IV, true)
+	  catch
+	      error:{Tag, {C_FileName,LineNumber}, Description} -&gt;
+	              do_something(......)
+	      .....
+	  end
+	</code></pre><h4>New API</h4><h3>Functions</h3><h4>crypto_init/3</h4><p>Initializes a series of encryptions or decryptions</p><p>As <a href="#crypto_init/4">crypto_init/4</a> but for ciphers without IVs.</p><h4>crypto_init/4</h4><p>Initializes a series of encryptions or decryptions</p><p>Part of the <a href="../crypto/new_api#the-new-api">new API</a>.
+Initializes a series of encryptions or decryptions and creates an internal state
+with a reference that is returned.
+The actual encryption or decryption is done by
+<a href="./crypto#crypto_update/2">crypto_update/2</a>.
+</p><p>For encryption, set the <strong>EncryptFlag</strong> to <strong>true</strong>. For decryption, set it to <strong>false</strong>.
+</p><p>See <a href="../crypto/new_api#examples-of-crypto_init-4-and-crypto_update-2"> examples in the User's Guide.</a>
+</p><h4>crypto_update/2</h4><p>Do an actual crypto operation on a part of the full text</p><p>Part of the <a href="../crypto/new_api#the-new-api">new API</a>.
+It does an actual crypto operation on a part of the full text. If the part is less
+than a number of full blocks, only the full blocks (possibly none) are encrypted 
+or decrypted and the remaining bytes are saved to the next <strong>crypto_update</strong> operation.
+The <strong>State</strong> should be created with
+<a href="./crypto#crypto_init/3">crypto_init/3</a>
+or
+<a href="./crypto#crypto_init/4">crypto_init/4</a>.
+</p><p>See <a href="../crypto/new_api#examples-of-crypto_init-4-and-crypto_update-2"> examples in the User's Guide.</a>
+</p><h4>crypto_dyn_iv_init/3</h4><p>Initializes a series of encryptions or decryptions where the IV is provided later</p><p>Part of the <a href="../crypto/new_api#the-new-api">new API</a>.
+Initializes a series of encryptions or decryptions where the IV is provided later.
+The actual encryption or decryption is done by
+<a href="./crypto#crypto_dyn_iv_update/3">crypto_dyn_iv_update/3</a>.
+</p><p>For encryption, set the <strong>EncryptFlag</strong> to <strong>true</strong>. For decryption, set it to <strong>false</strong>.
+</p><h4>crypto_dyn_iv_update/3</h4><p>Do an actual crypto operation on a part of the full text and the IV is supplied for each part</p><p>Part of the <a href="../crypto/new_api#the-new-api">new API</a>.
+Do an actual crypto operation on a part of the full text and the IV is supplied for each part.
+The <strong>State</strong> should be created with
+<a href="./crypto#crypto_dyn_iv_init/3">crypto_dyn_iv_init/3</a>.
+</p><h4>crypto_one_time/4</h4><p>Do a complete encrypt or decrypt of the full text</p><p>As <a href="#crypto_one_time/5">crypto_one_time/5</a> but for ciphers without IVs.</p><h4>crypto_one_time/5</h4><p>Do a complete encrypt or decrypt of the full text</p><p>Part of the <a href="../crypto/new_api#the-new-api">new API</a>.
+Do a complete encrypt or decrypt of the full text in the argument <strong>Data</strong>.
+</p><p>For encryption, set the <strong>EncryptFlag</strong> to <strong>true</strong>. For decryption, set it to <strong>false</strong>.
+</p><p>See <a href="../crypto/new_api#example-of-crypto_one_time-5">examples in the User's Guide.</a>
+</p><h4>crypto_one_time_aead/6</h4><h4>crypto_one_time_aead/7</h4><p>Do a complete encrypt or decrypt with an AEAD cipher of the full text</p><p>Part of the <a href="../crypto/new_api#the-new-api">new API</a>.
+Do a complete encrypt or decrypt with an AEAD cipher of the full text.
+</p><p>For encryption, set the <strong>EncryptFlag</strong> to <strong>true</strong> and set the <strong>TagOrTagLength</strong>
+to the wanted size of the tag, that is, the tag length.  If the default length is wanted, the
+<strong>crypto_aead/6</strong> form may be used.
+</p><p>For decryption, set the <strong>EncryptFlag</strong> to <strong>false</strong> and put the tag to be checked
+in the argument	<strong>TagOrTagLength</strong>.
+</p><p>See <a href="../crypto/new_api#example-of-crypto_one_time_aead-6">examples in the User's Guide.</a>
+</p><h4>supports/1</h4><p>Provide a list of available crypto algorithms.</p><p> Can be used to determine which crypto algorithms that are supported
+by the underlying libcrypto library</p><p>See <a href="#hash_info-1">hash_info/1</a> and <a href="#cipher_info-1">cipher_info/1</a>
+for information about the hash and cipher algorithms.
+</p><h4>API kept from previous versions</h4><h3>Functions</h3><h4>bytes_to_integer/1</h4><p>Convert binary representation, of an integer, to an Erlang integer.</p><p>Convert binary representation, of an integer, to an Erlang integer.
+</p><h4>compute_key/4</h4><p>Computes the shared secret</p><p>Computes the shared secret from the private key and the other party's public key.
+See also <a href="../public_key/public_key#compute_key-2">public_key:compute_key/2</a>
+</p><h4>exor/2</h4><p>XOR data</p><p>Performs bit-wise XOR (exclusive or) on the data supplied.</p><h4>generate_key/2</h4><h4>generate_key/3</h4><p>Generates a public key of type <strong>Type</strong></p><p>Generates a public key of type <strong>Type</strong>.
+See also <a href="../public_key/public_key#generate_key-1">public_key:generate_key/1</a>.
+May raise exception:
+</p><ul><li><strong>error:badarg</strong>: an argument is of wrong type or has an illegal value,</li><li><strong>error:low_entropy</strong>: the random generator failed due to lack of secure "randomness",</li><li><strong>error:computation_failed</strong>: the computation fails of another reason than <strong>low_entropy</strong>.</li></ul><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>RSA key generation is only available if the runtime was
+built with dirty scheduler support. Otherwise, attempting to
+generate an RSA key will raise exception <strong>error:notsup</strong>.</p></div><h4>hash/2</h4><p>Computes a message digest of type <strong>Type</strong> from <strong>Data</strong>.</p><p>May raise exception <strong>error:notsup</strong> in case the chosen <strong>Type</strong>
+is not supported by the underlying libcrypto implementation.</p><h4>hash_init/1</h4><p>Initializes the context for streaming hash operations. <strong>Type</strong> determines
+which digest to use. The returned context should be used as argument
+to <a href="#hash_update-2">hash_update</a>.</p><p>May raise exception <strong>error:notsup</strong> in case the chosen <strong>Type</strong>
+is not supported by the underlying libcrypto implementation.</p><h4>hash_update/2</h4><p>Updates the digest represented by <strong>Context</strong> using the given <strong>Data</strong>. <strong>Context</strong>
+must have been generated using <a href="#hash_init-1">hash_init</a>
+or a previous call to this function. <strong>Data</strong> can be any length. <strong>NewContext</strong>
+must be passed into the next call to <strong>hash_update</strong>
+or <a href="#hash_final-1">hash_final</a>.</p><h4>hash_final/1</h4><p>Finalizes the hash operation referenced by <strong>Context</strong> returned
+from a previous call to <a href="#hash_update-2">hash_update</a>.
+The size of <strong>Digest</strong> is determined by the type of hash
+function used to generate it.</p><h4>hmac/3</h4><h4>hmac/4</h4><p>Computes a HMAC of type <strong>Type</strong> from <strong>Data</strong> using
+<strong>Key</strong> as the authentication key.</p><p><strong>MacLength</strong>
+will limit the size of the resultant <strong>Mac</strong>.</p><h4>hmac_init/2</h4><p>Initializes the context for streaming HMAC operations. <strong>Type</strong> determines
+which hash function to use in the HMAC operation. <strong>Key</strong> is the authentication
+key. The key can be any length.</p><h4>hmac_update/2</h4><p>Updates the HMAC represented by <strong>Context</strong> using the given <strong>Data</strong>. <strong>Context</strong>
+must have been generated using an HMAC init function (such as
+<a href="#hmac_init-2">hmac_init</a>). <strong>Data</strong> can be any length. <strong>NewContext</strong>
+must be passed into the next call to <strong>hmac_update</strong>
+or to one of the functions <a href="#hmac_final-1">hmac_final</a> and
+<a href="#hmac_final_n-2">hmac_final_n</a>
+</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>Do not use a <strong>Context</strong> as argument in more than one
+call to	hmac_update or hmac_final. The semantics of reusing old contexts
+in any way is undefined and could even crash the VM in earlier releases.
+The reason for this limitation is a lack of support in the underlying
+libcrypto	API.</p></div><h4>hmac_final/1</h4><p>Finalizes the HMAC operation referenced by <strong>Context</strong>. The size of the resultant MAC is
+determined by the type of hash function used to generate it.</p><h4>hmac_final_n/2</h4><p>Finalizes the HMAC operation referenced by <strong>Context</strong>. <strong>HashLen</strong> must be greater than
+zero. <strong>Mac</strong> will be a binary with at most <strong>HashLen</strong> bytes. Note that if HashLen is greater than the actual number of bytes returned from the underlying hash, the returned hash will have fewer than <strong>HashLen</strong> bytes.</p><h4>cmac/3</h4><h4>cmac/4</h4><p>Calculates the Cipher-based Message Authentication Code.</p><p>Computes a CMAC of type <strong>Type</strong> from <strong>Data</strong> using
+<strong>Key</strong> as the authentication key.</p><p><strong>MacLength</strong>
+will limit the size of the resultant <strong>Mac</strong>.</p><h4>info_fips/0</h4><p>Provides information about the FIPS operating status.</p><p>Provides information about the FIPS operating status of
+crypto and the underlying libcrypto library. If crypto was built
+with FIPS support this can be either <strong>enabled</strong> (when
+running in FIPS mode) or <strong>not_enabled</strong>. For other builds
+this value is always <strong>not_supported</strong>.
+</p><p>See <a href="#enable_fips_mode-1">enable_fips_mode/1</a> about how to enable
+FIPS mode.
+</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>In FIPS mode all non-FIPS compliant algorithms are
+disabled and raise exception <strong>error:notsup</strong>. Check
+<a href="#supports-0">supports</a> that in
+FIPS mode returns the restricted list of available
+algorithms.</p></div><h4>enable_fips_mode/1</h4><p>Change FIPS mode.</p><p>Enables (<strong>Enable = true</strong>) or disables (<strong>Enable = false</strong>) FIPS mode. Returns <strong>true</strong> if
+the operation was successful or <strong>false</strong> otherwise.
+</p><p>Note that to enable FIPS mode succesfully, OTP must be built with the configure option <strong>--enable-fips</strong>,
+and the underlying libcrypto must also support FIPS.
+</p><p>See also <a href="#info_fips-0">info_fips/0</a>.
+</p><h4>info_lib/0</h4><p>Provides information about the libraries used by crypto.</p><p>Provides the name and version of the libraries used by crypto.</p><p><strong>Name</strong> is the name of the library. <strong>VerNum</strong> is
+the numeric version according to the library's own versioning
+scheme. <strong>VerStr</strong> contains a text variant of the version.</p><pre>
+&gt; <span class="input">info_lib().</span>
+[{&lt;&lt;"OpenSSL"&gt;&gt;,269484095,&lt;&lt;"OpenSSL 1.1.0c  10 Nov 2016""&gt;&gt;}]
+        </pre><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+From OTP R16 the <em>numeric version</em> represents the version of the OpenSSL
+<em>header files</em> (<strong>openssl/opensslv.h</strong>) used when crypto was compiled.
+The text variant represents the libcrypto library used at runtime.
+In earlier OTP versions both numeric and text was taken from the library.
+</p></div><h4>hash_info/1</h4><p>Information about supported hash algorithms.</p><p>Provides a map with information about block_size, size and possibly other properties of the
+hash algorithm in question.
+</p><p>For a list of supported hash algorithms, see <a href="#supports-0">supports/0</a>.
+</p><h4>cipher_info/1</h4><p>Information about supported ciphers.</p><p>Provides a map with information about block_size, key_length, iv_length and possibly other properties of the
+cipher algorithm in question.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The ciphers <strong>aes_cbc</strong>, <strong>aes_cfb8</strong>, <strong>aes_cfb128</strong>, <strong>aes_ctr</strong>,
+<strong>aes_ecb</strong>, <strong>aes_gcm</strong> and <strong>aes_ccm</strong>
+has no keylength in the <strong>Type</strong> as opposed to for example <strong>aes_128_ctr</strong>. They adapt to the length of
+the key provided in the encrypt and decrypt function. Therefor it is impossible to return a valid keylength
+in the map.</p><p>Always use a <strong>Type</strong> with an explicit key length,
+</p></div><p>For a list of supported cipher algorithms, see <a href="#supports-0">supports/0</a>.
+</p><h4>mod_pow/3</h4><p>Computes the function: N^P mod M</p><p>Computes the function <strong>N^P mod M</strong>.</p><h4>next_iv/2</h4><h4>next_iv/3</h4><p>Returns the initialization vector to be used in the next
+iteration of encrypt/decrypt of type <strong>Type</strong>. <strong>Data</strong> is the
+encrypted data from the previous iteration step. The <strong>IVec</strong>
+argument is only needed for <strong>des_cfb</strong> as the vector used
+in the previous iteration step.</p><h4>poly1305/2</h4><p>Computes a POLY1305 message authentication code (<strong>Mac</strong>) from <strong>Data</strong> using
+<strong>Key</strong> as the authentication key.</p><h4>private_decrypt/4</h4><p>Decrypts CipherText using the private Key.</p><p>Decrypts the <strong>CipherText</strong>, encrypted with
+<a href="#public_encrypt-4">public_encrypt/4</a> (or equivalent function)
+using the <strong>PrivateKey</strong>, and returns the
+plaintext (message digest). This is a low level signature  verification operation
+used for instance by older versions of the SSL protocol.
+See also <a href="../public_key/public_key#decrypt_private-2">public_key:decrypt_private/[2,3]</a>
+</p><h4>private_encrypt/4</h4><p>Encrypts PlainText using the private Key.</p><p>Encrypts the <strong>PlainText</strong> using the <strong>PrivateKey</strong>
+and returns the ciphertext. This is a low level signature operation
+used for instance by older versions of the SSL protocol. See
+also <a href="../public_key/public_key#encrypt_private-2">public_key:encrypt_private/[2,3]</a>
+</p><h4>public_decrypt/4</h4><p>Decrypts CipherText using the public Key.</p><p>Decrypts the <strong>CipherText</strong>, encrypted with
+<a href="#private_encrypt-4">private_encrypt/4</a>(or equivalent function)
+using the <strong>PrivateKey</strong>, and returns the
+plaintext (message digest). This is a low level signature verification operation
+used for instance by older versions of the SSL protocol.
+See also <a href="../public_key/public_key#decrypt_public-2">public_key:decrypt_public/[2,3]</a>
+</p><h4>public_encrypt/4</h4><p>Encrypts PlainText using the public Key.</p><p>Encrypts the <strong>PlainText</strong> (message digest) using the <strong>PublicKey</strong>
+and returns the <strong>CipherText</strong>. This is a low level signature operation
+used for instance by older versions of the SSL protocol. See also <a href="../public_key/public_key#encrypt_public-2">public_key:encrypt_public/[2,3]</a>
+</p><h4>rand_seed/1</h4><p>Set the seed for random bytes generation</p><p>Set the seed for PRNG to the given binary. This calls the
+RAND_seed function from openssl. Only use this if the system
+you are running on does not have enough "randomness" built in.
+Normally this is when
+<a href="#strong_rand_bytes/1">strong_rand_bytes/1</a>
+raises <strong>error:low_entropy</strong></p><h4>rand_uniform(Lo, Hi) -&gt; N</h4><p>Generate a random number</p><ul><li><span class="v">Lo, Hi, N = integer()</span></li></ul><p>Generate a random number <strong>N, Lo =&lt; N &lt; Hi.</strong> Uses the
+<strong>crypto</strong> library pseudo-random number generator.
+<strong>Hi</strong> must be larger than <strong>Lo</strong>.</p><h4>start/0</h4><p> Equivalent to application:start(crypto). </p><p> Equivalent to application:start(crypto).</p><h4>stop/0</h4><p> Equivalent to application:stop(crypto).</p><p> Equivalent to application:stop(crypto).</p><h4>strong_rand_bytes/1</h4><p>Generate a binary of random bytes</p><p>Generates N bytes randomly uniform 0..255, and returns the
+result in a binary. Uses a cryptographically secure prng seeded and
+periodically mixed with operating system provided entropy. By default
+this is the <strong>RAND_bytes</strong> method from OpenSSL.</p><p>May raise exception <strong>error:low_entropy</strong> in case the random generator
+failed due to lack of secure "randomness".</p><h4>rand_seed/0</h4><p>Strong random number generation plugin state</p><p>
+Creates state object for
+<a href="./rand">random number generation</a>,
+in order to generate cryptographically strong random numbers
+(based on OpenSSL's <strong>BN_rand_range</strong>),
+and saves it in the process dictionary before returning it as well.
+See also
+<a href="../stdlib/rand#seed-1">rand:seed/1</a> and
+<a href="#rand_seed_s-0">rand_seed_s/0</a>.
+</p><p>
+When using the state object from this function the
+<a href="./rand">rand</a> functions using it
+may raise exception <strong>error:low_entropy</strong> in case the random generator
+failed due to lack of secure "randomness".
+</p><p><em>Example</em></p><pre>
+_ = crypto:rand_seed(),
+_IntegerValue = rand:uniform(42), % [1; 42]
+_FloatValue = rand:uniform().     % [0.0; 1.0[</pre><h4>rand_seed_s/0</h4><p>Strong random number generation plugin state</p><p>
+Creates state object for
+<a href="./rand">random number generation</a>,
+in order to generate cryptographically strongly random numbers
+(based on OpenSSL's <strong>BN_rand_range</strong>).
+See also
+<a href="../stdlib/rand#seed_s-1">rand:seed_s/1</a>.
+</p><p>
+When using the state object from this function the
+<a href="./rand">rand</a> functions using it
+may raise exception <strong>error:low_entropy</strong> in case the random generator
+failed due to lack of secure "randomness".
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+The state returned from this function cannot be used
+to get a reproducable random sequence as from
+the other
+<a href="./rand">rand</a>
+functions,
+since reproducability does not match cryptographically safe.
+</p><p>
+The only supported usage is to generate one distinct
+random sequence from this start state.
+</p></div><h4>rand_seed_alg(Alg) -&gt; rand:state()</h4><p>Strong random number generation plugin state</p><ul><li><span class="v">Alg = crypto | crypto_cache</span></li></ul><a name="rand_seed_alg-1"></a><p>
+Creates state object for
+<a href="./rand">random number generation</a>,
+in order to generate cryptographically strong random numbers,
+and saves it in the process dictionary before returning it as well.
+See also
+<a href="../stdlib/rand#seed-1">rand:seed/1</a> and
+<a href="#rand_seed_alg_s-1">rand_seed_alg_s/1</a>.
+</p><p>
+When using the state object from this function the
+<a href="./rand">rand</a> functions using it
+may raise exception <strong>error:low_entropy</strong> in case the random generator
+failed due to lack of secure "randomness".
+</p><p><em>Example</em></p><pre>
+_ = crypto:rand_seed_alg(crypto_cache),
+_IntegerValue = rand:uniform(42), % [1; 42]
+_FloatValue = rand:uniform().     % [0.0; 1.0[</pre><h4>rand_seed_alg(Alg, Seed) -&gt; rand:state()</h4><p>Strong random number generation plugin state</p><ul><li><span class="v">Alg = crypto_aes</span></li></ul><a name="rand_seed_alg-2"></a><p>
+Creates a state object for
+<a href="./rand">random number generation</a>,
+in order to generate cryptographically unpredictable random numbers,
+and saves it in the process dictionary before returning it as well.
+See also
+<a href="#rand_seed_alg_s-2">rand_seed_alg_s/2</a>.
+</p><p><em>Example</em></p><pre>
+_ = crypto:rand_seed_alg(crypto_aes, "my seed"),
+IntegerValue = rand:uniform(42), % [1; 42]
+FloatValue = rand:uniform(),     % [0.0; 1.0[
+_ = crypto:rand_seed_alg(crypto_aes, "my seed"),
+IntegerValue = rand:uniform(42), % Same values
+FloatValue = rand:uniform().     % again
+	</pre><h4>rand_seed_alg_s(Alg) -&gt; rand:state()</h4><p>Strong random number generation plugin state</p><ul><li><span class="v">Alg = crypto | crypto_cache</span></li></ul><a name="rand_seed_alg_s-1"></a><p>
+Creates state object for
+<a href="./rand">random number generation</a>,
+in order to generate cryptographically strongly random numbers.
+See also
+<a href="../stdlib/rand#seed_s-1">rand:seed_s/1</a>.
+</p><p>
+If <strong>Alg</strong> is <strong>crypto</strong> this function behaves exactly like
+<a href="#rand_seed_s-0">rand_seed_s/0</a>.
+</p><p>
+If <strong>Alg</strong> is <strong>crypto_cache</strong> this function
+fetches random data with OpenSSL's <strong>RAND_bytes</strong>
+and caches it for speed using an internal word size
+of 56 bits that makes calculations fast on 64 bit machines.
+</p><p>
+When using the state object from this function the
+<a href="./rand">rand</a> functions using it
+may raise exception <strong>error:low_entropy</strong> in case the random generator
+failed due to lack of secure "randomness".
+</p><p>
+The cache size can be changed from its default value using the
+<a href="crypto_app"> crypto app's </a> configuration parameter <strong>rand_cache_size</strong>.
+</p><p>
+When using the state object from this function the
+<a href="./rand">rand</a> functions using it
+may throw exception <strong>low_entropy</strong> in case the random generator
+failed due to lack of secure "randomness".
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+The state returned from this function cannot be used
+to get a reproducable random sequence as from
+the other
+<a href="./rand">rand</a>
+functions,
+since reproducability does not match cryptographically safe.
+</p><p>
+In fact since random data is cached some numbers may
+get reproduced if you try, but this is unpredictable.
+</p><p>
+The only supported usage is to generate one distinct
+random sequence from this start state.
+</p></div><h4>rand_seed_alg_s(Alg, Seed) -&gt; rand:state()</h4><p>Strong random number generation plugin state</p><ul><li><span class="v">Alg = crypto_aes</span></li></ul><a name="rand_seed_alg_s-2"></a><p>
+Creates a state object for
+<a href="./rand">random number generation</a>,
+in order to generate cryptographically unpredictable random numbers.
+See also
+<a href="#rand_seed_alg-1">rand_seed_alg/1</a>.
+</p><p>
+To get a long period the Xoroshiro928 generator from the
+<a href="./rand">rand</a>
+module is used as a counter (with period 2^928 - 1)
+and the generator states are scrambled through AES
+to create 58-bit pseudo random values.
+</p><p>
+The result should be statistically completely unpredictable
+random values, since the scrambling is cryptographically strong
+and the period is ridiculously long.  But the generated numbers
+are not to be regarded as cryptographically strong since
+there is no re-keying schedule.
+</p><ul><li> <p>
+If you need cryptographically strong random numbers use
+<a href="#rand_seed_alg_s-1">rand_seed_alg_s/1</a>
+with <strong>Alg =:= crypto</strong> or <strong>Alg =:= crypto_cache</strong>.
+</p> </li><li> <p>
+If you need to be able to repeat the sequence use this function.
+</p> </li><li> <p>
+If you do not need the statistical quality of this function,
+there are faster algorithms in the
+<a href="./rand">rand</a>
+module.
+</p> </li></ul><p>
+Thanks to the used generator the state object supports the
+<a href="../stdlib/rand#jump-0">stdlib/rand#jump-0</a>
+function with distance 2^512.
+</p><p>
+Numbers are generated in batches and cached for speed reasons.
+The cache size can be changed from its default value using the
+<a href="crypto_app"> crypto app's </a> configuration parameter <strong>rand_cache_size</strong>.
+</p><h4>ec_curves/0</h4><p>Provide a list of available named elliptic curves.</p><p>Can be used to determine which named elliptic curves are supported.</p><h4>ec_curve/1</h4><p>Get the defining parameters of a elliptic curve.</p><p>Return the defining parameters of a elliptic curve.</p><h4>sign/4</h4><h4>sign/5</h4><p> Create digital signature.</p><p>Creates a digital signature.</p><p>The msg is either the binary "cleartext" data to be
+signed or it is the hashed value of "cleartext" i.e. the
+digest (plaintext).</p><p>Algorithm <strong>dss</strong> can only be used together with digest type
+<strong>sha</strong>.</p><p>See also <a href="../public_key/public_key#sign-3">public_key:sign/3</a>.</p><h4>verify/5</h4><h4>verify/6</h4><p>Verifies a digital signature.</p><p>Verifies a digital signature</p><p>The msg is either the binary "cleartext" data to be
+signed or it is the hashed value of "cleartext" i.e. the
+digest (plaintext).</p><p>Algorithm <strong>dss</strong> can only be used together with digest type
+<strong>sha</strong>.</p><p>See also <a href="../public_key/public_key#verify-4">public_key:verify/4</a>.</p><h4>Engine API</h4><h3>Functions</h3><h4>privkey_to_pubkey/2</h4><p>Fetches a public key from an Engine stored private key.</p><p>Fetches the corresponding public key from a private key stored in an Engine.
+The key must be of the type indicated by the Type parameter.
+</p><h4>engine_get_all_methods/0</h4><p>Return list of all possible engine methods</p><p>
+Returns a list of all possible engine methods.
+</p><p>
+May raise exception <strong>error:notsup</strong> in case there is
+no engine support in the underlying OpenSSL implementation.
+</p><p>
+See also the chapter <a href="../crypto/engine_load#engine_load">Engine Load</a>
+in the User's Guide.
+</p><h4>engine_load/3</h4><p>Dynamical load an encryption engine</p><p>
+Loads the OpenSSL engine given by <strong>EngineId</strong> if it is available and then returns ok and
+an engine handle. This function is the same as calling <strong>engine_load/4</strong> with
+<strong>EngineMethods</strong> set to a list of all the possible methods.  An error tuple is
+returned if the engine can't be loaded.
+</p><p>
+The function raises a <strong>error:badarg</strong> if the parameters are in wrong format.
+It may also raise the exception <strong>error:notsup</strong> in case there is
+no engine support in the underlying OpenSSL implementation.
+</p><p>
+See also the chapter <a href="../crypto/engine_load#engine_load">Engine Load</a>
+in the User's Guide.
+</p><h4>engine_load/4</h4><p>Dynamical load an encryption engine</p><p>
+Loads the OpenSSL engine given by <strong>EngineId</strong> if it is available and then returns ok and
+an engine handle. An error tuple is returned if the engine can't be loaded.
+</p><p>
+The function raises a <strong>error:badarg</strong> if the parameters are in wrong format.
+It may also raise the exception <strong>error:notsup</strong> in case there is
+no engine support in the underlying OpenSSL implementation.
+</p><p>
+See also the chapter <a href="../crypto/engine_load#engine_load">Engine Load</a>
+in the User's Guide.
+</p><h4>engine_unload/1</h4><p>Dynamical load an encryption engine</p><p>
+Unloads the OpenSSL engine given by <strong>Engine</strong>.
+An error tuple is returned if the engine can't be unloaded.
+</p><p>
+The function raises a <strong>error:badarg</strong> if the parameter is in wrong format.
+It may also raise the exception <strong>error:notsup</strong> in case there is
+no engine support in the underlying OpenSSL implementation.
+</p><p>
+See also the chapter <a href="../crypto/engine_load#engine_load">Engine Load</a>
+in the User's Guide.
+</p><h4>engine_by_id/1</h4><p>Get a reference to an already loaded engine</p><p>
+Get a reference to an already loaded engine with <strong>EngineId</strong>.
+An error tuple is returned if the engine can't be unloaded.
+</p><p>
+The function raises a <strong>error:badarg</strong> if the parameter is in wrong format.
+It may also raise the exception <strong>error:notsup</strong> in case there is
+no engine support in the underlying OpenSSL implementation.
+</p><p>
+See also the chapter <a href="../crypto/engine_load#engine_load">Engine Load</a>
+in the User's Guide.
+</p><h4>engine_ctrl_cmd_string/3</h4><p>Sends ctrl commands to an OpenSSL engine</p><p>
+Sends ctrl commands to the OpenSSL engine given by <strong>Engine</strong>.
+This function is the same as calling <strong>engine_ctrl_cmd_string/4</strong> with
+<strong>Optional</strong> set to <strong>false</strong>.
+</p><p>
+The function raises a <strong>error:badarg</strong> if the parameters are in wrong format.
+It may also raise the exception <strong>error:notsup</strong> in case there is
+no engine support in the underlying OpenSSL implementation.
+</p><h4>engine_ctrl_cmd_string/4</h4><p>Sends ctrl commands to an OpenSSL engine</p><p>
+Sends ctrl commands to the OpenSSL engine given by <strong>Engine</strong>.
+<strong>Optional</strong> is a boolean argument that can relax the semantics of the function.
+If set to <strong>true</strong> it will only return failure if the ENGINE supported the given
+command name but failed while executing it, if the ENGINE doesn't support the command
+name it will simply return success without doing anything. In this case we assume
+the user is only supplying commands specific to the given ENGINE so we set this to
+<strong>false</strong>.
+</p><p>
+The function raises a <strong>error:badarg</strong> if the parameters are in wrong format.
+It may also raise the exception <strong>error:notsup</strong> in case there is
+no engine support in the underlying OpenSSL implementation.
+</p><h4>engine_add/1</h4><p>Add engine to OpenSSL internal list</p><p>Add the engine to OpenSSL's internal list.</p><p>
+The function raises a <strong>error:badarg</strong> if the parameters are in wrong format.
+It may also raise the exception <strong>error:notsup</strong> in case there is
+no engine support in the underlying OpenSSL implementation.
+</p><h4>engine_remove/1</h4><p>Remove engine to OpenSSL internal list</p><p>Remove the engine from OpenSSL's internal list.</p><p>
+The function raises a <strong>error:badarg</strong> if the parameters are in wrong format.
+It may also raise the exception <strong>error:notsup</strong> in case there is
+no engine support in the underlying OpenSSL implementation.
+</p><h4>engine_get_id/1</h4><p>Fetch engine ID</p><p>Return the ID for the engine, or an empty binary if there is no id set.</p><p>
+The function raises a <strong>error:badarg</strong> if the parameters are in wrong format.
+It may also raise the exception <strong>error:notsup</strong> in case there is
+no engine support in the underlying OpenSSL implementation.
+</p><h4>engine_get_name/1</h4><p>Fetch engine name</p><p>Return the name (eg a description) for the engine, or an empty binary if there is no name set.</p><p>
+The function raises a <strong>error:badarg</strong> if the parameters are in wrong format.
+It may also raise the exception <strong>error:notsup</strong> in case there is
+no engine support in the underlying OpenSSL implementation.
+</p><h4>engine_list/0</h4><p>List the known engine ids</p><p>List the id's of all engines in OpenSSL's internal list.</p><p>
+It may also raise the exception <strong>error:notsup</strong> in case there is
+no engine support in the underlying OpenSSL implementation.
+</p><p>
+See also the chapter <a href="../crypto/engine_load#engine_load">Engine Load</a>
+in the User's Guide.
+</p><p>
+May raise exception <strong>error:notsup</strong> in case engine functionality is not supported by the underlying
+OpenSSL implementation.
+</p><h4>ensure_engine_loaded/2</h4><p>Ensure encryption engine just loaded once</p><p>
+Loads the OpenSSL engine given by <strong>EngineId</strong> and the path to the dynamic library
+implementing the engine. This function is the same as calling <strong>ensure_engine_loaded/3</strong> with
+<strong>EngineMethods</strong> set to a list of all the possible methods. An error tuple is
+returned if the engine can't be loaded.
+</p><p>
+The function raises a <strong>error:badarg</strong> if the parameters are in wrong format.
+It may also raise the exception <strong>error:notsup</strong> in case there is
+no engine support in the underlying OpenSSL implementation.
+</p><p>
+See also the chapter <a href="../crypto/engine_load#engine_load">Engine Load</a>
+in the User's Guide.
+</p><h4>ensure_engine_loaded/3</h4><p>Ensure encryption engine just loaded once</p><p>
+Loads the OpenSSL engine given by <strong>EngineId</strong> and the path to the dynamic library
+implementing the engine. This function differs from the normal engine_load in that sense it
+also add the engine id to the internal list in OpenSSL. Then in the following calls to the function
+it just fetch the reference to the engine instead of loading it again.
+An error tuple is returned if the engine can't be loaded.
+</p><p>
+The function raises a <strong>error:badarg</strong> if the parameters are in wrong format.
+It may also raise the exception <strong>error:notsup</strong> in case there is
+no engine support in the underlying OpenSSL implementation.
+</p><p>
+See also the chapter <a href="../crypto/engine_load#engine_load">Engine Load</a>
+in the User's Guide.
+</p><h4>ensure_engine_unloaded/1</h4><p>Unload an engine loaded with the ensure function</p><p>
+Unloads an engine loaded with the <strong>ensure_engine_loaded</strong> function.
+It both removes the label from the OpenSSL internal engine list and unloads the engine.
+This function is the same as calling <strong>ensure_engine_unloaded/2</strong> with
+<strong>EngineMethods</strong> set to a list of all the possible methods. An error tuple is
+returned if the engine can't be unloaded.
+</p><p>
+The function raises a <strong>error:badarg</strong> if the parameters are in wrong format.
+It may also raise the exception <strong>error:notsup</strong> in case there is
+no engine support in the underlying OpenSSL implementation.
+</p><p>
+See also the chapter <a href="../crypto/engine_load#engine_load">Engine Load</a>
+in the User's Guide.
+</p><h4>ensure_engine_unloaded/2</h4><p>Unload an engine loaded with the ensure function</p><p>
+Unloads an engine loaded with the <strong>ensure_engine_loaded</strong> function.
+It both removes the label from the OpenSSL internal engine list and unloads the engine.
+An error tuple is returned if the engine can't be unloaded.
+</p><p>
+The function raises a <strong>error:badarg</strong> if the parameters are in wrong format.
+It may also raise the exception <strong>error:notsup</strong> in case there is
+no engine support in the underlying OpenSSL implementation.
+</p><p>
+See also the chapter <a href="../crypto/engine_load#engine_load">Engine Load</a>
+in the User's Guide.
+</p><h4>Old API</h4><h3>Functions</h3><h4>block_encrypt/3</h4><p>Encrypt <strong>PlainText</strong> according to <strong>Type</strong> block cipher</p><div class="alert alert-danger"><h4 class="alert-heading">Don't</h4><p>Don't use this function for new programs! Use <a href="./new_api">the-new-api</a>.</p></div><p>Encrypt <strong>PlainText</strong> according to <strong>Type</strong> block cipher.</p><p>May raise exception <strong>error:notsup</strong> in case the chosen <strong>Type</strong>
+is not supported by the underlying libcrypto implementation.</p><p>For keylengths and blocksizes see the
+<a href="../crypto/algorithm_details#ciphers">User's Guide</a>.
+</p><h4>block_decrypt/3</h4><p>Decrypt <strong>CipherText</strong> according to <strong>Type</strong> block cipher</p><div class="alert alert-danger"><h4 class="alert-heading">Don't</h4><p>Don't use this function for new programs! Use <a href="./new_api">the new api</a>.</p></div><p>Decrypt <strong>CipherText</strong> according to <strong>Type</strong> block cipher.</p><p>May raise exception <strong>error:notsup</strong> in case the chosen <strong>Type</strong>
+is not supported by the underlying libcrypto implementation.</p><p>For keylengths and blocksizes see the
+<a href="../crypto/algorithm_details#ciphers">User's Guide</a>.
+</p><h4>block_encrypt(Type, Key, Ivec, PlainText) -&gt; CipherText | Error</h4><h4>block_encrypt(AeadType, Key, Ivec, {AAD, PlainText}) -&gt; {CipherText, CipherTag} | Error</h4><h4>block_encrypt(aes_gcm | aes_ccm, Key, Ivec, {AAD, PlainText, TagLength}) -&gt; {CipherText, CipherTag} | Error</h4><p>Encrypt <strong>PlainText</strong> according to <strong>Type</strong> block cipher</p><ul><li><span class="v">Type = </span></li><li><span class="v">AeadType = </span></li><li><span class="v">Key =  | </span></li><li><span class="v">PlainText = iodata()</span></li><li><span class="v">AAD = IVec = CipherText = CipherTag = binary()</span></li><li><span class="v">TagLength = 1..16</span></li><li><span class="v">Error = </span></li></ul><div class="alert alert-danger"><h4 class="alert-heading">Don't</h4><p>Don't use this function for new programs! Use <a href="./new_api">the new api</a>.</p></div><p>Encrypt <strong>PlainText</strong> according to <strong>Type</strong> block cipher.
+<strong>IVec</strong> is an arbitrary initializing vector.</p><p>In AEAD (Authenticated Encryption with Associated Data) mode, encrypt
+<strong>PlainText</strong>according to <strong>Type</strong> block cipher and calculate
+<strong>CipherTag</strong> that also authenticates the <strong>AAD</strong> (Associated Authenticated Data).</p><p>May raise exception <strong>error:notsup</strong> in case the chosen <strong>Type</strong>
+is not supported by the underlying libcrypto implementation.</p><p>For keylengths, iv-sizes and blocksizes see the
+<a href="../crypto/algorithm_details#ciphers">User's Guide</a>.
+</p><h4>block_decrypt(Type, Key, Ivec, CipherText) -&gt; PlainText | Error</h4><h4>block_decrypt(AeadType, Key, Ivec, {AAD, CipherText, CipherTag}) -&gt; PlainText | Error</h4><p>Decrypt <strong>CipherText</strong> according to <strong>Type</strong> block cipher</p><ul><li><span class="v">Type = </span></li><li><span class="v">AeadType = </span></li><li><span class="v">Key =  | </span></li><li><span class="v">PlainText = iodata()</span></li><li><span class="v">AAD = IVec = CipherText = CipherTag = binary()</span></li><li><span class="v">Error = BadTag | </span></li><li><span class="v">BadTag = error</span></li></ul><div class="alert alert-danger"><h4 class="alert-heading">Don't</h4><p>Don't use this function for new programs! Use <a href="./new_api">the new api</a>.</p></div><p>Decrypt <strong>CipherText</strong> according to <strong>Type</strong> block cipher.
+<strong>IVec</strong> is an arbitrary initializing vector.</p><p>In AEAD (Authenticated Encryption with Associated Data) mode, decrypt
+<strong>CipherText</strong>according to <strong>Type</strong> block cipher and check the authenticity
+the <strong>PlainText</strong> and <strong>AAD</strong> (Associated Authenticated Data) using the
+<strong>CipherTag</strong>. May return <strong>error</strong> if the decryption or validation fail's</p><p>May raise exception <strong>error:notsup</strong> in case the chosen <strong>Type</strong>
+is not supported by the underlying libcrypto implementation.</p><p>For keylengths, iv-sizes and blocksizes see the
+<a href="../crypto/algorithm_details#ciphers">User's Guide</a>.
+</p><h4>stream_init/2</h4><div class="alert alert-danger"><h4 class="alert-heading">Don't</h4><p>Don't use this function for new programs! Use <a href="./new_api">the new api</a>.</p></div><p>Initializes the state for use in RC4 stream encryption
+<a href="#stream_encrypt-2">stream_encrypt</a> and
+<a href="#stream_decrypt-2">stream_decrypt</a></p><p>For keylengths see the
+<a href="../crypto/algorithm_details#stream-ciphers">User's Guide</a>.
+</p><h4>stream_init/3</h4><div class="alert alert-danger"><h4 class="alert-heading">Don't</h4><p>Don't use this function for new programs! Use <a href="./new_api">the new api</a>.</p></div><p>Initializes the state for use in streaming AES encryption using Counter mode (CTR).
+<strong>Key</strong> is the AES key and must be either 128, 192, or 256 bits long. <strong>IVec</strong> is
+an arbitrary initializing vector of 128 bits (16 bytes). This state is for use with
+<a href="#stream_encrypt-2">stream_encrypt</a> and
+<a href="#stream_decrypt-2">stream_decrypt</a>.</p><p>For keylengths and iv-sizes see the
+<a href="../crypto/algorithm_details#stream-ciphers">User's Guide</a>.
+</p><h4>stream_encrypt/2</h4><div class="alert alert-danger"><h4 class="alert-heading">Don't</h4><p>Don't use this function for new programs! Use <a href="./new_api">the new api</a>.</p></div><p>Encrypts <strong>PlainText</strong> according to the stream cipher <strong>Type</strong> specified in stream_init/3.
+<strong>Text</strong> can be any number of bytes. The initial <strong>State</strong> is created using
+<a href="#stream_init-2">stream_init</a>.
+<strong>NewState</strong> must be passed into the next call to <strong>stream_encrypt</strong>.</p><h4>stream_decrypt/2</h4><div class="alert alert-danger"><h4 class="alert-heading">Don't</h4><p>Don't use this function for new programs! Use <a href="./new_api">the new api</a>.</p></div><p>Decrypts <strong>CipherText</strong> according to the stream cipher <strong>Type</strong> specified in stream_init/3.
+<strong>PlainText</strong> can be any number of bytes. The initial <strong>State</strong> is created using
+<a href="#stream_init-2">stream_init</a>.
+<strong>NewState</strong> must be passed into the next call to <strong>stream_decrypt</strong>.</p><h4>supports/0</h4><p>Provide a list of available crypto algorithms.</p><div class="alert alert-danger"><h4 class="alert-heading">Don't</h4><p>Don't use this function for new programs! Use
+<a href="./crypto#supports-1">supports/1</a> in
+<a href="./new_api">the new api</a>.</p></div><p> Can be used to determine which crypto algorithms that are supported
+by the underlying libcrypto library</p><p>See <a href="#hash_info-1">hash_info/1</a> and <a href="#cipher_info-1">cipher_info/1</a>
+for information about the hash and cipher algorithms.
+</p></body></html>

@@ -1,0 +1,85 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Records</h1><p>A record is a data structure for storing a fixed number of
+elements. It has named fields and is similar to a struct in C.
+Record expressions are translated to tuple expressions during
+compilation. Therefore, record expressions are not understood by
+the shell unless special actions are taken. For details, see the
+<a href="./shell">shell(3)</a>
+manual page in STDLIB.</p><p>More examples are provided in
+<a href="./records"> Programming Examples</a>.</p><h2>Defining Records</h2><p>A record definition consists of the name of the record,
+followed by the field names of the record. Record and field names
+must be atoms. Each field can be given an optional default value.
+If no default value is supplied, <strong>undefined</strong> is used.</p><pre>
+-record(Name, {Field1 [= Value1],
+               ...
+               FieldN [= ValueN]}).</pre><p>A record definition can be placed anywhere among the attributes
+and function declarations of a module, but the definition must
+come before any usage of the record.</p><p>If a record is used in several modules, it is recommended that
+the record definition is placed in an include file.</p><h2>Creating Records</h2><p>The following expression creates a new <strong>Name</strong> record where
+the value of each field <strong>FieldI</strong> is the value of evaluating
+the corresponding expression <strong>ExprI</strong>:</p><pre>
+#Name{Field1=Expr1,...,FieldK=ExprK}</pre><p>The fields can be in any order, not necessarily the same order as
+in the record definition, and fields can be omitted. Omitted
+fields get their respective default value instead.</p><p>If several fields are to be assigned the same value,
+the following construction can be used:</p><pre>
+#Name{Field1=Expr1,...,FieldK=ExprK, _=ExprL}</pre><p>Omitted fields then get the value of evaluating <strong>ExprL</strong>
+instead of their default values. This feature is primarily
+intended to be used to create patterns for ETS and Mnesia match
+functions.</p><p><em>Example:</em></p><pre>
+-record(person, {name, phone, address}).
+
+...
+
+lookup(Name, Tab) -&gt;
+    ets:match_object(Tab, #person{name=Name, _='_'}).</pre><h2>Accessing Record Fields</h2><pre>
+Expr#Name.Field</pre><p>Returns the value of the specified field. <strong>Expr</strong> is to
+evaluate to a <strong>Name</strong> record.</p><p>The following expression returns the position of the specified
+field in the tuple representation of the record:</p><pre>
+#Name.Field</pre><p><em>Example:</em></p><pre>
+-record(person, {name, phone, address}).
+
+...
+
+lookup(Name, List) -&gt;
+    lists:keysearch(Name, #person.name, List).</pre><h2>Updating Records</h2><pre>
+Expr#Name{Field1=Expr1,...,FieldK=ExprK}</pre><p><strong>Expr</strong> is to evaluate to a <strong>Name</strong> record. A
+copy of this record is returned, with the value of each specified field
+<strong>FieldI</strong> changed to the value of evaluating the corresponding
+expression <strong>ExprI</strong>. All other fields retain their old
+values.</p><h2>Records in Guards</h2><p>Since record expressions are expanded to tuple expressions,
+creating records and accessing record fields are allowed in
+guards. However all subexpressions, for example, for field
+initiations, must be valid guard expressions as well.</p><p><em>Examples:</em></p><pre><code class="">
+handle(Msg, State) when Msg==#msg{to=void, no=3} -&gt;
+    ...
+
+handle(Msg, State) when State#state.running==true -&gt;
+    ...</code></pre><p>There is also a type test BIF <strong>is_record(Term, RecordTag)</strong>.</p><p><em>Example:</em></p><pre>
+is_person(P) when is_record(P, person) -&gt;
+    true;
+is_person(_P) -&gt;
+    false.</pre><h2>Records in Patterns</h2><p>A pattern that matches a certain record is created in the same
+way as a record is created:</p><pre>
+#Name{Field1=Expr1,...,FieldK=ExprK}</pre><p>In this case, one or more of <strong>Expr1</strong>...<strong>ExprK</strong> can be
+unbound variables.</p><h2>Nested Records</h2><p>Beginning with Erlang/OTP R14, parentheses when accessing or updating nested
+records can be omitted. Assume the following record
+definitions:</p><pre>
+-record(nrec0, {name = "nested0"}).
+-record(nrec1, {name = "nested1", nrec0=#nrec0{}}).
+-record(nrec2, {name = "nested2", nrec1=#nrec1{}}).
+
+N2 = #nrec2{},
+    </pre><p>Before R14, parentheses were needed as follows:</p><pre>
+"nested0" = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0.name,
+N0n = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0{name = "nested0a"},
+    </pre><p>Since R14, the following can also be written:</p><pre>
+"nested0" = N2#nrec2.nrec1#nrec1.nrec0#nrec0.name,
+N0n = N2#nrec2.nrec1#nrec1.nrec0#nrec0{name = "nested0a"},</pre><h2>Internal Representation of Records</h2><p>Record expressions are translated to tuple expressions during
+compilation. A record defined as:</p><pre>
+-record(Name, {Field1,...,FieldN}).</pre><p>is internally represented by the tuple:</p><pre>
+{Name,Value1,...,ValueN}</pre><p>Here each <strong>ValueI</strong> is the default value for <strong>FieldI</strong>.</p><p>To each module using records, a pseudo function is added
+during compilation to obtain information about records:</p><pre>
+record_info(fields, Record) -&gt; [Field]
+record_info(size, Record) -&gt; Size</pre><p><strong>Size</strong> is the size of the tuple representation, that is,
+one more than the number of fields.</p><p>In addition, <strong>#Record.Name</strong> returns the index in the tuple
+representation of <strong>Name</strong> of the record <strong>Record</strong>.</p><p><strong>Name</strong> must be an atom.</p></body></html>

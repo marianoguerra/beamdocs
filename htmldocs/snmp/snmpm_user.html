@@ -1,0 +1,62 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>snmpm_user</h1><h1>snmpm_user</h1><p>Behaviour module for the SNMP manager user.</p><p>This module defines the behaviour of the manager user. 
+A <strong>snmpm_user</strong> compliant module 
+must export the following functions: <ul><li> <p>handle_error/3</p> </li><li> <p>handle_agent/4</p> </li><li> <p>handle_pdu/4</p> </li><li> <p>handle_trap/3</p> </li><li> <p>handle_inform/3</p> </li><li> <p>handle_report/3</p> </li><li> <p>handle_invalid_result/2</p> </li></ul>The semantics of them and their exact signatures are explained
+below. Some of the function has no defined return value (<strong>void()</strong>), 
+they can of course return anything. But the functions that do have
+specified return value(s) <em>must</em> adhere to this. None of the 
+functions can use exit of throw to return. If the manager is not configured to use any particular
+transport domain, the behaviour <strong>handle_agent/4</strong>
+will for backwards copmpatibility reasons be called with the old
+<strong>IpAddr</strong> and <strong>PortNumber</strong> arguments<a name="types"></a></p><h2>DATA TYPES</h2><pre><code class="">
+snmp_gen_info() = {ErrorStatus :: atom(), 
+                   ErrorIndex  :: pos_integer(), 
+                   Varbinds    :: [snmp:varbind()]}
+snmp_v1_trap_info() :: {Enteprise :: snmp:oid(), 
+                        Generic   :: integer(), 
+                        Spec      :: integer(), 
+                        Timestamp :: integer(), 
+                        Varbinds  :: [snmp:varbind()]}
+    </code></pre><a name="handle_error"></a><h1>Functions</h1><h2>handle_error(ReqId, Reason, UserData) -&gt; void()</h2><p>Handle error</p><ul><li><span class="v">ReqId = integer()</span></li><li><span class="v">Reason = {unexpected_pdu, SnmpInfo} | {invalid_sec_info, SecInfo, SnmpInfo} | {empty_message, Addr, Port} | term()</span></li><li><span class="v">SnmpInfo = snmp_gen_info()</span></li><li><span class="v">SecInfo = term()</span></li><li><span class="v">Addr = ip_address()</span></li><li><span class="v">Port = integer()</span></li><li><span class="v">UserData = term()</span></li></ul><p>This function is called when the manager needs to
+communicate an "asynchronous" error to the user:
+e.g. failure to send an asynchronous message (i.e. encoding
+error), a received message was discarded due to security
+error, the manager failed to generate a response message to
+a received inform-request, or when receiving an unexpected
+PDU from an agent (could be an expired async request). </p><p>If <strong>ReqId</strong> is less then 0, it means that this
+information was not available to the manager (that info was
+never retrieved before the message was discarded). </p><p>For <strong>SnmpInfo</strong> see handle_agent below.</p><a name="handle_agent"></a><h2>handle_agent(Domain, Addr, Type, SnmpInfo, UserData) -&gt; Reply</h2><p>Handle agent</p><ul><li><span class="v">Domain = transportDomainUdpIpv4 | transportDomainUdpIpv6</span></li><li><span class="v">Addr = {} </span></li><li><span class="v">Type = pdu | trap | report | inform</span></li><li><span class="v">SnmpInfo = SnmpPduInfo | SnmpTrapInfo | SnmpReportInfo | SnmpInformInfo</span></li><li><span class="v">SnmpPduInfo = snmp_gen_info()</span></li><li><span class="v">SnmpTrapInfo = snmp_v1_trap_info()</span></li><li><span class="v">SnmpReportInfo = snmp_gen_info()</span></li><li><span class="v">SnmpInformInfo = snmp_gen_info()</span></li><li><span class="v">UserData = term()</span></li><li><span class="v">Reply = ignore | {register, UserId, TargetName, AgentConfig}</span></li><li><span class="v">UserId = term()</span></li><li><span class="v">TargetName = target_name()</span></li><li><span class="v">AgentConfig = [agent_config()]</span></li></ul><p>This function is called when a message is received from an 
+unknown agent.</p><p>Note that this will always be the default user that is called.</p><p>For more info about the <strong>agent_config()</strong>, see 
+<a href="./snmpm#register_agent">register_agent</a>.</p><p>The arguments <strong>Type</strong> and <strong>SnmpInfo</strong> relates in the 
+following way: </p><ul><li> <p><strong>pdu</strong> - <strong>SnmpPduInfo</strong> 
+(see <a href="#handle_pdu">handle_pdu</a>
+for more info).</p> </li><li> <p><strong>trap</strong> - <strong>SnmpTrapInfo</strong> 
+(see <a href="#handle_trap">handle_trap</a>
+for more info).</p> </li><li> <p><strong>report</strong> - <strong>SnmpReportInfo</strong> 
+(see <a href="#handle_report">handle_report</a>
+for more info).</p> </li><li> <p><strong>inform</strong> - <strong>SnmpInformInfo</strong> 
+(see <a href="#handle_inform">handle_inform</a>
+for more info).</p> </li></ul><p>The only user which would return 
+<strong>{register, UserId, TargetName, AgentConfig}</strong> is the 
+<em>default user</em>.</p><a name="handle_pdu"></a><h2>handle_pdu(TargetName, ReqId, SnmpPduInfo, UserData) -&gt; void()</h2><p>Handle the reply to an asynchronous request</p><ul><li><span class="v">TargetName = target_name()</span></li><li><span class="v">ReqId = term()</span></li><li><span class="v">SnmpPduInfo = snmp_gen_info()</span></li><li><span class="v">UserData = term()</span></li></ul><p>Handle the reply to an asynchronous request, such as 
+<a href="./snmpm#async_get">async_get</a>, 
+<a href="./snmpm#async_get_next">async_get_next</a> or 
+<a href="./snmpm#async_set">async_set</a>.</p><p>It could also be a late reply to a synchronous request.</p><p><strong>ReqId</strong> is returned by the asynchronous request function.</p><a name="handle_trap"></a><h2>handle_trap(TargetName, SnmpTrapInfo, UserData) -&gt; Reply</h2><p>Handle a trap/notification message</p><ul><li><span class="v">TargetName = TargetName2 = target_name()</span></li><li><span class="v">SnmpTrapInfo = snmp_v1_trap_info() | snmp_gen_info()</span></li><li><span class="v">UserData = term()</span></li><li><span class="v">Reply = ignore | unregister | {register, UserId, TargetName2, AgentConfig}</span></li><li><span class="v">UserId = term()</span></li><li><span class="v">AgentConfig = [agent_config()]</span></li></ul><p>Handle a trap/notification message from an agent.</p><p>For more info about the <strong>agent_config()</strong>, see 
+<a href="./snmpm#register_agent">register_agent</a></p><p>The only user which would return 
+<strong>{register, UserId, TargetName2, agent_info()}</strong> is the 
+<em>default user</em>.</p><a name="handle_inform"></a><h2>handle_inform(TargetName, SnmpInformInfo, UserData) -&gt; Reply</h2><p>Handle a inform message</p><ul><li><span class="v">TargetName = TargetName2 = target_name()</span></li><li><span class="v">SnmpInformInfo = snmp_gen_info()</span></li><li><span class="v">UserData = term()</span></li><li><span class="v">Reply = ignore | no_reply | unregister | {register, UserId, TargetName2, AgentConfig}</span></li><li><span class="v">UserId = term()</span></li><li><span class="v">AgentConfig = [agent_config()]</span></li></ul><p>Handle a inform message.</p><p>For more info about the <strong>agent_config()</strong>, see 
+<a href="./snmpm#register_agent">register_agent</a></p><p>The only user which would return 
+<strong>{register, UserId, TargetName2, AgentConfig}</strong> is the 
+<em>default user</em>.</p><p>If the 
+<a href="snmp_app">inform request behaviour</a> 
+configuration option is set to <strong>user</strong> or 
+<strong>{user, integer()}</strong>, the response (acknowledgment) to this 
+inform-request will be sent when this function returns.</p><a name="handle_report"></a><h2>handle_report(TargetName, SnmpReportInfo, UserData) -&gt; Reply</h2><p>Handle a report message</p><ul><li><span class="v">TargetName = TargetName2 = target_name()</span></li><li><span class="v">Addr = ip_address()</span></li><li><span class="v">Port = integer()</span></li><li><span class="v">SnmpReportInfo = snmp_gen_info()</span></li><li><span class="v">UserData = term()</span></li><li><span class="v">Reply = ignore | unregister | {register, UserId, TargetName2, AgentConfig}</span></li><li><span class="v">UserId = term()</span></li><li><span class="v">AgentConfig = [agent_config()]</span></li></ul><p>Handle a report message.</p><p>For more info about the <strong>agent_config()</strong>, see 
+<a href="./snmpm#register_agent">register_agent</a></p><p>The only user which would return 
+<strong>{register, UserId, TargetName2, AgentConfig}</strong> is the 
+<em>default user</em>.</p><a name="handle_invalid_result"></a><h2>handle_invalid_result(IN, OUT) -&gt; void()</h2><p>Handle a report message</p><ul><li><span class="v">IN = {Func, Args}</span></li><li><span class="v">Func = atom()</span></li><li><span class="v">Args = list()</span></li><li><span class="v">OUT = {crash, CrashInfo} | {result, InvalidResult}</span></li><li><span class="v">CrashInfo = {ErrorType, Error, Stacktrace}</span></li><li><span class="v">ErrorType = atom()</span></li><li><span class="v">Error = term()</span></li><li><span class="v">Stacktrace = list()</span></li><li><span class="v">InvalidResult = term()</span></li></ul><p>If <em>any</em> of the <em>other</em> callback functions crashes 
+(exit, throw or a plain crash) or return an invalid result (if a valid 
+return has been specified), this function is called. 
+The purpose is to allow the user handle this 
+error (for instance to issue an error report).</p><p><strong>IN</strong> reprecents the function called (and its arguments). 
+<strong>OUT</strong> represents the unexpected/invalid result. </p></body></html>

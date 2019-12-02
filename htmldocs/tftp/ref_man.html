@@ -1,0 +1,163 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>TFTP Reference Manual</h1><p>The <strong>TFTP</strong> application.</p><h2>tftp</h2><p>Trivial FTP.</p><p>Interface module for the <strong>tftp</strong> application.</p><a name="options"></a><h3>DATA TYPES</h3><p><strong>ServiceConfig = Options</strong></p><p><strong>Options = [option()]</strong></p><p>Most of the options are common for both the client and the server
+side, but some of them differs a little. 
+The available <strong>option()</strong>s are as follows:</p><dl><dt><strong>{debug, Level}</strong></dt><dd> <p><strong>Level = none | error | warning | brief | normal | verbose | all</strong></p> <p>Controls the level of debug printouts. 
+Default is <strong>none</strong>.</p> </dd><dt><strong>{host, Host}</strong></dt><dd> <p><strong>Host = hostname()</strong>, see
+<a href="./inet">inet(3)</a>.</p> <p>The name or IP address of the host where the TFTP daemon
+resides. This option is only used by the client.</p> </dd><dt><strong>{port, Port}</strong></dt><dd> <p><strong>Port = int()</strong></p> <p>The TFTP port where the daemon listens. Defaults is
+the standardized number 69. On the server side, it can
+sometimes make sense to set it to 0, meaning that
+the daemon just picks a free port (which one is
+returned by function <strong>info/1</strong>).</p> <p>If a socket is connected already, option
+<strong>{udp, [{fd, integer()}]}</strong> can be used to pass the
+open file descriptor to <strong>gen_udp</strong>. This can be automated
+by using a command-line argument stating the
+prebound file descriptor number. For example, if the
+port is 69 and file descriptor 22 is opened by
+<strong>setuid_socket_wrap</strong>, the command-line argument
+"-tftpd_69 22" triggers the prebound file
+descriptor 22 to be used instead of opening port 69.
+The UDP option <strong>{udp, [{fd, 22}]}</strong> is automatically added.
+See <strong>init:get_argument/</strong> about command-line arguments and
+<strong>gen_udp:open/2</strong> about UDP options.</p> </dd><dt><strong>{port_policy, Policy}</strong></dt><dd> <p><strong>Policy = random | Port | {range, MinPort, MaxPort}</strong></p> <p><strong>Port = MinPort = MaxPort = int()</strong></p> <p>Policy for the selection of the temporary port that is used
+by the server/client during the file transfer. Default is
+<strong>random</strong>, which is the standardized policy. With this
+policy a randomized free port is used. A single port or a range
+of ports can be useful if the protocol passes through a
+firewall.</p> </dd><dt><strong>{udp, Options}</strong></dt><dd> <p><strong>Options = [Opt]</strong>, see
+<a href="../kernel/gen_udp#open/1">gen_udp:open/2</a>.</p> </dd><dt><strong>{use_tsize, Bool}</strong></dt><dd> <p><strong>Bool = bool()</strong></p> <p>Flag for automated use of option <strong>tsize</strong>. With
+this set to <strong>true</strong>, the <strong>write_file/3</strong> client
+determines the filesize and sends it to the server as
+the standardized <strong>tsize</strong> option. A <strong>read_file/3</strong>
+client acquires only a filesize from the server by sending
+a zero <strong>tsize</strong>.</p> </dd><dt><strong>{max_tsize, MaxTsize}</strong></dt><dd> <p><strong>MaxTsize = int() | infinity</strong></p> <p>Threshold for the maximal filesize in bytes. The transfer
+is aborted if the limit is exceeded. 
+Default is <strong>infinity</strong>.</p> </dd><dt><strong>{max_conn, MaxConn}</strong></dt><dd> <p><strong>MaxConn = int() | infinity</strong></p> <p>Threshold for the maximal number of active connections.
+The daemon rejects the setup of new connections if
+the limit is exceeded. Default is <strong>infinity</strong>.</p> </dd><dt><strong>{TftpKey, TftpVal}</strong></dt><dd> <p><strong>TftpKey = string()</strong>          <br/>
+<strong>TftpVal = string()</strong></p> <p>Name and value of a TFTP option.</p> </dd><dt><strong>{reject, Feature}</strong></dt><dd> <p><strong>Feature = Mode | TftpKey</strong>          <br/>
+<strong>Â Mode = read | write</strong>          <br/>
+<strong>Â TftpKey = string()</strong></p> <p>Controls which features to reject. This is
+mostly useful for the server as it can restrict the use
+of certain TFTP options or read/write access.</p> </dd><dt><strong>{callback, {RegExp, Module, State}}</strong></dt><dd> <p><strong>RegExp = string()</strong>          <br/>
+<strong>Module = atom()</strong>          <br/>
+<strong>State = term()</strong></p> <p>Registration of a callback module. When a file is to be
+transferred, its local filename is matched to the regular
+expressions of the registered callbacks. The first matching
+callback is used during the transfer. See
+<a href="#read_file/3">read_file/3</a> and
+<a href="#write_file/3">write_file/3</a>.
+</p> <p>The callback module must implement the <strong>tftp</strong> behavior, see
+<a href="#tftp_callback">CALLBACK FUNCTIONS</a>.</p> </dd><dt><strong>{logger, Module}</strong></dt><dd> <p><strong>Module = module()</strong></p> <p>Callback module for customized logging of errors, warnings, and
+info messages. The callback module must implement the
+<strong>tftp_logger</strong> behavior, see
+<a href="#tftp_logger">LOGGER FUNCTIONS</a>.
+The default module is <strong>tftp_logger</strong>.</p> </dd><dt><strong>{max_retries, MaxRetries}</strong></dt><dd> <p><strong>MaxRetries = int()</strong></p> <p>Threshold for the maximal number of retries. By default
+the server/client tries to resend a message up to
+five times when the time-out expires.</p> </dd></dl><h2>Functions</h2><h3>change_config(daemons, Options) -&gt; [{Pid, Result}]</h3><p>Changes configuration for all daemons. </p><ul><li><span class="v">Options = [option()]</span></li><li><span class="v">Pid = pid()</span></li><li><span class="v">Result = ok | {error, Reason}</span></li><li><span class="v">Reason = term()</span></li></ul><p>Changes configuration for all TFTP daemon processes. </p><h3>change_config(servers, Options) -&gt; [{Pid, Result}]</h3><p>Changes configuration for all servers. </p><ul><li><span class="v">Options = [option()]</span></li><li><span class="v">Pid = pid()</span></li><li><span class="v">Result = ok | {error, Reason}</span></li><li><span class="v">Reason = term()</span></li></ul><p>Changes configuration for all TFTP server processes.</p><h3>change_config(Pid, Options) -&gt; Result</h3><p>Changes configuration for a TFTP daemon, server,  or client process.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Options = [option()]</span></li><li><span class="v">Result = ok | {error, Reason}</span></li><li><span class="v">Reason = term()</span></li></ul><p>Changes configuration for a TFTP daemon, server, or client process.</p><h3>info(daemons) -&gt; [{Pid, Options}]</h3><p>Returns information about all daemons.</p><ul><li><span class="v">Pid = [pid()]</span></li><li><span class="v">Options = [option()]</span></li><li><span class="v">Reason = term()</span></li></ul><p>Returns information about all TFTP daemon processes.</p><h3>info(servers) -&gt; [{Pid, Options}]</h3><p>Returns information about all servers.</p><ul><li><span class="v">Pid = [pid()]</span></li><li><span class="v">Options = [option()]</span></li><li><span class="v">Reason = term()</span></li></ul><p>Returns information about all TFTP server processes. </p><h3>info(Pid) -&gt; {ok, Options} | {error, Reason}</h3><p>Returns information about a daemon, server, or client process.</p><ul><li><span class="v">Options = [option()]</span></li><li><span class="v">Reason = term()</span></li></ul><p>Returns information about a TFTP daemon, server, or client process.</p><h3>read_file(RemoteFilename, LocalFilename, Options) -&gt; {ok, LastCallbackState} | {error, Reason}</h3><p>Reads a (virtual) file from a TFTP server.</p><ul><li><span class="v">RemoteFilename = string()</span></li><li><span class="v">LocalFilename = binary | string()</span></li><li><span class="v">Options = [option()]</span></li><li><span class="v">LastCallbackState = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Reads a (virtual) file <strong>RemoteFilename</strong> from a TFTP
+server.</p><p>If <strong>LocalFilename</strong> is the atom <strong>binary</strong>,
+<strong>tftp_binary</strong> is used as callback module. It concatenates
+all transferred blocks and returns them as one single binary
+in <strong>LastCallbackState</strong>.</p><p>If <strong>LocalFilename</strong> is a string and there are no
+registered callback modules, <strong>tftp_file</strong> is used as
+callback module. It writes each transferred block to the file
+named <strong>LocalFilename</strong> and returns the number of
+transferred bytes in <strong>LastCallbackState</strong>.</p><p>If <strong>LocalFilename</strong> is a string and there are registered
+callback modules, <strong>LocalFilename</strong> is tested against
+the regexps of these and the callback module corresponding to
+the first match is used, or an error tuple is returned if no
+matching regexp is found.</p><h3>start(Options) -&gt; {ok, Pid} | {error, Reason}</h3><p>Starts a daemon process.</p><ul><li><span class="v">Options = [option()]</span></li><li><span class="v">Pid = pid()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Starts a daemon process listening for UDP packets on a
+port. When it receives a request for read or write, it spawns
+a temporary server process handling the actual transfer
+of the (virtual) file.</p><h3>write_file(RemoteFilename, LocalFilename, Options) -&gt; {ok, LastCallbackState} | {error, Reason}</h3><p>Writes a (virtual) file to a TFTP server.</p><ul><li><span class="v">RemoteFilename = string()</span></li><li><span class="v">LocalFilename = binary() | string()</span></li><li><span class="v">Options = [option()]</span></li><li><span class="v">LastCallbackState = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Writes a (virtual) file <strong>RemoteFilename</strong> to a TFTP
+server.</p><p>If <strong>LocalFilename</strong> is a binary, <strong>tftp_binary</strong> is
+used as callback module. The binary is transferred block by
+block and the number of transferred bytes is returned in
+<strong>LastCallbackState</strong>.</p><p>If <strong>LocalFilename</strong> is a string and there are no
+registered callback modules, <strong>tftp_file</strong> is used as
+callback module. It reads the file named <strong>LocalFilename</strong>
+block by block and returns the number of transferred bytes
+in <strong>LastCallbackState</strong>.</p><p>If <strong>LocalFilename</strong> is a string and there are registered
+callback modules, <strong>LocalFilename</strong> is tested against
+the regexps of these and the callback module corresponding to
+the first match is used, or an error tuple is returned if no
+matching regexp is found.</p><a name="tftp_callback"></a><h3>CALLBACK FUNCTIONS</h3><p>A <strong>tftp</strong> callback module is to be implemented as a
+<strong>tftp</strong> behavior and export the functions listed
+in the following.</p><p>On the server side, the callback interaction starts with a call to
+<strong>open/5</strong> with the registered initial callback state.
+<strong>open/5</strong> is expected to open the (virtual) file. Then either
+function <strong>read/1</strong> or <strong>write/2</strong> is invoked
+repeatedly, once per transferred block. At each function call,
+the state returned from the previous call is obtained. When
+the last block is encountered, function <strong>read/1</strong> or
+<strong>write/2</strong> is expected to close the (virtual) file
+and return its last state. Function <strong>abort/3</strong> is only
+used in error situations. Function <strong>prepare/5</strong> is not used on
+the server side.</p><p>On the client side, the callback interaction is the same, but it
+starts and ends a bit differently. It starts with a call to
+<strong>prepare/5</strong> with the same arguments as <strong>open/5</strong> takes.
+<strong>prepare/5</strong> is expected to validate the TFTP options
+suggested by the user and to return the subset of them that it
+accepts. Then the options are sent to the server, which performs
+the same TFTP option negotiation procedure. The options that are
+accepted by the server are forwarded to function <strong>open/5</strong>
+on the client side. On the client side, function <strong>open/5</strong>
+must accept all option as-is or reject the transfer. Then
+the callback interaction follows the same pattern as described
+for the server side. When the last block is encountered in
+<strong>read/1</strong> or <strong>write/2</strong>, the returned state is forwarded to
+the user and returned from <strong>read_file</strong>/3 or
+<strong>write_file/3</strong>.</p><p> If a callback (performing the file access
+in the TFTP server) takes too long time (more than
+the double TFTP time-out), the server aborts the
+connection and sends an error reply to the client.
+This implies that the server releases resources
+attached to the connection faster than before. The
+server simply assumes that the client has given
+up.</p><p>If the TFTP server receives yet another request from
+the same client (same host and port) while it
+already has an active connection to the client, it
+ignores the new request if the request is
+equal to the first one (same filename and options).
+This implies that the (new) client will be served
+by the already ongoing connection on the server
+side. By not setting up yet another connection, in
+parallel with the ongoing one, the server
+consumes less resources.</p><a name="prepare"></a><h2>Functions</h2><h3>Module:abort(Code, Text, State) -&gt; ok</h3><p>Aborts the file transfer.</p><ul><li><span class="v">Code = undef | enoent | eacces | enospc</span></li><li><span class="v">Â Â | badop | eexist | baduser | badopt</span></li><li><span class="v">Â Â | int()</span></li><li><span class="v">Text = string()</span></li><li><span class="v">State = term()</span></li></ul><p>Invoked when the file transfer is aborted.</p><p>The callback function is expected to clean
+up its used resources after the aborted file
+transfer, such as closing open file
+descriptors and so on. The function is not
+invoked if any of the other callback
+functions returns an error, as it is
+expected that they already have cleaned up
+the necessary resources. However, it is
+invoked if the functions fail (crash).</p><h3>Module:open(Peer, Access, Filename, Mode, SuggestedOptions, State) -&gt; {ok, AcceptedOptions, NewState} | {error, {Code, Text}}</h3><p>Opens a file for read or write access.</p><ul><li><span class="v">Peer = {PeerType, PeerHost, PeerPort}</span></li><li><span class="v">PeerType = inet | inet6</span></li><li><span class="v">PeerHost = ip_address()</span></li><li><span class="v">PeerPort = integer()</span></li><li><span class="v">Access = read | write</span></li><li><span class="v">Filename = string()</span></li><li><span class="v">Mode = string()</span></li><li><span class="v">SuggestedOptions = AcceptedOptions = [{Key, Value}]</span></li><li><span class="v">Â Key = Value = string()</span></li><li><span class="v">State = InitialState | term()</span></li><li><span class="v">Â InitialState = [] | [{root_dir, string()}]</span></li><li><span class="v">NewState = term()</span></li><li><span class="v">Code = undef | enoent | eacces | enospc</span></li><li><span class="v">Â Â | badop | eexist | baduser | badopt</span></li><li><span class="v">Â Â | int()</span></li><li><span class="v">Text = string()</span></li></ul><p>Opens a file for read or write access.</p><p>On the client side, where the <strong>open/5</strong> call has been
+preceded by a call to <strong>prepare/5</strong>, all options must be
+accepted or rejected.</p><p>On the server side, where there is no preceding
+<strong>prepare/5</strong> call, no new options can be added, but
+those present in <strong>SuggestedOptions</strong> can be
+omitted or replaced with new values in <strong>AcceptedOptions</strong>.</p><a name="read"></a><h3>Module:prepare(Peer, Access, Filename, Mode, SuggestedOptions, InitialState) -&gt; {ok, AcceptedOptions, NewState} | {error, {Code, Text}}</h3><p>Prepares to open a file on the client side.</p><ul><li><span class="v">Peer = {PeerType, PeerHost, PeerPort}</span></li><li><span class="v">PeerType = inet | inet6</span></li><li><span class="v">PeerHost = ip_address()</span></li><li><span class="v">PeerPort = integer()</span></li><li><span class="v">Access = read | write</span></li><li><span class="v">Filename = string()</span></li><li><span class="v">Mode = string()</span></li><li><span class="v">SuggestedOptions = AcceptedOptions = [{Key, Value}]</span></li><li><span class="v">Â Key = Value = string()</span></li><li><span class="v">InitialState = [] | [{root_dir, string()}]</span></li><li><span class="v">NewState = term()</span></li><li><span class="v">Code = undef | enoent | eacces | enospc</span></li><li><span class="v">Â Â | badop | eexist | baduser | badopt</span></li><li><span class="v">Â Â | int()</span></li><li><span class="v">Text = string()</span></li></ul><p>Prepares to open a file on the client side.</p><p>No new options can be added, but those present in
+<strong>SuggestedOptions</strong> can be omitted or replaced with new
+values in <strong>AcceptedOptions</strong>.</p><p>This is followed by a call to <strong>open/4</strong> before any
+read/write access is performed. <strong>AcceptedOptions</strong> is
+sent to the server, which replies with the options that it
+accepts. These are then forwarded to <strong>open/4</strong> as
+<strong>SuggestedOptions</strong>.</p><a name="open"></a><h3>Module:read(State) -&gt; {more, Bin, NewState} | {last, Bin, FileSize} | {error, {Code, Text}}</h3><p>Reads a chunk from the file.</p><ul><li><span class="v">State = NewState = term()</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">FileSize = int()</span></li><li><span class="v">Code = undef | enoent | eacces | enospc</span></li><li><span class="v">Â Â | badop | eexist | baduser | badopt</span></li><li><span class="v">Â Â | int()</span></li><li><span class="v">Text = string()</span></li></ul><p>Reads a chunk from the file.</p><p>The callback function is expected to close
+the file when the last file chunk is
+encountered. When an error is encountered,
+the callback function is expected to clean
+up after the aborted file transfer, such as
+closing open file descriptors, and so on. In both
+cases there will be no more calls to any of
+the callback functions.</p><a name="write"></a><h3>Module:write(Bin, State) -&gt; {more, NewState} | {last, FileSize} | {error, {Code, Text}}</h3><p>Writes a chunk to the file.</p><ul><li><span class="v">Bin = binary()</span></li><li><span class="v">State = NewState = term()</span></li><li><span class="v">FileSize = int()</span></li><li><span class="v">Code = undef | enoent | eacces | enospc</span></li><li><span class="v">Â Â | badop | eexist | baduser | badopt</span></li><li><span class="v">Â Â | int()</span></li><li><span class="v">Text = string()</span></li></ul><p>Writes a chunk to the file.</p><p>The callback function is expected to close
+the file when the last file chunk is
+encountered. When an error is encountered,
+the callback function is expected to clean
+up after the aborted file transfer, such as
+closing open file descriptors, and so on. In both
+cases there will be no more calls to any of
+the callback functions.</p><a name="abort"></a><a name="tftp_logger"></a><h3>LOGGER FUNCTIONS</h3><p>A <strong>tftp_logger</strong> callback module is to be implemented as a
+<strong>tftp_logger</strong> behavior and export the following functions:</p><a name="error_msg"></a><h2>Functions</h2><h3>Logger:error_msg(Format, Data) -&gt; ok | exit(Reason)</h3><p>Logs an error message.</p><ul><li><span class="v">Format = string()</span></li><li><span class="v">Data = [term()]</span></li><li><span class="v">Reason = term()</span></li></ul><p>Logs an error message. 
+See <strong>error_logger:error_msg/2</strong> for details.</p><a name="warning_msg"></a><h3>Logger:info_msg(Format, Data) -&gt; ok | exit(Reason)</h3><p>Logs an info message.</p><ul><li><span class="v">Format = string()</span></li><li><span class="v">Data = [term()]</span></li><li><span class="v">Reason = term()</span></li></ul><p>Logs an info message. 
+See <strong>error_logger:info_msg/2</strong>  for details.</p><h3>Logger:warning_msg(Format, Data) -&gt; ok | exit(Reason)</h3><p>Logs a warning message.</p><ul><li><span class="v">Format = string()</span></li><li><span class="v">Data = [term()]</span></li><li><span class="v">Reason = term()</span></li></ul><p>Logs a warning message. 
+See <strong>error_logger:warning_msg/2</strong> for details.</p><a name="info_msg"></a></body></html>

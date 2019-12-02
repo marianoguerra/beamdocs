@@ -1,0 +1,222 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>maps</h1><h1>maps</h1><p>Maps processing functions.</p><p>This module contains functions for maps processing.</p><h1>Data Types</h1><span class="name">iterator</span><p>An iterator representing the associations in a map with keys of type
+<strong><span class="anno">Key</span></strong> and values of type <strong><span class="anno">Value</span></strong>.</p><p>Created using <a href="#iterator-1">iterator-1</a>.</p><p>Consumed by <a href="#next-1">next-1</a>,
+<a href="#filter-2">filter-2</a>,
+<a href="#fold-3">fold-3</a> and
+<a href="#map-2">map-2</a>.</p><span class="name">iterator</span><h1>Functions</h1><h2>filter/2</h2><p>Select pairs that satisfy a predicate.</p><p>Returns a map <strong><span class="anno">Map</span></strong> for which predicate
+<strong><span class="anno">Pred</span></strong> holds true in <strong><span class="anno">MapOrIter</span></strong>.</p><p>The call fails with a <strong>{badmap,Map}</strong> exception if
+<strong><span class="anno">MapOrIter</span></strong> is not a map or valid iterator,
+or with <strong>badarg</strong> if <strong><span class="anno">Pred</span></strong> is not a
+function of arity 2.</p><p><em>Example:</em></p><pre><code class="">
+&gt; M = #{a =&gt; 2, b =&gt; 3, c=&gt; 4, "a" =&gt; 1, "b" =&gt; 2, "c" =&gt; 4},
+  Pred = fun(K,V) -&gt; is_atom(K) andalso (V rem 2) =:= 0 end,
+  maps:filter(Pred,M).
+#{a =&gt; 2,c =&gt; 4}</code></pre><h2>find/2</h2><p>Returns a tuple <strong>{ok, Value}</strong>, where <strong><span class="anno">Value</span></strong>
+is the value associated with <strong><span class="anno">Key</span></strong>, or <strong>error</strong>
+if no value is associated with <strong><span class="anno">Key</span></strong> in
+<strong><span class="anno">Map</span></strong>.</p><p>The call fails with a <strong>{badmap,Map}</strong> exception if
+<strong><span class="anno">Map</span></strong> is not a map.</p><p><em>Example:</em></p><pre><code class="">
+&gt; Map = #{"hi" =&gt; 42},
+  Key = "hi",
+  maps:find(Key,Map).
+{ok,42}</code></pre><h2>fold/3</h2><p>Calls <strong>F(Key, Value, AccIn)</strong> for every <strong><span class="anno">Key</span></strong>
+to value <strong><span class="anno">Value</span></strong> association in
+<strong><span class="anno">MapOrIter</span></strong> in any order. Function <strong>fun F/3</strong>
+must return a new accumulator, which is passed to the next successive
+call. This function returns the final value of the accumulator.
+The initial accumulator value <strong><span class="anno">Init</span></strong> is returned
+if the map is empty.</p><p>The call fails with a <strong>{badmap,Map}</strong> exception if
+<strong><span class="anno">MapOrIter</span></strong> is not a map or valid iterator,
+or with <strong>badarg</strong> if <strong><span class="anno">Fun</span></strong> is not a
+function of arity 3.</p><p><em>Example:</em></p><pre><code class="">
+&gt; Fun = fun(K,V,AccIn) when is_list(K) -&gt; AccIn + V end,
+  Map = #{"k1" =&gt; 1, "k2" =&gt; 2, "k3" =&gt; 3},
+  maps:fold(Fun,0,Map).
+6</code></pre><h2>from_list/1</h2><p>Takes a list of key-value tuples elements and builds a map. The
+associations can be in any order, and both keys and values in the
+association can be of any term. If the same key appears more than
+once, the latter (right-most) value is used and the previous values
+are ignored.</p><p><em>Example:</em></p><pre><code class="">
+&gt; List = [{"a",ignored},{1337,"value two"},{42,value_three},{"a",1}],
+  maps:from_list(List).
+#{42 =&gt; value_three,1337 =&gt; "value two","a" =&gt; 1}</code></pre><h2>get/2</h2><p>Returns value <strong><span class="anno">Value</span></strong> associated with
+<strong><span class="anno">Key</span></strong> if <strong><span class="anno">Map</span></strong> contains
+<strong><span class="anno">Key</span></strong>.</p><p>The call fails with a <strong>{badmap,Map}</strong> exception if
+<strong><span class="anno">Map</span></strong> is not a map, or with a <strong>{badkey,Key}</strong>
+exception if no value is associated with <strong><span class="anno">Key</span></strong>.</p><p><em>Example:</em></p><pre><code class="">
+&gt; Key = 1337,
+  Map = #{42 =&gt; value_two,1337 =&gt; "value one","a" =&gt; 1},
+  maps:get(Key,Map).
+"value one"</code></pre><h2>get/3</h2><p>Returns value <strong><span class="anno">Value</span></strong> associated with
+<strong><span class="anno">Key</span></strong> if <strong><span class="anno">Map</span></strong> contains
+<strong><span class="anno">Key</span></strong>. If no value is associated with
+<strong><span class="anno">Key</span></strong>, <strong><span class="anno">Default</span></strong> is returned.</p><p>The call fails with a <strong>{badmap,Map}</strong> exception if
+<strong><span class="anno">Map</span></strong> is not a map.</p><p><em>Example:</em></p><pre><code class="">
+&gt; Map = #{ key1 =&gt; val1, key2 =&gt; val2 }.
+#{key1 =&gt; val1,key2 =&gt; val2}
+&gt; maps:get(key1, Map, "Default value").
+val1
+&gt; maps:get(key3, Map, "Default value").
+"Default value"</code></pre><h2>is_key/2</h2><p>Returns <strong>true</strong> if map <strong><span class="anno">Map</span></strong> contains
+<strong><span class="anno">Key</span></strong> and returns <strong>false</strong> if it does not
+contain the <strong><span class="anno">Key</span></strong>.</p><p>The call fails with a <strong>{badmap,Map}</strong> exception if
+<strong><span class="anno">Map</span></strong> is not a map.</p><p><em>Example:</em></p><pre><code class="">
+&gt; Map = #{"42" =&gt; value}.
+#{"42" =&gt; value}
+&gt; maps:is_key("42",Map).
+true
+&gt; maps:is_key(value,Map).
+false</code></pre><h2>iterator/1</h2><p>Create a map iterator.</p><p>Returns a map iterator <strong><span class="anno">Iterator</span></strong> that can
+be used by <a href="#next-1">next-1</a>
+to traverse the key-value associations in a map. When iterating
+over a map, the memory usage is guaranteed to be bounded no matter
+the size of the map.</p><p>The call fails with a <strong>{badmap,Map}</strong> exception if
+<strong><span class="anno">Map</span></strong> is not a map.</p><p><em>Example:</em></p><pre><code class="">
+&gt; M = #{ a =&gt; 1, b =&gt; 2 }.
+#{a =&gt; 1,b =&gt; 2}
+&gt; I = maps:iterator(M), ok.
+ok
+&gt; {K1, V1, I2} = maps:next(I), {K1, V1}.
+{a,1}
+&gt; {K2, V2, I3} = maps:next(I2),{K2, V2}.
+{b,2}
+&gt; maps:next(I3).
+none</code></pre><h2>keys/1</h2><p>Returns a complete list of keys, in any order, which resides
+within <strong><span class="anno">Map</span></strong>.</p><p>The call fails with a <strong>{badmap,Map}</strong> exception if
+<strong><span class="anno">Map</span></strong> is not a map.</p><p><em>Example:</em></p><pre><code class="">
+&gt; Map = #{42 =&gt; value_three,1337 =&gt; "value two","a" =&gt; 1},
+  maps:keys(Map).
+[42,1337,"a"]</code></pre><h2>map/2</h2><p>Produces a new map <strong><span class="anno">Map</span></strong> by calling function
+<strong>fun F(Key, Value1)</strong> for every <strong><span class="anno">Key</span></strong> to value
+<strong><span class="anno">Value1</span></strong> association in
+<strong><span class="anno">MapOrIter</span></strong> in any order. Function <strong>fun Fun/2</strong>
+must return value <strong><span class="anno">Value2</span></strong> to be associated with
+key <strong><span class="anno">Key</span></strong> for the new map
+<strong><span class="anno">Map</span></strong>.</p><p>The call fails with a <strong>{badmap,Map}</strong> exception if
+<strong><span class="anno">MapOrIter</span></strong> is not a map or valid iterator,
+or with <strong>badarg</strong> if <strong><span class="anno">Fun</span></strong> is not a
+function of arity 2.</p><p><em>Example:</em></p><pre><code class="">
+&gt; Fun = fun(K,V1) when is_list(K) -&gt; V1*2 end,
+  Map = #{"k1" =&gt; 1, "k2" =&gt; 2, "k3" =&gt; 3},
+  maps:map(Fun,Map).
+#{"k1" =&gt; 2,"k2" =&gt; 4,"k3" =&gt; 6}</code></pre><h2>merge/2</h2><p>Merges two maps into a single map <strong><span class="anno">Map3</span></strong>. If two
+keys exist in both maps, the value in <strong><span class="anno">Map1</span></strong> is
+superseded by the value in <strong><span class="anno">Map2</span></strong>.</p><p>The call fails with a <strong>{badmap,Map}</strong> exception if
+<strong><span class="anno">Map1</span></strong> or <strong><span class="anno">Map2</span></strong> is not a map.</p><p><em>Example:</em></p><pre><code class="">
+&gt; Map1 = #{a =&gt; "value_one", b =&gt; "value_two"},
+  Map2 = #{a =&gt; 1, c =&gt; 2},
+  maps:merge(Map1,Map2).
+#{a =&gt; 1,b =&gt; "value_two",c =&gt; 2}</code></pre><h2>new/0</h2><p>Returns a new empty map.</p><p><em>Example:</em></p><pre><code class="">
+&gt; maps:new().
+#{}</code></pre><h2>next/1</h2><p>Get the next key and value from an iterator.</p><p>Returns the next key-value association in
+<strong><span class="anno">Iterator</span></strong> and a new iterator for the
+remaining associations in the iterator.
+</p><p>
+If there are no more associations in the iterator,
+<strong>none</strong> is returned.
+</p><p><em>Example:</em></p><pre><code class="">
+&gt; Map = #{a =&gt; 1, b =&gt; 2, c =&gt; 3}.
+#{a =&gt; 1,b =&gt; 2,c =&gt; 3}
+&gt; I = maps:iterator(Map), ok.
+ok
+&gt; {K1, V1, I1} = maps:next(I), {K1, V1}.
+{a,1}
+&gt; {K2, V2, I2} = maps:next(I1), {K2, V2}.
+{b,2}
+&gt; {K3, V3, I3} = maps:next(I2), {K3, V3}.
+{c,3}
+&gt; maps:next(I3).
+none</code></pre><h2>put/3</h2><p>Associates <strong><span class="anno">Key</span></strong> with value
+<strong><span class="anno">Value</span></strong> and inserts the association into map
+<strong>Map2</strong>. If key <strong><span class="anno">Key</span></strong> already exists in map
+<strong><span class="anno">Map1</span></strong>, the old associated value is replaced by
+value <strong><span class="anno">Value</span></strong>. The function returns a new map
+<strong><span class="anno">Map2</span></strong> containing the new association and the old
+associations in <strong><span class="anno">Map1</span></strong>.</p><p>The call fails with a <strong>{badmap,Map}</strong> exception if
+<strong><span class="anno">Map1</span></strong> is not a map.</p><p><em>Example:</em></p><pre><code class="">
+&gt; Map = #{"a" =&gt; 1}.
+#{"a" =&gt; 1}
+&gt; maps:put("a", 42, Map).
+#{"a" =&gt; 42}
+&gt; maps:put("b", 1337, Map).
+#{"a" =&gt; 1,"b" =&gt; 1337}</code></pre><h2>remove/2</h2><p>Removes the <strong><span class="anno">Key</span></strong>, if it exists, and its
+associated value from <strong><span class="anno">Map1</span></strong> and returns a new map
+<strong><span class="anno">Map2</span></strong> without key <strong><span class="anno">Key</span></strong>.</p><p>The call fails with a <strong>{badmap,Map}</strong> exception if
+<strong><span class="anno">Map1</span></strong> is not a map.</p><p><em>Example:</em></p><pre><code class="">
+&gt; Map = #{"a" =&gt; 1}.
+#{"a" =&gt; 1}
+&gt; maps:remove("a",Map).
+#{}
+&gt; maps:remove("b",Map).
+#{"a" =&gt; 1}</code></pre><h2>size/1</h2><p>Returns the number of key-value associations in
+<strong><span class="anno">Map</span></strong>. This operation occurs in constant time.</p><p><em>Example:</em></p><pre><code class="">
+&gt; Map = #{42 =&gt; value_two,1337 =&gt; "value one","a" =&gt; 1},
+  maps:size(Map).
+3</code></pre><h2>take/2</h2><p>The function removes the <strong><span class="anno">Key</span></strong>, if it
+exists, and its associated value from <strong><span class="anno">Map1</span></strong>
+and returns a tuple with the removed <strong><span class="anno">Value</span></strong>
+and the new map <strong><span class="anno">Map2</span></strong> without key
+<strong><span class="anno">Key</span></strong>.  If the key does not exist
+<strong>error</strong> is returned.
+</p><p>The call will fail with a <strong>{badmap,Map}</strong> exception if
+<strong><span class="anno">Map1</span></strong> is not a map.
+</p><p>Example:</p><pre><code class="">
+&gt; Map = #{"a" =&gt; "hello", "b" =&gt; "world"}.
+#{"a" =&gt; "hello", "b" =&gt; "world"}
+&gt; maps:take("a",Map).
+{"hello",#{"b" =&gt; "world"}}
+&gt; maps:take("does not exist",Map).
+error</code></pre><h2>to_list/1</h2><p>Returns a list of pairs representing the key-value associations of
+<strong><span class="anno">Map</span></strong>, where the pairs
+<strong>[{K1,V1}, ..., {Kn,Vn}]</strong> are returned in arbitrary order.</p><p>The call fails with a <strong>{badmap,Map}</strong> exception if
+<strong><span class="anno">Map</span></strong> is not a map.</p><p><em>Example:</em></p><pre><code class="">
+&gt; Map = #{42 =&gt; value_three,1337 =&gt; "value two","a" =&gt; 1},
+  maps:to_list(Map).
+[{42,value_three},{1337,"value two"},{"a",1}]</code></pre><h2>update/3</h2><p>If <strong><span class="anno">Key</span></strong> exists in <strong><span class="anno">Map1</span></strong>, the
+old associated value is replaced by value <strong><span class="anno">Value</span></strong>.
+The function returns a new map <strong><span class="anno">Map2</span></strong> containing
+the new associated value.</p><p>The call fails with a <strong>{badmap,Map}</strong> exception if
+<strong><span class="anno">Map1</span></strong> is not a map, or with a <strong>{badkey,Key}</strong>
+exception if no value is associated with <strong><span class="anno">Key</span></strong>.</p><p><em>Example:</em></p><pre><code class="">
+&gt; Map = #{"a" =&gt; 1}.
+#{"a" =&gt; 1}
+&gt; maps:update("a", 42, Map).
+#{"a" =&gt; 42}</code></pre><h2>update_with/3</h2><p>Update a value in a <strong><span class="anno">Map1</span></strong> associated
+with <strong><span class="anno">Key</span></strong> by calling
+<strong><span class="anno">Fun</span></strong> on the old value to get a new
+value. An exception <strong>{badkey,<span class="anno">Key</span>}</strong> is
+generated if <strong><span class="anno">Key</span></strong> is not present in the
+map.</p><p>Example:</p><pre><code class="">
+&gt; Map = #{"counter" =&gt; 1},
+  Fun = fun(V) -&gt; V + 1 end,
+  maps:update_with("counter",Fun,Map).
+#{"counter" =&gt; 2}</code></pre><h2>update_with/4</h2><p>Update a value in a <strong><span class="anno">Map1</span></strong> associated
+with <strong><span class="anno">Key</span></strong> by calling
+<strong><span class="anno">Fun</span></strong> on the old value to get a new value.
+If <strong><span class="anno">Key</span></strong> is not present in
+<strong><span class="anno">Map1</span></strong> then <strong><span class="anno">Init</span></strong> will be
+associated with <strong><span class="anno">Key</span></strong>.
+</p><p>Example:</p><pre><code class="">
+&gt; Map = #{"counter" =&gt; 1},
+  Fun = fun(V) -&gt; V + 1 end,
+  maps:update_with("new counter",Fun,42,Map).
+#{"counter" =&gt; 1,"new counter" =&gt; 42}</code></pre><h2>values/1</h2><p>Returns a complete list of values, in arbitrary order, contained in
+map <strong>Map</strong>.</p><p>The call fails with a <strong>{badmap,Map}</strong> exception if
+<strong><span class="anno">Map</span></strong> is not a map.</p><p><em>Example:</em></p><pre><code class="">
+&gt; Map = #{42 =&gt; value_three,1337 =&gt; "value two","a" =&gt; 1},
+  maps:values(Map).
+[value_three,"value two",1]</code></pre><h2>with/2</h2><p>Returns a new map <strong><span class="anno">Map2</span></strong> with the keys <strong>K1</strong>
+through <strong>Kn</strong> and their associated values from map
+<strong><span class="anno">Map1</span></strong>. Any key in <strong><span class="anno">Ks</span></strong> that does
+not exist in <strong><span class="anno">Map1</span></strong> is ignored.</p><p><em>Example:</em></p><pre><code class="">
+&gt; Map = #{42 =&gt; value_three,1337 =&gt; "value two","a" =&gt; 1},
+  Ks = ["a",42,"other key"],
+  maps:with(Ks,Map).
+#{42 =&gt; value_three,"a" =&gt; 1}</code></pre><h2>without/2</h2><p>Returns a new map <strong><span class="anno">Map2</span></strong> without keys <strong>K1</strong>
+through <strong>Kn</strong> and their associated values from map
+<strong><span class="anno">Map1</span></strong>. Any key in <strong><span class="anno">Ks</span></strong> that does
+not exist in <strong><span class="anno">Map1</span></strong> is ignored</p><p><em>Example:</em></p><pre><code class="">
+&gt; Map = #{42 =&gt; value_three,1337 =&gt; "value two","a" =&gt; 1},
+  Ks = ["a",42,"other key"],
+  maps:without(Ks,Map).
+#{1337 =&gt; "value two"}</code></pre></body></html>

@@ -1,0 +1,251 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Configuring algorithms in SSH</h1><a name="introduction"></a><h2>Introduction</h2><p>To fully understand how to configure the algorithms, it is essential to have a basic understanding of the SSH protocol
+and how OTP SSH app handles the corresponding items</p><p>The first subsection will give a short background of the SSH protocol while later sections describes
+the implementation and provides some examples</p><h2>Basics of the ssh protocol's algorithms handling</h2><p>SSH uses different sets of algorithms in different phases of a session. Which
+algorithms to use is negotiated by the client and the server at the beginning of a session.
+See <a href="https://tools.ietf.org/html/rfc4253">RFC 4253</a>,
+"The Secure Shell (SSH) Transport Layer Protocol" for details.
+</p><p>The negotiation is simple: both peers sends their list of supported alghorithms to the other part.
+The first algorithm on the client's list that also in on the server's list is selected. So it is the
+client's orderering of the list that gives the priority for the algorithms.</p><p>There are five lists exchanged in the connection setup. Three of them are also divided in two
+directions, to and from the server.</p><p>The lists are (named as in the SSH application's options):</p><dl><dt><strong>kex</strong></dt><dd> <p>Key exchange.</p> <p>An algorithm is selected for computing a secret encryption key. Among examples are:
+the old nowadays week <strong>'diffie-hellman-group-exchange-sha1'</strong> and the very strong and modern
+<strong>'ecdh-sha2-nistp512'</strong>.</p> </dd><dt><strong>public_key</strong></dt><dd> <p>Server host key</p> <p>The asymetric encryption algorithm used in the server's private-public host key pair.
+Examples include the well-known RSA <strong>'ssh-rsa'</strong> and elliptic curve <strong>'ecdsa-sha2-nistp521'</strong>.
+</p> </dd><dt><strong>cipher</strong></dt><dd> <p>Symetric cipher algorithm used for the payload encryption. This algorithm will use the key calculated
+in the kex phase (together with other info) to genereate the actual key used. Examples are 
+tripple-DES <strong>'3des-cbc'</strong> and one of many AES variants <strong>'aes192-ctr'</strong>.
+</p> <p>This list is actually two - one for each direction server-to-client and client-to-server. Therefore it
+is possible but rare to have different algorithms in the two directions in one connection.</p> </dd><dt><strong>mac</strong></dt><dd> <p>Message authentication code</p> <p>"Check sum" of each message sent between the peers. Examples are SHA <strong>'hmac-sha1'</strong> and
+SHA2 <strong>'hmac-sha2-512'</strong>.</p> <p>This list is also divided into two for the both directions</p> </dd><dt><strong>compression</strong></dt><dd> <p>If and how to compress the message. Examples are <strong>none</strong>, that is, no compression and
+<strong>zlib</strong>.</p> <p>This list is also divided into two for the both directions</p> </dd></dl><h2>The SSH app's mechanism</h2><p>The set of algorithms that the SSH app uses by default depends on the algoritms supported by the:</p><ul><li><p><a href="./crypto">crypto</a> app,</p> </li><li><p>The cryptolib OTP is linked with, usally the one the OS uses, probably OpenSSL,</p> </li><li><p>and finaly what the SSH app implements</p> </li></ul><p>Due to this, it impossible to list in documentation what algorithms that are available in a certain installation.</p><p>There is an important command to list the actual algorithms and their ordering:
+<a href="./ssh#default_algorithms-0">ssh:default_algorithms/0</a>.</p><a name="example_default_algorithms"></a><pre><code class="erl">
+0&gt; ssh:default_algorithms().
+[{kex,['ecdh-sha2-nistp384','ecdh-sha2-nistp521',
+       'ecdh-sha2-nistp256','diffie-hellman-group-exchange-sha256',
+       'diffie-hellman-group16-sha512',
+       'diffie-hellman-group18-sha512',
+       'diffie-hellman-group14-sha256',
+       'diffie-hellman-group14-sha1',
+       'diffie-hellman-group-exchange-sha1']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+              'ecdsa-sha2-nistp256','ssh-rsa','rsa-sha2-256',
+              'rsa-sha2-512','ssh-dss']},
+ {cipher,[{client2server,['aes256-gcm@openssh.com',
+                          'aes256-ctr','aes192-ctr','aes128-gcm@openssh.com',
+                          'aes128-ctr','aes128-cbc','3des-cbc']},
+          {server2client,['aes256-gcm@openssh.com','aes256-ctr',
+                          'aes192-ctr','aes128-gcm@openssh.com','aes128-ctr',
+                          'aes128-cbc','3des-cbc']}]},
+ {mac,[{client2server,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']},
+       {server2client,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']}]},
+ {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
+               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+
+      </code></pre><p>To change the algorithm list, there are two options which can be used in 
+<a href="./ssh#connect-3">ssh:connect/2,3,4</a>
+and
+<a href="./ssh#daemon-2">ssh:daemon/2,3</a>. The options could of course
+be used in all other functions that initiates connections.</p><p>The options are <strong>preferred_algorithms</strong> and <strong>modify_algorithms</strong>. The first one
+replaces the default set, while the latter modifies the default set.</p><h2>Replacing the default set: preferred_algorithms</h2><p>See the <a href="./ssh#type-preferred_algorithms_common_option">Reference Manual</a> for details</p><p>Here follows a series of examples ranging from simple to more complex.</p><p>To forsee the effect of an option there is an experimental function <strong>ssh:chk_algos_opts(Opts)</strong>.
+It mangles the options <strong>preferred_algorithms</strong>
+and <strong>modify_algorithms</strong> in the same way as <strong>ssh:dameon</strong>, <strong>ssh:connect</strong> and their friends does.</p><h2>Example 1</h2><p>Replace the kex algorithms list with the single algorithm <strong>'diffie-hellman-group14-sha256'</strong>:</p><pre><code class="">
+1&gt; ssh:chk_algos_opts(
+               [{preferred_algorithms,
+                     [{kex, ['diffie-hellman-group14-sha256']}
+                     ]
+                }
+              ]).
+[{kex,['diffie-hellman-group14-sha256']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+              'ecdsa-sha2-nistp256','ssh-rsa','rsa-sha2-256',
+              'rsa-sha2-512','ssh-dss']},
+ {cipher,[{client2server,['aes256-gcm@openssh.com',
+                          'aes256-ctr','aes192-ctr','aes128-gcm@openssh.com',
+                          'aes128-ctr','aes128-cbc','3des-cbc']},
+          {server2client,['aes256-gcm@openssh.com','aes256-ctr',
+                          'aes192-ctr','aes128-gcm@openssh.com','aes128-ctr',
+                          'aes128-cbc','3des-cbc']}]},
+ {mac,[{client2server,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']},
+       {server2client,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']}]},
+ {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
+               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+      </code></pre><p>Note that the unmentioned lists (<strong>public_key</strong>, <strong>cipher</strong>, <strong>mac</strong> and <strong>compression</strong>)
+are un-changed.</p><h2>Example 2</h2><p>In the lists that are divided in two for the two directions (c.f <strong>cipher</strong>) it is possible
+to change both directions at once:</p><pre><code class="">
+2&gt; ssh:chk_algos_opts(
+               [{preferred_algorithms,
+                     [{cipher,['aes128-ctr']}
+                     ]
+                }
+              ]).
+[{kex,['ecdh-sha2-nistp384','ecdh-sha2-nistp521',
+       'ecdh-sha2-nistp256','diffie-hellman-group-exchange-sha256',
+       'diffie-hellman-group16-sha512',
+       'diffie-hellman-group18-sha512',
+       'diffie-hellman-group14-sha256',
+       'diffie-hellman-group14-sha1',
+       'diffie-hellman-group-exchange-sha1']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+              'ecdsa-sha2-nistp256','ssh-rsa','rsa-sha2-256',
+              'rsa-sha2-512','ssh-dss']},
+ {cipher,[{client2server,['aes128-ctr']},
+          {server2client,['aes128-ctr']}]},
+ {mac,[{client2server,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']},
+       {server2client,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']}]},
+ {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
+               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+      </code></pre><p>Note that both lists in <strong>cipher</strong> has been changed to the provided value (<strong>'aes128-ctr'</strong>).</p><h2>Example 3</h2><p>In the lists that are divided in two for the two directions (c.f <strong>cipher</strong>) it is possible
+to change only one of the directions:</p><pre><code class="">
+3&gt; ssh:chk_algos_opts(
+               [{preferred_algorithms,
+                     [{cipher,[{client2server,['aes128-ctr']}]}
+                     ]
+                }
+              ]).
+[{kex,['ecdh-sha2-nistp384','ecdh-sha2-nistp521',
+       'ecdh-sha2-nistp256','diffie-hellman-group-exchange-sha256',
+       'diffie-hellman-group16-sha512',
+       'diffie-hellman-group18-sha512',
+       'diffie-hellman-group14-sha256',
+       'diffie-hellman-group14-sha1',
+       'diffie-hellman-group-exchange-sha1']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+              'ecdsa-sha2-nistp256','ssh-rsa','rsa-sha2-256',
+              'rsa-sha2-512','ssh-dss']},
+ {cipher,[{client2server,['aes128-ctr']},
+          {server2client,['aes256-gcm@openssh.com','aes256-ctr',
+                          'aes192-ctr','aes128-gcm@openssh.com','aes128-ctr',
+                          'aes128-cbc','3des-cbc']}]},
+ {mac,[{client2server,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']},
+       {server2client,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']}]},
+ {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
+               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+      </code></pre><h2>Example 4</h2><p>It is of course possible to change more than one list:</p><pre><code class="">
+4&gt; ssh:chk_algos_opts(
+               [{preferred_algorithms,
+                     [{cipher,['aes128-ctr']},
+		      {mac,['hmac-sha2-256']},
+                      {kex,['ecdh-sha2-nistp384']},
+		      {public_key,['ssh-rsa']},
+		      {compression,[{server2client,[none]},
+		                    {client2server,[zlib]}]}
+                     ]
+                }
+              ]).
+[{kex,['ecdh-sha2-nistp384']},
+ {public_key,['ssh-rsa']},
+ {cipher,[{client2server,['aes128-ctr']},
+          {server2client,['aes128-ctr']}]},
+ {mac,[{client2server,['hmac-sha2-256']},
+       {server2client,['hmac-sha2-256']}]},
+ {compression,[{client2server,[zlib]},
+               {server2client,[none]}]}]
+
+      </code></pre><p>Note that the ordering of the tuples in the lists didn't matter.</p><h2>Modifying the default set: modify_algorithms</h2><p>A situation where it might be useful to add an algorithm is when one need to use a supported but disabled one.
+An example is the <strong>'diffie-hellman-group1-sha1'</strong> which nowadays is very unsecure and therefore disabled. It is 
+however still supported and might be used.</p><p>The option <strong>preferred_algorithms</strong> may be complicated to use for adding or removing single algorithms.
+First one has to list them with <strong>ssh:default_algorithms()</strong> and then do changes in the lists.</p><p>To facilitate addition or removal of algorithms the option <strong>modify_algorithms</strong> is available.
+See the <a href="./ssh#type-modify_algorithms_common_option">Reference Manual</a> for details.</p><p>The option takes a list with instructions to append, prepend or remove algorithms:</p><pre><code class="erl">
+{modify_algorithms, [{append,  ...},
+                     {prepend, ...},
+		     {rm,      ...}
+		    ]}
+    </code></pre><p>Each of the <strong>...</strong> can be a <strong>algs_list()</strong> as the argument to the  <strong>preferred_algorithms</strong> option.</p><h2>Example 5</h2><p>As an example let's add the Diffie-Hellman Group1 first in the kex list. It is supported according to 
+<a href="./SSH_app#supported_algos">Supported algoritms</a>.</p><pre><code class="erl">
+5&gt; ssh:chk_algos_opts(
+         [{modify_algorithms,
+	       [{prepend,
+	           [{kex,['diffie-hellman-group1-sha1']}]
+		   }
+	       ]
+          }
+        ]).
+[{kex,['diffie-hellman-group1-sha1','ecdh-sha2-nistp384',
+       'ecdh-sha2-nistp521','ecdh-sha2-nistp256',
+       'diffie-hellman-group-exchange-sha256',
+       'diffie-hellman-group16-sha512',
+       'diffie-hellman-group18-sha512',
+       'diffie-hellman-group14-sha256',
+       'diffie-hellman-group14-sha1',
+       'diffie-hellman-group-exchange-sha1']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+              'ecdsa-sha2-nistp256','ssh-rsa','rsa-sha2-256',
+              'rsa-sha2-512','ssh-dss']},
+ {cipher,[{client2server,['aes256-gcm@openssh.com',
+                          'aes256-ctr','aes192-ctr','aes128-gcm@openssh.com',
+                          'aes128-ctr','aes128-cbc','3des-cbc']},
+          {server2client,['aes256-gcm@openssh.com','aes256-ctr',
+                          'aes192-ctr','aes128-gcm@openssh.com','aes128-ctr',
+                          'aes128-cbc','3des-cbc']}]},
+ {mac,[{client2server,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']},
+       {server2client,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']}]},
+ {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
+               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+
+      </code></pre><p>And the result shows that the Diffie-Hellman Group1 is added at the head of the kex list</p><h2>Example 6</h2><p>In this example, we in put the 'diffie-hellman-group1-sha1' first and also move the
+<strong>'ecdh-sha2-nistp521'</strong> to the end in the kex list, that is, <strong>append</strong> it.</p><pre><code class="erl">
+6&gt; ssh:chk_algos_opts(
+         [{modify_algorithms,
+	       [{prepend,
+	           [{kex, ['diffie-hellman-group1-sha1']}
+		   ]},
+		{append,
+                   [{kex, ['ecdh-sha2-nistp521']}
+                   ]}
+	       ]
+          }
+        ]).
+[{kex,['diffie-hellman-group1-sha1','ecdh-sha2-nistp384',
+       'ecdh-sha2-nistp256','diffie-hellman-group-exchange-sha256',
+       'diffie-hellman-group16-sha512',
+       'diffie-hellman-group18-sha512',
+       'diffie-hellman-group14-sha256',
+       'diffie-hellman-group14-sha1',
+       'diffie-hellman-group-exchange-sha1','ecdh-sha2-nistp521']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+   .....
+] 
+      </code></pre><p>Note that the appended algorithm is removed from its original place and then appended to the same list.</p><h2>Example 7</h2><p>In this example, we use both options (<strong>preferred_algorithms</strong> and <strong>modify_algorithms</strong>) and
+also try to prepend an unsupported algorithm.   Any unsupported algorithm is quietly removed.</p><pre><code class="erl">
+7&gt; ssh:chk_algos_opts(
+         [{preferred_algorithms,
+               [{cipher,['aes128-ctr']},
+	        {mac,['hmac-sha2-256']},
+                {kex,['ecdh-sha2-nistp384']},
+		{public_key,['ssh-rsa']},
+		{compression,[{server2client,[none]},
+		              {client2server,[zlib]}]}
+               ]
+           },
+          {modify_algorithms,
+	       [{prepend,
+	           [{kex, ['some unsupported algorithm']}
+		   ]},
+		{append,
+                   [{kex, ['diffie-hellman-group1-sha1']}
+                   ]}
+	       ]
+          }
+        ]).
+[{kex,['ecdh-sha2-nistp384','diffie-hellman-group1-sha1']},
+ {public_key,['ssh-rsa']},
+ {cipher,[{client2server,['aes128-ctr']},
+          {server2client,['aes128-ctr']}]},
+ {mac,[{client2server,['hmac-sha2-256']},
+       {server2client,['hmac-sha2-256']}]},
+ {compression,[{client2server,[zlib]},
+               {server2client,[none]}]}]
+
+      </code></pre><p>It is of course questionable why anyone would like to use the both these options together,
+but it is possible if an unforeseen need should arise.</p></body></html>

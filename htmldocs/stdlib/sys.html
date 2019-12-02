@@ -1,0 +1,325 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>sys</h1><h1>sys</h1><p>A functional interface to system messages.</p><p>This module contains functions for sending system messages used by
+programs, and messages used for debugging purposes.Functions used for implementation of processes are also expected to
+understand system messages, such as debug messages and code change. These
+functions must be used to implement the use of system messages for a
+process; either directly, or through standard behaviors, such as
+<a href="gen_server">gen_server</a>.The default time-out is 5000 ms, unless otherwise specified.
+<strong>timeout</strong> defines the time to wait for the process to
+respond to a request. If the process does not respond, the
+function evaluates <strong>exit({timeout, {M, F, A}})</strong>.
+<a name="dbg_opt"></a>The functions make references to a debug structure.
+The debug structure is a list of <strong>dbg_opt()</strong>, which is an internal
+data type used by function <a href="#handle_system_msg/6">handle_system_msg/6</a>. No debugging is performed if it is 
+an empty list.</p><h2>System Messages</h2><p>Processes that are not implemented as one of the standard
+behaviors must still understand system messages. The following 
+three messages must be understood:</p><ul><li> <p>Plain system messages. These are received as
+<strong>{system, From, Msg}</strong>. The content and meaning of
+this message are not interpreted by the
+receiving process module. When a system message is received, function 
+<a href="#handle_system_msg/6">handle_system_msg/6</a>
+is called to handle the request.</p> </li><li> <p>Shutdown messages. If the process traps exits, it must
+be able to handle a shutdown request from its parent, the
+supervisor. The message <strong>{'EXIT', Parent, Reason}</strong>
+from the parent is an order to terminate. The process must 
+terminate when this message is received, normally with the
+same <strong>Reason</strong> as <strong>Parent</strong>.
+</p> </li><li> <p>If the modules used to implement the process change dynamically
+during runtime, the process must understand one more message. An
+example is the <a href="gen_event">gen_event</a>
+processes. The message is <strong>{_Label, {From, Ref}, get_modules}</strong>.
+The reply to this message is <strong>From ! {Ref, Modules}</strong>, where
+<strong>Modules</strong> is a list of the currently active modules in the
+process.</p> <p>This message is used by the release handler to find which
+processes that execute a certain module. The process can later be
+suspended and ordered to perform a code change for one of its
+modules.</p> </li></ul><h2>System Events</h2><p>When debugging a process with the functions of this
+module, the process generates <em>system_events</em>, which are
+then treated in the debug function. For example, <strong>trace</strong>
+formats the system events to the terminal.
+</p><p>Four predefined system events are used when a
+process receives or sends a message. The process can also define its
+own system events. It is always up to the process itself
+to format these events.</p><h1>Data Types</h1><span class="name">name</span><span class="name">system_event</span><dl><dt><strong>{in,<span class="anno">Msg</span>}</strong></dt><dd> <p>
+Is produced by <strong>gen_server</strong> and <strong>gen_event</strong>
+when the message <strong>Msg</strong> arrives.
+</p> </dd><dt><strong>{in,<span class="anno">Msg</span>,<span class="anno">State</span>}</strong></dt><dd> <p>
+Is produced by <strong>gen_statem</strong>
+when the message <strong>Msg</strong> arrives in state <strong>State</strong>.
+</p> <p>
+For <strong>gen_statem</strong> the <strong><span class="anno">Msg</span></strong> term is
+an <strong>{EventType,EventContent}</strong> tuple.
+</p> </dd><dt><strong>{out,<span class="anno">Msg</span>,<span class="anno">To</span>}</strong></dt><dd> <p>
+Is produced by <strong>gen_statem</strong> when the reply <strong>Msg</strong>
+is sent back to <strong>To</strong> by returning
+a <strong>{reply,To,Msg}</strong> action from the callback module.
+</p> <p>
+<strong><span class="anno">To</span></strong> is of the same type
+as the first argument to <strong>gen_statem:reply/2</strong>.
+</p> </dd><dt> <strong>{out,<span class="anno">Msg</span>,<span class="anno">To</span>,<span class="anno">State</span>}</strong> </dt><dd> <p>
+Is produced by <strong>gen_server</strong>
+when the reply <strong><span class="anno">Msg</span></strong>
+is sent back to <strong><span class="anno">To</span></strong>
+by returning a <strong>{reply,...}</strong> tuple
+from the callback module.
+</p> <p>
+<strong><span class="anno">To</span></strong> is of the same type
+as the first argument to <strong>gen_server:reply/2</strong>.
+</p> <p>
+<strong><span class="anno">State</span></strong> is the new server state.
+</p> </dd><dt> <strong>{noreply,<span class="anno">State</span>}</strong> </dt><dd> <p>
+Is produced by <strong>gen_server</strong>
+when a <strong>{noreply,...}</strong> tuple is returned
+from the callback module.
+</p> <p>
+<strong><span class="anno">State</span></strong> is the new server state.
+</p> </dd><dt> <strong>{continue,<span class="anno">Continuation</span>}</strong> </dt><dd> <p>
+Is produced by <strong>gen_server</strong>
+when a <strong>{continue,<span class="anno">Continuation</span>}</strong>
+tuple is returned from the callback module.
+</p> </dd><dt> <strong>{code_change,<span class="anno">Event</span>,<span class="anno">State</span>}</strong> </dt><dd> <p>
+Is produced by <strong>gen_statem</strong>
+when the message <strong><span class="anno">Event</span></strong>
+arrives in state <strong><span class="anno">State</span></strong>
+as the first event after a code change.
+</p> <p>
+<strong><span class="anno">Event</span></strong> is
+an <strong>{EventType,EventContent}</strong> tuple.
+</p> </dd><dt> <strong> {postpone,<span class="anno">Event</span>,<span class="anno">State</span>,<span class="anno">NextState</span>} </strong> </dt><dd> <p>
+Is produced by <strong>gen_statem</strong>
+when the message <strong><span class="anno">Event</span></strong>
+is postponed in state <strong><span class="anno">State</span></strong>.
+<strong><span class="anno">NextState</span></strong> is the new state.
+</p> <p>
+<strong><span class="anno">Event</span></strong> is
+an <strong>{EventType,EventContent}</strong> tuple.
+</p> </dd><dt> <strong> {consume,<span class="anno">Event</span>,<span class="anno">State</span>,<span class="anno">NextState</span>} </strong> </dt><dd> <p>
+Is produced by <strong>gen_statem</strong>
+when the message <strong><span class="anno">Event</span></strong>
+is consumed in state <strong><span class="anno">State</span></strong>.
+<strong><span class="anno">NextState</span></strong> is the new state.
+</p> <p>
+<strong><span class="anno">Event</span></strong> is
+an <strong>{EventType,EventContent}</strong> tuple.
+</p> </dd><dt> <strong> {enter,<span class="anno">State</span>} </strong> </dt><dd> <p>
+Is produced by <strong>gen_statem</strong>
+when the first state <strong><span class="anno">State</span></strong> is entered.
+</p> </dd><dt> <strong> {terminate,<span class="anno">Reason</span>,<span class="anno">State</span>} </strong> </dt><dd> <p>
+Is produced by <strong>gen_statem</strong>
+when it terminates with reason <strong><span class="anno">Reason</span></strong>
+in state <strong><span class="anno">State</span></strong>.
+</p> </dd></dl><span class="name">dbg_opt</span><p>See the introduction of this manual page.</p><span class="name">dbg_fun</span><span class="name">debug_option</span><span class="name">format_fun</span><h1>Functions</h1><h2>change_code/4</h2><h2>change_code/5</h2><p>Send the code change system message to the process.</p><p>Tells the process to change code. The process must be
+suspended to handle this message. Argument <strong><span class="anno">Extra</span></strong>
+is reserved for each process to use as its own. Function
+<strong><span class="anno">Module</span>:system_code_change/4</strong> is called.
+<strong><span class="anno">OldVsn</span></strong> is the old version of the
+<strong><span class="anno">Module</span></strong>.</p><h2>get_state/1</h2><h2>get_state/2</h2><p>Get the state of the process.</p><p>Gets the state of the process.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>These functions are intended only to help with debugging. They are
+provided for convenience, allowing developers to avoid having to
+create their own state extraction functions and also avoid having
+to interactively extract the state from the return values of
+<a href="#get_status-1">get_status-1</a> or
+<a href="#get_status-2">get_status-2</a>
+while debugging.</p></div><p>The value of <strong><span class="anno">State</span></strong> varies for different types of
+processes, as follows:</p><ul><li> <p>For a
+<a href="gen_server">gen_server</a>
+process, the returned <strong><span class="anno">State</span></strong>
+is the state of the callback module.</p> </li><li> <p>For a
+<a href="gen_statem">gen_statem</a>
+process, <strong><span class="anno">State</span></strong> is the tuple
+<strong>{CurrentState,CurrentData}</strong>.</p> </li><li> <p>For a
+<a href="gen_event">gen_event</a>
+process, <strong><span class="anno">State</span></strong> is a list of tuples,
+where each tuple corresponds to an event handler registered
+in the process and contains <strong>{Module, Id, HandlerState}</strong>,
+as follows:</p> <dl><dt><strong>Module</strong></dt><dd> <p>The module name of the event handler.</p> </dd><dt><strong>Id</strong></dt><dd> <p>The ID of the handler (which is <strong>false</strong> if it was 
+registered without an ID).</p> </dd><dt><strong>HandlerState</strong></dt><dd> <p>The state of the handler.</p> </dd></dl> </li></ul><p>If the callback module exports a function <strong>system_get_state/1</strong>,
+it is called in the target process to get its state. Its argument is
+the same as the <strong>Misc</strong> value returned by
+<a href="#get_status-1">get_status-1</a>, and
+function <a href="#Module:system_get_state/1">Module:system_get_state/1</a> is expected to extract the
+state of the callback module from it. Function
+<strong>system_get_state/1</strong> must return <strong>{ok, State}</strong>, where
+<strong>State</strong> is the state of the callback module.</p><p>If the callback module does not export a <strong>system_get_state/1</strong>
+function, <strong>get_state/1,2</strong> assumes that the <strong>Misc</strong> value is
+the state of the callback module and returns it directly instead.</p><p>If the callback module's <strong>system_get_state/1</strong> function crashes
+or throws an exception, the caller exits with error 
+<strong>{callback_failed, {Module, system_get_state}, {Class, Reason}}</strong>,
+where <strong>Module</strong> is the name of the callback module and
+<strong>Class</strong> and <strong>Reason</strong> indicate details of the exception.</p><p>Function <strong>system_get_state/1</strong> is primarily useful for
+user-defined behaviors and modules that implement OTP
+<a href="#special_process">special processes</a>. 
+The <strong>gen_server</strong>,
+<strong>gen_statem</strong>, and <strong>gen_event</strong> OTP
+behavior modules export this function, so callback modules for those
+behaviors need not to supply their own.</p><p>For more information about a process, including its state, see
+<a href="#get_status-1">get_status-1</a> and
+<a href="#get_status-2">get_status-2</a>.</p><h2>get_status/1</h2><h2>get_status/2</h2><p>Get the status of the process.</p><p>Gets the status of the process.</p><p>The value of <strong><span class="anno">Misc</span></strong> varies for different types of
+processes, for example:</p><ul><li> <p>A <a href="gen_server">gen_server</a>
+process returns the state of the callback module.</p> </li><li> <p>A <a href="gen_statem">gen_statem</a>
+process returns information, such as its current
+state name and state data.</p> </li><li> <p>A <a href="gen_event">gen_event</a>
+process returns information about each of its
+registered handlers.</p> </li></ul><p>Callback modules for <strong>gen_server</strong>,
+<strong>gen_statem</strong>, and <strong>gen_event</strong>
+can also change the value of <strong><span class="anno">Misc</span></strong>
+by exporting a function <strong>format_status/2</strong>, which contributes
+module-specific information. For details, see
+<a href="./gen_server#Module:format_status/2">gen_server#Module:format_status/2</a>,
+<a href="./gen_statem#Module:format_status/2">gen_statem#Module:format_status/2</a>, and
+<a href="./gen_event#Module:format_status/2">gen_event#Module:format_status/2</a>.</p><h2>install/2</h2><h2>install/3</h2><p>Install a debug function in the process.</p><p>Enables installation of alternative debug functions. An example of
+such a function is a trigger, a function that waits for some
+special event and performs some action when the event is
+generated. For example, turning on low-level tracing.</p><p><strong><span class="anno">Func</span></strong> is called whenever a system event is
+generated. This function is to return <strong>done</strong>, or a new
+<strong>Func</strong> state. In the first case, the function is removed. It is 
+also removed if the function fails. If one debug function should be 
+installed more times, a unique <strong><span class="anno">FuncId</span></strong> must be 
+specified for each installation.</p><h2>log/2</h2><h2>log/3</h2><p>Log system events in memory.</p><p>Turns the logging of system events on or off. If on, a
+maximum of <strong><span class="anno">N</span></strong> events are kept in the
+debug structure (default is 10).</p><p>If <strong><span class="anno">Flag</span></strong> is <strong>get</strong>, a list of all logged
+events is returned.</p><p>If <strong><span class="anno">Flag</span></strong> is <strong>print</strong>, the logged events
+are printed to <strong>standard_io</strong>.</p><p>The events are formatted with a function that is defined by the
+process that generated the event (with a call to
+<a href="#handle_debug/4"> )</a>.</p><h2>log_to_file/2</h2><h2>log_to_file/3</h2><p>Log system events to the specified file.</p><p>Enables or disables the logging of all system events in text
+format to the file. The events are formatted with a function that is 
+defined by the process that generated the event (with a call to
+<a href="#handle_debug/4">handle_debug/4</a>).
+The file is opened with encoding UTF-8.</p><h2>no_debug/1</h2><h2>no_debug/2</h2><p>Turn off debugging.</p><p>Turns off all debugging for the process. This includes
+functions that are installed explicitly with function
+<a href="#install/2">install/2</a>,
+for example, triggers.</p><h2>remove/2</h2><h2>remove/3</h2><p>Remove a debug function from the process.</p><p>Removes an installed debug function from the
+process. <strong><span class="anno">Func</span></strong> or <strong><span class="anno">FuncId</span></strong> must be 
+the same as previously installed.</p><h2>replace_state/2</h2><h2>replace_state/3</h2><p>Replace the state of the process.</p><p>Replaces the state of the process, and returns the new state.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>These functions are intended only to help with debugging, and are
+not to be called from normal code. They are provided for
+convenience, allowing developers to avoid having to create their own
+custom state replacement functions.</p></div><p>Function <strong><span class="anno">StateFun</span></strong> provides a new state for the
+process. Argument <strong><span class="anno">State</span></strong> and the
+<strong><span class="anno">NewState</span></strong> return value of
+<strong><span class="anno">StateFun</span></strong> vary for different types of 
+processes as follows:</p><ul><li> <p>For a <a href="gen_server">gen_server</a>
+process, <strong><span class="anno">State</span></strong> is the state of the callback
+module and <strong><span class="anno">NewState</span></strong> 
+is a new instance of that state.</p> </li><li> <p>For a <a href="gen_statem">gen_statem</a>
+process, <strong><span class="anno">State</span></strong> is the
+tuple <strong>{CurrentState,CurrentData}</strong>,
+and <strong><span class="anno">NewState</span></strong> is a
+similar tuple, which can contain
+a new current state, new state data, or both.</p> </li><li> <p>For a <a href="gen_event">gen_event</a>
+process, <strong><span class="anno">State</span></strong> is the
+tuple <strong>{Module, Id, HandlerState}</strong> as follows:</p> <dl><dt><strong>Module</strong></dt><dd> <p>The module name of the event handler.</p> </dd><dt><strong>Id</strong></dt><dd> <p>The ID of the handler (which is <strong>false</strong> if it was
+registered without an ID).</p> </dd><dt><strong>HandlerState</strong></dt><dd> <p>The state of the handler.</p> </dd></dl> <p><strong><span class="anno">NewState</span></strong> is a similar tuple where
+<strong>Module</strong> and <strong>Id</strong> are to have the same values as in
+<strong><span class="anno">State</span></strong>, but the value of <strong>HandlerState</strong>
+can be different. Returning a <strong><span class="anno">NewState</span></strong>, whose
+<strong>Module</strong> or <strong>Id</strong> values differ from those of
+<strong><span class="anno">State</span></strong>, leaves the state of the event handler
+unchanged. For a <strong>gen_event</strong> process,
+<strong><span class="anno">StateFun</span></strong> is called once for each event handler
+registered in the <strong>gen_event</strong> process.</p> </li></ul><p>If a <strong><span class="anno">StateFun</span></strong> function decides not to effect any
+change in process state, then regardless of process type, it can
+return its <strong><span class="anno">State</span></strong> argument.</p><p>If a <strong><span class="anno">StateFun</span></strong> function crashes or throws an
+exception, the original state of the process is unchanged for
+<strong>gen_server</strong>, and <strong>gen_statem</strong> processes.
+For <strong>gen_event</strong> processes, a crashing or
+failing <strong><span class="anno">StateFun</span></strong> function
+means that only the state of the particular event handler it was
+working on when it failed or crashed is unchanged; it can still
+succeed in changing the states of other event
+handlers registered in the same <strong>gen_event</strong> process.</p><p>If the callback module exports a 
+<a href="#Module:system_replace_state/2">Module:system_replace_state/2</a> function, it is called in the
+target process to replace its state using <strong>StateFun</strong>. Its two
+arguments are <strong>StateFun</strong> and <strong>Misc</strong>, where 
+<strong>Misc</strong> is the same as the <strong>Misc</strong> value returned by
+<a href="#get_status-1">get_status-1</a>.
+A <strong>system_replace_state/2</strong> function is expected to return 
+<strong>{ok, NewState, NewMisc}</strong>, where <strong>NewState</strong> is the new state
+of the callback module, obtained by calling <strong>StateFun</strong>, and
+<strong>NewMisc</strong> is
+a possibly new value used to replace the original <strong>Misc</strong>
+(required as <strong>Misc</strong> often contains the state of the callback
+module within it).</p><p>If the callback module does not export a
+<strong>system_replace_state/2</strong> function,
+<a href="#replace_state/2">replace_state/2</a>
+assumes that <strong>Misc</strong> is the state of the callback module,
+passes it to <strong>StateFun</strong> and uses the return value as
+both the new state and as the new value of <strong>Misc</strong>.</p><p>If the callback module's function <strong>system_replace_state/2</strong>
+crashes or throws an exception, the caller exits with error
+<strong>{callback_failed, {Module, system_replace_state}, {Class, Reason}}</strong>, where <strong>Module</strong> is the name of the callback module
+and <strong>Class</strong> and <strong>Reason</strong> indicate details of the exception.
+If the callback module does not provide a
+<strong>system_replace_state/2</strong> function and <strong>StateFun</strong> crashes or
+throws an exception, the caller exits with error
+<strong>{callback_failed, StateFun, {Class, Reason}}</strong>.</p><p>Function <strong>system_replace_state/2</strong> is primarily useful for
+user-defined behaviors and modules that implement OTP
+<a href="#special_process">special processes</a>. The
+OTP behavior modules <strong>gen_server</strong>,
+<strong>gen_statem</strong>, and <strong>gen_event</strong>
+export this function, so callback modules for those
+behaviors need not to supply their own.</p><h2>resume/1</h2><h2>resume/2</h2><p>Resume a suspended process.</p><p>Resumes a suspended process.</p><h2>statistics/2</h2><h2>statistics/3</h2><p>Enable or disable the collections of statistics.</p><p>Enables or disables the collection of statistics. If 
+<strong><span class="anno">Flag</span></strong> is <strong>get</strong>, 
+the statistical collection is returned.</p><h2>suspend/1</h2><h2>suspend/2</h2><p>Suspend the process.</p><p>Suspends the process. When the process is suspended, it
+only responds to other system messages, but not other
+messages.</p><h2>terminate/2</h2><h2>terminate/3</h2><p>Terminate the process.</p><p>Orders the process to terminate with the
+specified <strong><span class="anno">Reason</span></strong>. The termination is done
+asynchronously, so it is not guaranteed that the process is
+terminated when the function returns.</p><h2>trace/2</h2><h2>trace/3</h2><p>Print all system events on <strong>standard_io</strong>.</p><p>Prints all system events on <strong>standard_io</strong>. The events are
+formatted with a function that is defined by the process that
+generated the event (with a call to
+<a href="#handle_debug/4">handle_debug/4</a>).
+</p><h2>Process Implementation Functions</h2><a name="special_process"></a><p>The following functions are used when implementing a
+special process. This is an ordinary process, which does not use a
+standard behavior, but a process that understands the standard system
+messages.</p><h1>Functions</h1><h2>debug_options/1</h2><p>Convert a list of options to a debug structure.</p><p>Can be used by a process that initiates a debug
+structure from a list of options. The values of argument
+<strong><span class="anno">Opt</span></strong> are the same as for the corresponding
+functions.</p><h2>get_debug/3</h2><p>Get the data associated with a debug option.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>
+<strong>get_debug/3</strong> is deprecated since it returns
+data of an internal type only useful for debugging.
+</p></div><p>Gets the data associated with a debug option.
+<strong><span class="anno">Default</span></strong>
+is returned if <strong><span class="anno">Item</span></strong> is not found. Can be
+used by the process to retrieve debug data for printing before it
+terminates.</p><h2>handle_debug/4</h2><p>Generate a system event.</p><p>This function is called by a process when it generates a
+system event. <strong><span class="anno">FormFunc</span></strong> is a formatting
+function, called as <strong><span class="anno">FormFunc</span>(Device, <span class="anno">Event</span>, <span class="anno">Extra</span>)</strong> to print the events, 
+which is necessary if tracing is activated.
+<strong><span class="anno">Extra</span></strong> is any extra information that the
+process needs in the format function, for example, the process
+name.</p><h2>handle_system_msg/6</h2><p>Take care of system messages.</p><p>This function is used by a process module to take care of system
+messages. The process receives a 
+<strong>{system, <span class="anno">From</span>, <span class="anno">Msg</span>}</strong> message and
+passes <strong><span class="anno">Msg</span></strong> and <strong><span class="anno">From</span></strong> to this
+function.</p><p>This function <em>never</em> returns. It calls either of the
+following functions:</p><ul><li> <p><strong><span class="anno">Module</span>:system_continue(<span class="anno">Parent</span>, NDebug, <span class="anno">Misc</span>)</strong>,
+where the process continues the execution.</p> </li><li> <p><strong><span class="anno">Module</span>:system_terminate(Reason, <span class="anno">Parent</span>, <span class="anno">Debug</span>, <span class="anno">Misc</span>)</strong>,
+if the process is to terminate.</p> </li></ul><p><strong><span class="anno">Module</span></strong> must export the following:</p><ul><li><strong>system_continue/3</strong></li><li><strong>system_terminate/4</strong></li><li><strong>system_code_change/4</strong></li><li><strong>system_get_state/1</strong></li><li><strong>system_replace_state/2</strong></li></ul><p>Argument <strong><span class="anno">Misc</span></strong> can be used to save internal data
+in a process, for example, its state. It is sent to
+<strong><span class="anno">Module</span>:system_continue/3</strong> or
+<strong><span class="anno">Module</span>:system_terminate/4</strong>.</p><h2>print_log/1</h2><p>Print the logged events in the debug structure.</p><p>Prints the logged system events in the debug structure,
+using <strong>FormFunc</strong> as defined when the event was
+generated by a call to
+<a href="#handle_debug/4">handle_debug/4</a>.</p><h2>get_log/1</h2><p>Return the logged events in the debug structure.</p><p>
+Returns the logged system events in the debug structure,
+that is the last argument to
+<a href="#handle_debug/4">handle_debug/4</a>.
+</p><h2>Module:system_code_change(Misc, Module, OldVsn, Extra) -&gt;
+        {ok, NMisc}</h2><p>Called when the process is to perform a code change.</p><ul><li><span class="v">Misc = term()</span></li><li><span class="v">OldVsn = undefined | term()</span></li><li><span class="v">Module = atom()</span></li><li><span class="v">Extra = term()</span></li><li><span class="v">NMisc = term()</span></li></ul><p>Called from <a href="#handle_system_msg/6">handle_system_msg/6</a> when the process is to perform a
+code change. The code change is used when the
+internal data structure has changed. This function
+converts argument <strong>Misc</strong> to the new data
+structure. <strong>OldVsn</strong> is attribute <em>vsn</em> of the
+old version of the <strong>Module</strong>. If no such attribute is
+defined, the atom <strong>undefined</strong> is sent.</p><h2>Module:system_continue(Parent, Debug, Misc) -&gt; none()</h2><p>Called when the process is to continue its execution.</p><ul><li><span class="v">Parent = pid()</span></li><li><span class="v">Debug = []</span></li><li><span class="v">Misc = term()</span></li></ul><p>Called from <a href="#handle_system_msg/6">handle_system_msg/6</a> when the process is to continue
+its execution (for example, after it has been
+suspended). This function never returns.</p><h2>Module:system_get_state(Misc) -&gt; {ok, State}</h2><p>Called when the process is to return its current state. </p><ul><li><span class="v">Misc = term()</span></li><li><span class="v">State = term()</span></li></ul><p>Called from <a href="#handle_system_msg/6">handle_system_msg/6</a>
+when the process is to return a term that reflects its current state. 
+<strong>State</strong> is the value returned by 
+<a href="#get_state/2">get_state/2</a>.</p><h2>Module:system_replace_state(StateFun, Misc) -&gt;
+        {ok, NState, NMisc}</h2><p>Called when the process is to replace its current state. </p><ul><li><span class="v">StateFun = fun((State :: term()) -&gt; NState)</span></li><li><span class="v">Misc = term()</span></li><li><span class="v">NState = term()</span></li><li><span class="v">NMisc = term()</span></li></ul><p>Called from <a href="#handle_system_msg/6">handle_system_msg/6</a> when the process is to replace
+its current state. <strong>NState</strong> is the value returned by
+<a href="#replace_state/3">replace_state/3</a>.
+</p><h2>Module:system_terminate(Reason, Parent, Debug, Misc) -&gt; none()</h2><p>Called when the process is to terminate.</p><ul><li><span class="v">Reason = term()</span></li><li><span class="v">Parent = pid()</span></li><li><span class="v">Debug = []</span></li><li><span class="v">Misc = term()</span></li></ul><p>Called from <a href="#handle_system_msg/6">handle_system_msg/6</a> when the process is to terminate.
+For example, this function is called when
+the process is suspended and its parent orders shutdown.
+It gives the process a chance to do a cleanup. This function never
+returns.</p></body></html>

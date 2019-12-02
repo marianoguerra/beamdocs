@@ -1,0 +1,40 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>cerl_trees</h1><h1>cerl_trees</h1><p>Basic functions on Core Erlang abstract syntax trees.</p><p>Basic functions on Core Erlang abstract syntax trees.Syntax trees are defined in the module <a href="cerl">cerl</a>.</p><h2>DATA TYPES</h2><a name="types"></a><dl><dt><a name="type-cerl"></a>cerl() = <a href="./cerl#type-cerl">cerl:cerl()</a></dt><dd> </dd></dl><h1>Functions</h1><h2>depth(Tree::) -&gt; integer()</h2><p>Returns the length of the longest path in the tree.</p><a name="depth-1"></a><p>Returns the length of the longest path in the tree.  A leaf
+node has depth zero, the tree representing "<strong>{foo, bar}</strong>" has depth one, etc.</p><h2>fold(F::Function, Unit::term(), Tree::) -&gt; term()</h2><p>Does a fold operation over the nodes of the tree.</p><ul><li><span class="v">Function = (, term()) -&gt; term()</span></li></ul><a name="fold-3"></a><p>Does a fold operation over the nodes of the tree. The result
+is the value of <strong>Function(X1, Function(X2, ... Function(Xn, Unit) ... ))</strong>, where <strong>X1, ..., Xn</strong> are the nodes
+of <strong>Tree</strong> in a post-order traversal.
+</p><p><em>See also:</em> <a href="#mapfold-3">mapfold/3</a>.</p><h2>free_variables(Tree::) -&gt; []</h2><p>Like variables/1, but only includes variables that are free in the tree.</p><a name="free_variables-1"></a><p>Like <strong>variables/1</strong>, but only includes variables
+that are free in the tree.
+</p><p><em>See also:</em> <a href="#next_free_variable_name-1">next_free_variable_name/1</a>, <a href="#variables-1">variables/1</a>.</p><h2>get_label(T::) -&gt; top | integer()</h2><p> </p><a name="get_label-1"></a><h2>label(T::) -&gt; {, integer()}</h2><p>Equivalent to label(Tree, 0). </p><a name="label-1"></a><p>Equivalent to <a href="#label-2">label(Tree, 0)</a>.</p><h2>label(Tree::, N::integer()) -&gt; {, integer()}</h2><p>Labels each expression in the tree.</p><a name="label-2"></a><p>Labels each expression in the tree. A term <strong>{label, L}</strong> is prefixed to the annotation list of each expression node,  
+where L is a unique number for every node, except for variables (and  
+function name variables) which get the same label if they represent  
+the same variable. Constant literal nodes are not labeled.</p><p>The returned value is a tuple <strong>{NewTree, Max}</strong>, where
+<strong>NewTree</strong> is the labeled tree and <strong>Max</strong> is 1
+plus the largest label value used. All previous annotation terms on
+the form <strong>{label, X}</strong> are deleted.</p><p>The values of L used in the tree is a dense range from
+<strong>N</strong> to <strong>Max - 1</strong>, where <strong>N =&lt; Max =&lt; N + size(Tree)</strong>. Note that it is possible that no
+labels are used at all, i.e., <strong>N = Max</strong>.</p><p>Note: All instances of free variables will be given distinct
+labels.</p><p><em>See also:</em> <a href="#label-1">label/1</a>, <a href="#size-1">size/1</a>.</p><h2>map(F::Function, Tree::) -&gt;</h2><p>Maps a function onto the nodes of a tree.</p><ul><li><span class="v">Function = () -&gt; </span></li></ul><a name="map-2"></a><p>Maps a function onto the nodes of a tree. This replaces each
+node in the tree by the result of applying the given function on
+the original node, bottom-up.
+</p><p><em>See also:</em> <a href="#mapfold-3">mapfold/3</a>.</p><h2>mapfold(F::Function, Initial::term(), Tree::) -&gt; {, term()}</h2><p>Does a combined map/fold operation on the nodes of the tree.</p><ul><li><span class="v">Function = (, term()) -&gt; {, term()}</span></li></ul><a name="mapfold-3"></a><p>Does a combined map/fold operation on the nodes of the
+tree. This is similar to <strong>map/2</strong>, but also propagates a
+value from each application of <strong>Function</strong> to the next,
+starting with the given value <strong>Initial</strong>, while doing a
+post-order traversal of the tree, much like <strong>fold/3</strong>.</p><p>This is the same as mapfold/4, with an identity function as the
+pre-operation.
+</p><p><em>See also:</em> <a href="#fold-3">fold/3</a>, <a href="#map-2">map/2</a>, <a href="#mapfold-4">mapfold/4</a>.</p><h2>mapfold(Pre, Post, Initial::term(), Tree::) -&gt; {, term()}</h2><p>Does a combined map/fold operation on the nodes of the tree.</p><ul><li><span class="v">Pre = (, term()) -&gt; {, term()}</span></li><li><span class="v">Post = (, term()) -&gt; {, term()}</span></li></ul><a name="mapfold-4"></a><p>Does a combined map/fold operation on the nodes of the
+tree. It begins by calling <strong>Pre</strong> on the tree, using the
+<strong>Initial</strong> value. It then deconstructs the top node of
+the returned tree and recurses on the children, using the returned
+value as the new initial and carrying the returned values from one
+call to the next. Finally it reassembles the top node from the
+children, calls <strong>Post</strong> on it and returns the result.</p><h2>next_free_variable_name(Tree::) -&gt;</h2><p>Returns a integer variable name higher than any other integer variable name in the syntax tree.</p><ul><li><span class="v">var_name() = integer()</span></li></ul><a name="next_free_variable_name-1"></a><p>Returns a integer variable name higher than any other integer
+variable name in the syntax tree. An exception is thrown if
+<strong>Tree</strong> does not represent a well-formed Core Erlang
+syntax tree.
+</p><p><em>See also:</em> <a href="#free_variables-1">free_variables/1</a>, <a href="#variables-1">variables/1</a>.</p><h2>size(Tree::) -&gt; integer()</h2><p>Returns the number of nodes in Tree.</p><a name="size-1"></a><p>Returns the number of nodes in <strong>Tree</strong>.</p><h2>variables(Tree::) -&gt; []</h2><p>Returns an ordered-set list of the names of all variables in the syntax tree.</p><ul><li><span class="v">var_name() = integer() | atom() | {atom(), integer()}</span></li></ul><a name="variables-1"></a><p>Returns an ordered-set list of the names of all variables in
+the syntax tree. (This includes function name variables.) An
+exception is thrown if <strong>Tree</strong> does not represent a
+well-formed Core Erlang syntax tree.
+</p><p><em>See also:</em> <a href="#free_variables-1">free_variables/1</a>, <a href="#next_free_variable_name-1">next_free_variable_name/1</a>.</p><h1>Authors</h1><span class="aname">Richard Carlsson</span><span class="email">carlsson.richard@gmail.com</span></body></html>

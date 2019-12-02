@@ -1,0 +1,56 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>erl_marshal</h1><h1>erl_marshal</h1><p>Encoding and decoding of Erlang terms.</p><p>This module contains functions for encoding Erlang terms into
+a sequence of bytes, and for decoding Erlang terms from a
+sequence of bytes.</p><h1>Functions</h1><h2>erl_compare_ext(bufp1, bufp2):int</h2><p>Compare encoded byte sequences.</p><ul><li><span class="v">unsigned char *bufp1,*bufp2;</span></li></ul><p>Compares two encoded terms.</p><ul><li><strong>bufp1</strong> is a buffer containing an encoded Erlang term term1.</li><li><strong>bufp2</strong> is a buffer containing an encoded Erlang term term2.</li></ul><p>Returns <strong>0</strong> if the terms are equal, <strong>-1</strong> if
+<strong>term1</strong> &lt; <strong>term2</strong>, or <strong>1</strong> if <strong>term2</strong> &lt;
+<strong>term1</strong>.</p><h2>erl_decode(bufp):ETERM *</h2><h2>erl_decode_buf(bufpp):ETERM *</h2><p>Convert a term from Erlang external format.</p><ul><li><span class="v">unsigned char *bufp;</span></li><li><span class="v">unsigned char **bufpp;</span></li></ul><p><strong>erl_decode()</strong> and
+<strong>erl_decode_buf()</strong> decode
+the contents of a buffer and return the corresponding
+Erlang term. <strong>erl_decode_buf()</strong> provides a simple
+mechanism for dealing with several encoded terms stored
+consecutively in the buffer.</p><ul><li> <p><strong>bufp</strong> is a pointer to a buffer containing one
+or more encoded Erlang terms.</p> </li><li> <p><strong>bufpp</strong> is the address of a buffer pointer. The
+buffer contains one or more consecutively encoded Erlang terms.
+Following a successful call to
+<strong>erl_decode_buf()</strong>, <strong>bufpp</strong> is
+updated so that it points to the next encoded term.</p> </li></ul><p><strong>erl_decode()</strong> returns an Erlang term
+corresponding to the contents of <strong>bufp</strong> on success,
+otherwise <strong>NULL</strong>. <strong>erl_decode_buf()</strong>
+returns an Erlang
+term corresponding to the first of the consecutive terms in
+<strong>bufpp</strong> and moves <strong>bufpp</strong> forward
+to point to the
+next term in the buffer. On failure, each of the functions
+return <strong>NULL</strong>.</p><h2>erl_encode(term, bufp):int</h2><h2>erl_encode_buf(term, bufpp):int</h2><p>Convert a term into Erlang external format.</p><ul><li><span class="v">ETERM *term;</span></li><li><span class="v">unsigned char *bufp;</span></li><li><span class="v">unsigned char **bufpp;</span></li></ul><p><strong>erl_encode()</strong> and
+<strong>erl_encode_buf()</strong> encode
+Erlang terms into external format for storage or transmission.
+<strong>erl_encode_buf()</strong> provides a simple mechanism for
+encoding several terms consecutively in the same buffer.</p><ul><li> <p><strong>term</strong> is an Erlang term to be encoded.</p> </li><li> <p><strong>bufp</strong> is a pointer to a buffer containing one or
+more encoded Erlang terms.</p> </li><li> <p><strong>bufpp</strong> is a pointer to a pointer to a buffer
+containing one or more consecutively encoded Erlang terms.
+Following a successful call to
+<strong>erl_encode_buf()</strong>, <strong>bufpp</strong> is updated so
+that it points to the
+position for the next encoded term.</p> </li></ul><p>These functions return the number of bytes written to buffer
+on success, otherwise <strong>0</strong>.</p><p>Notice that no bounds checking is done on the buffer. It is
+the caller's responsibility to ensure that the buffer is
+large enough to hold the encoded terms. You can either use a
+static buffer that is large enough to hold the terms you expect
+to need in your program, or use <strong>erl_term_len()</strong>
+to determine the exact requirements for a given term.</p><p>The following can help you estimate the buffer
+requirements for a term. Notice that this information is
+implementation-specific, and can change in future versions.
+If you are unsure, use <strong>erl_term_len()</strong>.</p><p>Erlang terms are encoded with a 1 byte tag that
+identifies the type of object, a 2- or 4-byte length field,
+and then the data itself. Specifically:</p><dl><dt><strong>Tuples</strong></dt><dd>Need 5 bytes, plus the space for each element.</dd><dt><strong>Lists</strong></dt><dd>Need 5 bytes, plus the space for each element, and 1 more byte for the empty list at the end.</dd><dt><strong>Strings and atoms</strong></dt><dd>Need 3 bytes, plus 1 byte for each character (the terminating 0 is not encoded). Really long strings (more than 64k characters) are encoded as lists. Atoms cannot contain more than 256 characters.</dd><dt><strong>Integers</strong></dt><dd>Need 5 bytes.</dd><dt><strong>Characters</strong></dt><dd>(Integers &lt; 256) need 2 bytes.</dd><dt><strong>Floating point numbers</strong></dt><dd>Need 32 bytes.</dd><dt><strong>Pids</strong></dt><dd>Need 10 bytes, plus the space for the node name, which is an atom.</dd><dt><strong>Ports and Refs</strong></dt><dd>Need 6 bytes, plus the space for the node name, which is an atom.</dd></dl><p>The total space required is the result calculated
+from the information above, plus 1 more byte for a 
+version identifier.</p><h2>erl_ext_size(bufp):int</h2><p>Count elements in encoded term.</p><ul><li><span class="v">unsigned char *bufp;</span></li></ul><p>Returns the number of elements in an encoded term.</p><h2>erl_ext_type(bufp):unsigned char</h2><p>Determine type of an encoded byte sequence.</p><ul><li><span class="v">unsigned char *bufp;</span></li></ul><p>Identifies and returns the type of Erlang term encoded
+in a buffer. It skips a trailing <em>magic</em> identifier.</p><p>Returns <strong>0</strong> if the type cannot be determined or
+one of:</p><ul><li><strong>ERL_INTEGER</strong> </li><li><strong>ERL_ATOM</strong> </li><li><strong>ERL_PID</strong> (Erlang process identifier) </li><li><strong>ERL_PORT</strong> </li><li><strong>ERL_REF</strong> (Erlang reference) </li><li><strong>ERL_EMPTY_LIST</strong> </li><li><strong>ERL_LIST</strong> </li><li><strong>ERL_TUPLE</strong> </li><li><strong>ERL_FLOAT</strong> </li><li><strong>ERL_BINARY</strong> </li><li><strong>ERL_FUNCTION</strong> </li></ul><h2>erl_peek_ext(bufp, pos):unsigned char *</h2><p>Step over encoded term.</p><ul><li><span class="v">unsigned char *bufp;</span></li><li><span class="v">int pos;</span></li></ul><p>This function is used for stepping over one or more
+encoded terms in a buffer, to directly access later term.</p><ul><li><strong>bufp</strong> is a pointer to a buffer containing one or more encoded Erlang terms.</li><li><strong>pos</strong> indicates how many terms to step over in the buffer.</li></ul><p>Returns a pointer to a subterm that can be
+used in a later call to <strong>erl_decode()</strong> to retrieve
+the term at that position. If there is no term, or
+<strong>pos</strong> would exceed the size of the terms in the
+buffer, <strong>NULL</strong> is returned.</p><h2>erl_term_len(t):int</h2><p>Determine encoded size of term.</p><ul><li><span class="v">ETERM *t;</span></li></ul><p>Determines the buffer space that would be
+needed by <strong>t</strong> if it were encoded into Erlang external
+format by <strong>erl_encode()</strong>.</p><p>Returns the size in bytes.</p></body></html>

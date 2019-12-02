@@ -1,0 +1,66 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>The Seven Myths of Erlang Performance</h1><a name="myths"></a><p>Some truths seem to live on well beyond their best-before date,
+perhaps because "information" spreads faster from person-to-person
+than a single release note that says, for example, that body-recursive
+calls have become faster.</p><p>This section tries to kill the old truths (or semi-truths) that have
+become myths.</p><h2>Myth: Tail-Recursive Functions are Much Faster
+    Than Recursive Functions</h2><p><a name="tail_recursive"></a>According to the myth,
+using a tail-recursive function that builds a list in reverse
+followed by a call to <strong>lists:reverse/1</strong> is faster than
+a body-recursive function that builds the list in correct order;
+the reason being that body-recursive functions use more memory than
+tail-recursive functions.</p><p>That was true to some extent before R12B. It was even more true
+before R7B. Today, not so much. A body-recursive function
+generally uses the same amount of memory as a tail-recursive
+function. It is generally not possible to predict whether the
+tail-recursive or the body-recursive version will be
+faster. Therefore, use the version that makes your code cleaner
+(hint: it is usually the body-recursive version).</p><p>For a more thorough discussion about tail and body recursion,
+see <a href="http://ferd.ca/erlang-s-tail-recursion-is-not-a-silver-bullet.html">Erlang's Tail Recursion is Not a Silver Bullet</a>.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>A tail-recursive function that does not need to reverse the
+list at the end is faster than a body-recursive function,
+as are tail-recursive functions that do not construct any terms at all
+(for example, a function that sums all integers in a list).</p></div><h2>Myth: Operator "++" is Always Bad</h2><p>The <strong>++</strong> operator has, somewhat undeservedly, got a bad reputation.
+It probably has something to do with code like the following,
+which is the most inefficient way there is to reverse a list:</p><p><em>DO NOT</em></p><pre><code class="erl">
+naive_reverse([H|T]) -&gt;
+    naive_reverse(T)++[H];
+naive_reverse([]) -&gt;
+    [].</code></pre><p>As the <strong>++</strong> operator copies its left operand, the result
+is copied repeatedly, leading to quadratic complexity.</p><p>But using <strong>++</strong> as follows is not bad:</p><p><em>OK</em></p><pre><code class="erl">
+naive_but_ok_reverse([H|T], Acc) -&gt;
+    naive_but_ok_reverse(T, [H]++Acc);
+naive_but_ok_reverse([], Acc) -&gt;
+    Acc.</code></pre><p>Each list element is copied only once.
+The growing result <strong>Acc</strong> is the right operand
+for the <strong>++</strong> operator, and it is <em>not</em> copied.</p><p>Experienced Erlang programmers would write as follows:</p><p><em>DO</em></p><pre><code class="erl">
+vanilla_reverse([H|T], Acc) -&gt;
+    vanilla_reverse(T, [H|Acc]);
+vanilla_reverse([], Acc) -&gt;
+    Acc.</code></pre><p>This is slightly more efficient because here you do not build a
+list element only to copy it directly. (Or it would be more efficient
+if the compiler did not automatically rewrite <strong>[H]++Acc</strong>
+to <strong>[H|Acc]</strong>.)</p><h2>Myth: Strings are Slow</h2><p>String handling can be slow if done improperly.
+In Erlang, you need to think a little more about how the strings
+are used and choose an appropriate representation. If you
+use regular expressions, use the
+<a href="./re">re</a> module in STDLIB
+instead of the obsolete <strong>regexp</strong> module.</p><h2>Myth: Repairing a Dets File is Very Slow</h2><p>The repair time is still proportional to the number of records
+in the file, but Dets repairs used to be much slower in the past.
+Dets has been massively rewritten and improved.</p><h2>Myth: BEAM is a Stack-Based Byte-Code Virtual Machine
+    (and Therefore Slow)</h2><p>BEAM is a register-based virtual machine. It has 1024 virtual registers
+that are used for holding temporary values and for passing arguments when
+calling functions. Variables that need to survive a function call are saved
+to the stack.</p><p>BEAM is a threaded-code interpreter. Each instruction is word pointing
+directly to executable C-code, making instruction dispatching very fast.</p><h2>Myth: Use "_" to Speed Up Your Program When a Variable
+    is Not Used</h2><p>That was once true, but from R6B the BEAM compiler can see
+that a variable is not used.</p><p>Similarly, trivial transformations on the source-code level
+such as converting a <strong>case</strong> statement to clauses at the
+top-level of the function seldom makes any difference to the
+generated code.</p><h2>Myth: A NIF Always Speeds Up Your Program</h2><p>Rewriting Erlang code to a NIF to make it faster should be
+seen as a last resort. It is only guaranteed to be dangerous,
+but not guaranteed to speed up the program.</p><p>Doing too much work in each NIF call will
+<a href="../erts/erl_nif#WARNING">degrade responsiveness of the VM</a>. Doing too little work may mean that
+the gain of the faster processing in the NIF is eaten up by
+the overhead of calling the NIF and checking the arguments.</p><p>Be sure to read about
+<a href="../erts/erl_nif#lengthy_work">Long-running NIFs</a>
+before writing a NIF.</p></body></html>

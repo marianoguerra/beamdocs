@@ -1,0 +1,139 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Bit Syntax</h1><h2>Introduction</h2><p>The complete specification for the bit syntax appears in the
+<a href="../doc/reference_manual/expressions#bit_syntax">Reference Manual</a>.</p><p>In Erlang, a Bin is used for constructing binaries and matching
+binary patterns. A Bin is written with the following syntax:</p><pre><code class="">
+      &lt;&lt;E1, E2, ... En&gt;&gt;</code></pre><p>A Bin is a low-level sequence of bits or bytes.
+The purpose of a Bin is to enable construction of binaries:</p><pre><code class="">
+Bin = &lt;&lt;E1, E2, ... En&gt;&gt;</code></pre><p>All elements must be bound. Or match a binary:</p><pre><code class="">
+&lt;&lt;E1, E2, ... En&gt;&gt; = Bin </code></pre><p>Here, <strong>Bin</strong> is bound and the elements are bound or
+unbound, as in any match.</p><p>A Bin does not need to consist of a whole number of bytes.</p><p>A <em>bitstring</em> is a sequence of zero or more bits, where
+the number of bits does not need to be divisible by 8. If the number
+of bits is divisible by 8, the bitstring is also a binary.</p><p>Each element specifies a certain <em>segment</em> of the bitstring.
+A segment is a set of contiguous bits of the binary (not
+necessarily on a byte boundary). The first element specifies
+the initial segment, the second element specifies the following
+segment, and so on.</p><p>The following examples illustrate how binaries are constructed,
+or matched, and how elements and tails are specified.</p><h2>Examples</h2><p><em>Example 1:</em> A binary can be constructed from a set of
+constants or a string literal:</p><pre><code class="">
+Bin11 = &lt;&lt;1, 17, 42&gt;&gt;,
+Bin12 = &lt;&lt;"abc"&gt;&gt;</code></pre><p>This gives two binaries of size 3, with the following evaluations:</p><ul><li><strong>binary_to_list(Bin11)</strong> evaluates to <strong>[1, 17, 42]</strong>.</li><li><strong>binary_to_list(Bin12)</strong> evaluates to <strong>[97, 98, 99]</strong>.</li></ul><p><em>Example 2:</em>Similarly, a binary can be constructed
+from a set of bound variables:</p><pre><code class="">
+A = 1, B = 17, C = 42,
+Bin2 = &lt;&lt;A, B, C:16&gt;&gt;</code></pre><p>This gives a binary of size 4.
+Here, a <em>size expression</em> is used for the variable <strong>C</strong> to
+specify a 16-bits segment of <strong>Bin2</strong>.</p><p><strong>binary_to_list(Bin2)</strong> evaluates to <strong>[1, 17, 00, 42]</strong>.</p><p><em>Example 3:</em> A Bin can also be used for matching.
+<strong>D</strong>, <strong>E</strong>, and <strong>F</strong> are unbound variables, and
+<strong>Bin2</strong> is bound, as in Example 2:</p><pre><code class="">
+&lt;&lt;D:16, E, F/binary&gt;&gt; = Bin2</code></pre><p>This gives <strong>D = 273</strong>, <strong>E = 00</strong>, and F binds to a binary
+of size 1: <strong>binary_to_list(F) = [42]</strong>.</p><p><em>Example 4:</em> The following is a more elaborate example
+of matching. Here, <strong>Dgram</strong> is bound to the consecutive
+bytes of an IP datagram of IP protocol version 4. The ambition is
+to extract the header and the data of the datagram:</p><pre><code class="">
+-define(IP_VERSION, 4).
+-define(IP_MIN_HDR_LEN, 5).
+
+DgramSize = byte_size(Dgram),
+case Dgram of 
+    &lt;&lt;?IP_VERSION:4, HLen:4, SrvcType:8, TotLen:16, 
+      ID:16, Flgs:3, FragOff:13,
+      TTL:8, Proto:8, HdrChkSum:16,
+      SrcIP:32,
+      DestIP:32, RestDgram/binary&gt;&gt; when HLen&gt;=5, 4*HLen=&lt;DgramSize -&gt;
+        OptsLen = 4*(HLen - ?IP_MIN_HDR_LEN),
+        &lt;&lt;Opts:OptsLen/binary,Data/binary&gt;&gt; = RestDgram,
+    ...
+end.</code></pre><p>Here, the segment corresponding to the <strong>Opts</strong> variable
+has a <em>type modifier</em>, specifying that <strong>Opts</strong> is to
+bind to a binary. All other variables have the default type
+equal to unsigned integer.</p><p>An IP datagram header is of variable length. This length is
+measured in the number of 32-bit words and is given in
+the segment corresponding to <strong>HLen</strong>. The minimum value of
+<strong>HLen</strong> is 5. It is the segment corresponding to <strong>Opts</strong>
+that is variable, so if <strong>HLen</strong> is equal to 5, <strong>Opts</strong>
+becomes an empty binary.</p><p>The tail variables <strong>RestDgram</strong> and <strong>Data</strong> bind to
+binaries, as all tail variables do. Both can bind to empty
+binaries.</p><p>The match of <strong>Dgram</strong> fails if one of the following occurs:</p><ul><li>The first 4-bits segment of <strong>Dgram</strong> is not equal to 4.</li><li><strong>HLen</strong> is less than 5.</li><li>The size of <strong>Dgram</strong> is less than <strong>4*HLen</strong>.</li></ul><h2>Lexical Note</h2><p>Notice that "<strong>B=&lt;&lt;1&gt;&gt;</strong>" will be interpreted as
+"<strong>B =&lt; &lt;1&gt;&gt;</strong>", which is a syntax error.
+The correct way to write the expression is:
+<strong>B = &lt;&lt;1&gt;&gt;</strong>.</p><h2>Segments</h2><p>Each segment has the following general syntax:</p><p><strong>Value:Size/TypeSpecifierList</strong></p><p>The <strong>Size</strong> or the <strong>TypeSpecifier</strong>, or both, can be
+omitted. Thus, the following variants are allowed:</p><ul><li><strong>Value</strong></li><li><strong>Value:Size</strong></li><li><strong>Value/TypeSpecifierList</strong></li></ul><p>Default values are used when specifications are missing.
+The default values are described in
+<a href="#Defaults">Defaults</a>.</p><p>The <strong>Value</strong> part is any expression, when used in binary construction.
+Used in binary matching, the <strong>Value</strong> part must
+be a literal or a variable. For more information about
+the <strong>Value</strong> part, see
+<a href="#Constructing Binaries and Bitstrings">Constructing Binaries and Bitstrings</a>
+and
+<a href="#Matching Binaries">Matching Binaries</a>.</p><p>The <strong>Size</strong> part of the segment multiplied by the unit in
+<strong>TypeSpecifierList</strong> (described later) gives the number
+of bits for the segment. In construction, <strong>Size</strong> is any
+expression that evaluates to an integer. In matching,
+<strong>Size</strong> must be a constant expression or a variable.</p><p>The <strong>TypeSpecifierList</strong> is a list of type specifiers
+separated by hyphens.</p><dl><dt>Type</dt><dd>The most commonly used types are <strong>integer</strong>, <strong>float</strong>, and <strong>binary</strong>. See <a href="../doc/reference_manual/expressions#bit_syntax">Bit Syntax Expressions in the Reference Manual</a> for a complete description. </dd><dt>Signedness</dt><dd>The signedness specification can be either <strong>signed</strong> or <strong>unsigned</strong>. Notice that signedness only matters for matching.</dd><dt>Endianness</dt><dd>The endianness specification can be either <strong>big</strong>, <strong>little</strong>, or <strong>native</strong>. Native-endian means that the endian is resolved at load time, to be either big-endian or little-endian, depending on what is "native" for the CPU that the Erlang machine is run on.</dd><dt>Unit</dt><dd>The unit size is given as <strong>unit:IntegerLiteral</strong>. The allowed range is 1-256. It is multiplied by the <strong>Size</strong> specifier to give the effective size of the segment. The unit size specifies the alignment for binary segments without size.</dd></dl><p><em>Example:</em></p><pre><code class="">
+X:4/little-signed-integer-unit:8</code></pre><p>This element has a total size of 4*8 = 32 bits, and it contains
+a signed integer in little-endian order.</p><h2>Defaults</h2><p><a name="Defaults"></a>The default type for
+a segment is integer. The default
+type does not depend on the value, even if the value is a
+literal. For example, the default type in <strong>&lt;&lt;3.14&gt;&gt;</strong> is
+integer, not float.</p><p>The default <strong>Size</strong> depends on the type. For integer it is
+8. For float it is 64. For binary it is all of the binary. In
+matching, this default value is only valid for the last
+element. All other binary elements in matching must have a size
+specification.</p><p>The default unit depends on the the type. For <strong>integer</strong>,
+<strong>float</strong>, and <strong>bitstring</strong> it is 1. For binary it is 8.</p><p>The default signedness is <strong>unsigned</strong>.</p><p>The default endianness is <strong>big</strong>.</p><h2>Constructing Binaries and Bitstrings</h2><a name="Constructing Binaries and Bitstrings"></a><p>This section describes the rules for constructing binaries using
+the bit syntax. Unlike when constructing lists or tuples,
+the construction of a binary can fail with a <strong>badarg</strong>
+exception.</p><p>There can be zero or more segments in a binary to be
+constructed. The expression <strong>&lt;&lt;&gt;&gt;</strong> constructs a zero
+length binary.</p><p>Each segment in a binary can consist of zero or more bits.
+There are no alignment rules for individual segments of type
+<strong>integer</strong> and <strong>float</strong>. For binaries and bitstrings
+without size, the unit specifies the alignment. Since the default
+alignment for the <strong>binary</strong> type is 8, the size of a binary
+segment must be a multiple of 8 bits, that is, only whole bytes.</p><p><em>Example:</em></p><pre><code class="">
+&lt;&lt;Bin/binary,Bitstring/bitstring&gt;&gt;</code></pre><p>The variable <strong>Bin</strong> must contain a whole number of bytes,
+because the <strong>binary</strong> type defaults to <strong>unit:8</strong>.
+A <strong>badarg</strong> exception is generated if <strong>Bin</strong>
+consist of, for example, 17 bits.</p><p>The <strong>Bitstring</strong> variable can consist of
+any number of bits, for example, 0, 1, 8, 11, 17, 42, and so on.
+This is because the default <strong>unit</strong> for bitstrings is 1.</p><p>For clarity, it is recommended not to change the unit
+size for binaries. Instead, use <strong>binary</strong> when you need byte alignment
+and <strong>bitstring</strong> when you need bit alignment.</p><p>The following example successfully constructs a bitstring of 7 bits,
+provided that all of X and Y are integers:</p><pre><code class="">
+&lt;&lt;X:1,Y:6&gt;&gt;</code></pre><p>As mentioned earlier, segments have the following general syntax:</p><p><strong>Value:Size/TypeSpecifierList</strong></p><p>When constructing binaries, <strong>Value</strong> and <strong>Size</strong> can be
+any Erlang expression. However, for syntactical reasons, both
+<strong>Value</strong> and <strong>Size</strong> must be enclosed in parenthesis if
+the expression consists of anything more than a single literal
+or a variable. The following gives a compiler syntax error:</p><pre><code class="">
+&lt;&lt;X+1:8&gt;&gt;</code></pre><p>This expression must be rewritten into the following,
+to be accepted by the compiler:</p><pre><code class="">
+&lt;&lt;(X+1):8&gt;&gt;</code></pre><h2>Including Literal Strings</h2><p>A literal string can be written instead of an element:</p><pre><code class="">
+&lt;&lt;"hello"&gt;&gt;</code></pre><p>This is syntactic sugar for the following:</p><pre><code class="">
+&lt;&lt;$h,$e,$l,$l,$o&gt;&gt;</code></pre><h2>Matching Binaries</h2><a name="Matching Binaries"></a><p>This section describes the rules for matching binaries, using
+the bit syntax.</p><p>There can be zero or more segments in a binary pattern.
+A binary pattern can occur wherever patterns are allowed,
+including inside other patterns. Binary patterns cannot be nested.
+The pattern <strong>&lt;&lt;&gt;&gt;</strong> matches a zero length binary.</p><p>Each segment in a binary can consist of zero or more bits.
+A segment of type <strong>binary</strong> must have a size evenly divisible by 8
+(or divisible by the unit size, if the unit size has been changed).
+A segment of type <strong>bitstring</strong> has no restrictions on the size.</p><p>As mentioned earlier, segments have the following general syntax:</p><p><strong>Value:Size/TypeSpecifierList</strong></p><p>When matching <strong>Value</strong>, value must be either a variable or
+an integer, or a floating point literal. Expressions are not
+allowed.</p><p><strong>Size</strong> must be an integer literal, or a previously bound
+variable. The following is not allowed:</p><pre><code class="">
+foo(N, &lt;&lt;X:N,T/binary&gt;&gt;) -&gt;
+   {X,T}.</code></pre><p>The two occurrences of <strong>N</strong> are not related. The compiler
+will complain that the <strong>N</strong> in the size field is unbound.</p><p>The correct way to write this example is as follows:</p><pre><code class="">
+foo(N, Bin) -&gt;
+   &lt;&lt;X:N,T/binary&gt;&gt; = Bin,
+   {X,T}.</code></pre><h2>Getting the Rest of the Binary or Bitstring</h2><p>To match out the rest of a binary, specify a binary field
+without size:</p><pre><code class="">
+foo(&lt;&lt;A:8,Rest/binary&gt;&gt;) -&gt;</code></pre><p>The size of the tail must be evenly divisible by 8.</p><p>To match out the rest of a bitstring, specify a field
+without size:</p><pre><code class="">
+foo(&lt;&lt;A:8,Rest/bitstring&gt;&gt;) -&gt;</code></pre><p>There are no restrictions on the number of bits in the tail.</p><h2>Appending to a Binary</h2><p>Appending to a binary in an efficient way can be done as follows:</p><pre><code class="">
+triples_to_bin(T) -&gt;
+    triples_to_bin(T, &lt;&lt;&gt;&gt;).
+
+triples_to_bin([{X,Y,Z} | T], Acc) -&gt;
+    triples_to_bin(T, &lt;&lt;Acc/binary,X:32,Y:32,Z:32&gt;&gt;);
+triples_to_bin([], Acc) -&gt; 
+    Acc.</code></pre></body></html>

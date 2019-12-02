@@ -1,0 +1,876 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Event Tracer (ET)</h1><h1>Event Tracer (ET)</h1><p>The Event Tracer (ET) uses the built-in trace mechanism in Erlang
+and provides tools for collection and graphical viewing of trace data.</p><p>The <strong>Event Tracer (ET)</strong> uses the built-in trace mechanism in
+Erlang and provides tools for collection and graphical viewing of
+trace data.</p><p>The viewed trace data is normally collected from Erlang trace
+ports or files.</p><h4>Scope and Purpose</h4><p>This manual describes the <strong>Event Tracer (ET)</strong> application,
+as a component of the Erlang/Open Telecom Platform development
+environment. It is assumed that the reader is familiar with the
+Erlang Development Environment, which is described in a separate
+User's Guide.</p><h4>Prerequisites</h4><p>The following prerequisites is required for understanding the
+material in the <strong>Event Tracer (ET)</strong> User's Guide:</p><ul><li> <p>familiarity with the Erlang system and Erlang programming
+in general and the especially the art of Erlang tracing.</p> </li></ul><p>The application requires Erlang/OTP release R13BB or later. If
+you use the old <strong>GS</strong> based GUI it does suffice with R7B.</p><h4>About This Manual</h4><p>In addition to this introductory chapter, the <strong>Event Tracers</strong> User's Guide contains the following chapters:</p><ul><li> <p>Chapter 2: "Tutorial" provides a walk-through of the
+various parts of the application. The tutorial is based on
+<strong>Jayson Vantuyl's</strong> article
+<strong>http://souja.net/2009/04/making-sense-of-erlangs-event-tracer.html</strong>.</p> </li><li> <p>Chapter 3: "Description" describes the architecture and typical
+usage of the application.</p> </li><li> <p>Chapter 4: "Advanced examples" gives some usage examples</p> </li></ul><h4>Where to Find More Information</h4><p>Refer to the following documentation for more information about
+<strong>Event Tracer (ET)</strong> and about the Erlang/OTP development system:</p><ul><li> <p>the Reference Manual of the <strong>Event Tracer (ET)</strong>.</p> </li><li> <p>documentation of basic tracing in <strong>erlang:trace/4</strong> and
+<strong>erlang:trace_pattern/3</strong> and then the utilities derived
+from these: <strong>dbg</strong>, <strong>observer</strong>, <strong>invisio</strong> and
+<strong>et</strong>.</p> </li><li> <p>Programming Erlang: Software for a Concurrent World by Joe
+Armstrong; ISBN: 978-1-93435-600-5</p> </li></ul><h4>Visualizing Message Sequence Charts</h4><p>The easiest way of using <strong>ET</strong>, is to just use it as a
+graphical tool for displaying message sequence charts. In order to
+do that you need to first start a <strong>Viewer</strong> (which by default
+starts a <strong>Collector</strong>):</p><pre><code class="">
+      {ok, ViewerPid} = et_viewer:start([{title,"Coffee Order"}]),
+      CollectorPid = et_viewer:get_collector_pid(ViewerPid).</code></pre><a name="report_event"></a><p>Then you send events to the <strong>Collector</strong>
+with the function <strong>et_collector:report_event/6</strong> like this:</p><pre><code class="">
+      et_collector:report_event(CollectorPid,85,from,to,message,extra_stuff).</code></pre><p>The <strong>Viewer</strong> will automatically pull events from the
+<strong>Collector</strong> and display them on the screen.</p><p>The number (in this case 85) is an integer from 1 to 100 that
+specifies the "detail level" of the message. The higher the
+number, the more important it is. This provides a crude form of
+priority filtering.</p><p>The <strong>from</strong>, <strong>to</strong>, and <strong>message</strong> parameters are
+exactly what they sound like. <strong>from</strong> and <strong>to</strong> are
+visualized in the <strong>Viewer</strong> as "lifelines", with the message
+passing from one to the other. If <strong>from</strong> and <strong>to</strong> are
+the same value, then it is displayed next to the lifeline as an
+"action". The <strong>extra_stuff </strong>value is simply data that you can
+attach that will be displayed when someone actually clicks on the
+action or message in the <strong>Viewer</strong> window.</p><p>The module <strong>et/examples/et_display_demo.erl</strong> illustrates
+how it can be used:</p><pre><code class="">
+
+-module(et_display_demo).
+
+-export([test/0]).
+
+test() -&gt;
+    {ok, Viewer} = et_viewer:start([{title,"Coffee Order"}, {max_actors,10}]),
+    Drink = {drink,iced_chai_latte},
+    Size = {size,grande},
+    Milk = {milk,whole},
+    Flavor = {flavor,vanilla},
+    C = et_viewer:get_collector_pid(Viewer),
+    et_collector:report_event(C,99,customer,barrista1,place_order,[Drink,Size,Milk,Flavor]),
+    et_collector:report_event(C,80,barrista1,register,enter_order,[Drink,Size,Flavor]),
+    et_collector:report_event(C,80,register,barrista1,give_total,"$5"),
+    et_collector:report_event(C,80,barrista1,barrista1,get_cup,[Drink,Size]),
+    et_collector:report_event(C,80,barrista1,barrista2,give_cup,[]),
+    et_collector:report_event(C,90,barrista1,customer,request_money,"$5"),
+    et_collector:report_event(C,90,customer,barrista1,pay_money,"$5"),
+    et_collector:report_event(C,80,barrista2,barrista2,get_chai_mix,[]),
+    et_collector:report_event(C,80,barrista2,barrista2,add_flavor,[Flavor]),
+    et_collector:report_event(C,80,barrista2,barrista2,add_milk,[Milk]),
+    et_collector:report_event(C,80,barrista2,barrista2,add_ice,[]),
+    et_collector:report_event(C,80,barrista2,barrista2,swirl,[]),
+    et_collector:report_event(C,80,barrista2,customer,give_tasty_beverage,[Drink,Size]),
+    ok.</code></pre><p>When you run the <strong>et_display_demo:test().</strong> function in the
+example above, the <strong>Viewer</strong> window will look like this:</p><img src="coffee_order.png" title="Screenshot of the Viewer window"></img><h4>Four Modules</h4><p>The event tracer framework is made up of four modules:</p><ul><li><p><strong>et</strong></p></li><li><p><strong>et_collector</strong></p></li><li><p><strong>et_viewer</strong></p></li><li><p><strong>et_selector</strong></p></li></ul><p>In addition, you'll probably want to familiarize yourself with
+the <strong>dbg</strong> module and possibly <strong>seq_trace</strong> module as
+well.</p><h4>The Event Tracer Interface</h4><p>The <strong>et</strong> module is not like other modules. It contains a
+function called <strong>et:trace_me/5</strong>. Which is a function that
+does not do any useful stuff at all. Its sole purpose is to be a
+function that is easy to trace. A call to it may be something
+like:</p><pre><code class="">
+      et:trace_me(85,from,to,message,extra_stuff).</code></pre><p>The parameters to <strong>et:trace_me/5</strong> are the same as to
+<a href="#report_event">report_event</a>
+in the previous chapter. The big difference between the two is in
+the semantics of the two functions. The second actually reports an
+<strong>Event</strong> to the <strong>Collector</strong> while the first does nothing,
+it just returns the atom <strong>hopefully_traced</strong>. In order to make
+the parameters to <strong>et:trace_me/5</strong> turn up in the
+<strong>Collector</strong>, tracing of that function must be activated and
+the <strong>Collector</strong> must be registered as a <strong>Tracer</strong> of the
+<strong>Raw Trace Data</strong>.</p><p>Erlang tracing is a seething pile of pain that involves
+reasonably complex knowledge of clever ports, tracing return
+formats, and specialized tracing <strong>MatchSpecs</strong> (which are
+really their own special kind of hell). The tracing mechanism is
+very powerful indeed, but it can be hard to grasp.</p><p>Luckily there is a simplified way to start tracing of
+<strong>et:trace_me/5</strong> function calls. The idea is that you should
+instrument your code with calls to <strong>et:trace_me/5</strong> in
+strategic places where you have interesting information available
+in your program. Then you just start the <strong>Collector</strong> with
+global tracing enabled:</p><pre><code class="">
+      et_viewer:start([{trace_global, true}, {trace_pattern, {et,max}}]).</code></pre><p>This will start a <strong>Collector</strong>, a <strong>Viewer</strong> and also
+start the tracing of <strong>et:trace_me/5</strong> function calls. The
+<strong>Raw Trace Data</strong> is collected by the <strong>Collector</strong> and a
+view of it is displayed on the screen by the <strong>Viewer</strong>. You
+can define your own "views" of the data by implementing your own
+<strong>Filter</strong> functions and register them in the
+<strong>Viewer</strong>.</p><h4>The Collector and Viewer</h4><p>These two pieces work in concert. Basically, the
+<strong>Collector</strong> receives <strong>Raw Trace Data</strong> and processes it
+into <strong>Events</strong> in a <strong>et</strong> specific format (defined in
+<strong>et/include/et.hrl</strong>). The <strong>Viewer</strong> interrogates the
+<strong>Collector</strong> and displays an interactive representation of the
+data.</p><p>You might wonder why these aren't just one module. The
+<strong>Collector</strong> is a generic full-fledged framework that allows
+processes to "subscribe" to the <strong>Events</strong> that it
+collects. One <strong>Collector</strong> can serve several
+<strong>Viewers</strong>. The typical case is that you have one
+<strong>Viewer</strong> that visualizes <strong>Events</strong> in one flavor and
+another <strong>Viewer</strong> that visualizes them in another flavor. If
+you for example are tracing a text based protocol like <strong>HTML</strong>
+(or <strong>Megaco/H.248</strong>) it would be useful to be able to display
+the <strong>Events</strong> as plain text as well as the internal
+representation of the message. The architecture does also allow
+you to implement your own <strong>Viewer</strong> program as long as it
+complies to the protocol between the <strong>Collector/Viewer</strong>
+protocol. Currently two kinds of <strong>Viewers</strong> exists. That is
+the old <strong>GS</strong> based one and the new based on
+<strong>wxWidgets</strong>. But if you feel for it you may implement your
+own <strong>Viewer</strong>, which for example could display the
+<strong>Events</strong> as ASCII art or whatever you feel useful.</p><p>The <strong>Viewer</strong> will by default create a <strong>Collector</strong> for
+you. With a few options and some configuration settings you can
+start collecting <strong>Events</strong>.</p><p>The <strong>Collector</strong> API does also allow you to save the
+collected <strong>Events</strong> to file and later load them in a later
+session.</p><h4>The Selector</h4><p>This is perhaps the most central module in the entirety of the
+<strong>et</strong> suite. The <strong>Collector</strong> needs "filters" to convert
+the <strong>Raw Trace Data</strong> into "events" that it can display. The
+<strong>et_selector</strong> module provides the default <strong>Filter</strong> and
+some API calls to manage the <strong>Trace Pattern</strong>. The
+<strong>Selector</strong> provides various functions that achieve the
+following:</p><ul><li><p>Convert <strong>Raw Trace Data</strong> into an appropriate
+<strong>Event</strong></p></li><li><p>Magically notice traces of the <strong>et:trace_me/5</strong>
+function and make appropriate <strong>Events</strong></p></li><li><p>Carefully prevent translating the <strong>Raw Trace Data</strong>
+twice</p></li><li><p>Manage a <strong>Trace Pattern</strong></p></li></ul><p>The <strong>Trace Pattern</strong> is basically a tuple of a
+<strong>module</strong> and a <strong>detail level</strong> (either an integer or the
+atom max for full detail). In most cases the <strong>Trace Pattern</strong>
+<strong>{et,max}</strong> does suffice. But if you do not want any runtime
+dependency of <strong>et</strong> you can implement your own
+<strong>trace_me/5</strong> function in some module and refer to that module
+in the <strong>Trace Pattern</strong>.</p><p>The specified module flows from your instantiation of the
+<strong>Viewer</strong>, to the <strong>Collector</strong> that it automatically
+creates, gets stashed in as the <strong>Trace Pattern</strong>, and
+eventually goes down into the bowels of the <strong>Selector</strong>.</p><p>The module that you specify gets passed down (eventually) into
+<strong>Selector</strong>'s default <strong>Filter</strong>. The format of the
+<strong>et:trace_me/5</strong> function call is hardcoded in that
+<strong>Filter</strong>.</p><h4>How To Put It Together</h4><p>The <strong>Collector</strong> automatically registers itself to listen
+for trace <strong>Events</strong>, so all you have to do is enable them.</p><p>For those people who want to do general tracing, consult the
+<strong>dbg</strong> module on how to trace whatever you're interested in
+and let it work its magic. If you just want <strong>et:trace_me/5</strong>
+to work, do the following:</p><ul><li><p>Create a <strong>Collector</strong></p></li><li><p>Create a <strong>Viewer</strong> (this can do step #1 for you)</p></li><li><p>Turn on and pare down debugging</p></li></ul><p>The module <strong>et/examples/et_trace_demo.erl</strong> achieves this.</p><pre><code class="">
+
+-module(et_trace_demo).
+
+-export([test/0]).
+
+test() -&gt;
+    et_viewer:start([
+        {title,"Coffee Order"},
+        {trace_global,true},
+        {trace_pattern,{et,max}},
+        {max_actors,10}
+      ]),
+      %% dbg:p(all,call),
+      %% dbg:tpl(et, trace_me, 5, []),
+      Drink = {drink,iced_chai_latte},
+      Size = {size,grande},
+      Milk = {milk,whole},
+      Flavor = {flavor,vanilla},
+      et:trace_me(99,customer,barrista1,place_order,[Drink,Size,Milk,Flavor]),
+      et:trace_me(80,barrista1,register,enter_order,[Drink,Size,Flavor]),
+      et:trace_me(80,register,barrista1,give_total,"$5"),
+      et:trace_me(80,barrista1,barrista1,get_cup,[Drink,Size]),
+      et:trace_me(80,barrista1,barrista2,give_cup,[]),
+      et:trace_me(90,barrista1,customer,request_money,"$5"),
+      et:trace_me(90,customer,barrista1,pay_money,"$5"),
+      et:trace_me(80,barrista2,barrista2,get_chai_mix,[]),
+      et:trace_me(80,barrista2,barrista2,add_flavor,[Flavor]),
+      et:trace_me(80,barrista2,barrista2,add_milk,[Milk]),
+      et:trace_me(80,barrista2,barrista2,add_ice,[]),
+      et:trace_me(80,barrista2,barrista2,swirl,[]),
+      et:trace_me(80,barrista2,customer,give_tasty_beverage,[Drink,Size]),
+      ok.</code></pre><p>Running through the above, the most important points are:</p><ul><li><p>Turn on global tracing</p></li><li><p>Set a <strong>Trace Pattern</strong></p></li><li><p>Tell <strong>dbg</strong> to trace function Calls</p></li><li><p>Tell it specifically to trace the <strong>et:trace_me/5</strong> function</p></li></ul><p>When you run the <strong>et_trace_demo:test()</strong> function above, the
+<strong>Viewer</strong> window will look like this screenshot:</p><img src="coffee_order.png" title="Screenshot of the Viewer window"></img><h4>Overview</h4><p>The two major components of the <strong>Event Tracer (ET)</strong> tool
+is a graphical sequence chart viewer (<strong>et_viewer</strong>) and its
+backing storage (<strong>et_collector</strong>). One <strong>Collector</strong> may be
+used as backing storage for several simultaneous <strong>Viewers</strong>
+where each one may display a different view of the same trace
+data.</p><p>The interface between the <strong>Collector</strong> and its
+<strong>Viewers</strong> is public in order to enable other types of
+<strong>Viewers</strong>. However in the following text we will focus on
+usage of the <strong>et_viewer</strong>.</p><p>The main start function is <strong>et_viewer:start/1</strong>. By
+default it will start both an <strong>et_collector</strong> and an
+<strong>et_viewer</strong>:</p><pre><code class="">
+% erl -pa et/examples
+Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
+
+Eshell V5.7.4  (abort with ^G)
+1&gt; {ok, Viewer} = et_viewer:start([]).
+{ok,&lt;0.40.0&gt;}</code></pre><p>A <strong>Viewer</strong> gets trace <strong>Events</strong> from its
+<strong>Collector</strong> by polling it regularly for more <strong>Events</strong> to
+display. <strong>Events</strong> are for example reported to the
+<strong>Collector</strong> with <strong>et_collector:report_event/6</strong>:</p><pre><code class="">
+2&gt; Collector = et_viewer:get_collector_pid(Viewer).
+&lt;0.39.0&gt;
+3&gt; et_collector:report_event(Collector, 60, my_shell, mnesia_tm, start_outer,
+3&gt;                           "Start outer transaction"),
+3&gt; et_collector:report_event(Collector, 40, mnesia_tm, my_shell, new_tid,
+3&gt;                           "New transaction id is 4711"),
+3&gt; et_collector:report_event(Collector, 20, my_shell, mnesia_locker, try_write_lock,
+3&gt;                           "Acquire write lock for {my_tab, key}"),
+3&gt; et_collector:report_event(Collector, 10, mnesia_locker, my_shell, granted,
+3&gt;                           "You got the write lock for {my_tab, key}"),
+3&gt; et_collector:report_event(Collector, 60, my_shell, do_commit,
+3&gt;                           "Perform  transaction commit"),
+3&gt; et_collector:report_event(Collector, 40, my_shell, mnesia_locker, release_tid,
+3&gt;                           "Release all locks for transaction 4711"),
+3&gt; et_collector:report_event(Collector, 60, my_shell, mnesia_tm, delete_transaction,
+3&gt;                           "End of outer transaction"),
+3&gt; et_collector:report_event(Collector, 20, my_shell, end_outer,
+3&gt;                           "Transaction returned {atomic, ok}").
+{ok,{table_handle,&lt;0.39.0&gt;,16402,trace_ts,
+     #Fun&lt;et_collector.0.62831470&gt;}}</code></pre><p>This actually is a simulation of the process <strong>Events</strong>
+caused by a <strong>Mnesia</strong> transaction that writes a record in a local
+table:</p><pre><code class="">
+mnesia:transaction(fun() -&gt; mnesia:write({my_tab, key, val}) end).</code></pre><p>At this stage when we have a couple of <strong>Events</strong>, it is time to
+show how it looks like in the graphical interface of
+<strong>et_viewer</strong>:</p><img src="sim_trans.png" title="A simulated Mnesia transaction which writes one record"></img><p>In the sequence chart, the actors (which symbolically has
+performed the <strong>Event</strong>) are shown as named vertical bars. The
+order of the actors may be altered by dragging (hold mouse button
+1 pressed during the operation) the name tag of an actor and drop
+it elsewhere:</p><img src="sim_trans_move_actor.png" title="Two actors has switched places"></img><p>An <strong>Event</strong> may be an action performed by one single actor
+(blue text label) or it may involve two actors and is then
+depicted as an arrow directed from one actor to another (red text
+label). Details of an <strong>Event</strong> can be shown by clicking (press
+and release the mouse button 1) on the event label text or on the
+arrow. When doing that a <strong>Contents Viewer</strong> window pops up. It
+may look like this:</p><img src="sim_trans_write_lock.png" title="Details of a write lock message"></img><h4>Filters and dictionary</h4><p>The <strong>Event Tracer (ET)</strong> uses named filters in various
+contexts. An Event Trace filter is an <strong>Erlang fun</strong> that takes
+some trace data as input and returns a possibly modified version
+of it:
+</p><pre><code class="">
+filter(TraceData) -&gt; false | true | {true, NewEvent}
+
+TraceData = Event | erlang_trace_data()
+Event = #event{}
+NewEvent = #event{}</code></pre><p>The interface of the filter function is the same as the the
+filter functions for the good old <strong>lists:filtermap/2</strong>. If the filter
+returns <strong>false</strong> it means that the trace data should silently
+be dropped. <strong>true</strong> means that the trace data data already is
+an <strong>Event Record</strong> and that it should be kept as it is.
+<strong>true</strong> means that the <strong>TraceData</strong> already is an <strong>Event Record</strong> and that it should be kept as it is. <strong>{true, NewEvent}</strong> means that the original trace data should be
+replaced with <strong>Event</strong>. This provides means to get rid of
+unwanted <strong>Events</strong> as well as enabling alternate views of an
+<strong>Event</strong>.</p><p>The first filter that the trace data is exposed for is the
+<strong>Collector Filter</strong>. When a trace <strong>Event</strong> is reported with
+<strong>et_collector:report/2</strong> (or
+<strong>et_collector:report_event/5,6</strong>) the first thing that
+happens, is that a message is sent to the <strong>Collector</strong> process
+to fetch a handle that contains some useful stuff, such as the
+<strong>Collector Filter Fun</strong> and an Ets table identifier. Then the
+<strong>Collector Filter Fun</strong> is applied and if it returns
+<strong>true</strong> (or <strong>{true, NewEvent}</strong>), the <strong>Event</strong> will be stored
+in an Ets table. As an optimization, subsequent calls to
+<strong>et_collector:report</strong>-functions can use the handle directly
+instead of the <strong>Collector Pid</strong>.</p><p>All filters (registered in a <strong>Collector</strong> or in a
+<strong>Viewer</strong>) must be able to handle an <strong>Event record</strong> as
+input. The <strong>Collector Filter</strong> (that is the filter named
+<strong>all</strong>) is a little bit special, as its input also may be raw
+<strong>Erlang Trace Data</strong></p><p>The <strong>Collector</strong> manages a key/value based dictionary,
+where the filters are stored. Updates of the dictionary is
+propagated to all subscribing processes. When a <strong>Viewer</strong> is
+started it is registered as a subscriber of dictionary
+updates.</p><p>In each <strong>Viewer</strong> there is only one filter that is active
+and all trace <strong>Events</strong> that the <strong>Viewer</strong> gets from the
+<strong>Collector</strong> will pass thru that filter. By writing clever
+filters it is possible to customize how the <strong>Events</strong> looks
+like in the viewer. The following filter in
+<strong>et/examples/et_demo.erl</strong> replaces the actor names
+<strong>mnesia_tm</strong> and <strong>mnesia_locker</strong> and leaves everything
+else in the record as it was:</p><pre><code class="">
+
+mgr_actors(E) when is_record(E, event) -&gt;
+    Actor = fun(A) -&gt;
+               case A of
+                   mnesia_tm     -&gt; trans_mgr;
+                   mnesia_locker -&gt; lock_mgr;
+                   _             -&gt; A
+               end
+            end,
+    {true, E#event{from = Actor(E#event.from),
+                   to = Actor(E#event.to),
+                   contents = [{orig_from, E#event.from},
+                               {orig_to,   E#event.to},
+                               {orig_contents, E#event.contents}]}}.</code></pre><p>If we now add the filter to the running <strong>Collector</strong>:</p><pre><code class="">
+4&gt; Fun = fun(E) -&gt; et_demo:mgr_actors(E) end.
+#Fun&lt;erl_eval.6.13229925&gt;
+5&gt; et_collector:dict_insert(Collector, {filter, mgr_actors}, Fun).
+ok</code></pre><p>you will see that the <strong>Filter</strong> menu in all viewers have
+got a new entry called <strong>mgr_actors</strong>. Select it, and a new
+<strong>Viewer</strong> window will pop up:</p><img src="sim_trans_mgr_actors.png" title="The same trace data in a different view"></img><p>In order to see the nitty gritty details of an <strong>Event</strong> you
+may click on the <strong>Event</strong> in order to start a <strong>Contents Viewer</strong> for that <strong>Event</strong>. In the <strong>Contents Viewer</strong>
+there also is a filter menu that enables inspection of the
+<strong>Event</strong> from other views than the one selected in the
+viewer. A click on the <strong>new_tid</strong> <strong>Event</strong> will cause a
+<strong>Contents Viewer</strong> window to pop up, showing the <strong>Event</strong>
+in the <strong>mgr_actors</strong> view:</p><img src="sim_trans_contents_viewer_mgr_actors.png" title="The trace Event in the mgr_actors view"></img><p>Select the <strong>all</strong> entry in the <strong>Filters</strong> menu
+and a new <strong>Contents Viewer window</strong> will pop up showing the
+same trace <strong>Event</strong> in the collectors view:</p><img src="sim_trans_contents_viewer_collector.png" title="The same trace Event in the collectors view"></img><h4>Trace clients</h4><p>As you have seen, it is possible to use the
+<strong>et_collector:report_event/5,6</strong> functions explicitly. By
+using those functions you can write your own trace client that
+reads trace data from any source stored in any format and just
+feed the <strong>Collector</strong> with it. You may replace the default
+<strong>Collector Filter</strong> with a filter that converts new exciting
+trace data formats to <strong>Event Records</strong> or you may convert it
+to an <strong>Event Record</strong> before you invoke
+<strong>et_collector:report/2</strong> and then rely on the default
+<strong>Collector Filter</strong> to handle the new format.</p><p>There are also existing functions in the API that reads from
+various sources and calls <strong>et_collector:report/2</strong>:</p><ul><li> <p>The trace <strong>Events</strong> that are hosted by the <strong>Collector</strong> may be
+stored to file and later be loaded by selecting <strong>save</strong>
+and <strong>load</strong> entries in the <strong>Viewers</strong> <strong>File</strong> menu
+or via the <strong>et_collector</strong> API.</p> </li><li> <p>It is also possible to perform live tracing of a running
+system by making use of the built-in trace support in the
+Erlang emulator. These Erlang traces can be directed to files
+or to ports. See the reference manual for
+<strong>erlang:trace/4</strong>, <strong>erlang:trace_pattern/3</strong>,
+<strong>dbg</strong> and <strong>ttb</strong> for more info.</p> <p>There are also corresponding trace client types that can
+read the Erlang trace data format from such files or ports.
+The <strong>et_collector:start_trace_client/3</strong> function makes
+use of these Erlang trace clients and redirects the trace data
+to the <strong>Collector</strong>.</p> <p>The default <strong>Collector Filter</strong> converts the raw Erlang
+trace data format into <strong>Event Records</strong>. If you want to
+perform this differently you can of course write your own
+<strong>Collector Filter</strong> from scratch. But it may probably save
+you some efforts if you first apply the default filter in
+<strong>et_selector:parse_event/2</strong> before you apply your own
+conversions of its output.</p> </li></ul><h4>Global tracing</h4><p>Setting up an Erlang tracer on a set of nodes and connecting
+trace clients to the ports of these tracers is not intuitive. In
+order to make this it easier the <strong>Event Tracer</strong> has a notion
+of global tracing. When used, the <strong>et_collector</strong> process will
+monitor Erlang nodes and when one connects, an Erlang tracer will
+automatically be started on the newly connected node. A
+corresponding trace client will also be started on the
+<strong>Collector</strong> node in order to automatically forward the trace
+<strong>Events</strong> to the <strong>Collector</strong>. Set the boolean parameter
+<strong>trace_global</strong> to <strong>true</strong> for either the
+<strong>et_collector</strong> or <strong>et_viewer</strong> in order to activate the
+global tracing. There is no restriction on how many concurrent
+(anonymous) collectors you can have, but you can only have one
+<em>global</em> <strong>Collector</strong> as its name is registered in
+<strong>global</strong>.</p><p>In order to further simplify the tracing, you can make use of
+the <strong>et:trace_me/4,5</strong> functions. These functions are intended
+to be invoked from other applications when there are interesting
+<strong>Events</strong>, in your application that needs to be
+highlighted. The functions are extremely light weight as they do
+nothing besides returning an atom. These functions are
+specifically designed to be traced for. As the caller explicitly
+provides the values for the <strong>Event Record</strong> fields, the
+default <strong>Collector Filter</strong> is able to automatically provide a
+customized <strong>Event Record</strong> without any user defined filter
+functions.</p><p>In normal operation, the <strong>et:trace_me/4,5</strong> calls are almost
+for free. When tracing is needed, you can either activate tracing
+on these functions explicitly. Or you can combine the usage of
+<strong>trace_global</strong> with the usage of <strong>trace_pattern</strong>. When
+set, the <strong>trace_pattern</strong> will automatically be activated on
+all connected nodes. </p><p>One nice thing with the <strong>trace_pattern</strong> is that it
+provides a very simple way of minimizing the amount of generated
+trace data by allowing you to explicitly control the detail level
+of the tracing. As you may have seen the <strong>et_viewer</strong> have a
+slider called <strong>"Detail Level"</strong> that allows you to control the
+detail level of the trace <strong>Events</strong> displayed in the
+<strong>Viewer</strong>. On the other hand if you set a low detail level in
+the <strong>trace_pattern</strong>, lots of the trace data will never be
+generated and thus not sent over the socket to the trace client
+and stored in the <strong>Collector</strong>.</p><h4>Viewer window</h4><p>Almost all functionality available in the <strong>et_viewer</strong> is
+also available via shortcuts. Which key that has the same effect
+as selecting a menu entry is shown enclosed in parentheses. For
+example pressing the key <strong>r</strong> is equivalent to selecting the
+menu entry <strong>Viewer-&gt;Refresh</strong>.</p><p>File menu:</p><ul><li> <p><strong>Clear all events in the Collector</strong> - Deletes all
+<strong>Events</strong> stored in the <strong>Collector</strong> and notifies all
+connected <strong>Viewers</strong> about this.</p> </li><li> <p><strong>Load events to the Collector from file</strong> - Loads the
+<strong>Collector</strong> with <strong>Events</strong> from a file and notifies
+all connected <strong>Viewers</strong> about this.</p> </li><li> <p><strong>Save all events in the Collector to file</strong> - Saves all
+<strong>Events</strong> stored in the <strong>Collector</strong> to file.</p> </li><li> <p><strong>Print setup</strong> - Enables editing of printer setting,
+such as paper and layout.</p> </li><li> <p><strong>Print current page</strong> - Prints the events on the
+current page. The page size is dependent of the selected paper
+type.</p> </li><li> <p><strong>Print all pages</strong> - Prints all events. The page size
+is dependent of the selected paper type.</p> </li><li> <p><strong>Close this Viewer</strong> - Closes this <strong>Viewer</strong>
+window, but keeps all other <strong>Viewers</strong> windows and the
+<strong>Collector</strong> process.</p> </li><li> <p><strong>Close other Viewers, but this</strong> - Keeps this
+<strong>Viewer</strong> window and its <strong>Collector</strong> process, but
+closes all other <strong>Viewers</strong> windowsconnected to the same
+<strong>Collector</strong>.</p> </li><li> <p><strong>Close all Viewers and the Collector</strong> - Closes the
+<strong>Collector</strong> and all <strong>Viewers</strong> connected to it.</p> </li></ul><p>Viewer menu:</p><ul><li> <p><strong>First</strong> - Scrolls <strong>this</strong> viewer to the first
+<strong>Event</strong> in the <strong>Collector</strong>.</p> </li><li> <p><strong>Last</strong> - Scrolls <strong>this</strong> viewer to the last
+<strong>Event</strong> in the <strong>Collector</strong>.</p> </li><li> <p><strong>Prev</strong> - Scrolls <strong>this</strong> viewer one page
+backwards.</p> </li><li> <p><strong>Next</strong> - Scrolls <strong>this</strong> viewer one page
+forward.</p> </li><li> <p><strong>Refresh</strong> - Clears <strong>this</strong> viewer and re-read its
+<strong>Events</strong> from the <strong>Collector</strong>.</p> </li><li> <p><strong>Up</strong> - Scrolls a few <strong>Events</strong> backwards.</p> </li><li> <p><strong>Down</strong> - Scrolls a few <strong>Events</strong> forward.</p> </li><li> <p><strong>Display all actors.</strong> - Reset the settings for hidden
+and/or highlighted actors.</p> </li></ul><p>Collector menu:</p><ul><li> <p><strong>First</strong> - Scrolls<strong>all</strong> viewers to the first
+<strong>Event</strong> in the <strong>Collector</strong>.</p> </li><li> <p><strong>Last</strong> - Scrolls <strong>all</strong> viewers to the last
+<strong>Event</strong> in the <strong>Collector</strong>.</p> </li><li> <p><strong>Prev</strong> - Scrolls <strong>all</strong> viewers one page
+backwards.</p> </li><li> <p><strong>Next</strong> - Scrolls <strong>all</strong> viewers one page
+forward.</p> </li><li> <p><strong>Refresh</strong> - Clears <strong>all</strong> viewers and re-read
+their <strong>Events</strong> from the <strong>Collector</strong>.</p> </li></ul><p>Filters and scaling menu:</p><ul><li> <p><strong>ActiveFilter (=)</strong> - Starts a new <strong>Viewer</strong> window
+with the same active filter and scale as the current one.</p> </li><li> <p><strong>ActiveFilter (+)</strong> - Starts a new <strong>Viewer</strong> window
+with the same active filter but a larger scale than the
+current one.</p> </li><li> <p><strong>ActiveFilter (-)</strong> - Starts a new <strong>Viewer </strong>window
+with the same active filter but a smaller scale than the
+current one.</p> </li><li> <p><strong>all (0)</strong> - Starts a new <strong>Viewer</strong> with the
+<strong>Collector Filter</strong> as active filter. It will cause all
+events in the collector to be viewed.</p> </li><li> <p><strong>AnotherFilter (2)</strong> - If more filters are inserted
+into the dictionary, these will turn up here as entries in the
+<strong>Filters</strong> menu. The second filter will get the shortcut
+number 2, the next one number 3 etc. The names are sorted.</p> </li></ul><p>Slider and radio buttons:</p><ul><li> <p><strong>Hide From=To</strong> - When true, this means that the
+<strong>Viewer</strong> will hide all <strong>Events</strong> where the from-actor
+equals to its to-actor. These events are sometimes called
+actions.</p> </li><li> <p><strong>Hide (excluded actors)</strong> - When true, this means that
+the <strong>Viewer</strong> will hide all <strong>Events</strong> whose actors are
+marked as excluded. Excluded actors are normally enclosed in
+round brackets when they are displayed inthe
+<strong>Viewer</strong>.</p> </li><li> <p><strong>Detail level</strong> - This slider controls the resolution
+of the <strong>Viewer</strong>. Only <strong>Events</strong> with a detail level
+<strong>smaller</strong> than the selected one (default=100=max) are
+displayed.</p> </li></ul><p>Other features:</p><ul><li> <p><strong>Vertical scroll</strong> - Use mouse wheel and up/down arrows
+to scroll little. Use page up/down and home/end buttons to
+scroll more.</p> </li><li> <p><strong>Display details of an event</strong> - Left mouse click on
+the event label or the arrowand a new <strong>Contents Viewer</strong>
+window will pop up, displaying the contents of an
+<strong>Event</strong>.</p> </li><li> <p><strong>Highlight actor (toggle)</strong> - Left mouse click on the
+actor name tag. The actor name will be enclosed in square
+brackets <strong>[]</strong>. When one or more actors are highlighted,
+only events related to those actors are displayed. All others
+are hidden.</p> </li><li> <p><strong>Exclude actor (toggle)</strong> - Right mouse click on the
+actor name tag. The actor name will be enclosed in round
+brackets <strong>()</strong>. When an actor is excluded, all events
+related to this actor is hidden. If the checkbox <strong>Hide (excluded actors)</strong> is checked, even the name tags and
+corresponding vertical line of excluded actors will be
+hidden.</p> </li><li> <p><strong>Move actor</strong> - Left mouse button drag and drop on
+actor name tag. Move the actor by first clicking on the actor
+name, keeping the button pressed while moving the cursor to a
+new location and release the button where the actor should be
+moved to.</p> </li><li> <p><strong>Display all actors</strong> - Press the 'a' button. Reset the
+settings for hidden and/or highlighted actors.</p> </li></ul><h4>Configuration</h4><p>The <strong>Event Records</strong> in the Ets table are ordered by their
+timestamp. Which timestamp that should be used is controlled via
+the <strong>event_order</strong> parameter. Default is <strong>trace_ts</strong> which
+means the time when the trace data was generated. <strong>event_ts</strong>
+means the time when the trace data was parsed (transformed into an
+<strong>Event Record</strong>).</p><h4>Contents viewer window</h4><p>File menu:</p><ul><li> <p><strong>Close</strong> - Close this window.</p> </li><li> <p><strong>Save</strong> - Save the contents of this window to file.</p> </li></ul><p>Filters menu:</p><ul><li> <p><strong>ActiveFilter</strong> - Start a new <strong>Contents Viewer window</strong> with the same active filter.</p> </li><li> <p><strong>AnotherFilter (2)</strong> - If more filters are inserted
+into the dictionary, these will turn up here as entries in the
+<strong>Filters</strong> menu. The second filter will be number 2, the
+next one number 3 etc. The names are sorted.</p> </li></ul><p>Hide menu:</p><ul><li> <p><strong>Hide actor in viewer</strong> - Known actors are shown as a
+named vertical bars in the <strong>Viewer</strong> window. By hiding the
+actor, its vertical bar will be removed and the <strong>Viewer</strong>
+will be refreshed.</p> <p><strong>Hiding the actor</strong> is only useful if the
+<strong>max_actors</strong> threshold has been reached, as it then will
+imply that the "hidden" actor will be displayed as if it were
+<strong>"UNKNOWN"</strong>. If the <strong>max_actors</strong> threshold not have
+been reached, the actor will re-appear as a vertical bar in
+the <strong>Viewer</strong>.</p> </li><li> <p><strong>Show actor in viewer</strong> - This implies that the actor
+will be added as a known actor in the <strong>Viewer</strong> with its
+own vertical bar.</p> </li></ul><p>Search menu:</p><ul><li> <p><strong>Forward from this event</strong> - Set this event to be the first
+event in the viewer and change its display mode to be enter
+forward search mode. The actor of this event (from, to or
+both) will be added to the list of selected actors.</p> </li><li> <p><strong>Reverse from this event</strong> - Set this event to be the
+first <strong>Event</strong> in the <strong>Viewer</strong> and change its display
+mode to be enter reverse search mode. The actor of this
+<strong>Event</strong> (from, to or both) will be added to the list of
+selected actors. Observe, that the <strong>Events</strong> will be shown
+in reverse order.</p> </li><li> <p><strong>Abort search. Display all</strong> - Switch the display mode
+of the <strong>Viewer</strong> to show all <strong>Events</strong> regardless of
+any ongoing searches. Abort the searches.</p> </li></ul><h4>A simulated Mnesia transaction</h4><p>The Erlang code for running the simulated <strong>Mnesia</strong> transaction
+example in the previous chapter is included in the
+<strong>et/examples/et_demo.erl</strong> file:</p><pre><code class="">
+
+sim_trans() -&gt;
+    sim_trans([]).
+
+sim_trans(ExtraOptions) -&gt;
+    Options = [{dict_insert, {filter, mgr_actors}, fun mgr_actors/1}],
+    {ok, Viewer} = et_viewer:start_link(Options ++ ExtraOptions),
+    Collector = et_viewer:get_collector_pid(Viewer),
+    et_collector:report_event(Collector, 60, my_shell, mnesia_tm, start_outer, 
+                              "Start outer transaction"),
+    et_collector:report_event(Collector, 40, mnesia_tm, my_shell, new_tid, 
+                              "New transaction id is 4711"),
+    et_collector:report_event(Collector, 20, my_shell, mnesia_locker, try_write_lock, 
+                              "Acquire write lock for {my_tab, key}"),
+    et_collector:report_event(Collector, 10, mnesia_locker, my_shell, granted,
+                              "You got the write lock for {my_tab, key}"),
+    et_collector:report_event(Collector, 60, my_shell, do_commit,
+                              "Perform  transaction commit"),
+    et_collector:report_event(Collector, 40, my_shell, mnesia_locker, release_tid,
+                              "Release all locks for transaction 4711"),
+    et_collector:report_event(Collector, 60, my_shell, mnesia_tm, delete_transaction,
+                              "End of outer transaction"),
+    et_collector:report_event(Collector, 20, my_shell, end_outer,
+                              "Transaction returned {atomic, ok}"),
+    {collector, Collector}.
+</code></pre><pre><code class="">
+
+mgr_actors(E) when is_record(E, event) -&gt;
+    Actor = fun(A) -&gt;
+               case A of
+                   mnesia_tm     -&gt; trans_mgr;
+                   mnesia_locker -&gt; lock_mgr;
+                   _             -&gt; A
+               end
+            end,
+    {true, E#event{from = Actor(E#event.from),
+                   to = Actor(E#event.to),
+                   contents = [{orig_from, E#event.from},
+                               {orig_to,   E#event.to},
+                               {orig_contents, E#event.contents}]}}.</code></pre><p>If you invoke the <strong>et_demo:sim_trans()</strong> function, a
+<strong>Viewer</strong> window will pop up and the sequence trace will be
+almost the same as if the following <strong>Mnesia</strong> transaction
+would have been run:</p><pre><code class="">
+mnesia:transaction(fun() -&gt; mnesia:write({my_tab, key, val}) end).</code></pre><p>And the viewer window will look like:</p><pre><code class="">
+Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
+
+Eshell V5.7.4  (abort with ^G)
+1&gt; {ok, Viewer} = et_viewer:start([]).
+{ok,&lt;0.40.0&gt;;}
+2&gt; et_demo:sim_trans().
+{ok,{table_handle,&lt;0.45.0&gt;,24596,trace_ts,
+     #Fun&lt;et_collector.0.62831470&gt;}}</code></pre><img src="sim_trans.png" title="A simulated Mnesia transaction which writes one record"></img><h4>Some convenient functions used in the Mnesia transaction
+    example</h4><p>The <strong>module_as_actor</strong> filter converts the <strong>Event Records</strong> so the module names becomes actors and the invoked
+functions becomes labels. If the information about who the caller
+was it will be displayed as an arrow directed from the caller to
+the callee. The <strong>[{message, {caller}}, {return_trace}]</strong>
+options to <strong>dbg:tpl/2</strong> function will imply the necessary
+information in the Erlang traces.  Here follows the
+<strong>module_as_actor</strong> filter:</p><pre><code class="">
+
+module_as_actor(E) when is_record(E, event) -&gt;
+    case lists:keysearch(mfa, 1, E#event.contents) of
+        {value, {mfa, {M, F, _A}}} -&gt;
+            case lists:keysearch(pam_result, 1, E#event.contents) of
+                {value, {pam_result, {M2, _F2, _A2}}} -&gt;
+                    {true, E#event{label = F, from = M2, to = M}};
+                _ -&gt;
+                    {true, E#event{label = F, from = M, to = M}}
+            end;
+        _ -&gt;
+            false
+    end.</code></pre><p>The <strong>plain_process_info</strong> filter does not alter the
+<strong>Event Records</strong>.  It merely ensures that the event not
+related to processes are skipped:</p><pre><code class="">
+
+plain_process_info(E) when is_record(E, event) -&gt;
+    case E#event.label of
+        send                          -&gt; true;
+        send_to_non_existing_process  -&gt; true;
+        'receive'                     -&gt; true;
+        spawn                         -&gt; true;
+        exit                          -&gt; true;
+        link                          -&gt; true;
+        unlink                        -&gt; true;
+        getting_linked                -&gt; true;
+        {seq_send, _Label}            -&gt; true;
+        {seq_receive, _Label}         -&gt; true;
+        {seq_print, _Label}           -&gt; true;
+        {drop, _N}                    -&gt; true;
+        _                             -&gt; false
+    end.</code></pre><p>The <strong>plain_process_info_nolink</strong> filter does not alter the
+<strong>Event Records</strong>. It do makes use of the
+<strong>plain_process_info</strong> , but do also ensure that the process
+info related to linking and unlinking is skipped:</p><pre><code class="">
+
+plain_process_info_nolink(E) when is_record(E, event) -&gt;
+    (E#event.label /= link) and
+    (E#event.label /= unlink) and
+    (E#event.label /= getting_linked) and
+    plain_process_info(E). </code></pre><p>In order to simplify the startup of an <strong>et_viewer</strong> process
+with the filters mentioned above, plus some others (that also are
+found in <strong>et/examples/et_demo.erl</strong> src/et_collector.erl the
+<strong>et_demo:start/0,1</strong> functions can be used:</p><pre><code class="">
+
+start() -&gt;
+    start([]).
+
+start(ExtraOptions) -&gt;
+    Options = [{trace_global, true},
+               {parent_pid, undefined},
+               {max_actors, infinity},
+               {max_events, 1000},
+               {active_filter, module_as_actor}],
+    et_viewer:start_link(filters() ++ Options ++ ExtraOptions).</code></pre><p>A simple one-liner starts the tool:</p><pre><code class="">
+          erl -pa ../examples -s et_demo</code></pre><p>The filters are included by the following parameters:</p><pre><code class="">
+
+filters() -&gt;
+    [{dict_insert, {filter, module_as_actor},
+                   fun module_as_actor/1},
+     {dict_insert, {filter, plain_process_info},
+                   fun plain_process_info/1},
+     {dict_insert, {filter, plain_process_info_nolink},
+                   fun plain_process_info_nolink/1},
+     {dict_insert, {filter, named_process_info},
+                   fun named_process_info/1},
+     {dict_insert, {filter, named_process_info_nolink},
+                   fun named_process_info_nolink/1},
+     {dict_insert, {filter, node_process_info},
+                   fun node_process_info/1},
+     {dict_insert, {filter, node_process_info_nolink},
+                   fun node_process_info_nolink/1},
+     {dict_insert, {filter, application_as_actor},
+                   fun application_as_actor/1}
+    ].</code></pre><h4>Erlang trace of a real Mnesia transaction</h4><p>The following piece of code <strong>et_demo:trace_mnesia/0</strong>
+activates call tracing of both local and external function calls
+for all modules in the <strong>Mnesia</strong> application. The call traces
+are configured cover all processes (both existing and those that
+are spawned in the future) and include timestamps for trace
+data. It do also activate tracing of process related events for
+<strong>Mnesia</strong>'s static processes plus the calling process (that is
+your shell). Please, observe that the <strong>whereis/1</strong> call in the
+following code requires that both the traced <strong>Mnesia</strong>
+application and the <strong>et_viewer</strong> is running on the same
+node:</p><pre><code class="">
+
+trace_mnesia() -&gt;
+    Modules = mnesia:ms(),
+    Spec = [{message, {caller}}, {return_trace}],
+    Flags = [send, 'receive', procs, timestamp],
+    dbg:p(all, [call, timestamp]),
+    [dbg:tpl(M, [{'_', [], Spec}]) || M &lt;- Modules],
+    LocallyRunningServers = [M || M &lt;- Modules, whereis(M) /= undefined],
+    [dbg:p(whereis(RS), Flags) || RS &lt;- LocallyRunningServers],
+    dbg:p(self(), Flags),
+    LocallyRunningServers.</code></pre><p>The <strong>et_demo:live_trans/0</strong> function starts the global
+<strong>Collector</strong>, starts a <strong>Viewer</strong>, starts <strong>Mnesia</strong>,
+creates a local table, activates tracing (as described above) and
+registers the shell process is as 'my_shell' for clarity. Finally
+a simple <strong>Mnesia</strong> transaction that writes a single record
+is run:</p><pre><code class="">
+
+live_trans() -&gt;
+    live_trans([]).
+
+live_trans(ExtraOptions) -&gt;
+    Options = [{title, "Mnesia tracer"},
+	       {hide_actions, true},
+	       {active_filter, named_process_info_nolink}],
+    et_demo:start(Options ++ ExtraOptions),
+    mnesia:start(),
+    mnesia:create_table(my_tab, [{ram_copies, [node()]}]),
+    et_demo:trace_mnesia(),
+    register(my_shell, self()),
+
+    mnesia:transaction(fun() -&gt; mnesia:write({my_tab, key, val}) end).</code></pre><p>Now we run the <strong>et_demo:live_trans/0</strong> function:</p><pre><code class="">
+erl -pa ../examples
+Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4]
+                           [async-threads:0] [kernel-poll:false]
+
+Eshell V5.7.4  (abort with ^G)
+1&gt; et_demo:live_trans().
+{atomic,ok}</code></pre><p>Please, explore the different filters in order to see how the traced
+transaction can be seen from different point of views:</p><img src="live_trans.png" title="A real Mnesia transaction which writes one record"></img><h4>Erlang trace of Megaco startup</h4><p>The <strong>Event Tracer (ET)</strong> tool was initially written in
+order to demonstrate how messages where sent over the
+<strong>Megaco</strong> protocol. This were back in the old days before the
+standard bodies of <strong>IETF</strong> and <strong>ITU</strong> had approved
+<strong>Megaco</strong> (also called <strong>H.248</strong>) as an international
+standard.</p><p>In the <strong>Megaco</strong> application of Erlang/OTP, the code is
+carefully instrumented with calls to <strong>et:trace_me/5</strong>. For
+each call a detail level is given in order to enable dynamic
+control of the trace level in a simple manner.</p><p>The <strong>megaco_filter</strong> module implements a customized filter
+for <strong>Megaco</strong> messages. It does also make use of
+<strong>trace_global</strong> combined with usage of the
+<strong>trace_pattern</strong>:</p><pre><code class="">
+-module(megaco_filter).
+-export([start/0]).
+
+start() -&gt;
+    Options =
+        [{event_order, event_ts},
+         {scale, 3},
+         {max_actors, infinity},
+         {trace_pattern, {megaco, max}},
+         {trace_global, true},
+         {dict_insert, {filter, megaco_filter}, fun filter/1},
+         {active_filter, megaco_filter},
+         {title, "Megaco tracer - Erlang/OTP"}],
+    et_viewer:start(Options).</code></pre><p>First we start an Erlang node with a global <strong>Collector</strong>
+and its <strong>Viewer</strong>.</p><pre><code class="">
+erl -sname observer
+Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
+
+Eshell V5.7.4  (abort with ^G)
+(observer@falco)1&gt; megaco_filter:start().
+{ok,&lt;0.48.0&gt;}</code></pre><p>Secondly we start another Erlang node which we connect the
+observer node, before we start the application that we want to
+trace. In this case we start a Media Gateway Controller that
+listens for both TCP and UDP on the text and binary ports for
+Megaco:</p><pre><code class="">
+erl -sname mgc -pa ../../megaco/examples/simple
+Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
+
+Eshell V5.7.4  (abort with ^G)
+(mgc@falco)1&gt; net:ping(observer@falco).
+pong
+(mgc@falco)2&gt; megaco:start().
+ok
+(mgc@falco)3&gt; megaco_simple_mgc:start().
+{ok,[{ok,2944,
+         {megaco_receive_handle,{deviceName,"controller"},
+                                megaco_pretty_text_encoder,[],megaco_tcp,dynamic}},
+     {ok,2944,
+         {megaco_receive_handle,{deviceName,"controller"},
+                                megaco_pretty_text_encoder,[],megaco_udp,dynamic}},
+     {ok,2945,
+         {megaco_receive_handle,{deviceName,"controller"},
+                                megaco_binary_encoder,[],megaco_tcp,dynamic}},
+     {ok,2945,
+         {megaco_receive_handle,{deviceName,"controller"},
+                                megaco_binary_encoder,[],megaco_udp,dynamic}}]}</code></pre><p>And finally we start an Erlang node for the Media Gateways and
+connect to the observer node. Each Media Gateway connects to the
+controller and sends an initial Service Change message. The
+controller accepts the gateways and sends a reply to each one
+using the same transport mechanism and message encoding according
+to the preference of each gateway. That is all combinations of
+TCP/IP transport, UDP/IP transport, text encoding and ASN.1 BER
+encoding:</p><pre><code class="">
+Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
+
+Eshell V5.7.4  (abort with ^G)
+(mg@falco)1&gt; net:ping(observer@falco).
+pong
+(mg@falco)2&gt; megaco_simple_mg:start().
+[{{deviceName,"gateway_tt"},
+  {error,{start_user,megaco_not_started}}},
+ {{deviceName,"gateway_tb"},
+  {error,{start_user,megaco_not_started}}},
+ {{deviceName,"gateway_ut"},
+  {error,{start_user,megaco_not_started}}},
+ {{deviceName,"gateway_ub"},
+  {error,{start_user,megaco_not_started}}}]
+(mg@falco)3&gt; megaco:start().
+ok
+(mg@falco)4&gt; megaco_simple_mg:start().
+[{{deviceName,"gateway_tt"},
+  {1,
+   {ok,[{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,
+            [{serviceChangeReply,
+                 {'ServiceChangeReply',
+                     [{megaco_term_id,false,["root"]}],
+                     {serviceChangeResParms,
+                         {'ServiceChangeResParm',
+                             {deviceName,"controller"},
+                             asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,
+                             asn1_NOVALUE}}}}]}]}}},
+ {{deviceName,"gateway_tb"},
+  {1,
+   {ok,[{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,
+            [{serviceChangeReply,
+                 {'ServiceChangeReply',
+                     [{megaco_term_id,false,["root"]}],
+                     {serviceChangeResParms,
+                         {'ServiceChangeResParm',
+                             {deviceName,"controller"},
+                             asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,
+                             asn1_NOVALUE}}}}]}]}}},
+ {{deviceName,"gateway_ut"},
+  {1,
+   {ok,[{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,
+            [{serviceChangeReply,
+                 {'ServiceChangeReply',
+                     [{megaco_term_id,false,["root"]}],
+                     {serviceChangeResParms,
+                         {'ServiceChangeResParm',
+                             {deviceName,"controller"},
+                             asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,
+                             asn1_NOVALUE}}}}]}]}}},
+ {{deviceName,"gateway_ub"},
+  {1,
+   {ok,[{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,
+            [{serviceChangeReply,
+                 {'ServiceChangeReply',
+                     [{megaco_term_id,false,["root"]}],
+                     {serviceChangeResParms,
+                         {'ServiceChangeResParm',
+                             {deviceName,"controller"},
+                             asn1_NOVALUE,asn1_NOVALUE,
+                             asn1_NOVALUE,...}}}}]}]}}}]</code></pre><p>The <strong>Megaco</strong> adopted viewer looks like this, when we have clicked
+on the <em>[gateway_tt]</em> actor name in order to only display the events
+regarding that actor:</p><img src="megaco_tracer.png" title="The viewer adopted for Megaco"></img><p>A pretty printed <strong>Megaco</strong> message looks like this:</p><img src="megaco_filter.png" title="A textual Megaco message"></img><p>And the corresponding internal form for the same <strong>Megaco</strong> message
+looks like this:</p><img src="megaco_collector.png" title="The internal form of a Megaco message"></img><p>The Event Tracer (ET) uses the built-in trace mechanism in Erlang
+and provides tools for collection and graphical viewing of trace data.</p><h3>et</h3><p>Main API of the Event Trace (ET) application</p><p>Interface module for the Event Trace (ET) application</p><h3>Functions</h3><h4>trace_me(DetailLevel, From, To, Label, Contents) -&gt; hopefully_traced</h4><p>A function that is intended to be traced.</p><ul><li><span class="v">DetailLevel = integer(X) when X =&lt; 0, X &gt;= 100</span></li><li><span class="v">From        = actor()</span></li><li><span class="v">To          = actor()</span></li><li><span class="v">Label       = atom() | string() | term()</span></li><li><span class="v">Contents    = [{Key, Value}] | term()</span></li><li><span class="v">actor()     = term()</span></li></ul><p>A function that is intended to be traced.</p><p>This function is intended to be invoked at strategic places
+in user applications in order to enable simplified
+tracing. The functions are extremely light weight as they do
+nothing besides returning an atom. The functions are designed
+for being traced. The global tracing mechanism in
+<strong>et_collector</strong> defaults to set its trace pattern to these
+functions.</p><p>The label is intended to provide a brief summary of the
+event. It is preferred to use an atom but a string would also
+do.</p><p>The contents can be any term but in order to simplify
+post processing of the traced events, a plain list
+of {Key, Value} tuples is preferred.</p><p>Some events, such as messages, are directed from some actor to another.
+Other events (termed actions) may be undirected and only have one actor.</p><h4>trace_me(DetailLevel, FromTo, Label, Contents) -&gt; hopefully_traced</h4><p>A function that is intended to be traced.</p><p>Invokes <strong>et:trace_me/5</strong> with both <strong>From</strong> and <strong>To</strong>
+set to <strong>FromTo</strong>.</p><h4>phone_home(DetailLevel, FromTo, Label, Contents) -&gt; hopefully_traced</h4><h4>phone_home(DetailLevel, From, To, Label, Contents) -&gt; hopefully_traced</h4><p>Send a signal to the outer space</p><p>These functions sends a signal to the outer space and the
+caller hopes that someone is listening. In other words, they
+invoke <strong>et:trace_me/4</strong> and <strong>et:trace_me/5</strong>
+respectively.</p><h4>report_event(DetailLevel, FromTo, Label, Contents) -&gt; hopefully_traced</h4><h4>report_event(DetailLevel, From, To, Label, Contents) -&gt; hopefully_traced</h4><p>Deprecated functions</p><p>Deprecated functions which for the time being are kept for
+backwards compatibility. Invokes <strong>et:trace_me/4</strong> and
+<strong>et:trace_me/5</strong> respectively.</p><h3>et_collector</h3><p>Collect trace events and provide a backing storage appropriate for iteration</p><p>Interface module for the Event Trace (ET) application</p><h3>Functions</h3><h4>start_link(Options) -&gt; {ok, CollectorPid} | {error, Reason}</h4><p>Start a collector process</p><ul><li><span class="v">Options = [option()]</span></li><li><span class="v">option() = {parent_pid, pid()} | {event_order, event_order()} | {dict_insert, {filter, collector}, collector_fun()} | {dict_insert, {filter, event_filter_name()}, event_filter_fun()} | {dict_insert, {subscriber, pid()}, dict_val()} | {dict_insert, dict_key(), dict_val()} | {dict_delete, dict_key()} | {trace_client, trace_client()} | {trace_global, boolean()} |  {trace_pattern, trace_pattern()} | {trace_port, integer()} |  {trace_max_queue, integer()}</span></li><li><span class="v">event_order() = trace_ts | event_ts</span></li><li><span class="v">trace_pattern() = {report_module(), extended_dbg_match_spec()} | undefined</span></li><li><span class="v">report_module() = atom() | undefined</span></li><li><span class="v">extended_dbg_match_spec() = detail_level() | dbg_match_spec()</span></li><li><span class="v">detail_level() = min | max | integer(X) when X =&lt; 0, X &gt;= 100</span></li><li><span class="v">trace_client() =  {event_file, file_name()} | {dbg_trace_type(), dbg_trace_parameters()}</span></li><li><span class="v">file_name() = string()</span></li><li><span class="v">collector_fun() = trace_filter_fun() | event_filter_fun()</span></li><li><span class="v">trace_filter_fun() = fun(TraceData) -&gt; false | true | {true, NewEvent}</span></li><li><span class="v">event_filter_fun() = fun(Event) -&gt; false | true | {true, NewEvent}</span></li><li><span class="v">event_filter_name() = atom()</span></li><li><span class="v">TraceData = erlang_trace_data()</span></li><li><span class="v">Event = NewEvent = record(event)</span></li><li><span class="v">dict_key() = term()</span></li><li><span class="v">dict_val() = term()</span></li><li><span class="v">CollectorPid = pid()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Start a collector process.</p><p>The collector collects trace events and keeps them ordered by their
+timestamp. The timestamp may either reflect the time when the
+actual trace data was generated (trace_ts) or when the trace data
+was transformed into an event record (event_ts). If the time stamp
+is missing in the trace data (missing timestamp option to
+erlang:trace/4) the trace_ts will be set to the event_ts.</p><p>Events are reported to the collector directly with the report
+function or indirectly via one or more trace clients. All reported
+events are first filtered thru the collector filter before they are
+stored by the collector. By replacing the default collector filter
+with a customized dito it is possible to allow any trace data as
+input. The collector filter is a dictionary entry with the
+predefined key {filter, collector} and the value is a fun of
+arity 1. See et_selector:make_event/1 for interface details,
+such as which erlang:trace/1 tuples that are accepted.</p><p>The collector has a built-in dictionary service. Any term may be
+stored as value in the dictionary and bound to a unique key. When
+new values are inserted with an existing key, the new values will
+overwrite the existing ones. Processes may subscribe on dictionary
+updates by using {subscriber, pid()} as dictionary key. All
+dictionary updates will be propagated to the subscriber processes
+matching the pattern {{subscriber, '_'}, '_'} where the first '_'
+is interpreted as a pid().</p><p>In global trace mode, the collector will automatically
+start tracing on all connected Erlang nodes. When a node
+connects, a port tracer will be started on that node and a
+corresponding trace client on the collector node.</p><p>Default values:</p><ul><li>parent_pid - self().</li><li>event_order - trace_ts.</li><li>trace_global - false.</li><li>trace_pattern - undefined.</li><li>trace_port - 4711.</li><li>trace_max_queue - 50.</li></ul><h4>stop(CollectorPid) -&gt; ok</h4><p>Stop a collector process</p><ul><li><span class="v">CollectorPid = pid()</span></li></ul><p>Stop a collector process.</p><h4>save_event_file(CollectorPid, FileName, Options) -&gt; ok | {error, Reason}</h4><p>Save the events to a file</p><ul><li><span class="v">CollectorPid = pid()</span></li><li><span class="v">FileName = string()</span></li><li><span class="v">Options = [option()]</span></li><li><span class="v">Reason = term()</span></li><li><span class="v">option() = event_option() | file_option() | table_option()</span></li><li><span class="v">event_option() = existing</span></li><li><span class="v">file_option() = write | append</span></li><li><span class="v">table_option() = keep | clear</span></li></ul><p>Save the events to a file.</p><p>By default the currently stored events (existing) are
+written to a brand new file (write) and the events are
+kept (keep) after they have been written to the file.</p><p>Instead of keeping the events after writing them to file,
+it is possible to remove all stored events after they
+have successfully written to file (clear).</p><p>The options defaults to existing, write and keep.</p><h4>load_event_file(CollectorPid, FileName) -&gt; {ok, BadBytes} | exit(Reason)</h4><p>Load the event table from a file</p><ul><li><span class="v">CollectorPid = pid()</span></li><li><span class="v">FileName = string()</span></li><li><span class="v">BadBytes = integer(X) where X &gt;= 0</span></li><li><span class="v">Reason = term()</span></li></ul><p>Load the event table from a file.</p><h4>report(Handle, TraceOrEvent) -&gt; {ok, Continuation} | exit(Reason)</h4><h4>report_event(Handle, DetailLevel, FromTo, Label, Contents) -&gt; {ok, Continuation} | exit(Reason)</h4><h4>report_event(Handle, DetailLevel, From, To, Label, Contents) -&gt; {ok, Continuation} | exit(Reason)</h4><p>Report an event to the collector</p><ul><li><span class="v">Handle = Initial | Continuation</span></li><li><span class="v">Initial = collector_pid()</span></li><li><span class="v">collector_pid() = pid()</span></li><li><span class="v">Continuation = record(table_handle)</span></li><li><span class="v">TraceOrEvent = record(event) | dbg_trace_tuple() | end_of_trace</span></li><li><span class="v">Reason = term()</span></li><li><span class="v">DetailLevel = integer(X) when X =&lt; 0, X &gt;= 100</span></li><li><span class="v">From        = actor()</span></li><li><span class="v">To          = actor()</span></li><li><span class="v">FromTo      = actor()</span></li><li><span class="v">Label       = atom() | string() | term()</span></li><li><span class="v">Contents    = [{Key, Value}] | term()</span></li><li><span class="v">actor()  = term()</span></li></ul><p>Report an event to the collector.</p><p>All events are filtered thru the collector filter, which
+optionally may transform or discard the event. The first
+call should use the pid of the collector process as
+report handle, while subsequent calls should use the
+table handle.</p><h4>make_key(Type, Stuff) -&gt; Key</h4><p>Make a key out of an event record or an old key</p><ul><li><span class="v">Type = record(table_handle) | trace_ts | event_ts</span></li><li><span class="v">Stuff = record(event) | Key</span></li><li><span class="v">Key = record(event_ts) | record(trace_ts)</span></li></ul><p>Make a key out of an event record or an old key.</p><h4>get_table_handle(CollectorPid) -&gt; Handle</h4><p>Return a table handle</p><ul><li><span class="v">CollectorPid = pid()</span></li><li><span class="v">Handle = record(table_handle)</span></li></ul><p>Return a table handle.</p><h4>get_global_pid() -&gt; CollectorPid | exit(Reason)</h4><p>Return a the identity of the globally registered collector if there is any</p><ul><li><span class="v">CollectorPid = pid()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Return a the identity of the globally registered
+collector if there is any.</p><h4>change_pattern(CollectorPid, RawPattern) -&gt; {old_pattern, TracePattern}</h4><p>Change active trace pattern globally on all trace nodes</p><ul><li><span class="v">CollectorPid = pid()</span></li><li><span class="v">RawPattern = {report_module(), extended_dbg_match_spec()}</span></li><li><span class="v">report_module() = atom() | undefined</span></li><li><span class="v">extended_dbg_match_spec() = detail_level() | dbg_match_spec()</span></li><li><span class="v">RawPattern = detail_level()</span></li><li><span class="v">detail_level() = min | max | integer(X) when X =&lt; 0, X &gt;= 100</span></li><li><span class="v">TracePattern = {report_module(), dbg_match_spec_match_spec()}</span></li></ul><p>Change active trace pattern globally on all trace nodes.</p><h4>dict_insert(CollectorPid, {filter, collector}, FilterFun) -&gt; ok</h4><h4>dict_insert(CollectorPid, {subscriber, SubscriberPid}, Void) -&gt; ok</h4><h4>dict_insert(CollectorPid, Key, Val) -&gt; ok</h4><p>Insert a dictionary entry and send a {et, {dict_insert, Key, Val}} tuple to all registered subscribers.</p><ul><li><span class="v">CollectorPid = pid()</span></li><li><span class="v">FilterFun = filter_fun() </span></li><li><span class="v">SubscriberPid = pid()</span></li><li><span class="v">Void = term()</span></li><li><span class="v">Key = term()</span></li><li><span class="v">Val = term()</span></li></ul><p>Insert a dictionary entry
+and send a {et, {dict_insert, Key, Val}} tuple
+to all registered subscribers.</p><p>If the entry is a new subscriber, it will imply that
+the new subscriber process first will get one message
+for each already stored dictionary entry, before it
+and all old subscribers will get this particular entry.
+The collector process links to and then supervises the
+subscriber process. If the subscriber process dies it
+will imply that it gets unregistered as with a normal
+dict_delete/2.</p><h4>dict_lookup(CollectorPid, Key) -&gt; [Val]</h4><p>Lookup a dictionary entry and return zero or one value</p><ul><li><span class="v">CollectorPid = pid()</span></li><li><span class="v">FilterFun = filter_fun() </span></li><li><span class="v">CollectorPid = pid()</span></li><li><span class="v">Key = term()</span></li><li><span class="v">Val = term()</span></li></ul><p>Lookup a dictionary entry and return zero or one value.</p><h4>dict_delete(CollectorPid, Key) -&gt; ok</h4><p>Delete a dictionary entry and send a {et, {dict_delete, Key}} tuple to all registered subscribers.</p><ul><li><span class="v">CollectorPid = pid()</span></li><li><span class="v">SubscriberPid = pid()</span></li><li><span class="v">Key = {subscriber, SubscriberPid} | term()</span></li></ul><p>Delete a dictionary entry
+and send a {et, {dict_delete, Key}} tuple
+to all registered subscribers.</p><p>If the deleted entry is a registered subscriber, it will
+imply that the subscriber process gets is unregistered as
+subscriber as well as it gets it final message.</p><h4>dict_match(CollectorPid, Pattern) -&gt; [Match]</h4><p>Match some dictionary entries</p><ul><li><span class="v">CollectorPid = pid()</span></li><li><span class="v">Pattern = '_' | {key_pattern(), val_pattern()}</span></li><li><span class="v">key_pattern() = ets_match_object_pattern()</span></li><li><span class="v">val_pattern() = ets_match_object_pattern()</span></li><li><span class="v">Match = {key(), val()}</span></li><li><span class="v">key() = term()</span></li><li><span class="v">val() = term()</span></li></ul><p>Match some dictionary entries</p><h4>multicast(_CollectorPid, Msg) -&gt; ok</h4><p>Sends a message to all registered subscribers</p><ul><li><span class="v">CollectorPid = pid()</span></li><li><span class="v">CollectorPid = pid()</span></li><li><span class="v">Msg = term()</span></li></ul><p>Sends a message to all registered subscribers.</p><h4>start_trace_client(CollectorPid, Type, Parameters) -&gt; file_loaded | {trace_client_pid, pid()} | exit(Reason)</h4><p>Load raw Erlang trace from a file, port or process.</p><ul><li><span class="v">Type       = dbg_trace_client_type()</span></li><li><span class="v">Parameters = dbg_trace_client_parameters()</span></li><li><span class="v">Pid        = dbg_trace_client_pid()</span></li></ul><p>Load raw Erlang trace from a file, port or process.</p><h4>iterate(Handle, Prev, Limit) -&gt; NewAcc</h4><p>Iterates over the currently stored events</p><p>Short for iterate(Handle, Prev, Limit, undefined, Prev) -&gt; NewAcc</p><h4>iterate(Handle, Prev, Limit, Fun, Acc) -&gt; NewAcc</h4><p>Iterate over the currently stored events</p><ul><li><span class="v">Handle = collector_pid() | table_handle()</span></li><li><span class="v">Prev = first | last | event_key()</span></li><li><span class="v">Limit = done() | forward() | backward()</span></li><li><span class="v">collector_pid() = pid()</span></li><li><span class="v">table_handle() = record(table_handle)</span></li><li><span class="v">event_key() = record(event) | record(event_ts) | record(trace_ts)</span></li><li><span class="v">done() = 0</span></li><li><span class="v">forward() = infinity | integer(X) where X &gt; 0</span></li><li><span class="v">backward() = '-infinity' | integer(X) where X &lt; 0</span></li><li><span class="v">Fun = fun(Event, Acc) -&gt; NewAcc</span></li><li><span class="v">Acc = NewAcc = term()</span></li></ul><p>Iterate over the currently stored events.</p><p>Iterates over the currently stored events and applies
+a function for each event. The iteration may be performed
+forwards or backwards and may be limited to a maximum
+number of events (abs(Limit)).</p><h4>clear_table(Handle) -&gt; ok</h4><p>Clear the event table</p><ul><li><span class="v">Handle = collector_pid() | table_handle()</span></li><li><span class="v">collector_pid() = pid()</span></li><li><span class="v">table_handle() = record(table_handle)</span></li></ul><p>Clear the event table.</p><h3>et_selector</h3><p>Define event transforms and trace patterns</p><h3>Functions</h3><h4>make_pattern(RawPattern) -&gt; TracePattern</h4><p>Makes a trace pattern suitable to feed change_pattern/1</p><ul><li><span class="v">RawPattern = detail_level()</span></li><li><span class="v">TracePattern = erlang_trace_pattern_match_spec()</span></li><li><span class="v">detail_level() = min | max | integer(X) when X &gt;= 0, X =&lt; 100</span></li></ul><p>Makes a trace pattern suitable to feed change_pattern/1</p><p>Min detail level deactivates tracing of calls to <strong>et:trace_me/4,5</strong></p><p>Max detail level activates tracing of all calls to <strong>et:trace_me/4,5</strong></p><p>integer(X) detail level activates tracing of all calls to
+<strong>et:trace_me/4,5</strong> whose detail level argument is lesser than
+X.</p><p>See also <strong>erlang:trace_pattern/2</strong> for more info about its <strong>match_spec()</strong></p><h4>change_pattern(Pattern) -&gt; ok</h4><p>Activates/deactivates tracing by changing the current trace pattern</p><ul><li><span class="v">Pattern = detail_level() | empty_match_spec() | erlang_trace_pattern_match_spec()</span></li><li><span class="v">detail_level() = min | max | integer(X) when  X &gt;= 0, X =&lt; 100</span></li><li><span class="v">empty_match_spec() = [] </span></li></ul><p>Activates/deactivates tracing by changing the current trace pattern.</p><p><strong>min</strong> detail level deactivates tracing of calls to <strong>et:trace_me/4,5</strong></p><p><strong>max</strong> detail level activates tracing of all calls to <strong>et:trace_me/4,5</strong></p><p><strong>integer(X)</strong> detail level activates tracing of all
+calls to <strong>et:trace_me/4,5</strong> whose detail level argument is
+lesser than <strong>X</strong>.</p><p>An empty match spec deactivates tracing of calls to <strong>et:trace_me/4,5</strong></p><p>Other match specs activates tracing of calls to
+<strong>et:trace_me/4,5</strong> accordingly with
+<strong>erlang:trace_pattern/2</strong>.</p><h4>parse_event(Mod, ValidTraceData) -&gt; false | true | {true, Event}</h4><p>Transforms trace data and makes an event record out of it</p><ul><li><span class="v">Mod = module_name() | undefined</span></li><li><span class="v">module_name() = atom()</span></li><li><span class="v">ValidTraceData = erlang_trace_data() | record(event)</span></li><li><span class="v">erlang_trace_data() = {trace, Pid, Label, Info} |  {trace, Pid, Label, Info, Extra} |  {trace_ts, Pid, Label, Info, ReportedTS} |  {trace_ts, Pid, Label, Info, Extra, ReportedTS} |  {seq_trace, Label, Info} |  {seq_trace, Label, Info, ReportedTS} |  {drop, NumberOfDroppedItems}</span></li></ul><p>Transforms trace data and makes an event record out of it.</p><p>See <strong>erlang:trace/3</strong> for more info about the semantics of the
+trace data.</p><p>An event record consists of the following fields:</p><dl><dt><em>detail_level</em></dt><dd><p>Noise has a high level as opposed to essentials.</p></dd><dt><em>trace_ts</em></dt><dd><p>Time when the trace was generated.  Same as
+event_ts if omitted in trace data.</p></dd><dt><em>event_ts</em></dt><dd><p>Time when the event record was created.</p></dd><dt><em>from</em></dt><dd><p>From actor, such as sender of a message.</p></dd><dt><em>to</em></dt><dd><p>To actor, such as receiver of message.</p></dd><dt><em>label</em></dt><dd><p>Label intended to provide a brief event summary.</p></dd><dt><em>contents</em></dt><dd><p>All nitty gritty details of the event.</p></dd></dl><p>See <strong>et:trace_me/4</strong>and <strong>et:trace_me/5</strong> for details.</p><p>Returns:</p><dl><dt><em>{true, Event}</em></dt><dd><p>where Event is an #event{} record representing the
+trace data</p></dd><dt><em>true</em></dt><dd><p>means that the trace data already is an event
+record and that it is valid as it is. No transformation is
+needed.</p></dd><dt><em>false</em></dt><dd><p>means that the trace data is uninteresting and
+should be dropped</p></dd></dl><h3>et_viewer</h3><p>Displays a sequence chart for trace events (messages/actions)</p><h3>Functions</h3><h4>file(FileName) -&gt; {ok, ViewerPid} | {error, Reason}</h4><p>Start a new event viewer and a corresponding collector and load them with trace events from a trace file.</p><ul><li><span class="v">FileName() = string()</span></li><li><span class="v">ViewerPid = pid()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Start a new event viewer and a corresponding collector
+and load them with trace events from a trace file.</p><h4>start() -&gt; ok</h4><p>Simplified start of a sequence chart viewer with global tracing activated.</p><p>Simplified start of a sequence chart viewer with
+global tracing activated.</p><p>Convenient to be used from the command line
+(erl -s et_viewer).</p><h4>start(Options) -&gt; ok</h4><p>Start of a sequence chart viewer without linking to the parent process.</p><p>Start of a sequence chart viewer without linking
+to the parent process.</p><h4>start_link(Options) -&gt; {ok, ViewerPid} | {error, Reason}</h4><p>Start a sequence chart viewer for trace events (messages/actions)</p><ul><li><span class="v">Options = [option() | collector_option()]</span></li><li><span class="v">option() = {parent_pid, extended_pid()} | {title, term()} | {detail_level, detail_level()} | {is_suspended, boolean()} | {scale, integer()} | {width, integer()} | {height, integer()} | {collector_pid, extended_pid()} | {event_order, event_order()} | {active_filter, atom()} | {max_actors, extended_integer()} | {trace_pattern, et_collector_trace_pattern()} | {trace_port, et_collector_trace_port()} | {trace_global, et_collector_trace_global()} | {trace_client, et_collector_trace_client()} | {dict_insert, {filter, filter_name()}, event_filter_fun()} | {dict_insert, et_collector_dict_key(), et_collector_dict_val()} | {dict_delete, {filter, filter_name()}} | {dict_delete, et_collector_dict_key()} | {actors, actors()} | {first_event, first_key()} | {hide_unknown, boolean()} | {hide_actions, boolean()} | {display_mode, display_mode()}</span></li><li><span class="v">extended_pid() = pid() | undefined</span></li><li><span class="v">detail_level() = min | max | integer(X) when X &gt;=0, X =&lt; 100</span></li><li><span class="v">event_order() = trace_ts | event_ts</span></li><li><span class="v">extended_integer() = integer() | infinity</span></li><li><span class="v">display_mode() = all | {search_actors, direction(), first_key(), actors()}</span></li><li><span class="v">direction() = forward | reverse</span></li><li><span class="v">first_key() = event_key()</span></li><li><span class="v">actors() = [term()]</span></li><li><span class="v">filter_name() = atom()</span></li><li><span class="v">filter_fun() =  fun(Event) -&gt; false | true | {true, NewEvent}</span></li><li><span class="v">Event = NewEvent = record(event)</span></li><li><span class="v">ViewerPid = pid()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Start a sequence chart viewer for trace events
+(messages/actions)</p><p>A filter_fun() takes an event record as sole argument
+and returns false | true | {true, NewEvent}.</p><p>If the <strong>collector_pid</strong> is <strong>undefined</strong> a new 
+<strong>et_collector</strong> will be started with the following
+parameter settings: <strong>parent_pid</strong>, <strong>event_order</strong>,
+<strong>trace_global</strong>, <strong>trace_pattern</strong>, <strong>trace_port</strong>, <strong>trace_max_queue</strong>,
+<strong>trace_client</strong>, <strong>dict_insert</strong> and <strong>dict_delete</strong>.
+The new <strong>et_viewer</strong> will register itself as an <strong>et_collector</strong> 
+subscriber.
+</p><p>Default values:</p><ul><li>parent_pid - self().</li><li>title - "et_viewer".</li><li>detail_level - max.</li><li>is_suspended - false.</li><li>scale - 2.</li><li>width - 800.</li><li>height - 600.</li><li>collector_pid - undefined.</li><li>event_order - trace_ts.</li><li>active_filter - collector.</li><li>max_actors - 5.</li><li>actors - ["UNKNOWN"].</li><li>first_event - first.</li><li>hide_unknown - false.</li><li>hide_actions - false.</li><li>display_mode - all.</li></ul><h4>get_collector_pid(ViewerPid) -&gt; CollectorPid</h4><p>Returns the identifier of the collector process</p><ul><li><span class="v">ViewerPid = pid()</span></li><li><span class="v">CollectorPid = pid()</span></li></ul><p>Returns the identifier of the collector process.</p><h4>stop(ViewerPid) -&gt; ok</h4><p>Stops a viewer</p><ul><li><span class="v">ViewerPid = pid()</span></li></ul><p>Stops a viewer process.</p></body></html>

@@ -1,0 +1,92 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Compilation and Code Loading</h1><p>How code is compiled and loaded is not a language issue, but
+is system-dependent. This section describes compilation and
+code loading in Erlang/OTP with references to relevant parts of
+the documentation.</p><h2>Compilation</h2><p>Erlang programs must be <em>compiled</em> to object code.
+The compiler can generate a new file that contains the object
+code. The current abstract machine, which runs the object code, is
+called BEAM, therefore the object files get the suffix
+<strong>.beam</strong>. The compiler can also generate a binary which can
+be loaded directly.</p><p>The compiler is located in the module <strong>compile</strong> (see the
+<a href="./compile">compile(3)</a> manual page in
+Compiler).</p><pre>
+compile:file(Module)
+compile:file(Module, Options)</pre><p>The Erlang shell understands the command <strong>c(Module)</strong> which
+both compiles and loads <strong>Module</strong>.</p><p>There is also a module <strong>make</strong>, which provides a set of
+functions similar to the UNIX type Make functions, see the
+<a href="./make">make(3)</a>
+manual page in Tools.</p><p>The compiler can also be accessed from the OS prompt, see the
+<a href="./erl">erl(1)</a> manual page in ERTS.</p><pre>
+% erl -compile <span class="input">Module1</span>...<span class="input">ModuleN</span>
+% erl -make</pre><p>The <strong>erlc</strong> program provides an even better way to compile
+modules from the shell, see the
+<a href="./erlc">erlc(1)</a> manual page in ERTS.
+It understands a
+number of flags that can be used to define macros, add search
+paths for include files, and more.</p><pre>
+% erlc <span class="input">&lt;flags&gt;</span> <span class="input">File1.erl</span>...<span class="input">FileN.erl</span></pre><a name="loading"></a><h2>Code Loading</h2><p>The object code must be <em>loaded</em> into the Erlang runtime
+system. This is handled by the <em>code server</em>, see the
+<a href="./code">code(3)</a>
+manual page in Kernel.</p><p>The code server loads code according to a code loading strategy,
+which is either <em>interactive</em> (default) or
+<em>embedded</em>. In interactive mode, code is searched for in
+a <em>code path</em> and loaded when first referenced. In
+embedded mode, code is loaded at start-up according to a
+<em>boot script</em>. This is described in
+<a href="../doc/system_principles/system_principles#code_loading"> System Principles </a>.</p><h2>Code Replacement</h2><p>Erlang supports change of code in a running system. Code
+replacement is done on module level.</p><p>The code of a module can exist in two variants in a system:
+<em>current</em> and <em>old</em>. When a module is loaded into
+the system for the first time, the code becomes 'current'. If then
+a new instance of the module is loaded, the code of the previous
+instance becomes 'old' and the new instance becomes 'current'.</p><p>Both old and current code is valid, and can be evaluated
+concurrently. Fully qualified function calls always refer to
+current code. Old code can still be evaluated because of processes
+lingering in the old code.</p><p>If a third instance of the module is loaded, the code server
+removes (purges) the old code and any processes lingering in it is
+terminated. Then the third instance becomes 'current' and
+the previously current code becomes 'old'.</p><p>To change from old code to current code, a process must make a
+fully qualified function call.</p><p><em>Example:</em></p><pre>
+-module(m).
+-export([loop/0]).
+
+loop() -&gt;
+    receive
+        code_switch -&gt;
+            m:loop();
+        Msg -&gt;
+            ...
+            loop()
+    end.</pre><p>To make the process change code, send the message
+<strong>code_switch</strong> to it. The process then makes a fully
+qualified call to <strong>m:loop()</strong> and changes to current code.
+Notice that <strong>m:loop/0</strong> must be exported.</p><p>For code replacement of funs to work, use the syntax
+<strong>fun Module:FunctionName/Arity</strong>.</p><a name="on_load"></a><h2>Running a Function When a Module is Loaded</h2><p>The <strong>-on_load()</strong> directive names a function that is to
+be run automatically when a module is loaded.</p><p>Its syntax is as follows:</p><pre>
+-on_load(Name/0).</pre><p>It is not necessary to export the function. It is called in a
+freshly spawned process (which terminates as soon as the function
+returns).</p><p>The function must return <strong>ok</strong> if the module is to
+become the new current code for the module and become
+callable.</p><p>Returning any other value or generating an exception
+causes the new code to be unloaded. If the return value is not an
+atom, a warning error report is sent to the error logger.</p><p>If there already is current code for the module, that code will
+remain current and can be called until the <strong>on_load</strong> function
+has returned. If the <strong>on_load</strong> function fails, the current
+code (if any) will remain current. If there is no current code for
+a module, any process that makes an external call to the module
+before the <strong>on_load</strong> function has finished will be suspended
+until the <strong>on_load</strong> function have finished.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Before OTP 19, if the <strong>on_load</strong> function failed, any
+previously current code would become old, essentially leaving
+the system without any working and reachable instance of the
+module.  That problem has been eliminated in OTP 19.</p></div><p>In embedded mode, first all modules are loaded.
+Then all <strong>on_load</strong> functions are called. The system is
+terminated unless all of the <strong>on_load</strong> functions return
+<strong>ok</strong>.</p><p><em>Example:</em></p><pre>
+-module(m).
+-on_load(load_my_nifs/0).
+
+load_my_nifs() -&gt;
+    NifPath = ...,    %Set up the path to the NIF library.
+    Info = ...,       %Initialize the Info term
+    erlang:load_nif(NifPath, Info).</pre><p>If the call to <strong>erlang:load_nif/2</strong> fails, the module
+is unloaded and a  warning report is sent to
+the error loader.</p></body></html>

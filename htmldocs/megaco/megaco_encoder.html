@@ -1,0 +1,42 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>megaco_encoder</h1><h1>megaco_encoder</h1><p>Megaco encoder behaviour.</p><p>The following functions should be exported from a 
+<strong>megaco_encoder</strong> callback module:</p><h2>DATA TYPES</h2><pre><code class="">
+megaco_message() = #'MegacoMessage{}'
+transaction() = {transactionRequest,     transaction_request()}      |
+                {transactionPending,     transaction_reply()}        |
+                {transactionReply,       transaction_pending()}      |
+                {transactionResponseAck, transaction_response_ack()} |
+                {segmentReply,           segment_reply()}
+transaction_request() = #'TransactionRequest'{}
+transaction_pending() = #'TransactionPending'{}
+transaction_reply() = #'TransactionReply'{}
+transaction_response_ack() = [transaction_ack()]
+transaction_ack() = #'TransactionAck'{}
+segment_reply() = #'SegmentReply'{}
+action_request() = #'ActionRequest'{}
+action_reply() = #'ActionReply'{}
+    </code></pre><a name="encode_message"></a><h1>Functions</h1><h2>Module:encode_message(EncodingConfig, Version, Message) -&gt; {ok, Bin} | Error</h2><p>Encode a megaco message.</p><ul><li><span class="v">EncodingConfig = list()</span></li><li><span class="v">Version = integer()</span></li><li><span class="v">Message = megaco_message()</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">Error = term()</span></li></ul><p>Encode a megaco message.</p><a name="decode_message"></a><h2>Module:decode_message(EncodingConfig, Version, Bin) -&gt; {ok, Message} | Error</h2><p>Decode a megaco message.</p><ul><li><span class="v">EncodingConfig = list()</span></li><li><span class="v">Version = integer() | dynamic</span></li><li><span class="v">Message = megaco_message()</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">Error = term()</span></li></ul><p>Decode a megaco message. </p><p>Note that if the Version argument is <strong>dynamic</strong>, the
+decoder should try to figure out the actual version from the
+message itself and then use the proper decoder, e.g. version 1.
+<br/>If on the other hand the Version argument is an integer, 
+it means that this is the expected version of the message and 
+the decoder for that version should be used.</p><a name="decode_mini_message"></a><h2>Module:decode_mini_message(EncodingConfig, Version, Bin) -&gt; {ok, Message} | Error</h2><p>Perform a minimal decode of a megaco message.</p><ul><li><span class="v">EncodingConfig = list()</span></li><li><span class="v">Version = integer() | dynamic</span></li><li><span class="v">Message = megaco_message()</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">Error = term()</span></li></ul><p>Perform a minimal decode of a megaco message. </p><p>The purpose of this function is to do a minimal decode of
+Megaco message. A successfull result is a <strong>'MegacoMessage'</strong> 
+in which only version and mid has been initiated. This function 
+is used by the megaco_messenger module when the 
+<strong>decode_message/3</strong> function fails to figure out the mid 
+(the actual sender) of the message.</p><p>Note again that a successfull decode only returns a
+partially initiated message.</p><a name="encode_transaction"></a><h2>Module:encode_transaction(EncodingConfig, Version, Transaction) -&gt; OK | Error</h2><p>Encode a megaco transaction.</p><ul><li><span class="v">EncodingConfig = list()</span></li><li><span class="v">Version = integer()</span></li><li><span class="v">Transaction = transaction()</span></li><li><span class="v">OK = {ok, Bin}</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">Error = {error, Reason}</span></li><li><span class="v">Reason = not_implemented | OtherReason</span></li><li><span class="v">OtherReason = term()</span></li></ul><p>Encode a megaco transaction. If this, for whatever reason, 
+is not supported, the function should return the error reason 
+<strong>not_implemented</strong>. </p><p>This functionality is used both when the transaction sender is 
+used and for segmentation. So, for either of those to work, this 
+function <em>must</em> be fully supported! </p><a name="encode_action_requests"></a><h2>Module:encode_action_requests(EncodingConfig, Version, ARs) -&gt; OK | Error</h2><p>Encode megaco action requests.</p><ul><li><span class="v">EncodingConfig = list()</span></li><li><span class="v">Version = integer()</span></li><li><span class="v">ARs = action_requests()</span></li><li><span class="v">action_requests() = [action_request()]</span></li><li><span class="v">OK = {ok, Bin}</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">Error = {error, Reason}</span></li><li><span class="v">Reason = not_implemented | OtherReason</span></li><li><span class="v">OtherReason = term()</span></li></ul><p>Encode megaco action requests. This function is called when 
+the user calls the function 
+<a href="./megaco#encode_actions">encode_actions/3</a>.
+If that function is never used or if the codec cannot support this
+(the encoding of individual actions), then return with error reason 
+<strong>not_implemented</strong>. </p><a name="encode_action_reply"></a><h2>Module:encode_action_reply(EncodingConfig, Version, AR) -&gt; OK | Error</h2><p>Encode a megaco action reply.</p><ul><li><span class="v">EncodingConfig = list()</span></li><li><span class="v">Version = integer()</span></li><li><span class="v">AR = action_reply()</span></li><li><span class="v">OK = {ok, Bin}</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">Error = {error, Reason}</span></li><li><span class="v">Reason = not_implemented | OtherReason</span></li><li><span class="v">OtherReason = term()</span></li></ul><p>Encode a megaco action reply. If this, for whatever reason, 
+is not supported, the function should return the error reason 
+<strong>not_implemented</strong>. </p><p>This function is used when segmentation has been configured. 
+So, for this to work, this function <em>must</em> be fully 
+supported! </p></body></html>

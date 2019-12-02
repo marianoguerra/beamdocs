@@ -1,0 +1,380 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>httpd</h1><h1>httpd</h1><p>
+    HTTP server API
+</p><p>An implementation of an HTTP 1.1 compliant web server, as defined in 
+<a href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</a>. 
+Provides web server start options, administrative functions, and 
+an Erlang callback API.</p><h2>DATA TYPES</h2><p>Type definitions that are used more than once in
+this module:</p><p><strong>boolean() = true | false</strong></p><p><strong>string()</strong> = list of ASCII characters</p><p><strong>path() = string()</strong> representing a file or a directory path</p><p><strong> ip_address() = {N1,N2,N3,N4} % IPv4 | {K1,K2,K3,K4,K5,K6,K7,K8}  % IPv6</strong></p><p><strong>hostname() = string()</strong> representing a host, for example, 
+"foo.bar.com"</p><p><strong>property() = atom()</strong></p><h2>ERLANG HTTP SERVER SERVICE START/STOP</h2><p>A web server can be configured to start when starting the <strong>Inets</strong>
+application, or dynamically in runtime by calling the
+<strong>Inets</strong> application API <strong>inets:start(httpd, ServiceConfig)</strong> or
+<strong>inets:start(httpd, ServiceConfig, How)</strong>,
+see <a href="inets">inets(3)</a>.
+The configuration options, also called
+properties, are as follows:</p><a name="props_file"></a><p><em>File Properties</em></p><p>When the web server is started
+at application start time, the properties are to be fetched from a
+configuration file that can consist of a regular Erlang property
+list, that is, <strong>[{Option, Value}]</strong>, where <strong> Option = property() </strong> and <strong>Value = term()</strong>, followed by a full stop, or for
+backwards compatibility, an Apache-like configuration file. If the
+web server is started dynamically at runtime,
+a file can still be specified but also the complete property
+list.</p><dl><dt><a name="prop_proplist_file"></a>{proplist_file, path()}</dt><dd> <p>If this property is defined, <strong>Inets</strong> expects to find
+all other properties defined in this file. The
+file must include all properties listed under mandatory
+properties.</p> </dd><dt><a name="prop_file"></a>{file, path()}</dt><dd>  <p>If this property is defined, <strong>Inets</strong> expects to find all 
+other properties defined in this file, which uses Apache-like 
+syntax. The file must include all properties listed 
+under mandatory properties. The Apache-like syntax is the property, 
+written as one word where each new word begins with a capital, 
+followed by a white-space, followed by the value, followed by a 
+new line.</p> <p>Example:</p> <pre><code class="">
+{server_root, "/urs/local/www"} -&gt; ServerRoot /usr/local/www</code></pre> <p>A few exceptions are documented
+for each property that behaves differently,
+and the special cases <strong>{directory, {path(), PropertyList}}</strong> 
+and <strong>{security_directory, {Dir, PropertyList}}</strong>, are represented
+as:</p> <pre>
+	  
+&lt;Directory Dir&gt;
+ &lt;Properties handled as described above&gt; 
+&lt;/Directory&gt;
+         </pre> </dd></dl><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The properties <strong>proplist_file</strong> and <strong>file</strong> are mutually exclusive. Also newer properties may not be supported as Apache-like options, this is a legacy feature.</p></div><a name="props_mand"></a><p><em>Mandatory Properties</em></p><dl><dt><a name="prop_port"></a>{port, integer()} </dt><dd>  <p>The port that the HTTP server listen to.
+If zero is specified as port, an arbitrary available port
+is picked and function <strong>httpd:info/2</strong> can be used to
+determine which port was picked.</p> </dd><dt><a name="prop_server_name"></a>{server_name, string()}</dt><dd> <p>The name of your server, normally a fully qualified domain name.</p> </dd><dt><a name="prop_server_root"></a>{server_root, path()}</dt><dd>  <p>Defines the home directory of the server, where log files, and so on, 
+can be stored. Relative paths specified in other properties refer
+to this directory.</p> </dd><dt> <a name="prop_doc_root"></a>{document_root, path()}</dt><dd> <p>Defines the top directory for the documents that
+are available on the HTTP server.</p> </dd></dl><a name="props_comm"></a><p><em>Communication Properties</em></p><dl><dt><a name="prop_bind_address"></a>{bind_address, ip_address() | hostname() | any}</dt><dd> <p>Default is <strong>any</strong>. <strong>any</strong> is denoted <em>*</em> 
+in the Apache-like configuration file.</p> </dd><dt><a name="profile"></a>{profile, atom()}</dt><dd> <p>Used together with <a href="#prop_bind_address">prop_bind_address</a>
+and <a href="#prop_port">prop_port</a> to uniquely identify
+a HTTP server. This can be useful in a virtualized environment,
+where there can
+be more that one server that has the same bind_address and port.
+If this property is not explicitly set, it is assumed that the
+<a href="#prop_bind_address">prop_bind_address</a> and
+<a href="#prop_port">prop_port</a>uniquely identifies the HTTP server.
+</p> </dd><dt><a name="prop_socket_type"></a>{socket_type, ip_comm | {ip_comm,  Config::proplist()} | {essl, Config::proplist()}}</dt><dd> <p>For <strong>ip_comm</strong> configuration options, see 
+<a href="../kernel/gen_tcp#listen-2">gen_tcp:listen/2</a>, some options
+that are used internally by httpd cannot be set.</p> <p>For <strong>SSL</strong> configuration options, see 
+<a href="../ssl/ssl#listen-2">ssl:listen/2</a>.</p> <p>Default is <strong>ip_comm</strong>.</p>  </dd><dt><a name="prop_ipfamily"></a>{ipfamily, inet | inet6}</dt><dd> <p>Default is <strong>inet</strong>, legacy option <strong>inet6fb4</strong> no longer makes sense and will be translated
+to inet.</p> </dd><dt><a name="prop_minimum_bytes_per_second"></a>{minimum_bytes_per_second, integer()}</dt><dd> <p>If given, sets a minimum of bytes per second value for connections.</p> <p>If the value is unreached, the socket closes for that connection.</p> <p>The option is good for reducing the risk of "slow DoS" attacks.</p> </dd></dl><a name="props_api_modules"></a><p><em>Erlang Web Server API Modules</em> </p><dl><dt><a name="prop_modules"></a>{modules, [atom()]} </dt><dd> <p>Defines which modules the HTTP server uses when handling
+requests. Default is <strong>[mod_alias, mod_auth, mod_esi, mod_actions, mod_cgi, mod_dir, mod_get, mod_head, mod_log, mod_disk_log]</strong>. 
+Notice that some <strong>mod</strong>-modules are dependent on
+others, so the order cannot be entirely arbitrary. See the
+<a href="http_server">Inets Web Server Modules</a> in the
+User's Guide for details.</p> </dd></dl><a name="props_limit"></a><p><em>Limit properties</em> </p><dl><dt><a name="prop_customize"></a>{customize, atom()}</dt><dd>  <p>A callback module to customize the inets HTTP servers behaviour
+see <a href="httpd_custom_api"> httpd_custom_api</a> </p> </dd><dt><a name="prop_disable_chunked_encoding"></a>{disable_chunked_transfer_encoding_send, boolean()}</dt><dd>  <p>Allows you to disable chunked
+transfer-encoding when sending a response to an HTTP/1.1
+client. Default is <strong>false</strong>.</p> </dd><dt><a name="prop_keep_alive"></a>{keep_alive, boolean()}</dt><dd> <p>Instructs the server whether to use persistent
+connections when the client claims to be HTTP/1.1
+compliant. Default is <strong>true</strong>.</p> </dd><dt><a name="prop_keep_alive_timeout"></a>{keep_alive_timeout, integer()}</dt><dd> <p>The number of seconds the server waits for a
+subsequent request from the client before closing the
+connection. Default is <strong>150</strong>.</p> </dd><dt><a name="prop_max_body_size"></a>{max_body_size, integer()}</dt><dd> <p>Limits the size of the message body of an HTTP request.
+Default is no limit.</p> </dd><dt><a name="prop_max_clients"></a>{max_clients, integer()}</dt><dd>  <p>Limits the number of simultaneous requests that can be
+supported. Default is <strong>150</strong>.</p> </dd><dt><a name="prop_max_header_size"></a>{max_header_size, integer()}</dt><dd> <p>Limits the size of the message header of an HTTP request.
+Default is <strong>10240</strong>.</p> </dd><dt><a name="prop_max_content_length"></a>{max_content_length, integer()}</dt><dd> <p>Maximum content-length in an incoming request, in bytes. Requests
+with content larger than this are answered with status 413.
+Default is <strong>100000000</strong> (100 MB).
+</p> </dd><dt><a name="prop_max_uri"></a>{max_uri_size, integer()}</dt><dd> <p>Limits the size of the HTTP request URI.
+Default is no limit.</p> </dd><dt><a name="prop_max_keep_alive_req"></a>{max_keep_alive_request, integer()}</dt><dd> <p>The number of requests that a client can do on one
+connection. When the server has responded to the number of
+requests defined by <strong>max_keep_alive_requests</strong>, the server 
+closes the connection. The server closes it even if there are 
+queued request. Default is no limit.</p> </dd><dt><a name="max_client_body_chunk"></a>{max_client_body_chunk, integer()}</dt><dd> <p>Enforces chunking of a HTTP PUT or POST body data to be deliverd
+to the mod_esi callback. Note this is not supported for mod_cgi. 
+Default is no limit e.i the whole body is deliverd as one entity, which could
+be very memory consuming. <a href="mod_esi">mod_esi(3)</a>.
+</p> </dd></dl><a name="props_admin"></a><p><em>Administrative Properties</em></p><dl><dt><a name="prop_mime_types"></a>{mime_types, [{MimeType, Extension}] | path()}</dt><dd> <p><strong>MimeType = string()</strong> and <strong>Extension = string()</strong>.
+Files delivered to the client are MIME typed according to RFC
+1590. File suffixes are mapped to MIME types before file delivery.
+The mapping between file suffixes and MIME types can be specified
+as an Apache-like file or directly in the property list. Such
+a file can look like the follwoing:</p> <pre>
+# MIME type	Extension  
+text/html	html htm
+text/plain	asc txt</pre> <p>Default is [{"html","text/html"},{"htm","text/html"}].</p> </dd><dt><a name="prop_mime_type"></a>{mime_type, string()}</dt><dd> <p>When the server is asked to provide a document type that
+cannot be determined by the MIME Type Settings, the server
+uses this default type.</p> </dd><dt><a name="prop_server_admin"></a>{server_admin, string()}</dt><dd> <p>Defines the email-address of the server
+administrator to be included in any error messages returned by
+the server.</p> </dd><dt><a name="prop_server_tokens"></a>{server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}</dt><dd> <p>Defines the look of the value of the server header.</p> <p>Example: Assuming the version of <strong>Inets</strong> is 5.8.1, 
+the server header string can look as follows for
+the different values of server-tokens:</p> <dl><dt><strong>none</strong></dt><dd><p>""  % A Server: header will not be generated</p></dd><dt><strong>prod</strong></dt><dd><p>"inets"</p></dd><dt><strong>major</strong></dt><dd><p>"inets/5"</p></dd><dt><strong>minor</strong></dt><dd><p>"inets/5.8"</p></dd><dt><strong>minimal</strong></dt><dd><p>"inets/5.8.1"</p></dd><dt><strong>os</strong></dt><dd><p>"inets/5.8.1 (unix)"</p></dd><dt><strong>full</strong></dt><dd><p>"inets/5.8.1 (unix/linux) OTP/R15B"</p></dd><dt><strong>{private, "foo/bar"}</strong></dt><dd><p>"foo/bar"</p></dd></dl> <p>By default, the value is as before, that is, <strong>minimal</strong>.</p> </dd><dt><a name="prop_log_format"></a>{log_format, common | combined}</dt><dd> <p>Defines if access logs are to be written according to the <strong>common</strong>
+log format or the extended common log format.
+The <strong>common</strong> format is one line looking like this:
+<strong>remotehost rfc931 authuser [date] "request" status bytes</strong>.</p>  <p>Here:</p> <dl><dt><strong>remotehost</strong></dt><dd>Remote.</dd><dt><strong>rfc931</strong></dt><dd>The remote username of the client (<a href="http://www.ietf.org/rfc/rfc931.txt">RFC 931</a>).</dd><dt><strong>authuser</strong></dt><dd>The username used for authentication.</dd><dt><strong>[date]</strong></dt><dd>Date and time of the request (<a href="http://www.ietf.org/rfc/rfc1123.txt">RFC 1123</a>).</dd><dt><strong>"request"</strong></dt><dd>The request line as it came from the client  (<a href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</a>).</dd><dt><strong>status</strong></dt><dd>The HTTP status code returned to the client (<a href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</a>).</dd><dt><strong>bytes</strong></dt><dd>The content-length of the document transferred.</dd></dl> <p>The <strong>combined</strong> format is one line looking like this:
+<strong>remotehost rfc931 authuser [date] "request" status bytes "referer" "user_agent" </strong></p> <p>In addition to the earlier:</p> <dl><dt><strong>"referer"</strong></dt><dd>The URL the client was on before requesting the URL (if it could not be determined,  a minus sign is placed in this field).</dd><dt><strong>"user_agent"</strong></dt><dd>The software the client claims to be using (if it could not be determined, a minus sign is placed in this field).</dd></dl> <p>This affects the access logs written by <strong>mod_log</strong> and 
+<strong>mod_disk_log</strong>.
+</p>	 </dd><dt><a name="prop_elog_format"></a>{error_log_format, pretty | compact}</dt><dd> <p>Default is <strong>pretty</strong>. If the error log is meant to be read
+directly by a human, <strong>pretty</strong> is the best option.</p> <p><strong>pretty</strong> has a format corresponding to:</p> <pre><code class="">io:format("[~s] ~s, reason: ~n ~p ~n~n", [Date, Msg, Reason]).</code></pre> <p><strong>compact</strong> has a format corresponding to:</p> <pre><code class="">io:format("[~s] ~s, reason: ~w ~n", [Date, Msg, Reason]).</code></pre> <p>This affects the error logs written by <strong>mod_log</strong> and 
+<strong>mod_disk_log</strong>.
+</p> </dd></dl><a name="props_alias"></a><p><em>URL Aliasing Properties - Requires mod_alias</em></p><dl><dt><a name="prop_alias"></a>{alias, {Alias, RealName}}</dt><dd> <p><strong>Alias = string()</strong> and <strong>RealName = string()</strong>. 
+<strong>alias</strong> allows documents to be stored in the local file
+system instead of the <strong>document_root</strong> location. URLs with a path
+beginning with url-path is mapped to local files beginning with
+directory-filename, for example:</p> <pre><code class="">{alias, {"/image", "/ftp/pub/image"}}</code></pre> <p>Access to http://your.server.org/image/foo.gif would refer to
+the file /ftp/pub/image/foo.gif.</p> </dd><dt><a name="prop_re_write"></a>{re_write, {Re, Replacement}}</dt><dd> <p><strong>Re = string()</strong> and <strong>Replacement = string()</strong>. 
+<strong>re_write</strong> allows documents to be stored in the local file
+system instead of the <strong>document_root</strong> location. URLs are rewritten
+by <strong>re:replace/3</strong> to produce a path in the local file-system,
+for example:</p> <pre><code class="">{re_write, {"^/[~]([^/]+)(.*)$", "/home/\\1/public\\2"}}</code></pre> <p>Access to http://your.server.org/~bob/foo.gif would refer to
+the file /home/bob/public/foo.gif.
+In an Apache-like configuration file, <strong>Re</strong> is separated
+from <strong>Replacement</strong> with one single space, and as expected
+backslashes do not need to be backslash escaped, the
+same example would become:</p> <pre><code class="">ReWrite ^/[~]([^/]+)(.*)$ /home/\1/public\2</code></pre> <p>Beware of trailing space in <strong>Replacement</strong> to be used.
+If you must have a space in <strong>Re</strong>, use, for example, the character 
+encoding <strong>\040</strong>, see 
+<a href="./re">re(3)</a>.</p> </dd><dt><a name="prop_dir_idx"></a>{directory_index, [string()]}</dt><dd>  <p><strong>directory_index</strong> specifies a list of resources to look for
+if a client requests a directory using a <strong>/</strong> at the end of the
+directory name. <strong>file</strong> depicts the name of a file in the
+directory. Several files can be given, in which case the server
+returns the first it finds, for example:</p> <pre><code class="">{directory_index, ["index.html", "welcome.html"]}</code></pre> <p>Access to http://your.server.org/docs/ would return
+http://your.server.org/docs/index.html or
+http://your.server.org/docs/welcome.html if index.html does not
+exist.</p> </dd></dl><a name="props_cgi"></a><p><em>CGI Properties - Requires mod_cgi</em></p><dl><dt><a name="prop_script_alias"></a>{script_alias, {Alias, RealName}}</dt><dd> <p><strong>Alias = string()</strong> and <strong>RealName = string()</strong>.
+Have the same behavior as property <strong>alias</strong>, except that
+they also mark the target directory as containing CGI
+scripts. URLs with a path beginning with url-path are mapped to
+scripts beginning with directory-filename, for example:</p> <pre><code class="">{script_alias, {"/cgi-bin/", "/web/cgi-bin/"}}</code></pre> <p>Access to http://your.server.org/cgi-bin/foo would cause
+the server to run the script /web/cgi-bin/foo.</p> </dd><dt><a name="prop_script_re_write"></a>{script_re_write, {Re, Replacement}}</dt><dd> <p><strong>Re = string()</strong> and <strong>Replacement = string()</strong>.
+Have the same behavior as property <strong>re_write</strong>, except that
+they also mark the target directory as containing CGI
+scripts. URLs with a path beginning with url-path are mapped to
+scripts beginning with directory-filename, for example:</p> <pre><code class="">{script_re_write, {"^/cgi-bin/(\\d+)/", "/web/\\1/cgi-bin/"}}</code></pre> <p>Access to http://your.server.org/cgi-bin/17/foo would cause
+the server to run the script /web/17/cgi-bin/foo.</p> </dd><dt><a name="prop_script_nocache"></a>{script_nocache, boolean()}</dt><dd>  <p>If <strong>script_nocache</strong> is set to <strong>true</strong>, the HTTP server by
+default adds the header fields necessary to prevent proxies from
+caching the page. Generally this is preferred. 
+Default to <strong>false</strong>.</p> </dd><dt><a name="prop_script_timeout"></a>{script_timeout, integer()}</dt><dd> <p>The time in seconds the web server waits between each
+chunk of data from the script. If the CGI script does not deliver
+any data before the timeout, the connection to the client is
+closed. Default is <strong>15</strong>.</p> </dd><dt><a name="prop_action"></a>{action, {MimeType, CgiScript}} - requires mod_action</dt><dd> <p><strong>MimeType = string()</strong> and <strong>CgiScript = string()</strong>.
+<strong>action</strong> adds an action activating a CGI script
+whenever a file of a certain MIME type is requested. It
+propagates the URL and file path of the requested document using
+the standard CGI PATH_INFO and PATH_TRANSLATED environment
+variables.</p> <p>Example:</p> <pre><code class="">{action, {"text/plain", "/cgi-bin/log_and_deliver_text"}}</code></pre> </dd><dt><a name="prop_script"></a>{script, {Method, CgiScript}} - requires mod_action</dt><dd> <p><strong>Method = string()</strong> and <strong>CgiScript = string()</strong>.
+<strong>script</strong> adds an action activating a CGI script
+whenever a file is requested using a certain HTTP method. The
+method is either GET or POST, as defined in <a href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</a>. It
+propagates the URL and file path of the requested document using
+the standard CGI PATH_INFO and PATH_TRANSLATED environment
+variables.</p> <p>Example:</p> <pre><code class="">{script, {"PUT", "/cgi-bin/put"}}</code></pre> </dd></dl><a name="props_esi"></a><p><em>ESI Properties - Requires mod_esi</em></p><dl><dt><a name="prop_esi_alias"></a>{erl_script_alias, {URLPath, [AllowedModule]}}</dt><dd> <p><strong>URLPath = string()</strong> and <strong>AllowedModule = atom()</strong>.
+<strong>erl_script_alias</strong> marks all URLs matching url-path as erl
+scheme scripts. A matching URL is mapped into a specific module
+and function, for example:</p> <pre><code class="">{erl_script_alias, {"/cgi-bin/example", [httpd_example]}}</code></pre> <p>A request to
+http://your.server.org/cgi-bin/example/httpd_example:yahoo
+would refer to httpd_example:yahoo/3 or, if that does not exist,
+httpd_example:yahoo/2 and
+http://your.server.org/cgi-bin/example/other:yahoo would
+not be allowed to execute.</p> </dd><dt><a name="prop_esi_nocache"></a>{erl_script_nocache, boolean()}</dt><dd> <p>If <strong>erl_script_nocache</strong> is set to <strong>true</strong>, the server adds
+HTTP header fields preventing proxies from caching the
+page. This is generally a good idea for dynamic content, as
+the content often varies between each request. 
+Default is <strong>false</strong>.</p> </dd><dt><a name="prop_esi_timeout"></a>{erl_script_timeout, integer()}</dt><dd> <p>If <strong>erl_script_timeout</strong> sets the time in seconds the server
+waits between each chunk of data to be delivered through
+<strong>mod_esi:deliver/2</strong>. Default is <strong>15</strong>. This is only relevant
+for scripts that use the erl scheme.</p> </dd><dt><a name="prop_esi_timeout"></a>{eval_script_alias, {URLPath, [AllowedModule]}}</dt><dd> <p><strong>URLPath = string()</strong> and <strong>AllowedModule = atom()</strong>.
+Same as <strong>erl_script_alias</strong> but for scripts
+using the eval scheme. This is only supported
+for backwards compatibility. The eval scheme is deprecated.</p> </dd></dl><a name="props_log"></a><p><em>Log Properties - Requires mod_log</em></p><dl><dt><a name="prop_elog"></a>{error_log, path()}</dt><dd> <p>Defines the filename of the error log file to be used to log
+server errors. If the filename does not begin with a slash (/),
+it is assumed to be relative to the <strong>server_root</strong>.</p> </dd><dt><a name="prop_slog"></a>{security_log, path()}</dt><dd> <p>Defines the filename of the access log file to be used to
+log security events. If the filename does not begin with a slash
+(/), it is assumed to be relative to the <strong>server_root</strong>.</p> </dd><dt><a name="prop_tlog"></a>{transfer_log, path()}</dt><dd>  <p>Defines the filename of the access log file to be used to
+log incoming requests. If the filename does not begin with a
+slash (/), it is assumed to be relative to the <strong>server_root</strong>.</p> </dd></dl><a name="props_dlog"></a><p><em>Disk Log Properties - Requires mod_disk_log</em></p><dl><dt><a name="prop_dlog_format"></a>{disk_log_format, internal | external}</dt><dd> <p>Defines the file format of the log files. See <strong>disk_log</strong> for
+details. If the internal file format is used, the
+log file is repaired after a crash. When a log file is
+repaired, data can disappear. When the external file format is
+used, <strong>httpd</strong> does not start if the log file is broken. Default is
+<strong>external</strong>.</p> </dd><dt><a name="prop_edlog"></a>{error_disk_log, path()}</dt><dd> <p>Defines the filename of the (<strong>disk_log(3)</strong>) error log file
+to be used to log server errors. If the filename does not begin
+with a slash (/), it is assumed to be relative to the <strong>server_root</strong>.</p> </dd><dt><a name="prop_edlog_size"></a>{error_disk_log_size, {MaxBytes, MaxFiles}}</dt><dd> <p><strong>MaxBytes = integer()</strong> and <strong>MaxFiles = integer()</strong>.
+Defines the properties of the (<strong>disk_log(3)</strong>) error log
+file. This file is of type wrap log and
+max bytes is written to each file and max files is
+used before the first file is truncated and reused.</p> </dd><dt><a name="prop_sdlog"></a>{security_disk_log, path()}</dt><dd> <p>Defines the filename of the (<strong>disk_log(3)</strong>) access log file
+logging incoming security events, that is, authenticated
+requests. If the filename does not begin with a slash (/), it
+is assumed to be relative to the <strong>server_root</strong>.</p> </dd><dt><a name="prop_sdlog_size"></a>{security_disk_log_size, {MaxBytes, MaxFiles}}</dt><dd> <p><strong>MaxBytes = integer()</strong> and <strong>MaxFiles = integer()</strong>. 
+Defines the properties of the <strong>disk_log(3)</strong> access log
+file. This file is of type wrap log and
+max bytes is written to each file and max files is
+used before the first file is truncated and reused.</p> </dd><dt><a name="prop_tdlog"></a>{transfer_disk_log, path()}</dt><dd> <p>Defines the filename of the (<strong>disk_log(3)</strong>) access log file
+logging incoming requests. If the filename does not begin
+with a slash (/), it is assumed to be relative to the
+<strong>server_root</strong>.</p> </dd><dt><a name="prop_tdlog_size"></a>{transfer_disk_log_size, {MaxBytes, MaxFiles}}</dt><dd> <p><strong>MaxBytes = integer()</strong> and <strong>MaxFiles = integer()</strong>.  
+Defines the properties of the <strong>disk_log(3)</strong> access log
+file. This file is of type wrap log and
+max bytes is written to each file and max files is
+used before the first file is truncated and reused.</p> </dd></dl><a name="props_auth"></a><p><em>Authentication Properties - Requires mod_auth</em></p><a name="prop_dri"></a><p><em>{directory, {path(), [{property(), term()}]}}</em></p><a name="props_dir"></a><p>The properties for directories are as follows:</p><dl><dt><a name="prop_allow_from"></a>{allow_from, all | [RegxpHostString]}</dt><dd> <p>Defines a set of hosts to be granted access to a
+given directory, for example:</p> <pre><code class="">{allow_from, ["123.34.56.11", "150.100.23"]}</code></pre> <p>The host <strong>123.34.56.11</strong> and all machines on the <strong>150.100.23</strong>
+subnet are allowed access.</p> </dd><dt><a name="prop_deny_from"></a>{deny_from, all | [RegxpHostString]}</dt><dd> <p>Defines a set of hosts
+to be denied access to a given directory, for example:</p> <pre><code class="">{deny_from, ["123.34.56.11", "150.100.23"]}</code></pre> <p>The host <strong>123.34.56.11</strong> and all machines on the <strong>150.100.23</strong>
+subnet are not allowed access.</p> </dd><dt><a name="prop_auth_type"></a>{auth_type, plain | dets | mnesia}</dt><dd> <p>Sets the type of authentication database that is used for the
+directory. The key difference between the different methods is
+that dynamic data can be saved when Mnesia and Dets
+are used.
+This property is called <strong>AuthDbType</strong> in the Apache-like
+configuration files.</p> </dd><dt><a name="prop_auth_user_file"></a>{auth_user_file, path()}</dt><dd> <p>Sets the name of a file containing the list of users and
+passwords for user authentication. The filename can be either
+absolute or relative to the <strong>server_root</strong>. If using the
+plain storage method, this file is a plain text file where
+each line contains a username followed by a colon, followed
+by the non-encrypted password. If usernames are duplicated,
+the behavior is undefined.</p> <p>Example:</p> <pre><code class=""> ragnar:s7Xxv7
+ edward:wwjau8 </code></pre>  <p>If the Dets storage method is used, the user database is
+maintained by Dets and must not be edited by hand. Use the
+API functions in module <strong>mod_auth</strong> to create/edit the user
+database. This directive is ignored if the Mnesia
+storage method is used. For security reasons, ensure that
+<strong>auth_user_file</strong> is stored outside the document tree of the web
+server. If it is placed in the directory that it protects,
+clients can download it.</p> </dd><dt><a name="prop_auth_group_file"></a>{auth_group_file, path()}</dt><dd> <p>Sets the name of a file containing the list of user
+groups for user authentication. The filename can be either
+absolute or relative to the <strong>server_root</strong>. If the plain
+storage method is used, the group file is a plain text file, where
+each line contains a group name followed by a colon, followed
+by the members usernames separated by spaces.</p> <p>Example:</p> <pre><code class="">group1: bob joe ante</code></pre> <p>If the Dets storage method is used, the group database is
+maintained by Dets and must not be edited by hand. Use the
+API for module <strong>mod_auth</strong> to create/edit the group database.
+This directive is ignored if the Mnesia storage method is used.
+For security reasons, ensure that the <strong>auth_group_file</strong> is
+stored outside the document tree of the web server. If it is
+placed in the directory that it protects, clients
+can download it.</p> </dd><dt><a name="prop_auth_name"></a>{auth_name, string()}</dt><dd>  <p>Sets the name of the authorization realm (auth-domain) for
+a directory. This string informs the client about which 
+username and password to use.</p> </dd><dt><a name="prop_auth_access_passwd"></a>{auth_access_password, string()}</dt><dd> <p>If set to other than "NoPassword", the password is required
+for all API calls. If the password is set to "DummyPassword", the
+password must be changed before any other API calls. To secure
+the authenticating data, the password must be changed after the
+web server is started. Otherwise it is written in clear
+text in the configuration file.</p> </dd><dt><a name="prop_req_user"></a>{require_user, [string()]}</dt><dd>  <p>Defines users to grant access to a given
+directory using a secret password.</p> </dd><dt><a name="prop_req_grp"></a>{require_group, [string()]}</dt><dd> <p>Defines users to grant access to a given
+directory using a secret password.</p> </dd></dl><a name="props_htaccess"></a><p><em>Htaccess Authentication Properties - Requires mod_htaccess</em></p><dl><dt><a name="prop_access_files"></a>{access_files, [path()]}</dt><dd> <p>Specifies the filenames that are used for
+access files. When a request comes, every directory in the path
+to the requested asset are searched after files with the
+names specified by this parameter. If such a file is found, the
+file is parsed and the restrictions specified in it are
+applied to the request.</p> </dd></dl><a name="props_sec"></a><p><em>Security Properties - Requires mod_security</em></p><a name="prop_sec_dir"></a><p><em>{security_directory, {path(), [{property(), term()}]}}</em></p><a name="props_sdir"></a><p>The properties for the security directories are as follows:</p><dl><dt><a name="prop_data_file"></a>{data_file, path()}</dt><dd> <p>Name of the security data file. The filename can either be
+absolute or relative to the <strong>server_root</strong>. This file is used to
+store persistent data for module <strong>mod_security</strong>.</p> </dd><dt><a name="prop_max_retries"></a>{max_retries, integer()}</dt><dd> <p>Specifies the maximum number of attempts to authenticate a
+user before the user is blocked out. If a user
+successfully authenticates while blocked, the
+user receives a 403 (Forbidden) response from the
+server. If the user makes a failed attempt while blocked, the
+server returns 401 (Unauthorized), for security
+reasons. 
+Default is <strong>3</strong>. Can be set to infinity.</p> </dd><dt><a name="prop_block_time"></a>{block_time, integer()}</dt><dd> <p>Specifies the number of minutes a user is blocked. After
+this timehas passed, the user automatically regains access.
+Default is <strong>60</strong>.</p> </dd><dt><a name="prop_fail_exp_time"></a>{fail_expire_time, integer()}</dt><dd> <p>Specifies the number of minutes a failed user authentication
+is remembered. If a user authenticates after this
+time has passed, the previous failed authentications are
+forgotten. 
+Default is <strong>30</strong>.</p> </dd><dt><a name="prop_auth_timeout"></a>{auth_timeout, integer()}</dt><dd> Specifies the number of seconds a successful user authentication is remembered. After this time has passed, the authentication is no longer reported. Default is <strong>30</strong>. </dd></dl><h1>Functions</h1><h2>info(Pid) -&gt;</h2><h2>info(Pid, Properties) -&gt; [{Option, Value}]</h2><p>Fetches information about the HTTP server.</p><ul><li><span class="v">Properties = [property()]</span></li><li><span class="v">Option = property()</span></li><li><span class="v">Value = term()</span></li></ul><p>Fetches information about the HTTP server. When called
+with only the pid, all properties are fetched. When called
+with a list of specific properties, they are fetched.
+The available properties are the same as the start options
+of the server. 
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Pid is the pid returned from <strong>inets:start/[2,3]</strong>. 
+Can also be retrieved form <strong>inets:services/0</strong> and
+<strong>inets:services_info/0</strong>,
+see <a href="inets">inets(3)</a>.
+</p></div><h2>info(Address, Port) -&gt;</h2><h2>info(Address, Port, Profile) -&gt;</h2><h2>info(Address, Port, Profile, Properties) -&gt; [{Option, Value}]</h2><h2>info(Address, Port, Properties) -&gt; [{Option, Value}]</h2><p>Fetches information about the HTTP server.</p><ul><li><span class="v">Address = ip_address()</span></li><li><span class="v">Port = integer()</span></li><li><span class="v">Profile = atom()</span></li><li><span class="v">Properties = [property()]</span></li><li><span class="v">Option = property()</span></li><li><span class="v">Value = term()</span></li></ul><p>Fetches information about the HTTP server. When called with
+only <strong>Address</strong> and <strong>Port</strong>, all properties are
+fetched.  When called with a list of specific properties, they
+are fetched.  The available properties are the same as the
+start options of the server.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The address must be the IP address and cannot be
+the hostname.
+</p></div><h2>reload_config(Config, Mode) -&gt; ok | {error, Reason}</h2><p>Reloads the HTTP server configuration without restarting the server.</p><ul><li><span class="v">Config = path() | [{Option, Value}]</span></li><li><span class="v">Option = property()</span></li><li><span class="v">Value = term()</span></li><li><span class="v">Mode = non_disturbing | disturbing</span></li></ul><p>Reloads the HTTP server configuration without restarting the
+server. Incoming requests are answered with a temporary
+down message during the reload time.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Available properties are the same as the
+start options of the server, but the properties 
+<strong>bind_address</strong> and <strong>port</strong> 
+cannot be changed.</p></div><p>If mode is disturbing, the server is blocked forcefully,
+all ongoing requests terminates, and the reload
+starts immediately. If mode is non-disturbing, no new
+connections are accepted, but ongoing requests are
+allowed to complete before the reload is done.</p><h2>ERLANG WEB SERVER API DATA TYPES</h2><p>The Erlang web server API data types are as follows:</p><pre><code class="">
+      ModData = #mod{}
+
+      -record(mod, {
+		data = [],
+		socket_type = ip_comm,
+		socket, 
+		config_db,
+		method,
+		absolute_uri,
+		request_uri,
+		http_version,
+		request_line,
+		parsed_header = [],
+		entity_body,
+		connection
+	}).</code></pre><p>To acess the record in your callback-module use:</p><pre><code class=""> -include_lib("inets/include/httpd.hrl").</code></pre><p>The fields of record <strong>mod</strong> have the following meaning:
+</p><dl><dt><strong>data</strong></dt><dd><p>Type <strong>[{InteractionKey,InteractionValue}]</strong> is used to
+propagate data between modules. Depicted
+<strong>interaction_data()</strong> in function type declarations.</p> </dd><dt><strong>socket_type</strong></dt><dd><p><strong>socket_type()</strong>
+indicates whether it is an IP socket or an <strong>ssl</strong> socket.</p> </dd><dt><strong>socket</strong></dt><dd><p>The socket, in format <strong>ip_comm</strong> or <strong>ssl</strong>,
+depending on <strong>socket_type</strong>.</p> </dd><dt><strong>config_db</strong></dt><dd><p>The config file directives stored as key-value tuples in
+an ETS table. Depicted <strong>config_db()</strong> in function type
+declarations.</p> </dd><dt><strong>method</strong></dt><dd><p>Type <strong>"GET" | "POST" | "HEAD" | "TRACE"</strong>, that is, the
+HTTP method.</p> </dd><dt><strong>absolute_uri</strong></dt><dd><p>If the request is an HTTP/1.1
+request, the URI can be in the absolute URI format. In that
+case, <strong>httpd</strong> saves the absolute URI in this field. An Example
+of an absolute URI is 
+<strong>"http://ServerName:Part/cgi-bin/find.pl?person=jocke"</strong></p></dd><dt><strong>request_uri</strong></dt><dd><p>The <strong>Request-URI</strong> as defined
+in <a href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</a>, for example, <strong>"/cgi-bin/find.pl?person=jocke"</strong>.</p> </dd><dt><strong>http_version</strong></dt><dd><p>The <strong>HTTP</strong> version of the
+request, that is, "HTTP/0.9", "HTTP/1.0", or "HTTP/1.1".</p> </dd><dt><strong>request_line</strong></dt><dd><p>The <strong>Request-Line</strong> as
+defined in<a href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</a>, for example, 
+<strong>"GET /cgi-bin/find.pl?person=jocke HTTP/1.0"</strong>.</p> </dd><dt><strong>parsed_header</strong></dt><dd>Type <strong>[{HeaderKey,HeaderValue}]</strong>. <strong>parsed_header</strong> contains all HTTP header fields from the HTTP request stored in a list as key-value tuples. See <a href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</a> for a listing of all header fields. For example, the date field is stored as <strong>{"date","Wed, 15 Oct 1997 14:35:17 GMT"}</strong>. RFC 2616 defines that HTTP is a case-insensitive protocol and the header fields can be in lower case or upper case. <strong>httpd</strong> ensures that all header field names are in lower case. </dd><dt><strong>entity_body</strong></dt><dd><p>The <strong>entity-Body</strong> as defined
+in <a href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</a>, for example, data sent from a CGI script using the
+POST method.</p> </dd><dt><strong>connection</strong></dt><dd><p><strong>true | false</strong>. If set to <strong>true</strong>, the connection to the
+client is a persistent connection and is not closed when
+the request is served.</p></dd></dl><h2>ERLANG WEB SERVER API CALLBACK FUNCTIONS</h2><h1>Functions</h1><h2>Module:do(ModData)-&gt; {proceed, OldData} | {proceed, NewData} | {break, NewData} | done</h2><p>Called for each request to the web server.</p><ul><li><span class="v">OldData = list()</span></li><li><span class="v">NewData = [{response,{StatusCode,Body}}]</span></li><li><span class="v">| [{response,{response,Head,Body}}]</span></li><li><span class="v">| [{response,{already_sent,Statuscode,Size}}]</span></li><li><span class="v">StatusCode = integer()</span></li><li><span class="v">Body = io_list() | nobody | {Fun, Arg}</span></li><li><span class="v">Head = [HeaderOption]</span></li><li><span class="v">HeaderOption = {Option, Value} | {code, StatusCode}</span></li><li><span class="v">Option = accept_ranges | allow</span></li><li><span class="v">| cache_control | content_MD5</span></li><li><span class="v">| content_encoding | content_language</span></li><li><span class="v">| content_length | content_location</span></li><li><span class="v">| content_range | content_type | date</span></li><li><span class="v">| etag | expires | last_modified</span></li><li><span class="v">| location | pragma | retry_after</span></li><li><span class="v">| server | trailer | transfer_encoding</span></li><li><span class="v">Value = string()</span></li><li><span class="v">Fun = fun( Arg ) -&gt; sent| close | Body </span></li><li><span class="v">Arg = [term()]</span></li></ul><p>When a valid request reaches <strong>httpd</strong>, it calls <strong>do/1</strong> in
+each module, defined by the configuration
+option of <strong>Module</strong>. The function can generate data for other
+modules or a response that can be sent back to the client.</p><p>The field <strong>data</strong> in <strong>ModData</strong> is a list. This list is
+the list returned from the last call to
+<strong>do/1</strong>.</p><p><strong>Body</strong> is the body of the HTTP response that is
+sent back to the client. An appropriate header is
+appended to the message. <strong>StatusCode</strong> is the
+status code of the response, see 
+<a href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</a> 
+for the appropriate values.</p><p><strong>Head</strong> is a key value list of HTTP header fields. The
+server constructs an HTTP header from this data. See <a href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</a>  for the appropriate value for each header field. If the
+client is an HTTP/1.0 client, the server filters the
+list so that only HTTP/1.0 header fields are sent back
+to the client.</p><p>If <strong>Body</strong> is returned and equal to <strong>{Fun,Arg}</strong>,
+the web server tries <strong>apply/2</strong> on <strong>Fun</strong> with
+<strong>Arg</strong> as argument. The web server expects that the fun either
+returns a list <strong>(Body)</strong> that is an HTTP repsonse, or the
+atom <strong>sent</strong> if the HTTP response is sent back to the
+client. If <strong>close</strong> is returned from the fun, something has gone
+wrong and the server signals this to the client by
+closing the connection.</p><h2>Module:load(Line, AccIn)-&gt; eof | ok | {ok, AccOut} | {ok, AccOut, {Option, Value}} | {ok, AccOut, [{Option, Value}]} | {error, Reason}</h2><p>Converts a line in an Apache-like config  file to an <strong>{Option, Value}</strong> tuple.</p><ul><li><span class="v">Line = string()</span></li><li><span class="v">AccIn = [{Option, Value}]</span></li><li><span class="v">AccOut = [{Option, Value}]</span></li><li><span class="v">Option = property()</span></li><li><span class="v">Value = term() </span></li><li><span class="v">Reason = term()</span></li></ul><p>Converts a line in an Apache-like
+configuration file to an <strong>{Option, Value}</strong> tuple. Some
+more complex configuration options, such as <strong>directory</strong>
+and <strong>security_directory</strong>, create an
+accumulator. This function only needs clauses for the
+options implemented by this particular callback module.
+</p><h2>Module:remove(ConfigDB) -&gt; ok | {error, Reason}</h2><p>Callback function that is called when the web server is closed.</p><ul><li><span class="v">ConfigDB = ets_table()</span></li><li><span class="v">Reason = term()</span></li></ul><p>When <strong>httpd</strong> is shut down, it tries to execute
+<strong>remove/1</strong> in each Erlang web server callback module. The
+programmer can use this function to clean up resources
+created in the store function.</p><h2>Module:store({Option, Value}, Config)-&gt; {ok, {Option, NewValue}} | {error, Reason}</h2><p>Checks the validity of the configuration options.</p><ul><li><span class="v">Line = string()</span></li><li><span class="v">Option = property()</span></li><li><span class="v">Config = [{Option, Value}]</span></li><li><span class="v">Value = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>Checks the validity of the
+configuration options before saving them in the internal
+database. This function can also have a side effect,
+that is, setup of necessary extra resources implied by the
+configuration option. It can also
+resolve possible dependencies among
+configuration options by changing the value of the option.
+This function only needs clauses for the options
+implemented by this particular callback module.</p><h2>ERLANG WEB SERVER API HELP FUNCTIONS</h2><h1>Functions</h1><h2>parse_query(QueryString) -&gt; [{Key,Value}]</h2><p>Parses incoming data to <strong>erl</strong> and <strong>eval</strong> scripts.</p><ul><li><span class="v">QueryString = string()</span></li><li><span class="v">Key = string()</span></li><li><span class="v">Value = string()</span></li></ul><p><strong>parse_query/1</strong> parses incoming data to <strong>erl</strong> and
+<strong>eval</strong> scripts (see <a href="mod_esi">mod_esi(3)</a>) 
+as defined in the standard
+URL format, that is, '+' becomes 'space' and decoding of
+hexadecimal characters (<strong>%xx</strong>).</p><h2>SEE ALSO</h2><p><a href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</a>, 
+<a href="inets">inets(3)</a>,
+<a href="./ssl">ssl(3)</a>
+</p></body></html>

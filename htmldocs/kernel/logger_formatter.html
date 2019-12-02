@@ -1,0 +1,130 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>logger_formatter</h1><h1>logger_formatter</h1><p>Default formatter for Logger.</p><p>Each Logger handler has a configured formatter specified as a
+module and a configuration term. The purpose of the formatter is
+to translate the log events to a final printable string
+(<a href="../stdlib/unicode#type-chardata">stdlib/unicode#type-chardata</a>) which can be written to the output device of the
+handler. See
+sections <a href="./logger_chapter#handlers">Handlers</a>
+and <a href="./logger_chapter#formatters">Formatters</a>
+in the Kernel User's Guide for more information.<strong>logger_formatter</strong> is the default formatter used by
+Logger.</p><h1>Data Types</h1><span class="name">config</span><p>The configuration term for <strong>logger_formatter</strong> is a
+<a href="./maps">map</a>, and the
+following keys can be set as configuration parameters:</p><dl><dt><a name="chars_limit"></a> <strong>chars_limit = integer() &gt; 0 | unlimited</strong></dt><dd> <p>A positive integer representing the value of the option
+with the same name to be used when calling
+<a href="../stdlib/io_lib#format-3">stdlib/io_lib#format-3</a>.
+This value limits the total number of characters printed
+for each log event. Notice that this is a soft limit. For a
+hard truncation limit, see option <strong>max_size</strong>.</p> <p>Defaults to <strong>unlimited</strong>.</p> </dd><dt><a name="depth"></a><strong>depth = integer() &gt; 0 | unlimited</strong></dt><dd> <p>A positive integer representing the maximum depth to
+which terms shall be printed by this formatter. Format
+strings passed to this formatter are rewritten. The
+format controls ~p and ~w are replaced with ~P and ~W,
+respectively, and the value is used as the depth
+parameter. For details, see
+<a href="../stdlib/io#format-2">stdlib/io#format-2</a>
+in STDLIB.</p> <p>Defaults to <strong>unlimited</strong>.</p> </dd><dt><strong>legacy_header = boolean()</strong></dt><dd> <p>If set to <strong>true</strong> a header field is added to
+logger_formatter's part of <strong>Metadata</strong>. The value of
+this field is a string similar to the header created by
+the
+old <a href="error_logger">error_logger</a>
+event handlers. It can be included in the log event by
+adding the list <strong>[logger_formatter,header]</strong> to the
+template. See the description of
+the <a href="#type-template">type-template</a>
+type for more information.</p> <p>Defaults to <strong>false</strong>.</p> </dd><dt><a name="max_size"></a> <strong>max_size = integer() &gt; 0 | unlimited</strong></dt><dd> <p>A positive integer representing the absolute maximum size a
+string returned from this formatter can have. If the
+formatted string is longer, after possibly being limited
+by <strong>chars_limit</strong> or <strong>depth</strong>, it is truncated.</p> <p>Defaults to <strong>unlimited</strong>.</p> </dd><dt><strong>report_cb = </strong><a href="./logger#type-report_cb">logger#type-report_cb</a></dt><dd> <p>A report callback is used by the formatter to transform
+log messages on report form to a format string and
+arguments. The report callback can be specified in the
+metadata for the log event. If no report callback exists
+in metadata, <strong>logger_formatter</strong> will
+use <a href="./logger#format_report-1">logger#format_report-1</a> as default
+callback.</p> <p>If this configuration parameter is set, it replaces
+both the default report callback, and any report
+callback found in metadata. That is, all reports are
+converted by this configured function.</p> </dd><dt><strong>single_line = boolean()</strong></dt><dd> <p>If set to <strong>true</strong>, each log event is printed as a
+single line. To achieve this, <strong>logger_formatter</strong>
+sets the field width to <strong>0</strong> for all <strong>~p</strong>
+and <strong>~P</strong> control sequences in the format a string
+(see <a href="../stdlib/io#format-2">stdlib/io#format-2</a>), and replaces all
+newlines in the message with <strong>", "</strong>. White spaces
+following directly after newlines are removed. Notice
+that newlines added by the <strong>template</strong> parameter are
+not replaced.</p> <p>Defaults to <strong>true</strong>.</p> </dd><dt><a name="template"></a> <strong>template = </strong><a href="#type-template">type-template</a></dt><dd> <p>The template describes how the formatted string is
+composed by combining different data values from the log
+event. See the description of
+the <a href="#type-template">type-template</a>
+type for more information about this.</p> </dd><dt><strong>time_designator = byte()</strong></dt><dd> <p>Timestamps are formatted according to RFC3339, and the
+time designator is the character used as date and time
+separator.</p> <p>Defaults to <strong>$T</strong>.</p> <p>The value of this parameter is used as
+the <strong>time_designator</strong> option
+to <a href="../stdlib/calendar#system_time_to_rfc3339-2">stdlib/calendar#system_time_to_rfc3339-2</a>.</p> </dd><dt><strong>time_offset = integer() | [byte()]</strong></dt><dd> <p>The time offset, either a string or an integer, to be
+used when formatting the timestamp.</p> <p>An empty string is interpreted as local time. The
+values <strong>"Z"</strong>, <strong>"z"</strong> or <strong>0</strong> are
+interpreted as Universal Coordinated Time (UTC).</p> <p>Strings, other than <strong>"Z"</strong>, <strong>"z"</strong>,
+or <strong>""</strong>, must be on the form <strong>Â±[hh]:[mm]</strong>, for
+example <strong>"-02:00"</strong> or <strong>"+00:00"</strong>.</p> <p>Integers must be in microseconds, meaning that the
+offset <strong>7200000000</strong> is equivalent
+to <strong>"+02:00"</strong>.</p> <p>Defaults to an empty string, meaning that timestamps
+are displayed in local time. However, for backwards
+compatibility, if the SASL configuration
+parameter <a href="../sasl/sasl_app#utc_log">sasl/sasl_app#utc_log</a><strong>=true</strong>, the default is
+changed to <strong>"Z"</strong>, meaning that timestamps are displayed
+in UTC.</p> <p>The value of this parameter is used as
+the <strong>offset</strong> option
+to <a href="../stdlib/calendar#system_time_to_rfc3339-2">stdlib/calendar#system_time_to_rfc3339-2</a>.</p> </dd></dl><span class="name">metakey</span><span class="name">template</span><p>The template is a list of atoms, atom lists, tuples and strings. The
+atoms <strong>level</strong> or <strong>msg</strong>, are treated as
+placeholders for the severity level and the log message,
+respectively. Other atoms or atom lists are interpreted as
+placeholders for metadata, where atoms are expected to match
+top level keys, and atom lists represent paths to sub keys when
+the metadata is a nested map. For example the
+list <strong>[key1,key2]</strong> is replaced by the value of
+the <strong>key2</strong> field in the nested map below. The
+atom <strong>key1</strong> on its own is replaced by the complete
+value of the <strong>key1</strong> field. The values are converted to
+strings.</p><pre><code class="">
+#{key1 =&gt; #{key2 =&gt; my_value,
+            ...}
+  ...}</code></pre><p>Tuples in the template express if-exist tests for metadata
+keys. For example, the following tuple says that
+if <strong>key1</strong> exists in the metadata map,
+print <strong>"key1=Value"</strong>, where <strong>Value</strong> is the value
+that <strong>key1</strong> is associated with in the metadata map. If
+<strong>key1</strong> does not exist, print nothing.</p><pre><code class="">
+{key1, ["key1=",key1], []}</code></pre><p>Strings in the template are printed literally.</p><p>The default value for the <strong>template</strong> configuration
+parameter depends on the value of the <strong>single_line</strong>
+and <strong>legacy_header</strong> configuration parameters as
+follows.</p><p>The log event used in the examples is:</p><pre><code class="">
+?LOG_ERROR("name: ~p~nexit_reason: ~p", [my_name, "It crashed"])</code></pre><dl><dt><strong>legacy_header = true, single_line = false</strong></dt><dd> <p>Default
+template: <strong>[[logger_formatter,header],"\n",msg,"\n"]</strong></p> <p>Example log entry:</p> <pre><code class="">
+=ERROR REPORT==== 17-May-2018::18:30:19.453447 ===
+name: my_name
+exit_reason: "It crashed"</code></pre> <p>Notice that all eight levels can occur in the heading,
+not only <strong>ERROR</strong>, <strong>WARNING</strong> or <strong>INFO</strong> as
+<a href="error_logger">error_logger</a>
+produces. And microseconds are added at the end of the
+timestamp.</p> </dd><dt><strong>legacy_header = true, single_line = true</strong></dt><dd> <p>Default
+template: <strong>[[logger_formatter,header],"\n",msg,"\n"]</strong></p> <p>Notice that the template is here the same as
+for <strong>single_line=false</strong>, but the resulting log entry
+differs in that there is only one line after the
+heading:</p> <pre><code class="">
+=ERROR REPORT==== 17-May-2018::18:31:06.952665 ===
+name: my_name, exit_reason: "It crashed"</code></pre> </dd><dt><strong>legacy_header = false, single_line = true</strong></dt><dd> <p>Default template: <strong>[time," ",level,": ",msg,"\n"]</strong></p> <p>Example log entry:</p> <pre><code class="">
+2018-05-17T18:31:31.152864+02:00 error: name: my_name, exit_reason: "It crashed"</code></pre> </dd><dt><strong>legacy_header = false, single_line = false</strong></dt><dd> <p>Default template: <strong>[time," ",level,":\n",msg,"\n"]</strong></p> <p>Example log entry:</p> <pre><code class="">
+2018-05-17T18:32:20.105422+02:00 error:
+name: my_name
+exit_reason: "It crashed"</code></pre> </dd></dl><h1>Functions</h1><h2>check_config/1</h2><p>Validates the given formatter configuration.</p><p>The function is called by Logger when the formatter
+configuration for a handler is set or modified. It
+returns <strong>ok</strong> if the configuration is valid,
+and <strong>{error,term()}</strong> if it is faulty.</p><p>The following Logger API functions can trigger this callback:</p><ul><li><a href="./logger#add_handler-3">logger#add_handler-3</a></li><li><a href="./logger#set_handler_config-2">logger#set_handler_config-2</a></li><li><a href="./logger#update_handler_config-2">logger#update_handler_config-2</a></li><li><a href="./logger#update_formatter_config-2">logger#update_formatter_config-2</a></li></ul><h2>format/2</h2><p>Formats the given message.</p><p>This the formatter callback function to be called from
+handlers. The log event is processed as follows:</p><ul><li>If the message is on report form, it is converted to <strong>{Format,Args}</strong> by calling the report callback. See section <a href="./logger_chapter#log_message">Log Message</a> in the Kernel User's Guide for more information about report callbacks and valid forms of log messages.</li><li>The message size is limited according to the values of configuration parameters <a href="#chars_limit">chars_limit</a> and <a href="#depth">depth</a>.</li><li>The full log entry is composed according to the <a href="#template">template</a>.</li><li>If the final string is too long, it is truncated according to the value of configuration parameter <a href="#max_size">max_size</a>.</li></ul><h2>See Also</h2><p>
+<a href="./calendar">stdlib/calendar</a>,
+<a href="error_logger">error_logger</a>,
+<a href="./io">stdlib/io</a>,
+<a href="./io_lib">stdlib/io_lib</a>,
+<a href="logger">logger</a>,
+<a href="./maps">stdlib/maps</a>,
+<a href="./sasl_app">sasl/sasl_app</a>,
+<a href="./unicode">stdlib/unicode</a>
+</p></body></html>

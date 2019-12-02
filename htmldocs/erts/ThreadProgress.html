@@ -1,0 +1,246 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Thread Progress</h1><a name="Problems"></a><h2>Problems</h2><a name="Problems_Knowing-When-Threads-Have-Completed-Accesses-to-a-Data-Structure"></a><h2>Knowing When Threads Have Completed Accesses to a Data Structure</h2><p>
+When multiple threads access the same data structure you often need to
+know when all threads have completed their accesses. For example, in
+order to know when it is safe to deallocate the data structure. One
+simple way to accomplish this is to reference count all accesses to
+the data structure. The problem with this approach is that the cache
+line where the reference counter is located needs to be communicated
+between all involved processors. Such communication can become
+extremely expensive and will scale poorly if the reference counter is
+frequently accessed. That is, we want to use some other approach of
+keeping track of threads than reference counting.
+</p><a name="Problems_Knowing-That-Modifications-of-Memory-is-Consistently-Observed"></a><h2>Knowing That Modifications of Memory is Consistently Observed</h2><p>
+Different hardware architectures have different memory models. Some
+architectures allows very aggressive reordering of memory accesses
+while other architectures only reorder a few specific cases. Common to
+all modern hardware is, however, that some type of reordering will
+occur. When using locks to protect all memory accesses made from
+multiple threads such reorderings will not be visible. The locking
+primitives will ensure that the memory accesses will be ordered. When
+using lock free algorithms one do however have to take this reordering
+made by the hardware into account.
+</p><p>
+Hardware memory barriers or memory fences are instructions that can be
+used to enforce order between memory accesses. Different hardware
+architectures provide different memory barriers. Lock free algorithms
+need to use memory barriers in order to ensure that memory accesses
+are not reordered in such ways that the algorithm breaks down. Memory
+barriers are also expensive instructions, so you typically want to
+minimize the use of these instructions.
+</p><a name="Functionality-Used-to-Address-These-Problems"></a><h2>Functionality Used to Address These Problems</h2><p>
+The "thread progress" functionality in the Erlang VM is used to
+address these problems. The name "thread progress" was chosen since we
+want to use it to determine when all threads in a set of threads have
+made such progress so that two specific events have taken place for
+all them.
+</p><p>
+The set of threads that we are interested in we call managed
+threads. The managed threads are the only threads that we get any
+information about. These threads <em>have</em> to frequently report
+progress. Not all threads in the system are able to frequently report
+progress. Such threads cannot be allowed in the set of managed threads
+and are called unmanaged threads. An example of unmanaged threads are
+threads in the async thread pool. Async threads can be blocked for
+very long times and by this be prevented from frequently reporting
+progress. Currently only scheduler threads and a couple of other
+threads are managed threads.
+</p><a name="Functionality-Used-to-Address-These-Problems_Thread-Progress-Events"></a><h2>Thread Progress Events</h2><p>
+Any thread in the system may use the thread progress functionality in
+order to determine when the following events have occurred at least
+once in all managed threads:
+</p><ul><li> The thread has returned from other code to a known state in the thread progress functionality, which is independent of any other code.  </li><li> The thread has executed a full memory barrier. </li></ul><p>
+These events, of course, need to occur ordered to other memory
+operations. The operation of determining this begins by initiating the
+thread progress operation. The thread that initiated the thread
+progress operation after this poll for the completion of the
+operation. Both of these events must occur at least once <em>after</em> the
+thread progress operation has been initiated, and at least once
+<em>before</em> the operation has completed in each managed thread. This is
+ordered using communication via memory which makes it possible to draw
+conclusion about the memory state after the thread progress operation
+has completed. Lets call the progress made from initiation to
+comletion for "thread progress".
+</p><p>
+Assuming that the thread progress functionality is efficient, a lot of
+algorithms can both be simplified and made more efficient than using
+the first approach that comes to mind. A couple of examples follows.
+</p><p>
+By being able to determine when the first event above has occurred we
+can easily know when all managed threads have completed accesses to a
+data structure. This can be determined the following way. We have an
+implementation of some functionality <strong>F</strong> using a data structure
+<strong>D</strong>. The reference to <strong>D</strong> is always looked up before <strong>D</strong> is being
+accessed, and the references to <strong>D</strong> is always dropped before we leave
+the code implementing <strong>F</strong>. If we remove the possibility to look up <strong>D</strong>
+and then wait until the first event has occurred in all managed
+threads, no managed threads can have any references to the data
+structure <strong>D</strong>. This could for example have been achieved by using
+reference counting, but the cache line containing the reference
+counter would in this case be ping ponged between all processors
+accessing <strong>D</strong> at every access.
+</p><p>
+By being able to determine when the second event has occurred it is
+quite easy to do complex modifications of memory that needs to be seen
+consistently by other threads without having to resort to locking. By
+doing the modifications, then issuing a full memory barrier, then wait
+until the second event has occurred in all managed threads, and then
+publish the modifications, we know that all managed threads reading
+this memory will get a consistent view of the modifications. Managed
+threads reading this will not have to issue any extra memory barriers
+at all.
+</p><a name="Implementation-of-the-Thread-Progress-Functionality"></a><h2>Implementation of the Thread Progress Functionality</h2><a name="Implementation-of-the-Thread-Progress-Functionality_Requirement-on-the-Implementation"></a><h2>Requirement on the Implementation</h2><p>
+In order to be able to determine when all managed threads have reached
+the states that we are interested in we need to communicate between
+all involved threads. We of course want to minimize this
+communication.
+</p><p>
+We also want threads to be able to determine when thread progress has
+been made relatively fast. That is we need to have some balance
+between comunication overhead and time to complete the operation.
+</p><a name="Implementation-of-the-Thread-Progress-Functionality_API"></a><h2>API</h2><p>
+I will only present the most important functions in the API here.
+</p><ul><li> <strong>ErtsThrPrgrVal erts_thr_progress_later(void)</strong> - Initiation of the operation. The thread progress value returned can be used testing for completion of the operation. </li><li> <strong>int erts_thr_progress_has_reached(ErtsThrPrgrVal val)</strong> - Returns a non zero value when we have reached the thread progress value passed as argument. That is, when a non zero value is returned the operation has completed. </li></ul><p>
+When a thread calls <strong>my_val = erts_thr_progress_later()</strong> and waits for
+<strong>erts_thr_progress_has_reached(my_val)</strong> to return a non zero value it
+knows that thread progress has been made.
+</p><p>
+While waiting for <strong>erts_thr_progress_has_reached()</strong> to return a non
+zero value we typically do not want to block waiting, but instead want
+to continue working with other stuff. If we run out of other stuff to
+work on we typically do want to block waiting until we have reached
+the thread progress value that we are waiting for. In order to be able
+to do this we provide functionality for waking up a thread when a
+certain thread progress value has been reached:
+</p><ul><li> <strong>void erts_thr_progress_wakeup(ErtsSchedulerData *esdp, ErtsThrPrgrVal val)</strong> - Request wake up. The calling thread will be woken when thread progress has reached val.  </li></ul><p>
+Managed threads frequently need to update their thread progress by
+calling the following functions:
+</p><ul><li> <strong>int erts_thr_progress_update(ErtsSchedulerData *esdp)</strong> - Update thread progress. If a non zero value is returned <strong>erts_thr_progress_leader_update()</strong> has to be called without any locks held. </li><li> <strong>int erts_thr_progress_leader_update(ErtsSchedulerData *esdp)</strong> - Leader update thread progress. </li></ul><p>
+Unmanaged threads can delay thread progress being made:
+</p><ul><li> <strong>ErtsThrPrgrDelayHandle erts_thr_progress_unmanaged_delay(void)</strong> - Delay thread progress. </li><li> <strong>void erts_thr_progress_unmanaged_continue(ErtsThrPrgrDelayHandle handle)</strong> - Let thread progress continue. </li></ul><p>
+Scheduler threads can schedule an operation to be executed by the
+scheduler itself when thread progress has been made:
+</p><ul><li> <strong>void erts_schedule_thr_prgr_later_op(void (*funcp)(void *), void *argp, ErtsThrPrgrLaterOp *memp)</strong> - Schedule a call to <strong>funcp</strong>. The call <strong>(*funcp)(argp)</strong> will be executed when thread progress has been made since the call to <strong>erts_schedule_thr_prgr_later_op()</strong> was made. </li></ul><a name="Implementation-of-the-Thread-Progress-Functionality_Implementation"></a><h2>Implementation</h2><p>
+In order to determine when the events has happened we use a global
+counter that is incremented when all managed threads have called
+<strong>erts_thr_progress_update()</strong> (or <strong>erts_thr_progress_leader_update()</strong>).
+This could naively be implemented using a "thread confirmed" counter.
+This would however cause an explosion of communication where all
+involved processors would need to communicate with each other at each
+update.
+</p><p>
+Instead of confirming at a global location each thread confirms that
+it accepts in increment of the global counter in its own cache
+line. These confirmation cache lines are located in sequence in an
+array, and each confirmation cache line will only be written by one
+and only one thread. One of the managed threads always have the leader
+responsibility. This responsibility may jump between threads, but as
+long as there are some activity in the system always one of them will
+have the leader responsibility. The thread with the leader
+responsibility will call <strong>erts_thr_progress_leader_update()</strong> which
+will check that all other threads have confirmed an increment of the
+global counter before doing the increment of the global counter. The
+leader thread is the only thread reading the confirmation cache
+lines.
+</p><p>
+Doing it this way we will get a communication pattern of information
+going from the leader thread out to all other managed threads and then
+back from the other threads to the leader thread. This since only the
+leader thread will write to the global counter and all other threads
+will only read it, and since each confirmation cache lines will only
+be written by one specific thread and only read by the leader
+thread. When each managed thread is distributed over different
+processors, the communication between processors will be a reflection
+of this communication pattern between threads.
+</p><p>
+The value returned from <strong>erts_thr_progress_later()</strong> equals the, by
+this thread, latest confirmed value plus two. The global value may be
+latest confirmed value or latest confirmed value minus one. In order
+to be certain that all other managed threads actually will call
+<strong>erts_thr_progress_update()</strong> at least once before we reach the value
+returned from <strong>erts_thr_progress_later()</strong>, the global counter plus one
+is not enough. This since all other threads may already have confirmed
+current global value plus one at the time when we call
+<strong>erts_thr_progress_later()</strong>. They are however guaranteed not to have
+confirmed global value plus two at this time.
+</p><p>
+The above described implementation more or less minimizes the
+comunication needed before we can increment the global counter. The
+amount of communication in the system due to the thread progress
+functionality however also depend on the frequency with which managed
+threads call <strong>erts_thr_progress_update()</strong>. Today each scheduler thread
+calls <strong>erts_thr_progress_update()</strong> more or less each time an Erlang
+process is scheduled out. One way of further reducing communication
+due to the thread progress functionality is to only call
+<strong>erts_thr_progress_update()</strong> every second, or third time an Erlang
+process is scheduled out, or even less frequently than that. However,
+by doing updates of thread progress less frequently all operations
+depending on the thread progress functionality will also take a longer
+time.
+</p><a name="Implementation-of-the-Thread-Progress-Functionality_Implementation_Delay-of-Thread-Progress-by-Unmanaged-Threads"></a><h2>Delay of Thread Progress by Unmanaged Threads</h2><p>
+In order to implement delay of thread progress from unmanaged threads
+we use two reference counters. One being <strong>current</strong> and one being
+<strong>waiting</strong>. When an unmanaged thread wants to delay thread progress it
+increments <strong>current</strong> and gets a handle back to the reference counter
+it incremented. When it later wants to enable continuation of thread
+progress it uses the handle to decrement the reference counter it
+previously incremented.
+</p><p>
+When the leader threads is about to increment the global thread
+progress counter it verifies that the <strong>waiting</strong> counter is zero before
+doing so. If not zero, the leader isn't allowed to increment the
+global counter, and needs to wait before it can do this. When it is
+zero, it swaps the <strong>waiting</strong> and <strong>current</strong> counters before increasing
+the global counter. From now on the new <strong>waiting</strong> counter will
+decrease, so that it eventually will reach zero, making it possible to
+increment the global counter the next time. If we only used one
+reference counter it would potentially be held above zero for ever by
+different unmanaged threads.
+</p><p>
+When an unmanaged thread increment the <strong>current</strong> counter it will not
+prevent the next increment of the global counter, but instead the
+increment after that. This is sufficient since the global counter
+needs to be incremented two times before thread progress has been
+made. It is also desirable not to prevent the first increment, since
+the likelihood increases that the delay is withdrawn before any
+increment of the global counter is delayed. That is, the operation
+will cause as little disruption as possible.
+</p><p>
+However, this feature of delaying thread progress from unmanaged
+threads should preferably be used as little as possible, since heavy
+use of it will cause contention on the reference counter cache
+lines. The functionality is however very useful in code which normally
+only executes in managed threads, but which may under some infrequent
+circumstances be executed in other threads.
+</p><a name="Implementation-of-the-Thread-Progress-Functionality_Implementation_Overhead"></a><h2>Overhead</h2><p>
+The overhead caused by the thread progress functionality is more or
+less fixed using the same amount of schedulers regardless of the
+number of uses of the functionality. Already today quite a lot of
+functionality use it, and we plan to use it even more. When rewriting
+old implementations of ERTS internal functionality to use the thread
+progress functionality, this implies removing communication in the old
+implementation. Otherwise it is simply no point rewriting the old
+implementation to use the thread progress functionality. Since the
+thread progress overhead is more or less fixed, the rewrite will cause
+a reduction of the total communication in the system.
+</p><a name="Implementation-of-the-Thread-Progress-Functionality_Implementation_Overhead_An-Example"></a><h2>An Example</h2><p>
+The main structure of an ETS table was originally managed using
+reference counting. Already a long time ago we replaced this strategy
+since the reference counter caused contention on each access of the
+table. The solution used was to schedule "confirm deletion" jobs on
+each scheduler in order to know when it was safe to deallocate the
+table structure of a removed table. These confirm deletion jobs needed
+to be allocated. That is, we had to allocate and deallocate as many
+blocks as schedulers in order to deallocate one block. This of course
+was a quite an expensive operation, but we only needed to do this once
+when removing a table. It was more important to get rid of the
+contention on the reference counter which was present on every
+operation on the table.
+</p><p>
+When the thread progress functionality had been introduced, we could
+remove the code implementing the "confirm deletion" jobs, and then
+just schedule a thread progress later operation which deallocates the
+structure. Besides simplifying the code a lot, we got an increase of
+more than 10% of the number of transactions per second handled on a
+mnesia tpcb benchmark executing on a quad core machine.
+</p></body></html>

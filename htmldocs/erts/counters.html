@@ -1,0 +1,39 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>counters</h1><h1>counters</h1><p>Counter Functions</p><p>This module provides a set of functions to do operations towards
+shared mutable counter variables. The implementation does not utilize any
+software level locking, which makes it very efficient for concurrent
+access. The counters are organized into arrays with the following
+semantics:<ul><li> <p>Counters are 64 bit signed integers.</p> </li><li> <p>Counters wrap around at overflow and underflow operations.</p> </li><li><p>Counters are initialized to zero and can then only be written to
+by adding or subtracting.</p> </li><li> <p>Write operations guarantee atomicity. No intermediate results can be
+seen from a single write operation.</p> </li><li> <p>Two types of counter arrays can be created with options <strong>atomics</strong> or
+<strong>write_concurrency</strong>. The <strong>atomics</strong> counters have good allround
+performance with nice consistent semantics while
+<strong>write_concurrency</strong> counters offers even better concurrent
+write performance at the expense of some potential read
+inconsistencies. See <a href="#new/2">new/2</a>.</p> </li><li> <p>Indexes into counter arrays are one-based. A counter array of
+size N contains N counters with index from 1 to N.</p> </li></ul></p><h1>Data Types</h1><span class="name">counters_ref</span><p>Identifies a counter array returned from
+<a href="#new/2">new/2</a>.</p><h1>Functions</h1><h2>new/2</h2><p>Create counter array</p><p>Create a new counter array of <strong><span class="anno">Size</span></strong> counters.</p><p>Argument <strong><span class="anno">Opts</span></strong> is a list of the following possible
+options:</p><dl><dt><strong>atomics</strong> (Default)</dt><dd><p>Counters will be sequentially consistent. If write
+operation A is done sequentially before write operation B, then a concurrent reader
+may see none of them, only A, or both A and B. It cannot see only B.</p> </dd><dt><strong>write_concurrency</strong></dt><dd><p>This is an optimization to achieve very efficient concurrent
+<a href="#add/3">add/3</a> and <a href="#sub/3">sub/3</a> operations at the expense of potential read
+inconsistency and memory consumption per counter.</p> <p>Read operations may see sequentially inconsistent results with
+regard to concurrent write operations. Even if write operation A is done
+sequentially before write operation B, a concurrent reader may see any
+combination of A and B, including only B. A read operation is only
+guaranteed to see all writes done sequentially before the read. No writes
+are ever lost, but will eventually all be seen.</p> <p>The typical use case for <strong>write_concurrency</strong> is when
+concurrent calls to <a href="#add/3">add/3</a> and
+<a href="#sub/3">sub/3</a> toward the same counters
+are very frequent, while calls to <a href="#get/2">get/2</a> and <a href="#put/3">put/3</a> are much
+less frequent. The lack of absolute read consistency must also be
+acceptable.</p> </dd></dl><p>Counters are not tied to the current process and are automatically
+garbage collected when they are no longer referenced.</p><h2>get/2</h2><p>Read counter value</p><p>Read counter value.</p><h2>add/3</h2><p>Add to counter</p><p>Add <strong><span class="anno">Incr</span></strong> to counter at index
+<strong><span class="anno">Ix</span></strong>.</p><h2>sub/3</h2><p>Subtract from counter</p><p>Subtract <strong><span class="anno">Decr</span></strong> from counter at index
+<strong><span class="anno">Ix</span></strong>.</p><h2>put/3</h2><p>Set counter to value</p><p>Write <strong><span class="anno">Value</span></strong> to counter at index
+<strong><span class="anno">Ix</span></strong>.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Despite its name, the <strong>write_concurrency</strong> optimization does not
+improve <strong>put</strong>. A call to <strong>put</strong> is a relatively heavy
+operation compared to the very lightweight and scalable <a href="#add/3">add/3</a> and <a href="#sub/3">sub/3</a>. The cost for a <strong>put</strong> with
+<strong>write_concurrency</strong> is like a <a href="#get/2">get/2</a> plus a <strong>put</strong> without <strong>write_concurrency</strong>.</p></div><h2>info/1</h2><p>Get information about counter array.</p><p>Return information about a counter array in a map. The map
+has the following keys (at least):</p><dl><dt><strong>size</strong></dt><dd><p>The number of counters in the array.</p></dd><dt><strong>memory</strong></dt><dd><p>Approximate memory consumption for the array in
+bytes.</p></dd></dl></body></html>

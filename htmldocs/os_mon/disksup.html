@@ -1,0 +1,39 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>disksup</h1><h1>disksup</h1><p>A Disk Supervisor Process</p><p><strong>disksup</strong> is a process which supervises the available disk
+space in the system. It is part of the OS_Mon application, see
+<a href="os_mon_app">os_mon(6)</a>. Available for Unix
+and Windows.Periodically checks the disks. For each disk or partition which
+uses more than a certain amount of the available space, the alarm
+<strong>{{disk_almost_full, MountedOn}, []}</strong> is set.<dl><dt>On Unix</dt><dd> <p>All (locally) mounted disks are checked, including the swap
+disk if it is present.</p> </dd><dt>On WIN32</dt><dd> <p>All logical drives of type "FIXED_DISK" are checked.</p> </dd></dl>Alarms are reported to the SASL alarm handler, see
+<a href="./alarm_handler">alarm_handler(3)</a>.
+To set an alarm, <strong>alarm_handler:set_alarm(Alarm)</strong> is called
+where <strong>Alarm</strong> is the alarm specified above.The alarms are cleared automatically when the alarm cause is no
+longer valid.</p><a name="config"></a><h2>Configuration</h2><p>The following configuration parameters can be used to change
+the default values for time interval and threshold:</p><dl><dt><strong>disk_space_check_interval = int()&gt;0</strong></dt><dd> <p>The time interval, in minutes, for the periodic disk space
+check. The default is 30 minutes.</p> </dd><dt><strong>disk_almost_full_threshold = float()</strong></dt><dd> <p>The threshold, as percentage of total disk space, for how
+much disk can be utilized before the <strong>disk_almost_full</strong>
+alarm is set. The default is 0.80 (80%).</p> </dd><dt><strong>disksup_posix_only = bool()</strong></dt><dd> <p>Specifies whether the <strong>disksup</strong> helper process should only
+use POSIX conformant commands (<strong>true</strong>) or not. The default is
+<strong>false</strong>. Setting this parameter to <strong>true</strong> can be
+necessary on embedded systems with stripped-down versions
+of Unix tools like <strong>df</strong>. The returned disk data and alarms
+can be different when using this option.</p> <p>The parameter is ignored on platforms that are known to not be
+posix compatible (Windows and SunOS).</p> </dd></dl><p>See <a href="./config">config(4)</a> for
+information about how to change the value of configuration
+parameters.</p><h1>Functions</h1><h2>get_disk_data() -&gt; [DiskData]</h2><p>Get data for the disks in the system</p><ul><li><span class="v">DiskData = {Id, KByte, Capacity}</span></li><li><span class="v">Â Id = string()</span></li><li><span class="v">Â KByte = int()</span></li><li><span class="v">Â Capacity = int()</span></li></ul><p>Returns the result of the latest disk check. <strong>Id</strong> is a
+string that identifies the disk or partition. <strong>KByte</strong> is
+the total size of the disk or partition in kbytes.
+<strong>Capacity</strong> is the percentage of disk space used.</p><p>The function is asynchronous in the sense that it does not
+invoke a disk check, but returns the latest available value.</p><p>Returns <strong>[{"none",0,0}]</strong> if <strong>disksup</strong> is not
+available.</p><h2>get_check_interval() -&gt; MS</h2><p>Get time interval, in milliseconds, for the periodic disk space check</p><ul><li><span class="v">MS = int()</span></li></ul><p>Returns the time interval, in milliseconds, for the periodic
+disk space check.</p><h2>set_check_interval(Minutes) -&gt; ok</h2><p>Set time interval, in minutes, for the periodic disk space check</p><ul><li><span class="v">Minutes = int()&gt;=1</span></li></ul><p>Changes the time interval, given in minutes, for the periodic
+disk space check.</p><p>The change will take effect after the next disk space check
+and is non-persist. That is, in case of a process restart,
+this value is forgotten and the default value will be used.
+See <a href="#config">Configuration</a> above.</p><h2>get_almost_full_threshold() -&gt; Percent</h2><p>Get threshold, in percent, for disk space utilization</p><ul><li><span class="v">Percent = int()</span></li></ul><p>Returns the threshold, in percent, for disk space utilization.</p><h2>set_almost_full_threshold(Float) -&gt; ok</h2><p>Set threshold, as percentage represented by a float, for disk space utilization</p><ul><li><span class="v">Float = float(), 0=&lt;Float=&lt;1</span></li></ul><p>Changes the threshold, given as a float, for disk space
+utilization.</p><p>The change will take effect during the next disk space check
+and is non-persist. That is, in case of a process restart,
+this value is forgotten and the default value will be used.
+See <a href="#config">Configuration</a> above.</p><h2>See Also</h2><p><a href="./alarm_handler">alarm_handler(3)</a>,
+<a href="os_mon_app">os_mon(3)</a></p></body></html>

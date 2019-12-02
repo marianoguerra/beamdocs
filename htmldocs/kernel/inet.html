@@ -1,0 +1,716 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>inet</h1><h1>inet</h1><p>Access to TCP/IP protocols.</p><p>This module provides access to TCP/IP protocols.See also
+<a href="./inet_cfg">ERTS User's Guide: Inet Configuration</a> for more information about how to
+configure an Erlang runtime system for IP communication.The following two Kernel configuration parameters affect the
+behavior of all sockets opened on an Erlang node:<ul><li><p><strong>inet_default_connect_options</strong> can contain a list of
+default options used for all sockets returned when doing
+<strong>connect</strong>.</p></li><li><p><strong>inet_default_listen_options</strong> can contain a list of
+default options used when issuing a <strong>listen</strong> call.</p></li></ul>When <strong>accept</strong> is issued, the values of the listening socket options
+are inherited. No such application variable is therefore needed for
+<strong>accept</strong>.Using the Kernel configuration parameters above, one
+can set default options for all TCP sockets on a node, but use this
+with care. Options such as <strong>{delay_send,true}</strong> can be
+specified in this way. The following is an example of starting an Erlang
+node with all sockets using delayed send:<pre>
+$ <span class="input">erl -sname test -kernel \</span>
+<span class="input">inet_default_connect_options '[{delay_send,true}]' \</span>
+<span class="input">inet_default_listen_options '[{delay_send,true}]'</span></pre>Notice that default option <strong>{active, true}</strong>
+cannot be changed, for internal reasons.Addresses as inputs to functions can be either a string or a
+tuple. For example, the IP address 150.236.20.73 can be passed to
+<strong>gethostbyaddr/1</strong>, either as string <strong>"150.236.20.73"</strong>
+or as tuple <strong>{150, 236, 20, 73}</strong>.<em>IPv4 address examples:</em><pre><code class="">
+Address          ip_address()
+-------          ------------
+127.0.0.1        {127,0,0,1}
+192.168.42.2     {192,168,42,2}</code></pre><em>IPv6 address examples:</em><pre><code class="">
+Address          ip_address()
+-------          ------------
+::1             {0,0,0,0,0,0,0,1}
+::192.168.42.2  {0,0,0,0,0,0,(192 bsl 8) bor 168,(42 bsl 8) bor 2}
+::FFFF:192.168.42.2
+                {0,0,0,0,0,16#FFFF,(192 bsl 8) bor 168,(42 bsl 8) bor 2}
+3ffe:b80:1f8d:2:204:acff:fe17:bf38
+                {16#3ffe,16#b80,16#1f8d,16#2,16#204,16#acff,16#fe17,16#bf38}
+fe80::204:acff:fe17:bf38
+                {16#fe80,0,0,0,0,16#204,16#acff,16#fe17,16#bf38}</code></pre>Function
+<a href="#parse_address/1">parse_address/1</a>
+can be useful:<pre>
+1&gt; <span class="input">inet:parse_address("192.168.42.2").</span>
+{ok,{192,168,42,2}}
+2&gt; <span class="input">inet:parse_address("::FFFF:192.168.42.2").</span>
+{ok,{0,0,0,0,0,65535,49320,10754}}</pre></p><h1>Data Types</h1><span class="name">hostent</span><p>The record is defined in the Kernel include file
+<strong>"inet.hrl"</strong>.</p><p>Add the following directive to the module:</p><pre><code class="">
+-include_lib("kernel/include/inet.hrl").</code></pre><span class="name">hostname</span><span class="name">ip_address</span><span class="name">ip4_address</span><span class="name">ip6_address</span><span class="name">port_number</span><span class="name">local_address</span><p>
+This address family only works on Unix-like systems.
+</p><p>
+<strong><span class="anno">File</span></strong> is normally a file pathname
+in a local filesystem.  It is limited in length by the
+operating system, traditionally to 108 bytes.
+</p><p>
+A <strong>binary()</strong> is passed as is to the operating system,
+but a <strong>string()</strong> is encoded according to the
+<a href="./file#native_name_encoding/0"> system filename encoding mode. </a>
+</p><p>
+Other addresses are possible, for example Linux implements
+"Abstract Addresses".  See the documentation for
+Unix Domain Sockets on your system,
+normally <strong>unix</strong> in manual section 7.
+</p><p>
+In most API functions where you can use
+this address family the port number must be <strong>0</strong>.
+</p><span class="name">socket_address</span><span class="name">socket_getopt</span><span class="name">socket_setopt</span><span class="name">returned_non_ip_address</span><p>
+Addresses besides
+<a href="#type-ip_address">type-ip_address</a>
+ones that are returned from socket API functions.
+See in particular
+<a href="#type-local_address"> . </a>
+The <strong>unspec</strong> family corresponds to AF_UNSPEC and can
+occur if the other side has no socket address.
+The <strong>undefined</strong> family can only occur in the unlikely
+event of an address family that the VM does not recognize.
+</p><span class="name">ancillary_data</span><p>
+Ancillary data received with the data packet
+or read with the socket option
+<a href="./gen_tcp#type-pktoptions_value">gen_tcp#type-pktoptions_value</a>
+from a TCP socket.
+</p><p>
+The value(s) correspond to the currently active socket
+<a href="#type-socket_setopt">options</a>
+<a href="./inet#option-recvtos">inet#option-recvtos</a>,
+<a href="./inet#option-recvtclass">inet#option-recvtclass</a>
+and
+<a href="./inet#option-recvttl">inet#option-recvttl</a>.
+</p><span class="name">getifaddrs_ifopts</span><p>
+Interface address description list returned from
+<a href="#getifaddrs/0">getifaddrs/0</a>
+for a named interface, translated from the returned
+data of the POSIX API function <strong>getaddrinfo()</strong>.
+</p><p>
+<strong><span class="anno">Hwaddr</span></strong> is hardware dependent,
+for example, on Ethernet interfaces it is
+the 6-byte Ethernet address (MAC address (EUI-48 address)).
+</p><p>
+The tuples <strong>{addr,<span class="anno">Addr</span>}</strong>,
+<strong>{netmask,<span class="anno">Netmask</span>}</strong>, and possibly
+<strong>{broadaddr,<span class="anno">Broadaddr</span>}</strong> or
+<strong>{dstaddr,<span class="anno">Dstaddr</span>}</strong>
+are repeated in the list
+if the interface has got multiple addresses.
+An interface may have multiple <strong>{flag,_}</strong> tuples
+for example if it has different flags
+for different address families.
+Multiple <strong>{hwaddr,<span class="anno">Hwaddr</span>}</strong> tuples
+is hard to say anything definite about, though.
+The tuple <strong>{flag,<span class="anno">Flags</span>}</strong> is mandatory,
+all others are optional.
+</p><p>
+Do not rely too much on the order
+of <strong><span class="anno">Flags</span></strong> atoms
+or the <strong><span class="anno">Ifopt</span></strong> tuples.
+There are however some rules:
+</p><ul><li><p>
+A <strong>{flag,_}</strong> tuple applies to all other tuples that follow.
+</p></li><li><p>
+Immediately after <strong>{addr,_}</strong> follows <strong>{netmask,_}</strong>.
+</p></li><li><p>
+Immediately thereafter may <strong>{broadaddr,_}</strong> follow
+if <strong>broadcast</strong> is member of <strong><span class="anno">Flags</span></strong>,
+or <strong>{dstaddr,_}</strong> if <strong>pointtopoint</strong>
+is member of <strong><span class="anno">Flags</span></strong>.
+Both <strong>{dstaddr,_}</strong> and <strong>{broadaddr,_}</strong>
+does not occur for the same <strong>{addr,_}</strong>.
+</p></li><li><p>
+Any <strong>{netmask,_}</strong>, <strong>{broadaddr,_}</strong>, or
+<strong>{dstaddr,_}</strong> tuples that follow an
+<strong>{addr,<span class="anno">Addr</span>}</strong>
+tuple concerns the address <strong><span class="anno">Addr</span></strong>.
+</p></li></ul><p>
+The tuple <strong>{hwaddr,_}</strong> is not returned on Solaris, as the
+hardware address historically belongs to the link layer
+and it is not returned by the Solaris API function
+<strong>getaddrinfo()</strong>.
+</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>
+On Windows, the data is fetched from different
+OS API functions, so the <strong><span class="anno">Netmask</span></strong>
+and <strong><span class="anno">Broadaddr</span></strong> values may be calculated,
+just as some <strong><span class="anno">Flags</span></strong> values.
+</p></div><span class="name">posix</span><p>An atom that is named from the POSIX error codes used in Unix,
+and in the runtime libraries of most C compilers. See section
+<a href="#error_codes">POSIX Error Codes</a>.</p><span class="name">socket()</span><p>See
+<a href="./gen_tcp#type-socket">gen_tcp#type-socket</a>
+and
+<a href="./gen_udp#type-socket">gen_udp#type-socket</a>.
+</p><span class="name">address_family</span><span class="name">socket_protocol</span><span class="name">stat_option</span><h1>Functions</h1><h2>close/1</h2><p>Close a socket of any type.</p><p>Closes a socket of any type.</p><h2>format_error/1</h2><p>Return a descriptive string for an error reason.</p><p>Returns a diagnostic error string. For possible POSIX values and
+corresponding strings, see section
+<a href="#error_codes">POSIX Error Codes</a>.</p><h2>get_rc/0</h2><p>Return a list of IP configuration parameters.</p><p>
+Returns the state of the <strong>Inet</strong> configuration database in
+form of a list of recorded configuration parameters. For more
+information, see <a href="./inet_cfg">ERTS User's Guide: Inet Configuration</a>.
+</p><p>
+Only actual parameters with other than default values
+are returned, for example not directives that specify
+other sources for configuration parameters nor
+directives that clear parameters.
+</p><h2>getaddr/2</h2><p>Return the IP address for a host.</p><p>Returns the IP address for <strong><span class="anno">Host</span></strong> as a tuple of
+integers. <strong><span class="anno">Host</span></strong> can be an IP address, a single
+hostname, or a fully qualified hostname.</p><h2>getaddrs/2</h2><p>Return the IP addresses for a host.</p><p>Returns a list of all IP addresses for <strong><span class="anno">Host</span></strong>.
+<strong><span class="anno">Host</span></strong> can be an IP address, a single hostname, or
+a fully qualified hostname.</p><h2>gethostbyaddr/1</h2><p>Return a hostent record for the host with the specified address.</p><p>Returns a <strong>hostent</strong> record for the host with the specified
+address.</p><h2>gethostbyname/1</h2><p>Return a hostent record for the host with the specified name. </p><p>Returns a <strong>hostent</strong> record for the host with the specified
+hostname.</p><p>If resolver option <strong>inet6</strong> is <strong>true</strong>,
+an IPv6 address is looked up.</p><h2>gethostbyname/2</h2><p>Return a hostent record for the host with the specified name. </p><p>Returns a <strong>hostent</strong> record for the host with the specified
+name, restricted to the specified address family.</p><h2>gethostname/0</h2><p>Return the local hostname.</p><p>Returns the local hostname. Never fails.</p><h2>getifaddrs/0</h2><p>Return a list of interfaces and their addresses.</p><p>
+Returns a list of 2-tuples containing interface names and
+the interfaces' addresses. <strong><span class="anno">Ifname</span></strong>
+is a Unicode string and
+<strong><span class="anno">Ifopts</span></strong> is a list of
+interface address description tuples.
+</p><p>
+The interface address description tuples
+are documented under the type of the
+<a href="#type-getifaddrs_ifopts">type-getifaddrs_ifopts</a>
+value.
+</p><h2>getifaddrs(Opts) -&gt;
+        {ok, [{Ifname, Ifopts}]} | {error, Posix}
+</h2><p>Return a list of interfaces and their addresses.</p><ul><li><span class="v"> Opts = [{netns, Namespace}] </span></li><li><span class="v"> Namespace =  </span></li><li><span class="v">Ifname = string()</span></li><li><span class="v"> Ifopts =  </span></li><li><span class="v">Posix = </span></li></ul><p>
+The same as
+<a href="#getifaddrs/0">getifaddrs/0</a>
+but the <strong>Option</strong>
+<strong>{netns, Namespace}</strong> sets a network namespace
+for the OS call, on platforms that supports that feature.
+</p><p>
+See the socket option
+<a href="#option-netns">option-netns</a>
+under
+<a href="#setopts/2">setopts/2</a>.
+</p><h2>getopts/2</h2><p>Get one or more options for a socket.</p><p>Gets one or more options for a socket. For a list of available
+options, see
+<a href="#setopts/2">setopts/2</a>.
+See also the description for the type
+<a href="./gen_tcp#type-pktoptions_value">gen_tcp#type-pktoptions_value</a>.</p><p>The number of elements in the returned
+<strong><span class="anno">OptionValues</span></strong>
+list does not necessarily correspond to the number of options
+asked for. If the operating system fails to support an option,
+it is left out in the returned list. An error tuple is returned
+only when getting options for the socket is impossible (that is,
+the socket is closed or the buffer size in a raw request
+is too large). This behavior is kept for backward
+compatibility reasons.</p><p>A raw option request
+<strong>RawOptReq = {raw, Protocol, OptionNum, ValueSpec}</strong>
+can be used to get information about
+socket options not (explicitly) supported by the emulator. The
+use of raw socket options makes the code non-portable, but
+allows the Erlang programmer to take advantage of unusual features
+present on a particular platform.</p><p><strong>RawOptReq</strong> consists of tag <strong>raw</strong> followed
+by the protocol level, the option number, and either a binary
+or the size, in bytes, of the
+buffer in which the option value is to be stored. A binary is to be
+used when the underlying <strong>getsockopt</strong> requires <em>input</em>
+in the argument field. In this case, the binary size
+is to correspond to the required buffer
+size of the return value. The supplied values in a <strong>RawOptReq</strong>
+correspond to the second, third, and fourth/fifth parameters to the
+<strong>getsockopt</strong> call in the C socket API. The value stored
+in the buffer is returned as a binary <strong>ValueBin</strong>,
+where all values are coded in the native endianess.</p><p>Asking for and inspecting raw socket options require low-level
+information about the current operating system and TCP stack.</p><p><em>Example:</em></p><p>Consider a Linux machine where option
+<strong>TCP_INFO</strong> can be used to collect TCP statistics
+for a socket. Assume you are interested in field
+<strong>tcpi_sacked</strong> of <strong>struct tcp_info</strong>
+filled in when asking for <strong>TCP_INFO</strong>. To be able to access
+this information, you need to know the following:</p><ul><li>The numeric value of protocol level <strong>IPPROTO_TCP</strong></li><li>The numeric value of option <strong>TCP_INFO</strong></li><li>The size of <strong>struct tcp_info</strong></li><li>The size and offset of the specific field</li></ul><p>By inspecting the headers or writing a small C program, it is found
+that <strong>IPPROTO_TCP</strong> is 6, <strong>TCP_INFO</strong> is 11, the structure
+size is 92 (bytes), the offset of <strong>tcpi_sacked</strong> is 28 bytes,
+and the value is a 32-bit integer. The following code can be used
+to retrieve the value:</p><pre><code class="">
+get_tcpi_sacked(Sock) -&gt;
+    {ok,[{raw,_,_,Info}]} = inet:getopts(Sock,[{raw,6,11,92}]),
+    &lt;&lt;_:28/binary,TcpiSacked:32/native,_/binary&gt;&gt; = Info,
+    TcpiSacked.</code></pre><p>Preferably, you would check the machine type, the operating system,
+and the Kernel version before executing anything similar to
+this code.</p><h2>getstat/1</h2><h2>getstat/2</h2><p>Get one or more statistic options for a socket.</p><ul><li>stat_option</li></ul><p>Gets one or more statistic options for a socket.</p><p><strong>getstat(<span class="anno">Socket</span>)</strong> is equivalent to
+<strong>getstat(<span class="anno">Socket</span>, [recv_avg, recv_cnt, recv_dvi, recv_max, recv_oct, send_avg, send_cnt, send_dvi, send_max, send_oct])</strong>.</p><p>The following options are available:</p><dl><dt><strong>recv_avg</strong></dt><dd> <p>Average size of packets, in bytes, received by the socket.</p> </dd><dt><strong>recv_cnt</strong></dt><dd> <p>Number of packets received by the socket.</p> </dd><dt><strong>recv_dvi</strong></dt><dd> <p>Average packet size deviation, in bytes, received by the socket.</p> </dd><dt><strong>recv_max</strong></dt><dd> <p>Size of the largest packet, in bytes, received by the socket.</p> </dd><dt><strong>recv_oct</strong></dt><dd> <p>Number of bytes received by the socket.</p> </dd><dt><strong>send_avg</strong></dt><dd> <p>Average size of packets, in bytes, sent from the socket.</p> </dd><dt><strong>send_cnt</strong></dt><dd> <p>Number of packets sent from the socket.</p> </dd><dt><strong>send_dvi</strong></dt><dd> <p>Average packet size deviation, in bytes, sent from the socket.</p> </dd><dt><strong>send_max</strong></dt><dd> <p>Size of the largest packet, in bytes, sent from the socket.</p> </dd><dt><strong>send_oct</strong></dt><dd> <p>Number of bytes sent from the socket.</p> </dd></dl><h2>i/0</h2><h2>i/1</h2><h2>i/2</h2><p>Displays information and statistics about sockets on the terminal</p><p>
+Lists all TCP, UDP and SCTP sockets, including those that the Erlang runtime system uses as well as
+those created by the application.
+</p><p>
+The following options are available:
+</p><dl><dt><strong>port</strong></dt><dd> <p>The internal index of the port.</p> </dd><dt><strong>module</strong></dt><dd> <p>The callback module of the socket.</p> </dd><dt><strong>recv</strong></dt><dd> <p>Number of bytes received by the socket.</p> </dd><dt><strong>sent</strong></dt><dd> <p>Number of bytes sent from the socket.</p> </dd><dt><strong>owner</strong></dt><dd> <p>The socket owner process.</p> </dd><dt><strong>local_address</strong></dt><dd> <p>The local address of the socket.</p> </dd><dt><strong>foreign_address</strong></dt><dd> <p>The address and port of the other end of the connection.</p> </dd><dt><strong>state</strong></dt><dd> <p>The connection state.</p> </dd><dt><strong>type</strong></dt><dd> <p>STREAM or DGRAM or SEQPACKET.</p> </dd></dl><h2>ntoa/1</h2><p>Convert IPv6/IPV4 address to ASCII.</p><p>Parses an
+<a href="#type-ip_address">type-ip_address</a>
+and returns an IPv4 or IPv6 address string.</p><h2>parse_address/1</h2><p>Parse an IPv4 or IPv6 address.</p><p>Parses an IPv4 or IPv6 address string and returns an
+<a href="#type-ip4_address">type-ip4_address</a> or
+<a href="#type-ip6_address">type-ip6_address</a>.
+Accepts a shortened IPv4 address string.</p><h2>parse_ipv4_address/1</h2><p>Parse an IPv4 address.</p><p>Parses an IPv4 address string and returns an
+<a href="#type-ip4_address">type-ip4_address</a>.
+Accepts a shortened IPv4 address string.</p><h2>parse_ipv4strict_address/1</h2><p>Parse an IPv4 address strict.</p><p>Parses an IPv4 address string containing four fields, that is,
+<em>not</em> shortened, and returns an
+<a href="#type-ip4_address">type-ip4_address</a>.
+</p><h2>parse_ipv6_address/1</h2><p>Parse an IPv6 address.</p><p>Parses an IPv6 address string and returns an
+<a href="#type-ip6_address">type-ip6_address</a>.
+If an IPv4 address string is specified, an IPv4-mapped IPv6 address
+is returned.</p><h2>parse_ipv6strict_address/1</h2><p>Parse an IPv6 address strict.</p><p>Parses an IPv6 address string and returns an
+<a href="#type-ip6_address">type-ip6_address</a>.
+Does <em>not</em> accept IPv4 addresses.</p><h2>ipv4_mapped_ipv6_address/1</h2><p>Convert to and from IPv4-mapped IPv6 address.</p><p>
+Convert an IPv4 address to an IPv4-mapped IPv6 address
+or the reverse.  When converting from an IPv6 address
+all but the 2 low words are ignored so this function also
+works on some other types of addresses than IPv4-mapped.
+</p><h2>parse_strict_address/1</h2><p>Parse an IPv4 or IPv6 address strict.</p><p>Parses an IPv4 or IPv6 address string and returns an
+<a href="#type-ip4_address">type-ip4_address</a> or
+<a href="#type-ip6_address">type-ip6_address</a>.
+Does <em>not</em> accept a shortened IPv4 address string.</p><h2>peername/1</h2><p>Return the address and port for the other end of a connection. </p><p>Returns the address and port for the other end of a connection.</p><p>Notice that for SCTP sockets, this function returns only
+one of the peer addresses of the socket. Function
+<a href="#peernames/1">peernames/1</a>
+returns all.</p><h2>peernames/1</h2><p>Return all address/port numbers for the other end of a connection.</p><p>Equivalent to
+<a href="#peernames/2">peernames/2</a>.
+</p><p>Notice that the behavior of this function for an SCTP
+one-to-many style socket is not defined by the
+<a href="http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13">SCTP Sockets API Extensions</a>.</p><h2>peernames/2</h2><p>Return all address/port numbers for the other end of a connection.</p><p>Returns a list of all address/port number pairs for the other end
+of an association <strong><span class="anno">Assoc</span></strong> of a socket.</p><p>This function can return multiple addresses for multihomed
+sockets, such as SCTP sockets. For other sockets it
+returns a one-element list.</p><p>Notice that parameter <strong><span class="anno">Assoc</span></strong> is by the
+<a href="http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13">SCTP Sockets API Extensions</a>
+defined to be ignored for
+one-to-one style sockets. What the special value <strong>0</strong>
+means, hence its behavior for one-to-many style sockets,
+is unfortunately undefined.</p><h2>port/1</h2><p>Return the local port number for a socket.</p><p>Returns the local port number for a socket.</p><h2>setopts/2</h2><p>Set one or more options for a socket.</p><p>Sets one or more options for a socket.</p><p>The following options are available:</p><dl><dt><strong>{active, true | false | once | N}</strong></dt><dd> <p>If the value is <strong>true</strong>, which is the default,
+everything received from the socket is sent as
+messages to the receiving process.</p> <p>If the value is <strong>false</strong> (passive mode), the process must
+explicitly receive incoming data by calling
+<a href="./gen_tcp#recv/2">gen_tcp#recv/2</a>,
+<a href="./gen_udp#recv/2">gen_udp#recv/2</a>,
+or <a href="./gen_sctp#recv/1">gen_sctp#recv/1</a>
+(depending on the type of socket).</p> <p>If the value is <strong>once</strong> (<strong>{active, once}</strong>),
+<em>one</em> data message from the socket is sent
+to the process. To receive one more message,
+<strong>setopts/2</strong> must be called again with option
+<strong>{active, once}</strong>.</p> <p>If the value is an integer <strong>N</strong> in the range -32768 to 32767
+(inclusive), the value is added to the socket's count of data
+messages sent to the controlling process. A socket's default
+message count is <strong>0</strong>. If a negative value is specified, and
+its magnitude is equal to or greater than the socket's current
+message count, the socket's message count is set to <strong>0</strong>.
+Once the socket's message count reaches <strong>0</strong>, either because
+of sending
+received data messages to the process or by being explicitly set,
+the process is then notified by a special message, specific to
+the type of socket, that the socket has entered passive
+mode. Once the socket enters passive mode, to receive more
+messages <strong>setopts/2</strong> must be called again to set the
+socket back into an active mode.</p> <p>When using <strong>{active, once}</strong> or <strong>{active, N}</strong>, the
+socket changes behavior automatically when data is received.
+This can be confusing in combination with connection-oriented
+sockets (that is, <strong>gen_tcp</strong>), as a socket
+with <strong>{active, false}</strong> behavior reports closing
+differently than a socket with <strong>{active, true}</strong>
+behavior. To simplify programming, a socket where
+the peer closed, and this is detected while in
+<strong>{active, false}</strong> mode, still generates message
+<strong>{tcp_closed,Socket}</strong> when set to <strong>{active, once}</strong>,
+<strong>{active, true}</strong>, or <strong>{active, N}</strong> mode.
+It is therefore safe to assume that message
+<strong>{tcp_closed,Socket}</strong>, possibly followed by socket port
+termination (depending on option <strong>exit_on_close</strong>)
+eventually appears when a socket changes
+back and forth between <strong>{active, true}</strong> and
+<strong>{active, false}</strong> mode. However,
+<em>when</em> peer closing is detected it is all up to the
+underlying TCP/IP stack and protocol.</p> <p>Notice that <strong>{active, true}</strong> mode provides no flow
+control; a fast sender can easily overflow the
+receiver with incoming messages. The same is true for
+<strong>{active, N}</strong> mode, while the message count is greater
+than zero.</p> <p>Use active mode only if
+your high-level protocol provides its own flow control
+(for example, acknowledging received messages) or the
+amount of data exchanged is small. <strong>{active, false}</strong>
+mode, use of the <strong>{active, once}</strong> mode, or <strong>{active, N}</strong>
+mode with values of <strong>N</strong> appropriate for the application
+provides flow control. The other side cannot send
+faster than the receiver can read.</p> </dd><dt><strong>{broadcast, Boolean}</strong> (UDP sockets)</dt><dd> <p>Enables/disables permission to send broadcasts.</p> <a name="option-buffer"></a> </dd><dt><strong>{buffer, Size}</strong></dt><dd> <p>The size of the user-level buffer used by
+the driver. Not to be confused with options <strong>sndbuf</strong>
+and <strong>recbuf</strong>, which correspond to the
+Kernel socket buffers. For TCP it is recommended
+to have <strong>val(buffer) &gt;= val(recbuf)</strong> to
+avoid performance issues because of unnecessary copying.
+For UDP the same recommendation applies, but the max should
+not be larger than the MTU of the network path.
+<strong>val(buffer)</strong> is automatically set to the above
+maximum when <strong>recbuf</strong> is set.
+However, as the size set for <strong>recbuf</strong>
+usually become larger, you are encouraged to use
+<a href="#getopts/2">getopts/2</a>
+to analyze the behavior of your operating system.</p> <p>Note that this is also the maximum amount of data that can be
+received from a single recv call. If you are using higher than
+normal MTU consider setting buffer higher.</p> </dd><dt><strong>{delay_send, Boolean}</strong></dt><dd> <p>Normally, when an Erlang process sends to a socket,
+the driver tries to send the data immediately. If that
+fails, the driver uses any means available to queue
+up the message to be sent whenever the operating system
+says it can handle it. Setting <strong>{delay_send, true}</strong>
+makes <em>all</em> messages queue up. The messages sent
+to the network are then larger but fewer.
+The option affects the scheduling of send
+requests versus Erlang processes instead of changing any
+real property of the socket. The option is
+implementation-specific. Defaults to <strong>false</strong>.</p> </dd><dt><strong>{deliver, port | term}</strong></dt><dd> <p>When <strong>{active, true}</strong>, data is delivered on the form
+<strong>port</strong> : <strong>{S, {data, [H1,..Hsz | Data]}}</strong> or
+<strong>term</strong> : <strong>{tcp, S, [H1..Hsz | Data]}</strong>.</p> </dd><dt><strong>{dontroute, Boolean}</strong></dt><dd> <p>Enables/disables routing bypass for outgoing messages.</p> </dd><dt><strong>{exit_on_close, Boolean}</strong></dt><dd> <p>This option is set to <strong>true</strong> by default.</p> <p>The only reason to set it to <strong>false</strong> is if you want
+to continue sending data to the socket after a close is
+detected, for example, if the peer uses
+<a href="./gen_tcp#shutdown/2">gen_tcp#shutdown/2</a>
+to shut down the write side.</p> </dd><dt><strong>{header, Size}</strong></dt><dd> <p>This option is only meaningful if option <strong>binary</strong>
+was specified when the socket was created. If option
+<strong>header</strong> is specified, the first
+<strong>Size</strong> number bytes of data received from the socket
+are elements of a list, and the remaining data is
+a binary specified as the tail of the same list. For example,
+if <strong>Size == 2</strong>, the data received matches
+<strong>[Byte1,Byte2|Binary]</strong>.</p> </dd><dt><strong>{high_msgq_watermark, Size}</strong></dt><dd> <p>The socket message queue is set to a busy
+state when the amount of data on the message
+queue reaches this limit. Notice that this limit only
+concerns data that has not yet reached the ERTS internal
+socket implementation. Defaults to 8 kB.</p> <p>Senders of data to the socket are suspended if
+either the socket message queue is busy or the socket
+itself is busy.</p> <p>For more information, see options <strong>low_msgq_watermark</strong>,
+<strong>high_watermark</strong>, and <strong>low_watermark</strong>.</p> <p>Notice that distribution sockets disable the use of
+<strong>high_msgq_watermark</strong> and <strong>low_msgq_watermark</strong>.
+Instead use the
+<a href="../erts/erlang#system_info_dist_buf_busy_limit">distribution buffer busy limit</a>,
+which is a similar feature.</p> </dd><dt><strong>{high_watermark, Size}</strong> (TCP/IP sockets)</dt><dd> <p>The socket is set to a busy state when the amount
+of data queued internally by the ERTS socket implementation
+reaches this limit. Defaults to 8 kB.</p> <p>Senders of data to the socket are suspended if
+either the socket message queue is busy or the socket
+itself is busy.</p> <p>For more information, see options <strong>low_watermark</strong>,
+<strong>high_msgq_watermark</strong>, and <strong>low_msqg_watermark</strong>.</p> </dd><dt><strong>{ipv6_v6only, Boolean}</strong></dt><dd> <p>Restricts the socket to use only IPv6, prohibiting any
+IPv4 connections. This is only applicable for
+IPv6 sockets (option <strong>inet6</strong>).</p> <p>On most platforms this option must be set on the socket
+before associating it to an address. It is therefore only
+reasonable to specify it when creating the socket and not
+to use it when calling function
+(<a href="#setopts/2">setopts/2</a>)
+containing this description.</p> <p>The behavior of a socket with this option set to
+<strong>true</strong> is the only portable one. The original
+idea when IPv6 was new of using IPv6 for all traffic
+is now not recommended by FreeBSD (you can use
+<strong>{ipv6_v6only,false}</strong> to override the recommended
+system default value),
+forbidden by OpenBSD (the supported GENERIC kernel),
+and impossible on Windows (which has separate
+IPv4 and IPv6 protocol stacks). Most Linux distros
+still have a system default value of <strong>false</strong>.
+This policy shift among operating systems to
+separate IPv6 from IPv4 traffic has evolved, as
+it gradually proved hard and complicated to get
+a dual stack implementation correct and secure.</p> <p>On some platforms, the only allowed value for this option
+is <strong>true</strong>, for example, OpenBSD and Windows. Trying to set
+this option to <strong>false</strong>, when creating the socket, fails
+in this case.</p> <p>Setting this option on platforms where it does not exist
+is ignored. Getting this option with
+<a href="#getopts/2">getopts/2</a>
+returns no value, that is, the returned list does not contain an
+<strong>{ipv6_v6only,_}</strong> tuple. On Windows, the option
+does not exist, but it is emulated as a
+read-only option with value <strong>true</strong>.</p> <p>Therefore, setting this option to <strong>true</strong>
+when creating a socket never fails, except possibly on a
+platform where you
+have customized the kernel to only allow <strong>false</strong>,
+which can be doable (but awkward) on, for example, OpenBSD.</p> <p>If you read back the option value using
+<a href="#getopts/2">getopts/2</a>
+and get no value, the option does not exist in the host
+operating system. The behavior of both an IPv6 and an IPv4
+socket listening on the same port, and for an IPv6 socket
+getting IPv4 traffic is then no longer predictable.</p> </dd><dt><strong>{keepalive, Boolean}</strong>(TCP/IP sockets)</dt><dd> <p>Enables/disables periodic transmission on a connected
+socket when no other data is exchanged. If
+the other end does not respond, the connection is
+considered broken and an error message is sent to
+the controlling process. Defaults to <strong>disabled</strong>.</p> <a name="option-linger"></a> </dd><dt><strong>{linger, {true|false, Seconds}}</strong></dt><dd> <p>Determines the time-out, in seconds, for flushing unsent data
+in the <strong>close/1</strong> socket call. </p> <p>The first component is if linger is enabled, the second component
+is the flushing time-out, in seconds. There are 3 alternatives:</p> <dl><dt><strong>{false, _}</strong></dt><dd> <p>close/1 or shutdown/2 returns immediately,
+not waiting for data to be flushed, with closing
+happening in the background.</p> </dd><dt><strong>{true, 0}</strong></dt><dd> <p>Aborts the connection when it is closed.
+Discards any data still remaining in the send buffers
+and sends RST to the peer.</p> <p>This avoids TCP's TIME_WAIT state, but leaves open
+the possibility that another "incarnation" of this connection
+being created.</p> </dd><dt><strong>{true, Time} when Time &gt; 0</strong></dt><dd> <p>close/1 or shutdown/2 will not return until
+all queued messages for the socket have been successfully
+sent or the linger timeout (Time) has been reached.</p> </dd></dl> </dd><dt><strong>{low_msgq_watermark, Size}</strong></dt><dd> <p>If the socket message queue is in a busy state, the
+socket message queue is set in a not busy state when
+the amount of data queued in the message queue falls
+below this limit. Notice that this limit only concerns data
+that has not yet reached the ERTS internal socket
+implementation. Defaults to 4 kB.</p> <p>Senders that are suspended because of either a
+busy message queue or a busy socket are resumed
+when the socket message queue and the socket
+are not busy.</p> <p>For more information, see options <strong>high_msgq_watermark</strong>,
+<strong>high_watermark</strong>, and <strong>low_watermark</strong>.</p> <p>Notice that distribution sockets disable the use of
+<strong>high_msgq_watermark</strong> and <strong>low_msgq_watermark</strong>.
+Instead they use the
+<a href="../erts/erlang#system_info_dist_buf_busy_limit">distribution buffer busy limit</a>, which is a similar feature.</p> </dd><dt><strong>{low_watermark, Size}</strong> (TCP/IP sockets)</dt><dd> <p>If the socket is in a busy state, the socket is
+set in a not busy state when the amount of data
+queued internally by the ERTS socket implementation
+falls below this limit. Defaults to 4 kB.</p> <p>Senders that are suspended because of a
+busy message queue or a busy socket are resumed
+when the socket message queue and the socket are not busy.</p> <p>For more information, see options <strong>high_watermark</strong>,
+<strong>high_msgq_watermark</strong>, and <strong>low_msgq_watermark</strong>.</p> </dd><dt><strong>{mode, Mode :: binary | list}</strong></dt><dd> <p>
+Received <strong>Packet</strong> is delivered as defined by <strong>Mode</strong>.
+</p> </dd><dt> <a name="option-netns"></a> <strong>{netns, Namespace :: file:filename_all()}</strong> </dt><dd> <p>
+Sets a network namespace for the socket. Parameter
+<strong>Namespace</strong> is a filename defining the namespace, for
+example, <strong>"/var/run/netns/example"</strong>, typically created by
+command <strong>ip netns add example</strong>. This option must be used in
+a function call that creates a socket, that is,
+<a href="./gen_tcp#connect/3">gen_tcp#connect/3</a>,
+<a href="./gen_tcp#listen/2">gen_tcp#listen/2</a>,
+<a href="./gen_udp#open/1">gen_udp#open/1</a>
+or
+<a href="./gen_sctp#open/0">gen_sctp#open/0</a>,
+and also
+<a href="#getifaddrs/1">getifaddrs/1</a>.
+</p> <p>This option uses the Linux-specific syscall
+<strong>setns()</strong>, such as in Linux kernel 3.0 or later,
+and therefore only exists when the runtime system
+is compiled for such an operating system.</p> <p>The virtual machine also needs elevated privileges, either
+running as superuser or (for Linux) having capability
+<strong>CAP_SYS_ADMIN</strong> according to the documentation for
+<strong>setns(2)</strong>.
+However, during testing also <strong>CAP_SYS_PTRACE</strong>
+and <strong>CAP_DAC_READ_SEARCH</strong> have proven to be necessary.</p> <p><em>Example:</em></p> <pre><code class="">
+setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code></pre> <p>Notice that the filesystem containing the virtual machine
+executable (<strong>beam.smp</strong> in the example) must be local,
+mounted without flag <strong>nosetuid</strong>,
+support extended attributes, and
+the kernel must support file capabilities.
+All this runs out of the box on at least Ubuntu 12.04 LTS,
+except that SCTP sockets appear to not support
+network namespaces.</p> <p><strong>Namespace</strong> is a filename and is encoded
+and decoded as discussed in module
+<a href="file">file</a>, with the
+following exceptions:</p> <ul><li><p>Emulator flag <strong>+fnu</strong> is ignored.</p></li><li><p><a href="#getopts/2">getopts/2</a>
+for this option returns a binary for the filename if the stored
+filename cannot be decoded. This is only to occur if you set the
+option using a binary that cannot be decoded with the emulator's
+filename encoding:
+<a href="./file#native_name_encoding/0">file#native_name_encoding/0</a>.</p></li></ul> </dd><dt><strong>{bind_to_device, Ifname :: binary()}</strong></dt><dd> <p>Binds a socket to a specific network interface. This option
+must be used in a function call that creates a socket, that is,
+<a href="./gen_tcp#connect/3">gen_tcp#connect/3</a>,
+<a href="./gen_tcp#listen/2">gen_tcp#listen/2</a>,
+<a href="./gen_udp#open/1">gen_udp#open/1</a>, or
+<a href="./gen_sctp#open/0">gen_sctp#open/0</a>.</p> <p>Unlike <a href="#getifaddrs/0">getifaddrs/0</a>, Ifname
+is encoded a binary. In the unlikely case that a system is using
+non-7-bit-ASCII characters in network device names, special care
+has to be taken when encoding this argument.</p> <p>This option uses the Linux-specific socket option
+<strong>SO_BINDTODEVICE</strong>, such as in Linux kernel 2.0.30 or later,
+and therefore only exists when the runtime system
+is compiled for such an operating system.</p> <p>Before Linux 3.8, this socket option could be set, but could not retrieved
+with <a href="#getopts/2">getopts/2</a>. Since Linux 3.8,
+it is readable.</p> <p>The virtual machine also needs elevated privileges, either
+running as superuser or (for Linux) having capability
+<strong>CAP_NET_RAW</strong>.</p> <p>The primary use case for this option is to bind sockets into
+<a href="http://www.kernel.org/doc/Documentation/networking/vrf.txt">Linux VRF instances</a>.
+</p> </dd><dt><strong>list</strong></dt><dd> <p>Received <strong>Packet</strong> is delivered as a list.</p> </dd><dt><strong>binary</strong></dt><dd> <p>Received <strong>Packet</strong> is delivered as a binary.</p> </dd><dt><strong>{nodelay, Boolean}</strong>(TCP/IP sockets)</dt><dd> <p>If <strong>Boolean == true</strong>, option <strong>TCP_NODELAY</strong>
+is turned on for the socket, which means that also small
+amounts of data are sent immediately.</p> </dd><dt><strong>{nopush, Boolean}</strong>(TCP/IP sockets)</dt><dd> <p>This translates to <strong>TCP_NOPUSH</strong> on BSD and
+to <strong>TCP_CORK</strong> on Linux.</p> <p>If <strong>Boolean == true</strong>, the corresponding option
+is turned on for the socket, which means that small
+amounts of data are accumulated until a full MSS-worth
+of data is available or this option is turned off.</p> <p>Note that while <strong>TCP_NOPUSH</strong> socket option is available on OSX, its semantics
+is very different (e.g., unsetting it does not cause immediate send
+of accumulated data). Hence, <strong>nopush</strong> option is intentionally ignored on OSX.</p> </dd><dt><strong>{packet, PacketType}</strong>(TCP/IP sockets)</dt><dd> <p><a name="packet"></a>Defines the type of packets to use for a socket.
+Possible values:</p> <dl><dt><strong>raw | 0</strong></dt><dd> <p>No packaging is done.</p> </dd><dt><strong>1 | 2 | 4</strong></dt><dd> <p>Packets consist of a header specifying the number of
+bytes in the packet, followed by that number of bytes.
+The header length can be one, two, or four bytes, and
+containing an unsigned integer in big-endian byte order.
+Each send operation generates the header, and the header
+is stripped off on each receive operation.</p> <p>The 4-byte header is limited to 2Gb.</p> </dd><dt><strong>asn1 | cdr | sunrm | fcgi | tpkt | line</strong></dt><dd> <p>These packet types only have effect on receiving.
+When sending a packet, it is the responsibility of
+the application to supply a correct header. On
+receiving, however, one message is sent to
+the controlling process for each complete packet
+received, and, similarly, each call to
+<strong>gen_tcp:recv/2,3</strong> returns one complete packet.
+The header is <em>not</em> stripped off.</p> <p>The meanings of the packet types are as follows:</p> <ul><li><strong>asn1</strong> - ASN.1 BER</li><li><strong>sunrm</strong> - Sun's RPC encoding</li><li><strong>cdr</strong> - CORBA (GIOP 1.1)</li><li><strong>fcgi</strong> - Fast CGI</li><li><strong>tpkt</strong> - TPKT format [RFC1006]</li><li><strong>line</strong> - Line mode, a packet is a line-terminated with newline, lines longer than the receive buffer are truncated</li></ul> </dd><dt><strong>http | http_bin</strong></dt><dd> <p>The Hypertext Transfer Protocol. The packets
+are returned with the format according to <strong>HttpPacket</strong>
+described in
+<a href="../erts/erlang#decode_packet/3">erts/erlang#decode_packet/3</a> in ERTS.
+A socket in passive
+mode returns <strong>{ok, HttpPacket}</strong> from <strong>gen_tcp:recv</strong>
+while an active socket sends messages like
+<strong>{http, Socket, HttpPacket}</strong>.</p> </dd><dt><strong>httph | httph_bin</strong></dt><dd> <p>These two types are often not needed, as the socket
+automatically switches from <strong>http</strong>/<strong>http_bin</strong> to
+<strong>httph</strong>/<strong>httph_bin</strong> internally after the first line
+is read. However, there can be occasions when they are
+useful, such as parsing trailers from chunked encoding.</p> </dd></dl> </dd><dt><strong>{packet_size, Integer}</strong>(TCP/IP sockets)</dt><dd> <p>Sets the maximum allowed length of the packet body. If
+the packet header indicates that the length of the packet
+is longer than the maximum allowed length, the packet is
+considered invalid. The same occurs if the packet header
+is too large for the socket receive buffer.</p> <p>For line-oriented protocols (<strong>line</strong>, <strong>http*</strong>),
+option <strong>packet_size</strong> also guarantees that lines up to the
+indicated length are accepted and not considered invalid
+because of internal buffer limitations.</p> </dd><dt><strong>{line_delimiter, Char}</strong>(TCP/IP sockets)</dt><dd> <p>Sets the line delimiting character for line-oriented protocols
+(<strong>line</strong>). Defaults to <strong>$\n</strong>.</p> </dd><dt><strong>{raw, Protocol, OptionNum, ValueBin}</strong></dt><dd> <p>See below.</p> </dd><dt><strong>{read_packets, Integer}</strong>(UDP sockets)</dt><dd> <p>Sets the maximum number of UDP packets to read without
+intervention from the socket when data is available.
+When this many packets have been read and delivered
+to the destination process, new packets are not read
+until a new notification of available data has arrived.
+Defaults to <strong>5</strong>. If this parameter is set too
+high, the system can become unresponsive because of
+UDP packet flooding.</p> </dd><dt><strong>{recbuf, Size}</strong></dt><dd> <p>The minimum size of the receive buffer to use for
+the socket. You are encouraged to use
+<a href="#getopts/2">getopts/2</a>
+to retrieve the size set by your operating system.</p> <a name="option-recvtclass"></a> </dd><dt><strong>{recvtclass, Boolean}</strong></dt><dd> <p>
+If set to <strong>true</strong> activates returning the received
+<strong>TCLASS</strong> value on platforms that implements
+the protocol <strong>IPPROTO_IPV6</strong>
+option <strong>IPV6_RECVTCLASS</strong> or <strong>IPV6_2292RECVTCLASS</strong>
+for the socket.
+The value is returned as a <strong>{tclass,TCLASS}</strong> tuple
+regardless of if the platform returns an <strong>IPV6_TCLASS</strong>
+or an <strong>IPV6_RECVTCLASS</strong> CMSG value.
+</p> <p>
+For packet oriented sockets that supports receiving
+ancillary data with the payload data
+(<strong>gen_udp</strong> and <strong>gen_sctp</strong>),
+the <strong>TCLASS</strong> value is returned
+in an extended return tuple contained in an
+<a href="./inet#type-ancillary_data"> ancillary data </a>
+list.
+For stream oriented sockets (<strong>gen_tcp</strong>)
+the only way to get the <strong>TCLASS</strong>
+value is if the platform supports the
+<a href="./gen_tcp#type-pktoptions_value">gen_tcp#type-pktoptions_value</a>
+option.
+</p> <a name="option-recvtos"></a> </dd><dt><strong>{recvtos, Boolean}</strong></dt><dd> <p>
+If set to <strong>true</strong> activates returning the received
+<strong>TOS</strong> value on platforms that implements
+the protocol <strong>IPPROTO_IP</strong> option <strong>IP_RECVTOS</strong>
+for the socket.
+The value is returned as a <strong>{tos,TOS}</strong> tuple
+regardless of if the platform returns an <strong>IP_TOS</strong>
+or an <strong>IP_RECVTOS</strong> CMSG value.
+</p> <p>
+For packet oriented sockets that supports receiving
+ancillary data with the payload data
+(<strong>gen_udp</strong> and <strong>gen_sctp</strong>),
+the <strong>TOS</strong> value is returned
+in an extended return tuple contained in an
+<a href="./inet#type-ancillary_data"> ancillary data </a>
+list.
+For stream oriented sockets (<strong>gen_tcp</strong>)
+the only way to get the <strong>TOS</strong>
+value is if the platform supports the
+<a href="./gen_tcp#type-pktoptions_value">gen_tcp#type-pktoptions_value</a>
+option.
+</p> <a name="option-recvttl"></a> </dd><dt><strong>{recvttl, Boolean}</strong></dt><dd> <p>
+If set to <strong>true</strong> activates returning the received
+<strong>TTL</strong> value on platforms that implements
+the protocol <strong>IPPROTO_IP</strong> option <strong>IP_RECVTTL</strong>
+for the socket.
+The value is returned as a <strong>{ttl,TTL}</strong> tuple
+regardless of if the platform returns an <strong>IP_TTL</strong>
+or an <strong>IP_RECVTTL</strong> CMSG value.
+</p> <p>
+For packet oriented sockets that supports receiving
+ancillary data with the payload data
+(<strong>gen_udp</strong> and <strong>gen_sctp</strong>),
+the <strong>TTL</strong> value is returned
+in an extended return tuple contained in an
+<a href="./inet#type-ancillary_data"> ancillary data </a>
+list.
+For stream oriented sockets (<strong>gen_tcp</strong>)
+the only way to get the <strong>TTL</strong>
+value is if the platform supports the
+<a href="./gen_tcp#type-pktoptions_value">gen_tcp#type-pktoptions_value</a>
+option.
+</p> </dd><dt><strong>{reuseaddr, Boolean}</strong></dt><dd> <p>Allows or disallows local reuse of port numbers. By
+default, reuse is disallowed.</p> </dd><dt><strong>{send_timeout, Integer}</strong></dt><dd> <p>Only allowed for connection-oriented sockets.</p> <p>Specifies a longest time to wait for a send operation to
+be accepted by the underlying TCP stack. When the limit is
+exceeded, the send operation returns
+<strong>{error,timeout}</strong>. How much of a packet that
+got sent is unknown; the socket is therefore to be closed
+whenever a time-out has occurred (see <strong>send_timeout_close</strong>
+below). Defaults to <strong>infinity</strong>.</p> </dd><dt><strong>{send_timeout_close, Boolean}</strong></dt><dd> <p>Only allowed for connection-oriented sockets.</p> <p>Used together with <strong>send_timeout</strong> to specify whether
+the socket is to be automatically closed when the send operation
+returns <strong>{error,timeout}</strong>. The recommended setting is
+<strong>true</strong>, which automatically closes the socket.
+Defaults to <strong>false</strong> because of backward compatibility.</p> <a name="option-sndbuf"></a> </dd><dt><strong>{show_econnreset, Boolean}</strong>(TCP/IP sockets)</dt><dd> <p>When this option is set to <strong>false</strong>, which is
+default, an RST received from the TCP peer is treated
+as a normal close (as though an FIN was sent). A caller to
+<a href="./gen_tcp#recv/2">gen_tcp#recv/2</a>
+gets <strong>{error, closed}</strong>. In active
+mode, the controlling process receives a
+<strong>{tcp_closed, Socket}</strong> message, indicating that the
+peer has closed the connection.</p> <p>Setting this option to <strong>true</strong> allows you to
+distinguish between a connection that was closed normally,
+and one that was aborted (intentionally or unintentionally)
+by the TCP peer. A call to
+<a href="./gen_tcp#recv/2">gen_tcp#recv/2</a>
+returns <strong>{error, econnreset}</strong>. In
+active mode, the controlling process receives a
+<strong>{tcp_error, Socket, econnreset}</strong> message
+before the usual <strong>{tcp_closed, Socket}</strong>, as is
+the case for any other socket error. Calls to
+<a href="./gen_tcp#send/2">gen_tcp#send/2</a>
+also returns <strong>{error, econnreset}</strong> when it
+is detected that a TCP peer has sent an RST.</p> <p>A connected socket returned from
+<a href="./gen_tcp#accept/1">gen_tcp#accept/1</a>
+inherits the <strong>show_econnreset</strong> setting from the
+listening socket.</p> <a name="option-show_econnreset"></a> </dd><dt><strong>{sndbuf, Size}</strong></dt><dd> <p>The minimum size of the send buffer to use for the socket.
+You are encouraged to use
+<a href="#getopts/2">getopts/2</a>,
+to retrieve the size set by your operating system.</p> </dd><dt><strong>{priority, Integer}</strong></dt><dd> <p>Sets the <strong>SO_PRIORITY</strong> socket level option on platforms
+where this is implemented. The behavior and allowed range varies
+between different systems.
+The option is ignored on platforms where it
+is not implemented. Use with caution.</p> </dd><dt><strong>{tos, Integer}</strong></dt><dd> <p>Sets <strong>IP_TOS IP</strong> level options on platforms where this is
+implemented. The behavior and allowed range varies between
+different systems.
+The option is ignored on platforms where it is not
+implemented. Use with caution.</p> </dd><dt><strong>{tclass, Integer}</strong></dt><dd> <p>
+Sets <strong>IPV6_TCLASS IP</strong> level options on platforms
+where this is implemented. The behavior and allowed range
+varies between different systems.
+The option is ignored on platforms where it is not
+implemented. Use with caution.</p> </dd></dl><p>In addition to these options, <em>raw</em>
+option specifications can be used. The raw options are
+specified as a tuple of arity four, beginning with tag
+<strong>raw</strong>, followed by the protocol level, the option number,
+and the option value specified as a binary. This
+corresponds to the second, third, and fourth arguments to the
+<strong>setsockopt</strong> call in the C socket API. The option value
+must be coded in the native endianess of the platform and,
+if a structure is required, must follow the structure
+alignment conventions on the specific platform.</p><p>Using raw socket options requires detailed knowledge about
+the current operating system and TCP stack.</p><p><em>Example:</em></p><p>This example concerns the use of raw options. Consider a Linux
+system where you want to set option <strong>TCP_LINGER2</strong> on
+protocol level <strong>IPPROTO_TCP</strong> in the stack. You know
+that on this particular system it defaults to 60 (seconds),
+but you want to lower it to 30 for a particular
+socket. Option <strong>TCP_LINGER2</strong> is not explicitly
+supported by <strong>inet</strong>, but you know that the protocol level
+translates to number 6, the option number to number 8,
+and the value is to be specified as a 32-bit integer. You can use
+this code line to set the option for the socket named
+<strong>Sock</strong>:</p><pre><code class="">
+inet:setopts(Sock,[{raw,6,8,&lt;&lt;30:32/native&gt;&gt;}]),</code></pre><p>As many options are silently discarded by the stack if they
+are specified out of range; it can be a good idea to check that
+a raw option is accepted. The following code places the value
+in variable <strong>TcpLinger2:</strong></p><pre><code class="">
+{ok,[{raw,6,8,&lt;&lt;TcpLinger2:32/native&gt;&gt;}]}=inet:getopts(Sock,[{raw,6,8,4}]),</code></pre><p>Code such as these examples is inherently non-portable,
+even different versions of the same OS on the same platform
+can respond differently to this kind of option
+manipulation. Use with care.</p><p>Notice that the default options for TCP/IP sockets can be
+changed with the Kernel configuration parameters mentioned in
+the beginning of this manual page.</p><h2>sockname/1</h2><p>Return the local address and port number for a socket. </p><p>Returns the local address and port number for a socket.</p><p>Notice that for SCTP sockets this function returns only
+one of the socket addresses. Function
+<a href="#socknames/1">socknames/1</a>
+returns all.</p><h2>socknames/1</h2><p>Return all local address/port numbers for a socket.</p><p>Equivalent to
+<a href="#socknames/2">socknames/2</a>.
+</p><h2>socknames/2</h2><p>Return all local address/port numbers for a socket.</p><p>Returns a list of all local address/port number pairs for a socket
+for the specified association <strong><span class="anno">Assoc</span></strong>.</p><p>This function can return multiple addresses for multihomed
+sockets, such as SCTP sockets. For other sockets it
+returns a one-element list.</p><p>Notice that parameter <strong><span class="anno">Assoc</span></strong> is by the
+<a href="http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13">SCTP Sockets API Extensions</a>
+defined to be ignored for one-to-one style sockets.
+For one-to-many style sockets, the special value <strong>0</strong>
+is defined to mean that the returned addresses must be
+without any particular association.
+How different SCTP implementations interpret this varies somewhat.
+</p><a name="error_codes"></a><h2>POSIX Error Codes</h2><ul><li><strong>e2big</strong> - Too long argument list</li><li><strong>eacces</strong> - Permission denied</li><li><strong>eaddrinuse</strong> - Address already in use</li><li><strong>eaddrnotavail</strong> - Cannot assign requested address</li><li><strong>eadv</strong> - Advertise error</li><li><strong>eafnosupport</strong> - Address family not supported by protocol family</li><li><strong>eagain</strong> - Resource temporarily unavailable</li><li><strong>ealign</strong> - EALIGN</li><li><strong>ealready</strong> - Operation already in progress</li><li><strong>ebade</strong> - Bad exchange descriptor</li><li><strong>ebadf</strong> - Bad file number</li><li><strong>ebadfd</strong> - File descriptor in bad state</li><li><strong>ebadmsg</strong> - Not a data message</li><li><strong>ebadr</strong> - Bad request descriptor</li><li><strong>ebadrpc</strong> - Bad RPC structure</li><li><strong>ebadrqc</strong> - Bad request code</li><li><strong>ebadslt</strong> - Invalid slot</li><li><strong>ebfont</strong> - Bad font file format</li><li><strong>ebusy</strong> - File busy</li><li><strong>echild</strong> - No children</li><li><strong>echrng</strong> - Channel number out of range</li><li><strong>ecomm</strong> - Communication error on send</li><li><strong>econnaborted</strong> - Software caused connection abort</li><li><strong>econnrefused</strong> - Connection refused</li><li><strong>econnreset</strong> - Connection reset by peer</li><li><strong>edeadlk</strong> - Resource deadlock avoided</li><li><strong>edeadlock</strong> - Resource deadlock avoided</li><li><strong>edestaddrreq</strong> - Destination address required</li><li><strong>edirty</strong> - Mounting a dirty fs without force</li><li><strong>edom</strong> - Math argument out of range</li><li><strong>edotdot</strong> - Cross mount point</li><li><strong>edquot</strong> - Disk quota exceeded</li><li><strong>eduppkg</strong> - Duplicate package name</li><li><strong>eexist</strong> - File already exists</li><li><strong>efault</strong> - Bad address in system call argument</li><li><strong>efbig</strong> - File too large</li><li><strong>ehostdown</strong> - Host is down</li><li><strong>ehostunreach</strong> - Host is unreachable</li><li><strong>eidrm</strong> - Identifier removed</li><li><strong>einit</strong> - Initialization error</li><li><strong>einprogress</strong> - Operation now in progress</li><li><strong>eintr</strong> - Interrupted system call</li><li><strong>einval</strong> - Invalid argument</li><li><strong>eio</strong> - I/O error</li><li><strong>eisconn</strong> - Socket is already connected</li><li><strong>eisdir</strong> - Illegal operation on a directory</li><li><strong>eisnam</strong> - Is a named file</li><li><strong>el2hlt</strong> - Level 2 halted</li><li><strong>el2nsync</strong> - Level 2 not synchronized</li><li><strong>el3hlt</strong> - Level 3 halted</li><li><strong>el3rst</strong> - Level 3 reset</li><li><strong>elbin</strong> - ELBIN</li><li><strong>elibacc</strong> - Cannot access a needed shared library</li><li><strong>elibbad</strong> - Accessing a corrupted shared library</li><li><strong>elibexec</strong> - Cannot exec a shared library directly</li><li><strong>elibmax</strong> - Attempting to link in more shared libraries than system limit</li><li><strong>elibscn</strong> - <strong>.lib</strong> section in <strong>a.out</strong> corrupted</li><li><strong>elnrng</strong> - Link number out of range</li><li><strong>eloop</strong> - Too many levels of symbolic links</li><li><strong>emfile</strong> - Too many open files</li><li><strong>emlink</strong> - Too many links</li><li><strong>emsgsize</strong> - Message too long</li><li><strong>emultihop</strong> - Multihop attempted</li><li><strong>enametoolong</strong> - Filename too long</li><li><strong>enavail</strong> - Unavailable</li><li><strong>enet</strong> - ENET</li><li><strong>enetdown</strong> - Network is down</li><li><strong>enetreset</strong> - Network dropped connection on reset</li><li><strong>enetunreach</strong> - Network is unreachable</li><li><strong>enfile</strong> - File table overflow</li><li><strong>enoano</strong> - Anode table overflow</li><li><strong>enobufs</strong> - No buffer space available</li><li><strong>enocsi</strong> - No CSI structure available</li><li><strong>enodata</strong> - No data available</li><li><strong>enodev</strong> - No such device</li><li><strong>enoent</strong> - No such file or directory</li><li><strong>enoexec</strong> - Exec format error</li><li><strong>enolck</strong> - No locks available</li><li><strong>enolink</strong> - Link has been severed</li><li><strong>enomem</strong> - Not enough memory</li><li><strong>enomsg</strong> - No message of desired type</li><li><strong>enonet</strong> - Machine is not on the network</li><li><strong>enopkg</strong> - Package not installed</li><li><strong>enoprotoopt</strong> - Bad protocol option</li><li><strong>enospc</strong> - No space left on device</li><li><strong>enosr</strong> - Out of stream resources or not a stream device</li><li><strong>enosym</strong> - Unresolved symbol name</li><li><strong>enosys</strong> - Function not implemented</li><li><strong>enotblk</strong> - Block device required</li><li><strong>enotconn</strong> - Socket is not connected</li><li><strong>enotdir</strong> - Not a directory</li><li><strong>enotempty</strong> - Directory not empty</li><li><strong>enotnam</strong> - Not a named file</li><li><strong>enotsock</strong> - Socket operation on non-socket</li><li><strong>enotsup</strong> - Operation not supported</li><li><strong>enotty</strong> - Inappropriate device for <strong>ioctl</strong></li><li><strong>enotuniq</strong> - Name not unique on network</li><li><strong>enxio</strong> - No such device or address</li><li><strong>eopnotsupp</strong> - Operation not supported on socket</li><li><strong>eperm</strong> - Not owner</li><li><strong>epfnosupport</strong> - Protocol family not supported</li><li><strong>epipe</strong> - Broken pipe</li><li><strong>eproclim</strong> - Too many processes</li><li><strong>eprocunavail</strong> - Bad procedure for program</li><li><strong>eprogmismatch</strong> - Wrong program version</li><li><strong>eprogunavail</strong> - RPC program unavailable</li><li><strong>eproto</strong> - Protocol error</li><li><strong>eprotonosupport</strong> - Protocol not supported</li><li><strong>eprototype</strong> - Wrong protocol type for socket</li><li><strong>erange</strong> - Math result unrepresentable</li><li><strong>erefused</strong> - EREFUSED</li><li><strong>eremchg</strong> - Remote address changed</li><li><strong>eremdev</strong> - Remote device</li><li><strong>eremote</strong> - Pathname hit remote filesystem</li><li><strong>eremoteio</strong> - Remote I/O error</li><li><strong>eremoterelease</strong> - EREMOTERELEASE</li><li><strong>erofs</strong> - Read-only filesystem</li><li><strong>erpcmismatch</strong> - Wrong RPC version</li><li><strong>erremote</strong> - Object is remote</li><li><strong>eshutdown</strong> - Cannot send after socket shutdown</li><li><strong>esocktnosupport</strong> - Socket type not supported</li><li><strong>espipe</strong> - Invalid seek</li><li><strong>esrch</strong> - No such process</li><li><strong>esrmnt</strong> - Srmount error</li><li><strong>estale</strong> - Stale remote file handle</li><li><strong>esuccess</strong> - Error 0</li><li><strong>etime</strong> - Timer expired</li><li><strong>etimedout</strong> - Connection timed out</li><li><strong>etoomanyrefs</strong> - Too many references</li><li><strong>etxtbsy</strong> - Text file or pseudo-device busy</li><li><strong>euclean</strong> - Structure needs cleaning</li><li><strong>eunatch</strong> - Protocol driver not attached</li><li><strong>eusers</strong> - Too many users</li><li><strong>eversion</strong> - Version mismatch</li><li><strong>ewouldblock</strong> - Operation would block</li><li><strong>exdev</strong> - Cross-domain link</li><li><strong>exfull</strong> - Message tables full</li><li><strong>nxdomain</strong> - Hostname or domain name cannot be found</li></ul></body></html>

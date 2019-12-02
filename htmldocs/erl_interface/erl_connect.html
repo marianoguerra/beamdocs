@@ -1,0 +1,183 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>erl_connect</h1><h1>erl_connect</h1><p>Communicate with distributed Erlang.</p><p>This module provides support for communication between distributed
+Erlang nodes and C-nodes, in a manner that is transparent to Erlang
+processes.A C-node appears to Erlang as a <em>hidden node</em>.
+That is, Erlang processes that know the name of the
+C-node can communicate with it in a normal manner, but
+the node name does not appear in the listing provided by
+<a href="../erts/erlang#nodes/0">erts/erlang#nodes/0</a>
+in <strong>ERTS</strong>.</p><h1>Functions</h1><h2>erl_accept(listensock, conp):int</h2><p>Accept a connection.</p><ul><li><span class="v">int listensock;</span></li><li><span class="v">ErlConnect *conp;</span></li></ul><p>This function is used by a server process to accept a
+connection from a client process.</p><ul><li><strong>listensock</strong> is an open socket descriptor on which <strong>listen()</strong> has previously been called.</li><li><strong>conp</strong> is a pointer to an <strong>ErlConnect</strong> struct, described as follows:</li></ul><pre><code class="">
+typedef struct {
+  char ipadr[4];
+  char nodename[MAXNODELEN];
+} ErlConnect;
+        </code></pre><p>On success, <strong>conp</strong> is filled in with the address and
+node name of the connecting client and a file descriptor is
+returned. On failure, <strong>ERL_ERROR</strong> is returned and
+<strong>erl_errno</strong> is set to <strong>EIO</strong>.</p><h2>erl_close_connection(fd):int</h2><p>Close a connection to an Erlang node.</p><ul><li><span class="v">int fd;</span></li></ul><p>Closes an open connection to an Erlang node.</p><p><strong>Fd</strong> is a file descriptor obtained from
+<strong>erl_connect()</strong> or
+<strong>erl_xconnect()</strong>.</p><p>Returns <strong>0</strong> on success. If the call fails, a non-zero value
+is returned, and the reason for the error can be obtained with the
+appropriate platform-dependent call.</p><h2>erl_connect(node):int</h2><h2>erl_xconnect(addr, alive):int</h2><p>Establish a connection to an Erlang node.</p><ul><li><span class="v">char *node, *alive;</span></li><li><span class="v">struct in_addr *addr;</span></li></ul><p>Sets up a connection to an Erlang node.</p><p><strong>erl_xconnect()</strong> requires the IP address of the
+remote host and the alivename of the remote node to be
+specified. <strong>erl_connect()</strong> provides an alternative
+interface, and determines the information from the node name
+provided.</p><ul><li><strong>addr</strong> is the 32-bit IP address of the remote host.</li><li><strong>alive</strong> is the alivename of the remote node. </li><li><strong>node</strong> is the name of the remote node.</li></ul><p>Returns an open file descriptor on success, otherwise a negative
+value. In the latter case <strong>erl_errno</strong> is set to one
+of:</p><dl><dt><strong>EHOSTUNREACH</strong></dt><dd>The remote host <strong>node</strong> is unreachable.</dd><dt><strong>ENOMEM</strong></dt><dd>No more memory is available.</dd><dt><strong>EIO</strong></dt><dd>I/O error.</dd></dl><p>Also, <strong>errno</strong> values from
+<strong>socket</strong><em>(2)</em> and
+<strong>connect</strong><em>(2)</em>
+system calls can be propagated into <strong>erl_errno</strong>.</p><p><em>Example:</em></p><pre><code class="">
+#define NODE   "madonna@chivas.du.etx.ericsson.se"
+#define ALIVE  "madonna"
+#define IP_ADDR "150.236.14.75"
+
+/*** Variant 1 ***/
+erl_connect( NODE );
+
+/*** Variant 2 ***/
+struct in_addr addr;
+addr = inet_addr(IP_ADDR);
+erl_xconnect( &amp;addr , ALIVE );
+        </code></pre><h2>erl_connect_init(number, cookie, creation):int</h2><h2>erl_connect_xinit(host, alive, node, addr, cookie, creation):int</h2><p>Initialize communication.</p><ul><li><span class="v">int number;</span></li><li><span class="v">char *cookie;</span></li><li><span class="v">short creation;</span></li><li><span class="v">char *host,*alive,*node;</span></li><li><span class="v">struct in_addr *addr;</span></li></ul><p>Initializes the <strong>erl_connect</strong> module.
+In particular, these functions are used to identify the name of the
+C-node from which they are called. One of these functions must
+be called before any of the other functions in the <strong>erl_connect</strong>
+module are used.</p><p><strong>erl_connect_xinit()</strong> stores for later use
+information about:</p><ul><li>Hostname of the node, <strong>host</strong></li><li>Alivename, <strong>alive</strong></li><li>Node name, <strong>node</strong></li><li>IP address, <strong>addr</strong></li><li>Cookie, <strong>cookie</strong></li><li>Creation number, <strong>creation</strong></li></ul><p><strong>erl_connect_init()</strong>
+provides an alternative interface that does not require as much
+information from the caller. Instead,
+<strong>erl_connect_init()</strong>
+uses <strong>gethostbyname()</strong> to obtain default values.</p><p>If you use <strong>erl_connect_init()</strong>, your node will
+have a short name, that is, it will not be fully qualified. If you
+need to use fully qualified (long) names, use
+<strong>erl_connect_xinit()</strong> instead.</p><ul><li> <p><strong>host</strong> is the name of the host on which the node
+is running.</p> </li><li> <p><strong>alive</strong> is the alivename of the node.</p> </li><li> <p><strong>node</strong> is the node name. It is to
+be of the form <em>alivename@hostname</em>.</p> </li><li> <p><strong>addr</strong> is the 32-bit IP address of
+<strong>host</strong>.</p> </li><li> <p><strong>cookie</strong> is the authorization string required
+for access to the remote node. If <strong>NULL</strong>, the user
+<strong>HOME</strong> directory is searched for a cookie file
+<strong>.erlang.cookie</strong>. The path to
+the home directory is retrieved from environment variable
+<strong>HOME</strong> on Unix and from the
+<strong>HOMEDRIVE</strong> and
+<strong>HOMEPATH</strong> variables on Windows. For more
+details, see the <a href="./auth">kernel/auth</a> module in Kernel.</p> </li><li> <p><strong>creation</strong> helps identifying a particular
+instance of a C-node. In particular, it can help prevent us from
+receiving messages sent to an earlier process with the same
+registered name.</p> </li></ul><p>A C-node acting as a server is assigned a creation number
+when it calls <strong>erl_publish()</strong>.</p><p><strong>number</strong> is used by
+<strong>erl_connect_init()</strong> to
+construct the actual node name. In Example 2
+below, <em>"c17@a.DNS.name"</em> is the resulting node name.</p><p><em>Example 1:</em></p><pre><code class="">
+struct in_addr addr;
+addr = inet_addr("150.236.14.75");
+if (!erl_connect_xinit("chivas",
+                       "madonna",
+                       "madonna@chivas.du.etx.ericsson.se",
+                       &amp;addr;
+                       "samplecookiestring..."),
+                       0)
+  erl_err_quit("&lt;ERROR&gt; when initializing !");
+        </code></pre><p><em>Example 2:</em></p><pre><code class="">
+if (!erl_connect_init(17, "samplecookiestring...", 0))
+  erl_err_quit("&lt;ERROR&gt; when initializing !");
+        </code></pre><h2>erl_publish(port):int</h2><p>Publish a node name.</p><ul><li><span class="v">int port;</span></li></ul><p>This function is used by a server process to register
+with the local name server EPMD, thereby allowing
+other processes to send messages by using the registered name.
+Before calling this function, the process should
+have called <strong>bind()</strong> and <strong>listen()</strong>
+on an open socket.</p><p><strong>port</strong> is the local name to register, and is to be
+the same as the port number that was previously bound to the
+socket.</p><p>To unregister with EPMD, simply close the returned descriptor.</p><p>On success, a descriptor connecting the calling process to EPMD is
+returned. On failure, <strong>-1</strong> is returned and
+<strong>erl_errno</strong> is set to:</p><dl><dt><strong>EIO</strong></dt><dd>I/O error.</dd></dl><p>Also, <strong>errno</strong> values from
+<strong>socket</strong><em>(2)</em>
+and <strong>connect</strong><em>(2)</em> system calls can be
+propagated into <strong>erl_errno</strong>.</p><h2>erl_receive(fd, bufp, bufsize):int</h2><p>Receive a message.</p><ul><li><span class="v">int fd;</span></li><li><span class="v">char *bufp;</span></li><li><span class="v">int bufsize;</span></li></ul><p>Receives a message consisting of a sequence
+of bytes in the Erlang external format.</p><ul><li><strong>fd</strong> is an open descriptor to an Erlang connection.</li><li><strong>bufp</strong> is a buffer large enough to hold the expected message.</li><li><strong>bufsize</strong> indicates the size of <strong>bufp</strong>.</li></ul><p>If a <em>tick</em> occurs, that is, the Erlang node on the
+other end of the connection has polled this node to see if it
+is still alive, the function returns <strong>ERL_TICK</strong> and
+no message is placed in the buffer. Also,
+<strong>erl_errno</strong> is set to <strong>EAGAIN</strong>.</p><p>On success, the message is placed in the specified buffer
+and the function returns the number of bytes actually read. On
+failure, the function returns a negative value and sets
+<strong>erl_errno</strong> to one of:</p><dl><dt><strong>EAGAIN</strong></dt><dd>Temporary error: Try again.</dd><dt><strong>EMSGSIZE</strong></dt><dd>Buffer is too small.</dd><dt><strong>EIO</strong></dt><dd>I/O error.</dd></dl><h2>erl_receive_msg(fd, bufp, bufsize, emsg):int</h2><p>Receive and decode a message.</p><ul><li><span class="v">int fd;</span></li><li><span class="v">unsigned char *bufp;</span></li><li><span class="v">int bufsize;</span></li><li><span class="v">ErlMessage *emsg;</span></li></ul><p>Receives the message into the specified buffer
+and decodes into <strong>(ErlMessage *) emsg</strong>.</p><ul><li><strong>fd</strong> is an open descriptor to an Erlang connection.</li><li><strong>bufp</strong> is a buffer large enough to hold the expected message.</li><li><strong>bufsize</strong> indicates the size of <strong>bufp</strong>.</li><li>&gt;<strong>emsg</strong> is a pointer to an <strong>ErlMessage</strong> structure into which the message will be decoded. <strong>ErlMessage</strong> is defined as follows:</li></ul><pre><code class="">
+typedef struct {
+  int type;
+  ETERM *msg;
+  ETERM *to;
+  ETERM *from;
+  char to_name[MAXREGLEN];
+} ErlMessage;
+        </code></pre><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The definition of <strong>ErlMessage</strong> has changed since
+earlier versions of <strong>Erl_Interface</strong>.</p></div><p><strong>type</strong> identifies the type of message, one of the
+following:</p><dl><dt><strong>ERL_SEND</strong></dt><dd> <p>An ordinary send operation has occurred and
+<strong>emsg-&gt;to</strong> contains the pid of the recipient.
+The message is in <strong>emsg-&gt;msg</strong>.</p> </dd><dt><strong>ERL_REG_SEND</strong></dt><dd> <p>A registered send operation has occurred and
+<strong>emsg-&gt;from</strong> contains the pid of the sender.
+The message is in <strong>emsg-&gt;msg</strong>.</p> </dd><dt><strong>ERL_LINK</strong> or <strong>ERL_UNLINK</strong> </dt><dd> <p><strong>emsg-&gt;to</strong> and <strong>emsg-&gt;from</strong>
+contain the pids of the sender and recipient of the link or
+unlink. <strong>emsg-&gt;msg</strong> is not used.</p> </dd><dt><strong>ERL_EXIT</strong></dt><dd> <p>A link is broken. <strong>emsg-&gt;to</strong> and
+<strong>emsg-&gt;from</strong> contain the pids of the linked
+processes, and <strong>emsg-&gt;msg</strong> contains the reason
+for the exit.</p> </dd></dl><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>It is the caller's responsibility to release the
+memory pointed to by <strong>emsg-&gt;msg</strong>,
+<strong>emsg-&gt;to</strong>, and
+<strong>emsg-&gt;from</strong>.</p></div><p>If a <em>tick</em> occurs, that is, the Erlang node on the
+other end of the connection has polled this node to see if it
+is still alive, the function returns <strong>ERL_TICK</strong>
+indicating that the tick has been received and responded to,
+but no message is placed in the buffer. In this case you
+are to call <strong>erl_receive_msg()</strong> again.</p><p>On success, the function returns <strong>ERL_MSG</strong> and the
+<strong>Emsg</strong> struct is initialized as described above, or
+<strong>ERL_TICK</strong>, in which case no message is returned. On
+failure, the function returns <strong>ERL_ERROR</strong> and sets
+<strong>erl_errno</strong> to one of:</p><dl><dt><strong>EMSGSIZE</strong></dt><dd>Buffer is too small.</dd><dt><strong>ENOMEM</strong></dt><dd>No more memory is available.</dd><dt><strong>EIO</strong></dt><dd>I/O error.</dd></dl><h2>erl_reg_send(fd, to, msg):int</h2><p>Send a message to a registered name.</p><ul><li><span class="v">int fd;</span></li><li><span class="v">char *to;</span></li><li><span class="v">ETERM *msg;</span></li></ul><p>Sends an Erlang term to a registered process.</p><ul><li><strong>fd</strong> is an open descriptor to an Erlang connection.</li><li><strong>to</strong> is a string containing the registered name of the intended recipient of the message.</li><li><strong>msg</strong> is the Erlang term to be sent.</li></ul><p>Returns <strong>1</strong> on success, otherwise <strong>0</strong>. In
+the latter case <strong>erl_errno</strong> is set to one of:</p><dl><dt><strong>ENOMEM</strong></dt><dd>No more memory is available.</dd><dt><strong>EIO</strong></dt><dd>I/O error.</dd></dl><h2>erl_rpc(fd, mod, fun, args):ETERM *</h2><h2>erl_rpc_from(fd, timeout, emsg):int</h2><h2>erl_rpc_to(fd, mod, fun, args):int</h2><p>Remote Procedure Call.</p><ul><li><span class="v">int fd, timeout;</span></li><li><span class="v">char *mod, *fun;</span></li><li><span class="v">ETERM *args;</span></li><li><span class="v">ErlMessage *emsg;</span></li></ul><p>Supports calling Erlang functions on remote nodes.
+<strong>erl_rpc_to()</strong> sends an RPC request to a remote node
+and <strong>erl_rpc_from()</strong> receives the results of such a
+call. <strong>erl_rpc()</strong> combines the functionality of
+these two functions by sending an RPC request and waiting for the
+results. See also <a href="../kernel/rpc#call/4">kernel/rpc#call/4</a> in <strong>Kernel</strong>.</p><ul><li><strong>fd</strong> is an open descriptor to an Erlang connection.</li><li><strong>timeout</strong> is the maximum time (in milliseconds) to wait for results. To wait forever, specify <strong>ERL_NO_TIMEOUT</strong>. When <strong>erl_rpc()</strong> calls <strong>erl_rpc_from()</strong>, the call will never timeout.</li><li><strong>mod</strong> is the name of the module containing the function to be run on the remote node.</li><li><strong>fun</strong> is the name of the function to run. </li><li><strong>args</strong> is an Erlang list, containing the arguments to be passed to the function.</li><li><strong>emsg</strong> is a message containing the result of the function call.</li></ul><p>The actual message returned by the RPC server
+is a 2-tuple <strong>{rex,Reply}</strong>. If you use
+<strong>erl_rpc_from()</strong> in your code, this is the message
+you will need to parse. If you use <strong>erl_rpc()</strong>, the
+tuple itself is parsed for you, and the message returned to your
+program is the Erlang term containing <strong>Reply</strong> only.
+Replies to RPC requests are always <strong>ERL_SEND</strong> messages.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>It is the caller's responsibility to free the returned
+<strong>ETERM</strong> structure and the memory pointed to by
+<strong>emsg-&gt;msg</strong> and <strong>emsg-&gt;to</strong>.</p></div><p><strong>erl_rpc()</strong> returns the remote function's return
+value on success, otherwise <strong>NULL</strong>.</p><p><strong>erl_rpc_to()</strong> returns <strong>0</strong> on
+success, otherwise a negative number.</p><p><strong>erl_rcp_from()</strong> returns <strong>ERL_MSG</strong>
+on success (with <strong>Emsg</strong> now
+containing the reply tuple), otherwise one of
+<strong>ERL_TICK</strong>, <strong>ERL_TIMEOUT</strong>, or
+<strong>ERL_ERROR</strong>.</p><p>When failing,
+all three functions set <strong>erl_errno</strong> to one of:</p><dl><dt><strong>ENOMEM</strong></dt><dd>No more memory is available.</dd><dt><strong>EIO</strong></dt><dd>I/O error.</dd><dt><strong>ETIMEDOUT</strong></dt><dd>Timeout has expired.</dd><dt><strong>EAGAIN</strong></dt><dd>Temporary error: Try again.</dd></dl><h2>erl_send(fd, to, msg):int</h2><p>Send a message.</p><ul><li><span class="v">int fd;</span></li><li><span class="v">ETERM *to, *msg;</span></li></ul><p>Sends an Erlang term to a process.</p><ul><li><strong>fd</strong> is an open descriptor to an Erlang connection.</li><li><strong>to</strong> is an Erlang term containing the pid of the intended recipient of the message.</li><li>&gt;<strong>msg</strong> is the Erlang term to be sent.</li></ul><p>Returns <strong>1</strong> on success, otherwise <strong>0</strong>. In
+the latter case <strong>erl_errno</strong> is set to one of:</p><dl><dt><strong>EINVAL</strong></dt><dd>Invalid argument: <strong>to</strong> is not a valid Erlang pid.</dd><dt><strong>ENOMEM</strong></dt><dd>No more memory is available.</dd><dt><strong>EIO</strong></dt><dd>I/O error.</dd></dl><h2>erl_thisalivename():const char *</h2><h2>erl_thiscookie():const char *</h2><h2>erl_thiscreation():short</h2><h2>erl_thishostname():const char *</h2><h2>erl_thisnodename():const char *</h2><p>Retrieve some values.</p><p>Retrieves information about
+the C-node. These values are initially set with
+<strong>erl_connect_init()</strong> or
+<strong>erl_connect_xinit()</strong>.</p><h2>erl_unpublish(alive):int</h2><p>Forcefully unpublish a node name.</p><ul><li><span class="v">char *alive;</span></li></ul><p>This function can be called by a process to unregister a
+specified node from EPMD on the local host. This is, however, usually
+not allowed, unless EPMD was started with flag
+<strong>-relaxed_command_check</strong>, which it normally is not.</p><p>To unregister a node you have published, you should instead
+close the descriptor that was returned by
+<strong>ei_publish()</strong>.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>This function is deprecated and will be removed in a future
+release.</p></div><p><strong>alive</strong> is the name of the node to unregister, that
+is, the first component of the node name, without
+<strong>@hostname</strong>.</p><p>If the node was successfully unregistered from EPMD, <strong>0</strong> is
+returned, otherwise <strong>-1</strong> is returned and
+<strong>erl_errno</strong> is set to <strong>EIO</strong>.</p><h2>erl_xreceive_msg(fd, bufpp, bufsizep, emsg):int</h2><p>Receive and decode a message.</p><ul><li><span class="v">int fd;</span></li><li><span class="v">unsigned char **bufpp;</span></li><li><span class="v">int *bufsizep;</span></li><li><span class="v">ErlMessage *emsg;</span></li></ul><p>Similar to <strong>erl_receive_msg</strong>. The difference is
+that <strong>erl_xreceive_msg</strong> expects the buffer to
+have been allocated by <strong>malloc</strong>, and reallocates it
+if the received
+message does not fit into the original buffer. Therefore
+both buffer and buffer length are given as pointers; their values
+can change by the call.</p><p>On success, the function returns <strong>ERL_MSG</strong> and the
+<strong>Emsg</strong> struct is initialized as described above, or
+<strong>ERL_TICK</strong>, in which case no message is returned. On
+failure, the function returns <strong>ERL_ERROR</strong> and sets
+<strong>erl_errno</strong> to one of:</p><dl><dt><strong>EMSGSIZE</strong></dt><dd>Buffer is too small.</dd><dt><strong>ENOMEM</strong></dt><dd>No more memory is available.</dd><dt><strong>EIO</strong></dt><dd>I/O error.</dd></dl><h2>erl_gethostbyaddr(addr, length, type):struct hostent *</h2><h2>erl_gethostbyaddr_r(addr, length, type, hostp, buffer, buflen, h_errnop):struct hostent *</h2><h2>erl_gethostbyname(name):struct hostent *</h2><h2>erl_gethostbyname_r(name, hostp, buffer, buflen, h_errnop):struct hostent *</h2><p>Name lookup functions.</p><ul><li><span class="v">const char *name;</span></li><li><span class="v">const char *addr;</span></li><li><span class="v">int length;</span></li><li><span class="v">int type;</span></li><li><span class="v">struct hostent *hostp;</span></li><li><span class="v">char *buffer;</span></li><li><span class="v">int buflen;</span></li><li><span class="v">int *h_errnop;</span></li></ul><p>Convenience functions for some common name lookup functions.</p><h2>Debug Information</h2><p>If a connection attempt fails, the following can be checked:</p><ul><li><strong>erl_errno</strong></li><li>That the correct cookie was used</li><li>That EPMD is running</li><li>That the remote Erlang node on the other side is running the same version of Erlang as the <strong>erl_interface</strong> library</li></ul></body></html>

@@ -1,0 +1,171 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>zip</h1><h1>zip</h1><p>Utility for reading and creating 'zip' archives.
+</p><p>This module archives and extracts files to and from a zip
+archive. The zip format is specified by the "ZIP Appnote.txt" file,
+available on the PKWARE web site
+<a href="http://www.pkware.com">www.pkware.com</a>.The zip module supports zip archive versions up to 6.1. However,
+password-protection and Zip64 are not supported.By convention, the name of a zip file is to end with <strong>.zip</strong>.
+To abide to the convention, add <strong>.zip</strong> to the filename.<ul><li> <p>To create zip archives, use function
+<a href="#zip/2">zip/2</a> or
+<a href="#zip/2">zip/2</a>. They are
+also available as <strong>create/2,3</strong>, to resemble the
+<a href="erl_tar">erl_tar</a> module.</p> </li><li> <p>To extract files from a zip archive, use function
+<a href="#unzip/1">unzip/1</a> or
+<a href="#unzip/2">unzip/2</a>. They are
+also available as <strong>extract/1,2</strong>, to resemble the
+<a href="erl_tar">erl_tar</a> module.</p> </li><li> <p>To fold a function over all files in a zip archive, use function
+<a href="#foldl/3">foldl/3</a>.</p> </li><li> <p>To return a list of the files in a zip archive, use function
+<a href="#list_dir/1">list_dir/1</a> or
+<a href="#list_dir/2">list_dir/2</a>. They are
+also available as <strong>table/1,2</strong>, to resemble the
+<a href="erl_tar">erl_tar</a> module.</p> </li><li> <p>To print a list of files to the Erlang shell, use function
+<a href="#t/1">t/1</a> or
+<a href="#tt/1">tt/1</a>.</p> </li><li> <p>Sometimes it is desirable to open a zip archive, and to
+unzip files from it file by file, without having to reopen the
+archive. This can be done by functions
+<a href="#zip_open/1">zip_open/1</a>,
+<a href="#zip_get/1">zip_get/1</a>,
+<a href="#zip_list_dir/1">zip_list_dir/1</a>, and
+<a href="#zip_close/1">zip_close/1</a>.</p> </li></ul></p><h2>Limitations</h2><ul><li> <p>Zip64 archives are not supported.</p> </li><li> <p>Password-protected and encrypted archives are not supported.</p> </li><li> <p>Only the DEFLATE (zlib-compression) and the STORE (uncompressed
+data) zip methods are supported.</p> </li><li> <p>The archive size is limited to 2 GB (32 bits).</p> </li><li> <p>Comments for individual files are not supported when creating zip
+archives. The zip archive comment for the whole zip archive is
+supported.</p> </li><li> <p>Changing a zip archive is not supported.
+To add or remove a file from an archive, the whole archive must be
+recreated.</p> </li></ul><h1>Data Types</h1><span class="name">zip_comment</span><p>The record <strong>zip_comment</strong> only contains the archive comment for
+a zip archive.</p><span class="name">zip_file</span><p>The record <strong>zip_file</strong> contains the following fields:</p><dl><dt><strong>name</strong></dt><dd> <p>The filename</p> </dd><dt><strong>info</strong></dt><dd> <p>File information as in
+<a href="../kernel/file#read_file_info/1">kernel/file#read_file_info/1</a>
+in Kernel</p> </dd><dt><strong>comment</strong></dt><dd> <p>The comment for the file in the zip archive</p> </dd><dt><strong>offset</strong></dt><dd> <p>The file offset in the zip archive (used internally)</p> </dd><dt><strong>comp_size</strong></dt><dd> <p>The size of the compressed file (the size of the uncompressed
+file is found in <strong>info</strong>)</p> </dd></dl><span class="name">filename</span><p>The name of a zip file.</p><span class="name">extension</span><span class="name">extension_spec</span><span class="name">create_option</span><p>These options are described in <a href="#zip_options">zip_options</a>.</p><span class="name">handle</span><p>As returned by
+<a href="#zip_open/2">zip_open/2</a>.</p><h1>Functions</h1><h2>foldl/3</h2><p>Fold a function over all files in a zip archive.</p><p>Calls <strong><span class="anno">Fun</span>(<span class="anno">FileInArchive</span>, <span class="anno">GetInfo </span>, <span class="anno">GetBin</span>, <span class="anno">AccIn</span>)</strong> on
+successive files in the <strong>Archive</strong>, starting with
+<strong><span class="anno">AccIn</span> == <span class="anno">Acc0</span></strong>.</p><p><strong><span class="anno">FileInArchive</span></strong> is the name that the file
+has in the archive.</p><p><strong><span class="anno">GetInfo</span></strong> is a fun that returns information
+about the file.</p><p><strong><span class="anno">GetBin</span></strong> returns the file contents.</p><p>Both <strong><span class="anno">GetInfo</span></strong> and <strong><span class="anno">GetBin</span></strong>
+must be called within the <strong><span class="anno">Fun</span></strong>. Their behavior is
+undefined if they are called outside the context of
+<strong><span class="anno">Fun</span></strong>.</p><p>The <strong><span class="anno">Fun</span></strong> must return a new accumulator, which is 
+passed to the next call. <strong>foldl/3</strong> returns the final accumulator
+value. <strong><span class="anno">Acc0</span></strong> is returned if the archive is
+empty. It is not necessary to iterate over all files in the archive.
+The iteration can be ended prematurely in a controlled manner
+by throwing an exception.</p><p><em>Example:</em></p><pre>
+&gt; <span class="input">Name = "dummy.zip".</span>
+"dummy.zip"
+&gt; <span class="input">{ok, {Name, Bin}} = zip:create(Name, [{"foo", &lt;&lt;"FOO"&gt;&gt;}, {"bar", &lt;&lt;"BAR"&gt;&gt;}], [memory]).</span>
+{ok,{"dummy.zip",
+     &lt;&lt;80,75,3,4,20,0,0,0,0,0,74,152,97,60,171,39,212,26,3,0,
+       0,0,3,0,0,...&gt;&gt;}}
+&gt; <span class="input">{ok, FileSpec} = zip:foldl(fun(N, I, B, Acc) -&gt; [{N, B(), I()} | Acc] end, [], {Name, Bin}).</span>
+{ok,[{"bar",&lt;&lt;"BAR"&gt;&gt;,
+      {file_info,3,regular,read_write,
+                 {{2010,3,1},{19,2,10}},
+                 {{2010,3,1},{19,2,10}},
+                 {{2010,3,1},{19,2,10}},
+                 54,1,0,0,0,0,0}},
+     {"foo",&lt;&lt;"FOO"&gt;&gt;,
+      {file_info,3,regular,read_write,
+                 {{2010,3,1},{19,2,10}},
+                 {{2010,3,1},{19,2,10}},
+                 {{2010,3,1},{19,2,10}},
+                 54,1,0,0,0,0,0}}]}
+&gt; <span class="input">{ok, {Name, Bin}} = zip:create(Name, lists:reverse(FileSpec), [memory]).</span>
+{ok,{"dummy.zip",
+     &lt;&lt;80,75,3,4,20,0,0,0,0,0,74,152,97,60,171,39,212,26,3,0,
+       0,0,3,0,0,...&gt;&gt;}}
+&gt; <span class="input">catch zip:foldl(fun("foo", _, B, _) -&gt; throw(B()); (_,_,_,Acc) -&gt; Acc end, [], {Name, Bin}). </span>
+&lt;&lt;"FOO"&gt;&gt;
+</pre><h2>list_dir/1</h2><h2>list_dir/2</h2><h2>table/1</h2><h2>table/2</h2><p>Retrieve the name of all files in a zip archive.</p><p><strong>list_dir/1</strong> retrieves all filenames in the zip archive
+<strong><span class="anno">Archive</span></strong>.</p><p><strong>list_dir/2</strong> provides options.</p><p><strong>table/1</strong> and <strong>table/2</strong> are provided as synonyms 
+to resemble the
+<a href="erl_tar">erl_tar</a> module.</p><p>The result value is the tuple <strong>{ok, List}</strong>, where <strong>List</strong>
+contains the zip archive comment as the first element.</p><p>One option is available:</p><dl><dt><strong>cooked</strong></dt><dd> <p>By default, this function opens the zip file in
+<strong>raw</strong> mode, which is faster but does not allow a remote
+(Erlang) file server to be used. Adding <strong>cooked</strong> to the
+mode list overrides the default
+and opens the zip file without option <strong>raw</strong>.</p> </dd></dl><h2>t/1</h2><p>Print the name of each file in a zip archive.</p><p>Prints all filenames in the zip archive <strong><span class="anno">Archive</span></strong>
+to  the Erlang shell. (Similar to <strong>tarÂ t</strong>.)</p><h2>tt/1</h2><p>Print name and information for each file in a zip archive. </p><p>Prints filenames and information about all files in the zip archive
+<strong><span class="anno">Archive</span></strong> to the Erlang shell.
+(Similar to <strong>tar tv</strong>.)</p><h2>unzip/1</h2><h2>unzip/2</h2><h2>extract/1</h2><h2>extract/2</h2><p>Extract files from a zip archive.</p><p><strong>unzip/1</strong> extracts all files from a zip archive.</p><p><strong>unzip/2</strong> provides options to extract some files, and more.</p><p><strong>extract/1</strong> and <strong>extract/2</strong> are provided as synonyms
+to resemble module 
+<a href="erl_tar">erl_tar</a>.</p><p>If argument <strong><span class="anno">Archive</span></strong> is specified as a binary,
+the contents of the binary is assumed to be a zip archive,
+otherwise a filename.</p><p>Options:</p><dl><dt><strong>{file_list, <span class="anno">FileList</span>}</strong></dt><dd> <p>By default, all files are extracted from the zip
+archive. With option <strong>{file_list, <span class="anno">FileList</span>}</strong>,
+function <strong>unzip/2</strong> only extracts the files
+whose names are included in <strong><span class="anno">FileList</span></strong>. The full
+paths, including the names of all subdirectories within
+the zip archive, must be specified.</p> </dd><dt><strong>cooked</strong></dt><dd> <p>By default, this function opens the
+zip file in <strong>raw</strong> mode, which is faster but does not allow
+a remote (Erlang) file server to be used. Adding <strong>cooked</strong>
+to the mode list overrides the default and opens the zip file
+without option <strong>raw</strong>. The same applies for the files
+extracted.</p> </dd><dt><strong>keep_old_files</strong></dt><dd> <p>By default, all files with the same name as files in
+the zip archive are overwritten. With option <strong>keep_old_files</strong>
+set, function <strong>unzip/2</strong> does not overwrite existing files.
+Notice that
+even with option <strong>memory</strong> specified, which
+means that no files are overwritten, existing files are
+excluded from the result.</p> </dd><dt><strong>verbose</strong></dt><dd> <p>Prints an informational message for each extracted file.</p> </dd><dt><strong>memory</strong></dt><dd> <p>Instead of extracting to the current directory,
+the result is given as a list of tuples
+<strong>{Filename, Binary}</strong>, where <strong>Binary</strong> is a binary
+containing the extracted data of file <strong>Filename</strong>
+in the zip archive.</p> </dd><dt><strong>{cwd, CWD}</strong></dt><dd> <p>Uses the specified directory as current directory. It is
+prepended to filenames when extracting them from the
+zip archive. (Acting like
+<a href="../kernel/file#set_cwd/1">kernel/file#set_cwd/1</a> in Kernel,
+but without changing the global <strong>cwd</strong> property.)</p> </dd></dl><h2>zip/2</h2><h2>zip/3</h2><h2>create/2</h2><h2>create/3</h2><p>Create a zip archive with options.</p><p>Creates a zip archive containing the files specified in
+<strong><span class="anno">FileList</span></strong>.</p><p><strong>create/2</strong> and <strong>create/3</strong> are provided as synonyms 
+to resemble module 
+<a href="erl_tar">erl_tar</a>.</p><p><strong><span class="anno">FileList</span></strong> is a list of files, with paths relative 
+to the current directory, which are stored with this path in the
+archive. Files can also be specified with data in binaries
+to create an archive directly from data.</p><p>Files are compressed using the DEFLATE compression, as
+described in the "Appnote.txt" file. However, files are
+stored without compression if they are already compressed.
+<strong>zip/2</strong> and <strong>zip/3</strong> check the file extension
+to determine if the file is to be stored without compression.
+Files with the following extensions are not compressed:
+<strong>.Z</strong>, <strong>.zip</strong>, <strong>.zoo</strong>, <strong>.arc</strong>, <strong>.lzh</strong>,
+<strong>.arj</strong>.</p><p>It is possible to override the default behavior and control
+what types of files that are to be compressed by using options
+<strong>{compress, <span class="anno">What</span>}</strong> and
+<strong>{uncompress, <span class="anno">What</span>}</strong>. It is also possible to use
+many <strong>compress</strong> and <strong>uncompress</strong> options.</p><p>To trigger file compression, its extension must match with the
+<strong>compress</strong> condition and must not match the
+<strong>uncompress</strong> condition. For example, if <strong>compress</strong> is
+set to <strong>["gif", "jpg"]</strong> and <strong>uncompress</strong> is set to
+<strong>["jpg"]</strong>, only files with extension <strong>"gif"</strong> are
+compressed.</p><a name="zip_options"></a><p>Options:</p><dl><dt><strong>cooked</strong></dt><dd> <p>By default, this function opens the
+zip file in mode <strong>raw</strong>, which is faster but does not allow
+a remote (Erlang) file server to be used. Adding <strong>cooked</strong>
+to the mode list overrides the default and opens the zip file
+without the <strong>raw</strong> option. The same applies for the files
+added.</p> </dd><dt><strong>verbose</strong></dt><dd> <p>Prints an informational message about each added file.</p> </dd><dt><strong>memory</strong></dt><dd> <p>The output is not to a file, but instead as a tuple
+<strong>{<span class="anno">FileName</span>, binary()}</strong>. The binary is a full zip
+archive with header and can be extracted with, for example,
+<a href="#unzip/2">unzip/2</a>.</p> </dd><dt><strong>{comment, <span class="anno">Comment</span>}</strong></dt><dd> <p>Adds a comment to the zip archive.</p> </dd><dt><strong>{cwd, <span class="anno">CWD</span>}</strong></dt><dd> <p>Uses the specified directory as current work directory
+(<strong>cwd</strong>). This is prepended to filenames when adding them,
+although not in the zip archive (acting like
+<a href="../kernel/file#set_cwd/1">kernel/file#set_cwd/1</a> in Kernel, but without
+changing the global <strong>cwd</strong> property.).</p> </dd><dt><strong>{compress, <span class="anno">What</span>}</strong></dt><dd> <p>Controls what types of files to be compressed. Defaults to
+<strong>all</strong>. The following values of <strong>What</strong> are allowed:</p> <dl><dt><strong>all</strong></dt><dd> <p>All files are compressed (as long
+as they pass the <strong>uncompress</strong> condition).</p> </dd><dt><strong>[<span class="anno">Extension</span>]</strong></dt><dd> <p>Only files with exactly these extensions
+are compressed.</p> </dd><dt><strong>{add,[<span class="anno">Extension</span>]}</strong></dt><dd> <p>Adds these extensions to the list of compress
+extensions.</p> </dd><dt><strong>{del,[<span class="anno">Extension</span>]}</strong></dt><dd> <p>Deletes these extensions from the list of compress
+extensions.</p> </dd></dl> </dd><dt><strong>{uncompress, <span class="anno">What</span>}</strong></dt><dd> <p>Controls what types of files to be uncompressed. Defaults to
+<strong>[".Z", ".zip", ".zoo", ".arc", ".lzh", ".arj"]</strong>.
+The following values of <strong>What</strong> are allowed:</p> <dl><dt><strong>all</strong></dt><dd> <p>No files are compressed.</p> </dd><dt><strong>[<span class="anno">Extension</span>]</strong></dt><dd> <p>Files with these extensions are uncompressed.</p> </dd><dt><strong>{add,[<span class="anno">Extension</span>]}</strong></dt><dd> <p>Adds these extensions to the list of uncompress
+extensions.</p> </dd><dt><strong>{del,[<span class="anno">Extension</span>]}</strong></dt><dd> <p>Deletes these extensions from the list of uncompress
+extensions.</p> </dd></dl> </dd></dl><h2>zip_close/1</h2><p>Close an open archive.</p><p>Closes a zip archive, previously opened with
+<a href="#zip_open/1">zip_open/1</a>.
+All resources are closed, and the handle is not to be used after
+closing.</p><h2>zip_get/1</h2><h2>zip_get/2</h2><p>Extract files from an open archive.</p><p>Extracts one or all files from an open archive.</p><p>The files are unzipped to memory or to file, depending on
+the options specified to function
+<a href="#zip_open/1">zip_open/1</a>
+when opening the archive.</p><h2>zip_list_dir/1</h2><p>Return a table of files in open zip archive.</p><p>Returns the file list of an open zip archive. The first returned
+element is the zip archive comment.</p><h2>zip_open/1</h2><h2>zip_open/2</h2><p>Open an archive and return a handle to it.</p><p>Opens a zip archive, and reads and saves its directory. This
+means that later reading files from the archive is
+faster than unzipping files one at a time with
+<a href="#unzip/1">unzip/1</a>.</p><p>The archive must be closed with
+<a href="#zip_close/1">zip_close/1</a>.</p><p>The <strong><span class="anno">ZipHandle</span></strong> is closed if the
+process that originally opened the archive dies.</p></body></html>

@@ -1,0 +1,150 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>file_sorter</h1><h1>file_sorter</h1><p>File sorter.</p><p>This module contains functions for sorting terms on files, merging
+already sorted files, and checking files for sortedness. Chunks
+containing binary terms are read from a sequence of files, sorted
+internally in memory and written on temporary files, which are
+merged producing one sorted file as output. Merging is provided
+as an optimization; it is faster when the files are already
+sorted, but it always works to sort instead of merge.On a file, a term is represented by a header and a binary. Two
+options define the format of terms on files:<dl><dt><strong>{header, HeaderLength}</strong></dt><dd> <p><strong>HeaderLength</strong> determines the
+number of bytes preceding each binary and containing the
+length of the binary in bytes. Defaults to 4. The order of the
+header bytes is defined as follows: if <strong>B</strong> is a binary
+containing a header only, size <strong>Size</strong> of the binary
+is calculated as
+<strong>&lt;&lt;Size:HeaderLength/unit:8&gt;&gt; = B</strong>.</p> </dd><dt><strong>{format, Format}</strong></dt><dd> <p>Option <strong>Format</strong> determines the
+function that is applied to binaries to create the
+terms to be sorted. Defaults to
+<strong>binary_term</strong>, which is equivalent to
+<strong>funÂ binary_to_term/1</strong>. Value <strong>binary</strong> is
+equivalent to <strong>fun(X) -&gt; X end</strong>, which means that the
+binaries are sorted as they are. This is the fastest
+format. If <strong>Format</strong> is <strong>term</strong>, <strong>io:read/2</strong> is
+called to read terms. In that case, only the default value of
+option <strong>header</strong> is allowed.</p> <p>Option <strong>format</strong> also determines what is written to the
+sorted output file: if
+<strong>Format</strong> is <strong>term</strong>, then <strong>io:format/3</strong> is called
+to write each term, otherwise the binary prefixed by a header
+is written. Notice that the binary written is the same binary
+that was read; the results of applying function <strong>Format</strong>
+are thrown away when the terms have been sorted.
+Reading and writing terms using the <strong>io</strong> module
+is much slower than reading and writing binaries.</p> </dd></dl>Other options are:<dl><dt><strong>{order, Order}</strong></dt><dd> <p>The default is to sort terms in
+ascending order, but that can be changed by value
+<strong>descending</strong> or by specifying an ordering function <strong>Fun</strong>.
+An ordering function is antisymmetric, transitive, and total.
+<strong>Fun(A,Â B)</strong> is to return <strong>true</strong> if <strong>A</strong>
+comes before <strong>B</strong> in the ordering, otherwise <strong>false</strong>.
+An example of a typical ordering function is less than or equal
+to, <strong>=&lt;/2</strong>. Using an ordering function slows down the sort
+considerably. Functions <strong>keysort</strong>, <strong>keymerge</strong> and
+<strong>keycheck</strong> do not accept ordering functions.</p> </dd><dt><strong>{unique, boolean()}</strong></dt><dd> <p>When sorting or merging files,
+only the first of a sequence of terms that compare equal (<strong>==</strong>)
+is output if this option is set to <strong>true</strong>. Defaults
+to <strong>false</strong>, which implies that all terms that
+compare equal are output. When checking files for
+sortedness, a check that no pair of consecutive terms
+compares equal is done if this option is set to <strong>true</strong>.</p> </dd><dt><strong>{tmpdir, TempDirectory}</strong></dt><dd> <p>The directory where
+temporary files are put can be chosen explicitly. The
+default, implied by value <strong>""</strong>, is to put temporary
+files on the same directory as the sorted output file. If
+output is a function (see below), the directory returned by
+<strong>file:get_cwd()</strong> is used instead. The names of
+temporary files are derived from the Erlang nodename
+(<strong>node()</strong>), the process identifier of the current Erlang
+emulator (<strong>os:getpid()</strong>), and a unique integer
+(<strong>erlang:unique_integer([positive])</strong>). A typical name is
+<strong>fs_mynode@myhost_1763_4711.17</strong>, where
+<strong>17</strong> is a sequence number. Existing files are
+overwritten. Temporary files are deleted unless some
+uncaught <strong>EXIT</strong> signal occurs.</p> </dd><dt><strong>{compressed, boolean()}</strong></dt><dd> <p>Temporary files and the output file can be compressed. Defaults
+<strong>false</strong>, which implies that written files are not
+compressed. Regardless of the value of option <strong>compressed</strong>,
+compressed files can always be read. Notice that
+reading and writing compressed files are significantly slower
+than reading and writing uncompressed files.</p> </dd><dt><strong>{size, Size}</strong></dt><dd> <p>By default about 512*1024 bytes read from files are sorted
+internally. This option is rarely needed.</p> </dd><dt><strong>{no_files, NoFiles}</strong></dt><dd> <p>By default 16 files are merged at a time. This option is rarely
+needed.</p> </dd></dl>As an alternative to sorting files, a function of one argument
+can be specified as input. When called with argument <strong>read</strong>,
+the function is assumed to return either of the following:<ul><li> <p><strong>end_of_input</strong> or <strong>{end_of_input, Value}}</strong> when there
+is no more input (<strong>Value</strong> is explained below).</p> </li><li> <p><strong>{Objects, Fun}</strong>, where <strong>Objects</strong> is a list of binaries
+or terms depending on the format, and <strong>Fun</strong> is a new input
+function.</p> </li></ul>Any other value is immediately returned as value of the current call
+to <strong>sort</strong> or <strong>keysort</strong>. Each input function is
+called exactly once. If an error occurs, the last
+function is called with argument <strong>close</strong>, the reply of
+which is ignored.A function of one argument can be specified as output. The results
+of sorting or merging the input is collected in a non-empty
+sequence of variable length lists of binaries or terms depending
+on the format. The output function is called with one list at a
+time, and is assumed to return a new output function. Any other
+return value is immediately returned as value of the current
+call to the sort or merge function. Each output function is
+called exactly once. When some output function has been applied
+to all of the results or an error occurs, the last function is
+called with argument <strong>close</strong>, and the reply is returned
+as value of the current call to the sort or merge function.If a function is specified as input and the last input function
+returns <strong>{end_of_input, Value}</strong>, the function specified as output
+is called with argument <strong>{value, Value}</strong>. This makes it
+easy to initiate the sequence of output functions with a value
+calculated by the input functions.As an example, consider sorting the terms on a disk log file.
+A function that reads chunks from the disk log and returns a
+list of binaries is used as input. The results are collected in
+a list of terms.<pre>
+sort(Log) -&gt;
+    {ok, _} = disk_log:open([{name,Log}, {mode,read_only}]),
+    Input = input(Log, start),
+    Output = output([]),
+    Reply = file_sorter:sort(Input, Output, {format,term}),
+    ok = disk_log:close(Log),
+    Reply.
+
+input(Log, Cont) -&gt;
+    fun(close) -&gt;
+            ok;
+       (read) -&gt;
+            case disk_log:chunk(Log, Cont) of
+                {error, Reason} -&gt;
+                    {error, Reason};
+                {Cont2, Terms} -&gt;
+                    {Terms, input(Log, Cont2)};
+                {Cont2, Terms, _Badbytes} -&gt;
+                    {Terms, input(Log, Cont2)};
+                eof -&gt;
+                    end_of_input
+            end
+    end.
+
+output(L) -&gt;
+    fun(close) -&gt;
+            lists:append(lists:reverse(L));
+       (Terms) -&gt;
+            output([Terms | L])
+    end.</pre>For more examples of functions as input and output, see
+the end of the <strong>file_sorter</strong> module; the <strong>term</strong>
+format is implemented with functions.The possible values of <strong>Reason</strong> returned when an error
+occurs are:<ul><li> <p><strong>bad_object</strong>, <strong>{bad_object, FileName}</strong> -
+Applying the format function failed for some binary,
+or the key(s) could not be extracted from some term.</p> </li><li> <p><strong>{bad_term, FileName}</strong> - <strong>io:read/2</strong> failed
+to read some term.</p> </li><li> <p><strong>{file_error, FileName, file:posix()}</strong> - For an
+explanation of <strong>file:posix()</strong>, see
+<a href="./file">kernel/file</a>.</p> </li><li> <p><strong>{premature_eof, FileName}</strong> - End-of-file was
+encountered inside some binary term.</p> </li></ul></p><h1>Data Types</h1><span class="name">file_name</span><span class="name">file_names</span><span class="name">i_command</span><span class="name">i_reply</span><span class="name">infun</span><span class="name">input</span><span class="name">input_reply</span><span class="name">o_command</span><span class="name">o_reply</span><span class="name">object</span><span class="name">outfun</span><span class="name">output</span><span class="name">output_reply</span><span class="name">value</span><span class="name">options</span><span class="name">option</span><span class="name">format</span><span class="name">format_fun</span><span class="name">header_length</span><span class="name">key_pos</span><span class="name">no_files</span><span class="name">order</span><span class="name">order_fun</span><span class="name">size</span><span class="name">tmp_directory</span><span class="name">reason</span><h1>Functions</h1><h2>check/1</h2><h2>check/2</h2><p>Check whether terms on files are sorted.</p><p>Checks files for sortedness. If a file is not sorted, the
+first out-of-order element is returned. The first term on a
+file has position 1.</p><p><strong>check(FileName)</strong> is equivalent to
+<strong>check([FileName], [])</strong>.</p><h2>keycheck/2</h2><h2>keycheck/3</h2><p>Check whether terms on files are sorted by key.</p><p>Checks files for sortedness. If a file is not sorted, the
+first out-of-order element is returned. The first term on a
+file has position 1.</p><p><strong>keycheck(KeyPos, FileName)</strong> is equivalent
+to <strong>keycheck(KeyPos, [FileName], [])</strong>.</p><h2>keymerge/3</h2><h2>keymerge/4</h2><p>Merge terms on files by key.</p><p>Merges tuples on files. Each input file is assumed to be
+sorted on key(s).</p><p><strong>keymerge(KeyPos, FileNames, Output)</strong> is equivalent
+to <strong>keymerge(KeyPos, FileNames, Output, [])</strong>.</p><h2>keysort/2</h2><p>Sort terms on files by key.</p><p>Sorts tuples on files.</p><p><strong>keysort(N, FileName)</strong> is
+equivalent to <strong>keysort(N, [FileName], FileName)</strong>.</p><h2>keysort/3</h2><h2>keysort/4</h2><p>Sort terms on files by key.</p><p>Sorts tuples on files. The sort is performed on the
+element(s) mentioned in <strong><span class="anno">KeyPos</span></strong>. If two
+tuples compare equal (<strong>==</strong>) on one element, the next
+element according to <strong><span class="anno">KeyPos</span></strong>
+is compared. The sort is stable.</p><p><strong>keysort(N, Input, Output)</strong> is equivalent to
+<strong>keysort(N, Input, Output, [])</strong>.</p><h2>merge/2</h2><h2>merge/3</h2><p>Merge terms on files.</p><p>Merges terms on files. Each input file is assumed to be
+sorted.</p><p><strong>merge(FileNames, Output)</strong> is equivalent to
+<strong>merge(FileNames, Output, [])</strong>.</p><h2>sort/1</h2><p>Sort terms on files.</p><p>Sorts terms on files.</p><p><strong>sort(FileName)</strong> is equivalent
+to <strong>sort([FileName], FileName)</strong>.</p><h2>sort/2</h2><h2>sort/3</h2><p>Sort terms on files.</p><p>Sorts terms on files.</p><p><strong>sort(Input, Output)</strong> is
+equivalent to <strong>sort(Input, Output, [])</strong>.</p></body></html>

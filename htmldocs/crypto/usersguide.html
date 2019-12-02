@@ -1,0 +1,517 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Crypto User's Guide</h1><p>The <em>Crypto</em> application provides functions for
+computation of message digests, and functions for encryption and
+decryption.
+This product includes software developed by the OpenSSL Project
+for use in the OpenSSL Toolkit (http://www.openssl.org/).
+This product includes cryptographic software written by Eric
+Young (eay@cryptsoft.com).
+This product includes software written by Tim Hudson
+(tjh@cryptsoft.com).
+For full OpenSSL and SSLeay license texts, see <a href="./licenses#licenses">Licenses</a>.
+</p><p>    <a name="licenses"></a>
+This chapter contains in extenso versions
+of the OpenSSL and SSLeay licenses.
+</p><h3>OpenSSL License</h3><pre><code class="">
+/* ====================================================================
+ * Copyright (c) 1998-2011 The OpenSSL Project.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer. 
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. All advertising materials mentioning features or use of this
+ *    software must display the following acknowledgment:
+ *    "This product includes software developed by the OpenSSL Project
+ *    for use in the OpenSSL Toolkit. (http://www.openssl.org/)"
+ *
+ * 4. The names "OpenSSL Toolkit" and "OpenSSL Project" must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission. For written permission, please contact
+ *    openssl-core@openssl.org.
+ *
+ * 5. Products derived from this software may not be called "OpenSSL"
+ *    nor may "OpenSSL" appear in their names without prior written
+ *    permission of the OpenSSL Project.
+ *
+ * 6. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by the OpenSSL Project
+ *    for use in the OpenSSL Toolkit (http://www.openssl.org/)"
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE OpenSSL PROJECT ``AS IS'' AND ANY
+ * EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE OpenSSL PROJECT OR
+ * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ * ====================================================================
+ *
+ * This product includes cryptographic software written by Eric Young
+ * (eay@cryptsoft.com).  This product includes software written by Tim
+ * Hudson (tjh@cryptsoft.com).
+ *
+ */    </code></pre><h3>SSLeay License</h3><pre><code class="">
+/* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
+ * All rights reserved.
+ *
+ * This package is an SSL implementation written
+ * by Eric Young (eay@cryptsoft.com).
+ * The implementation was written so as to conform with Netscapes SSL.
+ * 
+ * This library is free for commercial and non-commercial use as long as
+ * the following conditions are aheared to.  The following conditions
+ * apply to all code found in this distribution, be it the RC4, RSA,
+ * lhash, DES, etc., code; not just the SSL code.  The SSL documentation
+ * included with this distribution is covered by the same copyright terms
+ * except that the holder is Tim Hudson (tjh@cryptsoft.com).
+ * 
+ * Copyright remains Eric Young's, and as such any Copyright notices in
+ * the code are not to be removed.
+ * If this package is used in a product, Eric Young should be given attribution
+ * as the author of the parts of the library used.
+ * This can be in the form of a textual message at program startup or
+ * in documentation (online or textual) provided with the package.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ *    "This product includes cryptographic software written by
+ *     Eric Young (eay@cryptsoft.com)"
+ *    The word 'cryptographic' can be left out if the rouines from the library
+ *    being used are not cryptographic related :-).
+ * 4. If you include any Windows specific code (or a derivative thereof) from 
+ *    the apps directory (application code) you must include an acknowledgement:
+ *    "This product includes software written by Tim Hudson (tjh@cryptsoft.com)"
+ * 
+ * THIS SOFTWARE IS PROVIDED BY ERIC YOUNG ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ * 
+ * The licence and distribution terms for any publically available version or
+ * derivative of this code cannot be changed.  i.e. this code cannot simply be
+ * copied and put under another distribution licence
+ * [including the GNU Public Licence.]
+ */    </code></pre><p>
+<a name="fips"></a>
+This chapter describes FIPS mode support in the crypto application.
+</p><h3>Background</h3><p>OpenSSL can be built to provide FIPS 140-2 validated
+cryptographic services. It is not the OpenSSL application that is
+validated, but a special software component called the OpenSSL
+FIPS Object Module. However applications do not use this Object
+Module directly, but through the regular API of the OpenSSL
+library.</p><p>The crypto application supports using OpenSSL in FIPS mode. In
+this scenario only the validated algorithms provided by the Object
+Module are accessible, other algorithms usually available in
+OpenSSL (like md5) or implemented in the Erlang code (like SRP)
+are disabled.</p><h3>Enabling FIPS mode</h3><ul><li> <p>Build or install the FIPS Object Module and a FIPS enabled
+OpenSSL library.</p> <p>You should read and precisely follow the instructions of
+the <a href="http://csrc.nist.gov/groups/STM/cmvp/documents/140-1/140sp/140sp1747.pdf">Security Policy</a> and <a href="https://www.openssl.org/docs/fips/UserGuide-2.0.pdf">User Guide</a>.</p> <div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>It is very easy to build a working OpenSSL FIPS
+Object Module and library from the source. However it <em>does not</em> qualify as FIPS 140-2 validated if the numerous
+restrictions in the Security Policy are not properly
+followed.</p></div> </li><li> <p>Configure and build Erlang/OTP with FIPS support:</p> <pre>
+$ <span class="input">cd $ERL_TOP</span>
+$ <span class="input">./otp_build configure --enable-fips</span>
+...
+checking for FIPS_mode_set... yes
+...
+$ <span class="input">make</span>
+        </pre> <p>If <strong>FIPS_mode_set</strong> returns <strong>no</strong> the OpenSSL
+library is not FIPS enabled and crypto won't support FIPS mode
+either.</p> </li><li> <p>Set the <strong>fips_mode</strong> configuration setting of the
+crypto application to <strong>true</strong> <em>before loading the crypto module</em>.</p> <p>The best place is in the <strong>sys.config</strong> system
+configuration file of the release.</p> </li><li> Start and use the crypto application as usual. However take care to avoid the non-FIPS validated algorithms, they will all throw exception <strong>not_supported</strong>. </li></ul><p>Entering and leaving FIPS mode on a node already running crypto
+is not supported. The reason is that OpenSSL is designed to
+prevent an application requesting FIPS mode to end up accidentally
+running in non-FIPS mode. If entering FIPS mode fails (e.g. the
+Object Module is not found or is compromised) any subsequent use
+of the OpenSSL API would terminate the emulator.</p><p>An on-the-fly FIPS mode change would thus have to be performed
+in a critical section protected from any concurrently running
+crypto operations. Furthermore in case of failure all crypto calls
+would have to be disabled from the Erlang or nif code. This would
+be too much effort put into this not too important feature.</p><h3>Incompatibilities with regular builds</h3><p>The Erlang API of the crypto application is identical
+regardless of building with or without FIPS support. However the
+nif code internally uses a different OpenSSL API.</p><p>This means that the context (an opaque type) returned from
+streaming crypto functions (<strong>hash_(init|update|final)</strong>,
+<strong>hmac_(init|update|final)</strong> and
+<strong>stream_(init|encrypt|decrypt)</strong>) is different and
+incompatible with regular builds when compiling crypto with FIPS
+support.</p><h3>Common caveats</h3><p>In FIPS mode non-validated algorithms are disabled. This may
+cause some unexpected problems in application relying on
+crypto.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>Do not try to work around these problems by using
+alternative implementations of the missing algorithms! An
+application can only claim to be using a FIPS 140-2 validated
+cryptographic module if it uses it exclusively for every
+cryptographic operation.</p></div><h3>Restrictions on key sizes</h3><p>Although public key algorithms are supported in FIPS mode
+they can only be used with secure key sizes. The Security Policy
+requires the following minimum values:
+</p><dl><dt>RSA</dt><dd>1024 bit</dd><dt>DSS</dt><dd>1024 bit</dd><dt>EC algorithms</dt><dd>160 bit</dd></dl><h3>Restrictions on elliptic curves</h3><p>The Erlang API allows using arbitrary curve parameters, but
+in FIPS mode only those allowed by the Security Policy shall be
+used.</p><h3>Avoid md5 for hashing</h3><p>Md5 is a popular choice as a hash function, but it is not
+secure enough to be validated. Try to use sha instead wherever
+possible.</p><p>For exceptional, non-cryptographic use cases one may consider
+switching to <strong>erlang:md5/1</strong> as well.</p><h3>Certificates and encrypted keys</h3><p>As md5 is not available in FIPS mode it is only possible to
+use certificates that were signed using sha hashing. When
+validating an entire certificate chain all certificates
+(including the root CA's) must comply with this rule.</p><p>For similar dependency on the md5 and des algorithms most
+encrypted private keys in PEM format do not work
+either. However, the PBES2 encryption scheme allows the use of
+stronger FIPS verified algorithms which is a viable
+alternative.</p><h3>SNMP v3 limitations</h3><p>It is only possible to use <strong>usmHMACSHAAuthProtocol</strong> and
+<strong>usmAesCfb128Protocol</strong> for authentication and privacy
+respectively in FIPS mode. The snmp application however won't
+restrict selecting disabled protocols in any way, and using them
+would result in run time crashes.</p><h3>TLS 1.2 is required</h3><p>All SSL and TLS versions prior to TLS 1.2 use a combination
+of md5 and sha1 hashes in the handshake for various purposes:</p><ul><li>Authenticating the integrity of the handshake messages.</li><li>In the exchange of DH parameters in cipher suites providing non-anonymous PFS (perfect forward secrecy).</li><li>In the PRF (pseud-random function) to generate keying materials in cipher suites not using PFS.</li></ul><p>OpenSSL handles these corner cases in FIPS mode, however the
+Erlang crypto and ssl applications are not prepared for them and
+therefore you are limited to TLS 1.2 in FIPS mode.</p><p>On the other hand it worth mentioning that at least all
+cipher suites that would rely on non-validated algorithms are
+automatically disabled in FIPS mode.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Certificates using weak (md5) digests may also cause
+problems in TLS. Although TLS 1.2 has an extension for
+specifying which type of signatures are accepted, and in FIPS
+mode the ssl application will use it properly, most TLS
+implementations ignore this extension and simply send whatever
+certificates they were configured with.</p></div><p>
+<a name="engine_load"></a>
+This chapter describes the support for loading encryption engines in the crypto application.
+</p><h3>Background</h3><p>
+OpenSSL exposes an Engine API, which makes it possible to plug in alternative
+implementations for some or all of the cryptographic operations implemented by OpenSSL.
+When configured appropriately, OpenSSL calls the engine's implementation of these
+operations instead of its own.
+</p><p>
+Typically, OpenSSL engines provide a hardware implementation of specific cryptographic
+operations. The hardware implementation usually offers improved performance over its
+software-based counterpart, which is known as cryptographic acceleration.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The file name requirement on the engine dynamic library can differ between SSL versions.</p></div><h3>Use Cases</h3><h3>Dynamically load an engine from default directory</h3><p>
+If the engine is located in the OpenSSL/LibreSSL installation <strong>engines</strong> directory.
+</p><pre><code class="">
+1&gt; {ok, Engine} = crypto:engine_load(&lt;&lt;"otp_test_engine"&gt;&gt;, [], []).
+ {ok, #Ref}</code></pre><h3>Load an engine with the dynamic engine</h3><p>
+Load an engine with the help of the dynamic engine by giving the path to the library.
+</p><pre><code class="">
+ 2&gt; {ok, Engine} = crypto:engine_load(&lt;&lt;"dynamic"&gt;&gt;,
+                                      [{&lt;&lt;"SO_PATH"&gt;&gt;,
+                                        &lt;&lt;"/some/path/otp_test_engine.so"&gt;&gt;},
+                                       {&lt;&lt;"ID"&gt;&gt;, &lt;&lt;"MD5"&gt;&gt;},
+                                       &lt;&lt;"LOAD"&gt;&gt;],
+                                      []).
+ {ok, #Ref}</code></pre><h3>Load an engine and replace some methods</h3><p>
+Load an engine with the help of the dynamic engine and just
+replace some engine methods.
+</p><pre><code class="">
+ 3&gt; Methods = crypto:engine_get_all_methods() -- [engine_method_dh,engine_method_rand,
+engine_method_ciphers,engine_method_digests, engine_method_store,
+engine_method_pkey_meths, engine_method_pkey_asn1_meths].
+[engine_method_rsa,engine_method_dsa,
+ engine_method_ecdh,engine_method_ecdsa]
+ 4&gt; {ok, Engine} = crypto:engine_load(&lt;&lt;"dynamic"&gt;&gt;,
+                                      [{&lt;&lt;"SO_PATH"&gt;&gt;,
+                                        &lt;&lt;"/some/path/otp_test_engine.so"&gt;&gt;},
+                                       {&lt;&lt;"ID"&gt;&gt;, &lt;&lt;"MD5"&gt;&gt;},
+                                       &lt;&lt;"LOAD"&gt;&gt;],
+                                      [],
+		                      Methods).
+ {ok, #Ref}</code></pre><h3>Load with the ensure loaded function</h3><p>
+This function makes sure the engine is loaded just once and the ID is added to the internal
+engine list of OpenSSL. The following calls to the function will check if the ID is loaded
+and then just get a new reference to the engine.
+</p><pre><code class="">
+ 5&gt; {ok, Engine} = crypto:ensure_engine_loaded(&lt;&lt;"MD5"&gt;&gt;,
+                                               &lt;&lt;"/some/path/otp_test_engine.so"&gt;&gt;).
+ {ok, #Ref}</code></pre><p>
+To unload it use crypto:ensure_engine_unloaded/1 which removes the ID from the internal list
+before unloading the engine.
+</p><pre><code class="">
+ 6&gt; crypto:ensure_engine_unloaded(&lt;&lt;"MD5"&gt;&gt;).
+ ok</code></pre><h3>List all engines currently loaded</h3><pre><code class="">
+ 5&gt; crypto:engine_list().
+[&lt;&lt;"dynamic"&gt;&gt;, &lt;&lt;"MD5"&gt;&gt;]</code></pre><p>
+<a name="engine_key"></a>
+This chapter describes the support in the crypto application for using public and private keys stored in encryption engines.
+</p><h3>Background</h3><p>
+<a href="https://www.openssl.org/">OpenSSL</a> exposes an Engine API, which makes 
+it possible to plug in alternative implementations for some of the cryptographic
+operations implemented by OpenSSL.
+See the chapter <a href="../crypto/engine_load#engine_load">Engine Load</a>
+for details and how to load an Engine.
+</p><p>
+An engine could among other tasks provide a storage for
+private or public keys. Such a storage could be made safer than the normal file system. Those techniques are not
+described in this User's Guide.  Here we concentrate on how to use private or public keys stored in
+such an engine.
+</p><p>
+The storage engine must call <strong>ENGINE_set_load_privkey_function</strong> and <strong>ENGINE_set_load_pubkey_function</strong>.
+See the OpenSSL cryptolib's <a href="https://www.openssl.org/docs/manpages.html">manpages</a>.
+</p><p>
+OTP/Crypto requires that the user provides two or three items of information about the key. The application used
+by the user is usually on a higher level, for example in
+<a href="../ssl/ssl#type-key">SSL</a>. If using
+the crypto application directly, it is required that:
+</p><ul><li>an Engine is loaded, see the chapter on <a href="../crypto/engine_load#engine_load">Engine Load</a> or the <a href="../crypto/crypto#engine_load-3">Reference Manual</a> </li><li>a reference to a key in the Engine is available. This should be an Erlang string or binary and depends on the Engine loaded </li><li>an Erlang map is constructed with the Engine reference, the key reference and possibly a key passphrase if needed by the Engine. See the <a href="../crypto/crypto#type-engine_key_ref">Reference Manual</a> for details of the map. </li></ul><h3>Use Cases</h3><h3>Sign with an engine stored private key</h3><p>
+This example shows how to construct a key reference that is used in a sign operation.
+The actual key is stored in the engine that is loaded at prompt 1.
+</p><pre><code class="">
+1&gt; {ok, EngineRef} = crypto:engine_load(....).
+...
+{ok,#Ref&lt;0.2399045421.3028942852.173962&gt;}
+2&gt; PrivKey = #{engine =&gt; EngineRef,
+               key_id =&gt; "id of the private key in Engine"}.
+...
+3&gt; Signature = crypto:sign(rsa, sha, &lt;&lt;"The message"&gt;&gt;, PrivKey).
+&lt;&lt;65,6,125,254,54,233,84,77,83,63,168,28,169,214,121,76,
+  207,177,124,183,156,185,160,243,36,79,125,230,231,...&gt;&gt;
+      </code></pre><h3>Verify with an engine stored public key</h3><p>
+Here the signature and message in the last example is verifyed using the public key.
+The public key is stored in an engine, only to exemplify that it is possible. The public
+key could of course be handled openly as usual.
+</p><pre><code class="">
+4&gt; PublicKey = #{engine =&gt; EngineRef,
+                 key_id =&gt; "id of the public key in Engine"}.
+...
+5&gt; crypto:verify(rsa, sha, &lt;&lt;"The message"&gt;&gt;, Signature, PublicKey).
+true
+6&gt; 
+      </code></pre><h3>Using a password protected private key</h3><p>
+The same example as the first sign example, except that a password protects the key down in the Engine.
+</p><pre><code class="">
+6&gt; PrivKeyPwd = #{engine =&gt; EngineRef,
+                  key_id =&gt; "id of the pwd protected private key in Engine",
+		  password =&gt; "password"}.
+...
+7&gt; crypto:sign(rsa, sha, &lt;&lt;"The message"&gt;&gt;, PrivKeyPwd).
+&lt;&lt;140,80,168,101,234,211,146,183,231,190,160,82,85,163,
+  175,106,77,241,141,120,72,149,181,181,194,154,175,76,
+  223,...&gt;&gt;
+8&gt; 
+      </code></pre><p>
+This chapter describes details of algorithms in the crypto application.
+</p><p>The tables only documents the supported cryptos and key lengths. The user should not draw any conclusion
+on security from the supplied tables.
+</p><h3>Ciphers</h3><h3>Block Ciphers</h3><p>To be used in
+<a href="./crypto#block_encrypt-3">block_encrypt/3</a>,
+<a href="./crypto#block_encrypt-4">block_encrypt/4</a>,
+<a href="./crypto#block_decrypt-3">block_decrypt/3</a> and
+<a href="./crypto#block_decrypt-4">block_decrypt/4</a>.
+</p><p>Available in all OpenSSL compatible with Erlang CRYPTO if not disabled by configuration.
+</p><p>To dynamically check availability, check that the name in the <em>Cipher and Mode</em> column is present in the
+list with the <strong>cipher</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><table class="table table-bordered table-hover table-striped"><caption>Block cipher key lengths</caption><tbody><tr><td><span class="strong">Cipher and Mode</span></td><td><span class="strong">Key length</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">IV length</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">Block size</span><br/><span class="strong">[bytes]</span></td></tr><tr><td><strong>aes_cbc</strong></td><td>16, 24, 32</td><td>16</td><td>16</td></tr><tr><td><strong>aes_cbc128</strong></td><td>16</td><td>16</td><td>16</td></tr><tr><td><strong>aes_cbc256</strong></td><td>32</td><td>16</td><td>16</td></tr><tr><td><strong>aes_cfb8</strong></td><td>16, 24, 32</td><td>16</td><td>any</td></tr><tr><td><strong>aes_ecb</strong></td><td>16, 24, 32</td><td> </td><td>16</td></tr><tr><td><strong>aes_ige256</strong></td><td>16</td><td>32</td><td>16</td></tr><tr><td><strong>blowfish_cbc</strong></td><td>4-56</td><td>8</td><td>8</td></tr><tr><td><strong>blowfish_cfb64</strong></td><td>â¥1</td><td>8</td><td>any</td></tr><tr><td><strong>blowfish_ecb</strong></td><td>â¥1</td><td> </td><td>8</td></tr><tr><td><strong>blowfish_ofb64</strong></td><td>â¥1</td><td>8</td><td>any</td></tr><tr><td><strong>des3_cbc</strong><br/><em>(=DES EDE3 CBC)</em></td><td>[8,8,8]</td><td>8</td><td>8</td></tr><tr><td><strong>des3_cfb</strong><br/><em>(=DES EDE3 CFB)</em></td><td>[8,8,8]</td><td>8</td><td>any</td></tr><tr><td><strong>des_cbc</strong></td><td>8</td><td>8</td><td>8</td></tr><tr><td><strong>des_cfb</strong></td><td>8</td><td>8</td><td>any</td></tr><tr><td><strong>des_ecb</strong></td><td>8</td><td> </td><td>8</td></tr><tr><td><strong>des_ede3</strong><br/><em>(=DES EDE3 CBC)</em></td><td>[8,8,8]</td><td>8</td><td>8</td></tr><tr><td><strong>rc2_cbc</strong></td><td>â¥1</td><td>8</td><td>8</td></tr></tbody></table><h3>AEAD Ciphers</h3><p>To be used in <a href="./crypto#block_encrypt-4">block_encrypt/4</a> and
+<a href="./crypto#block_decrypt-4">block_decrypt/4</a>.
+</p><p>To dynamically check availability, check that the name in the <em>Cipher and Mode</em> column is present in the
+list with the <strong>cipher</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><table class="table table-bordered table-hover table-striped"><caption>AEAD cipher key lengths</caption><tbody><tr><td><span class="strong">Cipher and Mode</span></td><td><span class="strong">Key length</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">IV length</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">AAD length</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">Tag length</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">Block size</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">Supported with</span><br/><span class="strong">OpenSSL versions</span></td></tr><tr><td><strong>aes_ccm</strong></td><td>16,24,32</td><td>7-13</td><td>any</td><td>even 4-16<br/>default: 12</td><td>any</td><td>â¥1.1.0</td></tr><tr><td><strong>aes_gcm</strong></td><td>16,24,32</td><td>â¥1</td><td>any</td><td>1-16<br/>default: 16</td><td>any</td><td>â¥1.1.0</td></tr><tr><td><strong>chacha20_poly1305</strong></td><td>32</td><td>1-16</td><td>any</td><td>16</td><td>any</td><td>â¥1.1.0</td></tr></tbody></table><h3>Stream Ciphers</h3><p>To be used in <a href="./crypto#stream_init-2">stream_init/2</a> and
+<a href="./crypto#stream_init/3">stream_init/3</a>.
+</p><p>To dynamically check availability, check that the name in the <em>Cipher and Mode</em> column is present in the
+list with the <strong>cipher</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><table class="table table-bordered table-hover table-striped"><caption>Stream cipher key lengths</caption><tbody><tr><td><span class="strong">Cipher and Mode</span></td><td><span class="strong">Key length</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">IV length</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">Supported with</span><br/><span class="strong">OpenSSL versions</span></td></tr><tr><td><strong>aes_ctr</strong></td><td>16, 24, 32</td><td>16</td><td>â¥1.0.1</td></tr><tr><td><strong>rc4</strong></td><td>â¥1</td><td> </td><td>all</td></tr></tbody></table><h3>Message Authentication Codes (MACs)</h3><h3>CMAC</h3><p>To be used in <a href="./crypto#cmac-3">cmac/3</a> and
+<a href="./crypto#cmac-3">cmac/4</a>.
+</p><p>CMAC with the following ciphers are available with OpenSSL 1.0.1 or later if not disabled by configuration.
+</p><p>To dynamically check availability, check that the name <strong>cmac</strong> is present in the
+list with the <strong>macs</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+Also check that the name in the <em>Cipher and Mode</em> column is present in the
+list with the <strong>cipher</strong> tag in the return value.
+</p><table class="table table-bordered table-hover table-striped"><caption>CMAC cipher key lengths</caption><tbody><tr><td><span class="strong">Cipher and Mode</span></td><td><span class="strong">Key length</span><br/><span class="strong">[bytes]</span></td><td><span class="strong">Max Mac Length</span><br/><span class="strong">[bytes]</span></td></tr><tr><td><strong>aes_cbc</strong></td><td>16, 24, 32</td><td>16</td></tr><tr><td><strong>aes_cbc128</strong></td><td>16</td><td>16</td></tr><tr><td><strong>aes_cbc256</strong></td><td>32</td><td>16</td></tr><tr><td><strong>aes_cfb8</strong></td><td>16</td><td>1</td></tr><tr><td><strong>blowfish_cbc</strong></td><td>4-56</td><td>8</td></tr><tr><td><strong>blowfish_cfb64</strong></td><td>â¥1</td><td>1</td></tr><tr><td><strong>blowfish_ecb</strong></td><td>â¥1</td><td>8</td></tr><tr><td><strong>blowfish_ofb64</strong></td><td>â¥1</td><td>1</td></tr><tr><td><strong>des3_cbc</strong><br/><em>(=DES EDE3 CBC)</em></td><td>[8,8,8]</td><td>8</td></tr><tr><td><strong>des3_cfb</strong><br/><em>(=DES EDE3 CFB)</em></td><td>[8,8,8]</td><td>1</td></tr><tr><td><strong>des_cbc</strong></td><td>8</td><td>8</td></tr><tr><td><strong>des_cfb</strong></td><td>8</td><td>1</td></tr><tr><td><strong>des_ecb</strong></td><td>8</td><td>1</td></tr><tr><td><strong>rc2_cbc</strong></td><td>â¥1</td><td>8</td></tr></tbody></table><h3>HMAC</h3><p>Available in all OpenSSL compatible with Erlang CRYPTO if not disabled by configuration.
+</p><p>To dynamically check availability, check that the name <strong>hmac</strong> is present in the
+list with the <strong>macs</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><h3>POLY1305</h3><p>POLY1305 is available with OpenSSL 1.1.1 or later if not disabled by configuration.
+</p><p>To dynamically check availability, check that the name <strong>poly1305</strong> is present in the
+list with the <strong>macs</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><h3>Hash</h3><p>To dynamically check availability, check that the wanted name in the <em>Names</em> column is present in the
+list with the <strong>hashs</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><table class="table table-bordered table-hover table-striped"><tbody><tr><td><span class="strong">Type</span></td><td><span class="strong">Names</span></td><td><span class="strong">Supported with</span><br/><span class="strong">OpenSSL versions</span></td></tr><tr><td>SHA1</td><td>sha</td><td>all</td></tr><tr><td>SHA2</td><td>sha224, sha256, sha384, sha512</td><td>all</td></tr><tr><td>SHA3</td><td>sha3_224, sha3_256, sha3_384, sha3_512</td><td>â¥1.1.1</td></tr><tr><td>MD4</td><td>md4</td><td>all</td></tr><tr><td>MD5</td><td>md5</td><td>all</td></tr><tr><td>RIPEMD</td><td>ripemd160</td><td>all</td></tr></tbody></table><h3>Public Key Cryptography</h3><h3>RSA</h3><p>RSA is available with all OpenSSL versions compatible with Erlang CRYPTO if not disabled by configuration.
+To dynamically check availability, check that the atom <strong>rsa</strong> is present in the
+list with the <strong>public_keys</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>The RSA options are experimental.
+</p><p>The exact set of options and there syntax <em>may</em> be changed
+without prior notice.</p></div><table class="table table-bordered table-hover table-striped"><tbody><tr><td><span class="strong">Option</span></td><td><span class="strong">sign/verify</span></td><td><span class="strong">public encrypt</span><br/><span class="strong">private decrypt</span></td><td><span class="strong">private encrypt</span><br/><span class="strong">public decrypt</span></td></tr><tr><td>{rsa_padding,rsa_x931_padding}</td><td>x</td><td></td><td>x</td></tr><tr><td>{rsa_padding,rsa_pkcs1_padding}</td><td>x</td><td>x</td><td>x</td></tr><tr><td>{rsa_padding,rsa_pkcs1_pss_padding}<br/> {rsa_pss_saltlen, -2..}<br/> {rsa_mgf1_md, atom()} </td><td>x (2)<br/> x (2)<br/> x (2)</td><td></td><td></td></tr><tr><td>{rsa_padding,rsa_pkcs1_oaep_padding}<br/> {rsa_mgf1_md, atom()}<br/> {rsa_oaep_label, binary()}}<br/> {rsa_oaep_md, atom()} </td><td></td><td>x (2)<br/> x (2)<br/> x (3)<br/> x (3) </td><td></td></tr><tr><td>{rsa_padding,rsa_no_padding}</td><td>x (1)</td><td></td><td></td></tr></tbody></table><p>Notes:</p><ul><li>(1)  OpenSSL â¤ 1.0.0</li><li>(2)  OpenSSL â¥ 1.0.1</li><li>(3)  OpenSSL â¥ 1.1.0</li></ul><h3>DSS</h3><p>DSS is available with OpenSSL versions compatible with Erlang CRYPTO if not disabled by configuration.
+To dynamically check availability, check that the atom <strong>dss</strong> is present in the
+list with the <strong>public_keys</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><h3>ECDSA</h3><p>ECDSA is available with OpenSSL 0.9.8o or later if not disabled by configuration.
+To dynamically check availability, check that the atom <strong>ecdsa</strong> is present in the
+list with the <strong>public_keys</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+If the atom <strong>ec_gf2m</strong> characteristic two field curves are available.
+</p><p>The actual supported named curves could be checked by examining the list with the
+<strong>curves</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><h3>EdDSA</h3><p>EdDSA is available with OpenSSL 1.1.1 or later if not disabled by configuration.
+To dynamically check availability, check that the atom <strong>eddsa</strong> is present in the
+list with the <strong>public_keys</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><p>Support for the curves ed25519 and ed448 is implemented.
+The actual supported named curves could be checked by examining the list with the
+<strong>curves</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><h3>Diffie-Hellman</h3><p>Diffie-Hellman computations are available with OpenSSL versions compatible with Erlang CRYPTO
+if not disabled by configuration.
+To dynamically check availability, check that the atom <strong>dh</strong> is present in the
+list with the <strong>public_keys</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><h3>Elliptic Curve Diffie-Hellman</h3><p>Elliptic Curve Diffie-Hellman is available with OpenSSL 0.9.8o or later if not disabled by configuration.
+To dynamically check availability, check that the atom <strong>ecdh</strong> is present in the
+list with the <strong>public_keys</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><p>The Edward curves <strong>x25519</strong> and <strong>x448</strong> are supported with OpenSSL 1.1.1 or later
+if not disabled by configuration.
+</p><p>The actual supported named curves could be checked by examining the list with the
+<strong>curves</strong> tag in the return value of
+<a href="./crypto#supports-0">crypto:supports()</a>.
+</p><p>
+This chapter describes the new api to encryption and decryption.
+</p><h3>Background</h3><p>The CRYPTO app has evolved during its lifetime. Since also the OpenSSL cryptolib has changed the
+API several times, there are parts of the CRYPTO app that uses a very old one internally and
+other parts that uses the latest one. The internal definitions of e.g cipher names was a bit hard
+to maintain.
+</p><p>It turned out that using the old api in the new way (more about that later), and still keep it
+backwards compatible, was not possible. Specially as more precision in the error messages was wanted
+it could not be combined with the old standard.
+</p><p>Therefore the old api (see next section) is kept for now but internally implemented with new primitives.
+</p><h3>The old API</h3><p>The old functions - not recommended for new programs - are:</p><ul><li><a href="./crypto#block_encrypt-3">block_encrypt/3</a></li><li><a href="./crypto#block_encrypt-4">block_encrypt/4</a></li><li><a href="./crypto#block_decrypt-3">block_decrypt/3</a></li><li><a href="./crypto#block_decrypt-4">block_decrypt/4</a></li><li><a href="./crypto#stream_init-2">stream_init/2</a></li><li><a href="./crypto#stream_init-2">stream_init/3</a></li><li><a href="./crypto#stream_encrypt-2">stream_encrypt/2</a></li><li><a href="./crypto#stream_decrypt-2">stream_decrypt/2</a></li><li><a href="./crypto#supports-0">supports/0</a></li></ul><p>They are not deprecated for now, but may be in a future release.
+</p><h3>The new API</h3><p>The new functions for encrypting or decrypting one single binary are:
+</p><ul><li><a href="./crypto#crypto_one_time/4">crypto_one_time/4</a></li><li><a href="./crypto#crypto_one_time/5">crypto_one_time/5</a></li><li><a href="./crypto#crypto_one_time_aead/6">crypto_one_time_aead/6</a></li><li><a href="./crypto#crypto_one_time_aead/7">crypto_one_time_aead/7</a></li></ul><p>In those functions the internal crypto state is first created and initialized
+with the cipher type, the key and possibly other data. Then the single binary is encrypted
+or decrypted,
+the crypto state is de-allocated and the result of the crypto operation is returned.
+</p><p>The <strong>crypto_one_time_aead</strong> functions are for the ciphers of mode <strong>ccm</strong> or
+<strong>gcm</strong>, and for the cipher <strong>chacha20-poly1305</strong>.
+</p><p>For repeated encryption or decryption of a text divided in parts, where the internal
+crypto state is initialized once, and then many binaries are encrypted or decrypted with
+the same state, the functions are:
+</p><ul><li><a href="./crypto#crypto_init/4">crypto_init/4</a></li><li><a href="./crypto#crypto_init/3">crypto_init/3</a></li><li><a href="./crypto#crypto_update/2">crypto_update/2</a></li></ul><p>The <strong>crypto_init</strong> initialies an internal cipher state, and one or more calls of
+<strong>crypto_update</strong> does the acual encryption or decryption. Note that AEAD ciphers
+can't be handled this way due to their nature.
+</p><p>For repeated encryption or decryption of a text divided in parts where the
+same cipher and same key is used, but a new initialization vector (nounce) should be applied
+for each part, the functions are:
+</p><ul><li><a href="./crypto#crypto_dyn_iv_init/3">crypto_dyn_iv_init/3</a></li><li><a href="./crypto#crypto_dyn_iv_update/3">crypto_dyn_iv_update/3</a></li></ul><p>An example of where those functions are needed, is when handling the TLS protocol.</p><p>For information about available algorithms, use:
+</p><ul><li><a href="./crypto#supports-1">supports/1</a></li><li><a href="./crypto#hash_info-1">hash_info/1</a></li><li><a href="./crypto#cipher_info-1">cipher_info/1</a></li></ul><h3>Examples of crypto_init/4 and crypto_update/2</h3><p>The functions <a href="./crypto#crypto_init/4">crypto_init/4</a>
+and <a href="./crypto#crypto_update/2">crypto_update/2</a> are intended
+to be used for encrypting or decrypting a sequence of blocks. First one call of
+<strong>crypto_init/4</strong> initialises the crypto context. One or more calls <strong>crypto_update/2</strong>
+does the actual encryption or decryption for each block.
+</p><p>This example shows first the encryption of two blocks and then decryptions of the cipher
+text, but divided into three blocks just to show that it is possible to divide the plain text and
+cipher text differently for some ciphers:</p><pre><code class="erl">
+	1&gt; crypto:start().
+	ok
+	2&gt; Key = &lt;&lt;1:128&gt;&gt;.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1&gt;&gt;
+	3&gt; IV = &lt;&lt;0:128&gt;&gt;.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0&gt;&gt;
+	4&gt; StateEnc = crypto:crypto_init(aes_128_ctr, Key, IV, true). % encrypt -&gt; true
+	#Ref&lt;0.3768901617.1128660993.124047&gt;
+	5&gt; crypto:crypto_update(StateEnc, &lt;&lt;"First bytes"&gt;&gt;).
+	&lt;&lt;67,44,216,166,25,130,203,5,66,6,162&gt;&gt;
+	6&gt; crypto:crypto_update(StateEnc, &lt;&lt;"Second bytes"&gt;&gt;).
+	&lt;&lt;16,79,94,115,234,197,94,253,16,144,151,41&gt;&gt;
+	7&gt;
+	7&gt; StateDec = crypto:crypto_init(aes_128_ctr, Key, IV, false). % decrypt -&gt; false
+	#Ref&lt;0.3768901617.1128660994.124255&gt;
+	8&gt; crypto:crypto_update(StateDec, &lt;&lt;67,44,216,166,25,130,203&gt;&gt;).
+	&lt;&lt;"First b"&gt;&gt;
+	9&gt; crypto:crypto_update(StateDec, &lt;&lt;5,66,6,162,16,79,94,115,234,197,
+                                            94,253,16,144,151&gt;&gt;).
+	&lt;&lt;"ytesSecond byte"&gt;&gt;
+	10&gt; crypto:crypto_update(StateDec, &lt;&lt;41&gt;&gt;).
+	&lt;&lt;"s"&gt;&gt;
+	11&gt;
+      </code></pre><p>Note that the internal data that the <strong>StateEnc</strong> and <strong>StateDec</strong> references are
+destructivly updated by the calls to <a href="./crypto#crypto_update/2">crypto_update/2</a>.
+This is to gain time in the calls of the nifs interfacing the cryptolib. In a loop where the
+state is saved in the loop's state, it also saves one update of the loop state per crypto operation.
+</p><p>For example, a simple server receiving text parts to encrypt and send the result back to the
+one who sent them (the <strong>Requester</strong>):
+</p><pre><code class="erl">
+	encode(Crypto, Key, IV) -&gt;
+	    crypto_loop(crypto:crypto_init(Crypto, Key, IV, true)).
+
+	crypto_loop(State) -&gt;
+	    receive
+                {Text, Requester} -&gt;
+                    Requester ! crypto:crypto_update(State, Text),
+	            loop(State)
+	    end.
+      </code></pre><h3>Example of crypto_one_time/5</h3><p>The same example as in the
+<a href="#examples-of-crypto_init-4-and-crypto_update-2">previous section</a>,
+but now with one call to <a href="./crypto#crypto_one_time/5">crypto_one_time/5</a>:
+</p><pre><code class="">
+	1&gt; Key = &lt;&lt;1:128&gt;&gt;.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1&gt;&gt;
+	2&gt; IV = &lt;&lt;0:128&gt;&gt;.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0&gt;&gt;
+	3&gt; Txt = [&lt;&lt;"First bytes"&gt;&gt;,&lt;&lt;"Second bytes"&gt;&gt;].
+	[&lt;&lt;"First bytes"&gt;&gt;,&lt;&lt;"Second bytes"&gt;&gt;]
+	4&gt; crypto:crypto_one_time(aes_128_ctr, Key, IV, Txt, true).
+	&lt;&lt;67,44,216,166,25,130,203,5,66,6,162,16,79,94,115,234,
+	197,94,253,16,144,151,41&gt;&gt;
+	5&gt;
+      </code></pre><p>The <strong>[&lt;&lt;"First bytes"&gt;&gt;,&lt;&lt;"Second bytes"&gt;&gt;]</strong> could of course have been one
+single binary: <strong>&lt;&lt;"First bytesSecond bytes"&gt;&gt;</strong>.
+</p><h3>Example of crypto_one_time_aead/6</h3><p>The same example as in the
+<a href="#example-of-crypto_one_time-5">previous section</a>,
+but now with one call to <a href="./crypto#crypto_one_time_aead/6">crypto_one_time_aead/6</a>:
+</p><pre><code class="">
+	1&gt; Key = &lt;&lt;1:128&gt;&gt;.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1&gt;&gt;
+	2&gt; IV = &lt;&lt;0:128&gt;&gt;.
+	&lt;&lt;0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0&gt;&gt;
+	3&gt; Txt = [&lt;&lt;"First bytes"&gt;&gt;,&lt;&lt;"Second bytes"&gt;&gt;].
+	[&lt;&lt;"First bytes"&gt;&gt;,&lt;&lt;"Second bytes"&gt;&gt;]
+	4&gt; AAD = &lt;&lt;"Some bytes"&gt;&gt;.
+	&lt;&lt;"Some bytes"&gt;&gt;
+	5&gt; crypto:crypto_one_time_aead(aes_128_gcm, Key, IV, Txt, AAD, true).
+	{&lt;&lt;240,130,38,96,130,241,189,52,3,190,179,213,132,1,72,
+	192,103,176,90,104,15,71,158&gt;&gt;,
+	&lt;&lt;131,47,45,91,142,85,9,244,21,141,214,71,31,135,2,155&gt;&gt;}
+	9&gt;
+      </code></pre><p>The <strong>[&lt;&lt;"First bytes"&gt;&gt;,&lt;&lt;"Second bytes"&gt;&gt;]</strong> could of course have been one
+single binary: <strong>&lt;&lt;"First bytesSecond bytes"&gt;&gt;</strong>.
+</p><h3>Retired cipher names</h3><p>This table lists the retired cipher names in the first column and suggests names to replace them with
+in the second column.
+</p><p>The new names follows the OpenSSL libcrypto names. The format is ALGORITM_KEYSIZE_MODE.
+</p><p>Examples of algorithms are aes, chacha20 and des.  The keysize is the number of bits
+and examples of the mode are cbc, ctr and gcm. The mode may be followed by a number depending
+on the mode. An example is the ccm mode which has a variant called ccm8 where the so called tag
+has a length of eight bits.
+</p><p>The old names had by time lost any common naming which the new names now introduces. The new names include
+the key length which improves the error checking in the lower levels of the crypto application.
+</p><table class="table table-bordered table-hover table-striped"><tbody><tr><td><span class="strong">Instead of:</span></td><td><span class="strong">Use:</span> </td></tr><tr><td><strong>aes_cbc128</strong>   </td><td> <strong>aes_128_cbc</strong> </td></tr><tr><td><strong>aes_cbc256</strong>   </td><td> <strong>aes_256_cbc</strong> </td></tr><tr><td><strong>aes_cbc</strong>      </td><td> <strong>aes_128_cbc, aes_192_cbc, aes_256_cbc</strong></td></tr><tr><td><strong>aes_ccm</strong>      </td><td> <strong>aes_128_ccm, aes_192_ccm, aes_256_ccm</strong></td></tr><tr><td><strong>aes_cfb128</strong>   </td><td> <strong>aes_128_cfb128, aes_192_cfb128, aes_256_cfb128</strong></td></tr><tr><td><strong>aes_cfb8</strong>     </td><td> <strong>aes_128_cfb8, aes_192_cfb8, aes_256_cfb8</strong></td></tr><tr><td><strong>aes_ctr</strong>      </td><td> <strong>aes_128_ctr, aes_192_ctr, aes_256_ctr</strong></td></tr><tr><td><strong>aes_gcm</strong>      </td><td> <strong>aes_128_gcm, aes_192_gcm, aes_256_gcm</strong></td></tr><tr><td><strong>des3_cbc</strong>     </td><td> <strong>des_ede3_cbc</strong></td></tr><tr><td><strong>des3_cbf</strong>     </td><td> <strong>des_ede3_cfb</strong></td></tr><tr><td><strong>des3_cfb</strong>     </td><td> <strong>des_ede3_cfb</strong></td></tr><tr><td><strong>des_ede3</strong>     </td><td> <strong>des_ede3_cbc</strong></td></tr><tr><td><strong>des_ede3_cbf</strong> </td><td> <strong>des_ede3_cfb</strong></td></tr></tbody></table></body></html>

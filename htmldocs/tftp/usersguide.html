@@ -1,0 +1,36 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>TFTP User's Guide</h1><p>The <strong>TFTP</strong> application provides a TFTP client and server.</p><h3>Purpose</h3><p>The Trivial File Transfer Protocol or TFTP is a very simple protocol
+used to transfer files.</p><p>It has been implemented on top of the User Datagram protocol (UDP) so
+it may be used to move files between machines on different networks
+implementing UDP. It is designed to be small and easy to implement.
+Therefore, it lacks most of the features of a regular FTP.  The only
+thing it can do is read and write files (or mail) from/to a remote server.
+It cannot list directories, and currently has no provisions for user
+authentication.</p><p>The <strong>tftp</strong> application implements the following IETF standards:</p><ul><li>RFC 1350, The TFTP Protocol (revision 2)</li><li>RFC 2347, TFTP Option Extension</li><li>RFC 2348, TFTP Blocksize Option</li><li>RFC 2349, TFTP Timeout Interval and Transfer Size Options</li></ul><p>The only feature that not is implemented is the <strong>netascii</strong> transfer mode.</p><h3>Prerequisites</h3><p>It is assumed that the reader is familiar with the Erlang
+programming language, concepts of OTP, and has a basic
+understanding of the TFTP protocol.</p><h3>General Information</h3><p>The <a href="./tftp#start/1">start/1</a> function starts
+a daemon process listening for UDP packets on a port. When it
+receives a request for read or write, it spawns a temporary server
+process handling the transfer.</p><p>On the client side,
+function <a href="./tftp#read_file/3">read_file/3</a>
+and <a href="./tftp#write_file/3">write_file/3</a>
+spawn a temporary client process establishing
+contact with a TFTP daemon and perform the file transfer.</p><p><strong>tftp</strong> uses a callback module to handle the file
+transfer. Two such callback modules are provided,
+<strong>tftp_binary</strong> and <strong>tftp_file</strong>. See
+<a href="./tftp#read_file/3">read_file/3</a> and
+<a href="./tftp#write_file/3">write_file/3</a> for details.
+You can also implement your own callback modules, see
+<a href="./tftp#tftp_callback">CALLBACK FUNCTIONS</a>.
+A callback module provided by
+the user is registered using option <strong>callback</strong>, see
+<a href="./tftp#options">DATA TYPES</a>.</p><h3>Using the TFTP client and server</h3><p>This is a simple example of starting the TFTP server and reading the content
+of a sample file using the TFTP client.</p><p><em>Step 1.</em> Create a sample file to be used for the transfer:</p><pre><code class="">
+      $ echo "Erlang/OTP 21" &gt; file.txt
+    </code></pre><p><em>Step 2.</em> Start the TFTP server:</p><pre><code class="erl">
+      1&gt; {ok, Pid} = tftp:start([{port, 19999}]).
+      {ok,&lt;0.65.0&gt;}
+    </code></pre><p><em>Step 3.</em> Start the TFTP client (in another shell):</p><pre><code class="erl">
+      1&gt; tftp:read_file("file.txt", binary, [{port, 19999}]).
+      {ok,&lt;&lt;"Erlang/OTP 21\n"&gt;&gt;}
+    </code></pre></body></html>

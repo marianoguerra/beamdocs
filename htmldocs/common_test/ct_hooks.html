@@ -1,0 +1,227 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Common Test Hooks</h1><h1>ct_hooks</h1><p>A callback interface on top of Common Test.</p><p>The <em>Common Test Hook (CTH)</em> framework allows extensions of the
+default behavior of <strong>Common Test</strong> by callbacks before and after all
+test suite calls. It is intended for advanced users of <strong>Common Test</strong>
+who want to abstract out behavior that is common to multiple test suites.
+In brief, CTH allows you to:<ul><li><p>Manipulate the runtime configuration before each suite
+configuration call.</p></li><li><p>Manipulate the return of all suite configuration calls and by
+extension the result of the test themselves.</p></li></ul>The following sections describe the mandatory and optional CTH
+functions that <strong>Common Test</strong> calls during test execution.
+For more details, see section
+<a href="ct_hooks_chapter">Common Test Hooks</a> in the
+User's Guide.For information about how to add a CTH to your suite, see section
+<a href="./ct_hooks_chapter#installing">Installing a CTH</a>
+in the User's Guide.</p><h2>Callback Functions</h2><p>The following functions define the callback interface for a CTH.</p><h1>Functions</h1><h2>Module:init(Id, Opts) -&gt; {ok, State} | {ok, State, Priority}</h2><p>Initiates the Common Test Hook.</p><ul><li><span class="v">Id = reference() | term()</span></li><li><span class="v">Opts = term()</span></li><li><span class="v">State = term()</span></li><li><span class="v">Priority = integer()</span></li></ul><p>MANDATORY</p><p>This function is always called before any other callback function.
+Use it to initiate any common state. It is to return a state for
+this CTH.</p><p><strong>Id</strong> is either the return value of
+<a href="#Module:id-1">Module:id-1</a>,
+or a <strong>reference</strong> (created using
+<a href="../erts/erlang#make_ref-0">erlang:make_ref/0</a>
+in ERTS) if
+<a href="#Module:id-1">Module:id-1</a>
+is not implemented.</p><p><strong>Priority</strong> is the relative priority of this hook. Hooks with a
+lower priority are executed first. If no priority is specified, it 
+is set to <strong>0</strong>.</p><p>For details about when <strong>init</strong> is called, see section
+<a href="./ct_hooks_chapter#scope">CTH Scope</a>
+in the User's Guide.</p><h2>Module:post_groups(SuiteName, GroupDefs) -&gt; NewGroupDefs</h2><p>Called after groups/0.</p><ul><li><span class="v">SuiteName = atom()</span></li><li><span class="v">GroupDefs = NewGroupDefs = [Group]</span></li><li><span class="v">Group = {GroupName,Properties,GroupsAndTestCases}</span></li><li><span class="v">GroupName = atom()</span></li><li><span class="v">Properties = [parallel | sequence | Shuffle | {GroupRepeatType,N}]</span></li><li><span class="v">GroupsAndTestCases = [Group | {group,GroupName} | TestCase | {testcase,TestCase,TCRepeatProps}]</span></li><li><span class="v">TestCase = atom()</span></li><li><span class="v">TCRepeatProps = [{repeat,N} | {repeat_until_ok,N} | {repeat_until_fail,N}]</span></li><li><span class="v">Shuffle = shuffle | {shuffle,Seed}</span></li><li><span class="v">Seed = {integer(),integer(),integer()}</span></li><li><span class="v">GroupRepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</span></li><li><span class="v">N = integer() | forever</span></li></ul><p>OPTIONAL</p><p>This function is called after
+<a href="./common_test#Module:groups-0">common_test#Module:groups-0</a>.
+It is used to modify the test group definitions, for
+instance to add or remove groups or change group properties.</p><p><strong>GroupDefs</strong> is what
+<a href="./common_test#Module:groups-0">common_test#Module:groups-0</a>
+returned, that is, a list of group definitions.</p><p><strong>NewGroupDefs</strong> is the possibly modified version of this list.</p><p>This function is called only if the CTH is added before
+<strong>init_per_suite</strong> is run. For details, see section
+<a href="./ct_hooks_chapter#scope">CTH Scope</a>
+in the User's Guide.</p><p>Notice that for CTHs that are installed by means of the
+<a href="./common_test#Module:suite-0">common_test#Module:suite-0</a>
+function, <strong>post_groups/2</strong> is called before
+the <a href="#Module:init-2">Module:init-2</a>
+hook function. However, for CTHs that are installed by means
+of the CT start flag,
+the <a href="#Module:init-2">Module:init-2</a>
+function is called first.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Prior to each test execution, Common Test does a
+simulated test run in order to count test suites, groups
+and cases for logging purposes. This causes
+the <strong>post_groups/2</strong> hook function to always be called
+twice. For this reason, side effects are best avoided in
+this callback.</p></div><h2>Module:post_all(SuiteName, Return, GroupDefs) -&gt; NewReturn</h2><p>Called after all/0.</p><ul><li><span class="v">SuiteName = atom()</span></li><li><span class="v">Return = NewReturn = Tests | {skip,Reason}</span></li><li><span class="v">Tests = [TestCase | {testcase,TestCase,TCRepeatProps} | {group,GroupName} | {group,GroupName,Properties} | {group,GroupName,Properties,SubGroups}]</span></li><li><span class="v">TestCase = atom()</span></li><li><span class="v">TCRepeatProps = [{repeat,N} | {repeat_until_ok,N} | {repeat_until_fail,N}]</span></li><li><span class="v">GroupName = atom()</span></li><li><span class="v">Properties = GroupProperties | default</span></li><li><span class="v">SubGroups = [{GroupName,Properties} | {GroupName,Properties,SubGroups}]</span></li><li><span class="v">Shuffle = shuffle | {shuffle,Seed}</span></li><li><span class="v">Seed = {integer(),integer(),integer()}</span></li><li><span class="v">GroupRepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail | repeat_until_any_ok | repeat_until_any_fail</span></li><li><span class="v">N = integer() | forever</span></li><li><span class="v">GroupDefs = NewGroupDefs = [Group]</span></li><li><span class="v">Group = {GroupName,GroupProperties,GroupsAndTestCases}</span></li><li><span class="v">GroupProperties = [parallel | sequence | Shuffle | {GroupRepeatType,N}]</span></li><li><span class="v">GroupsAndTestCases = [Group | {group,GroupName} | TestCase]</span></li><li><span class="v">Reason = term()</span></li></ul><p>OPTIONAL</p><p>This function is called after
+<a href="./common_test#Module:all-0">common_test#Module:all-0</a>.
+It is used to modify the set of test cases and test group to
+be executed, for instance to add or remove test cases and
+groups, change group properties, or even skip all tests in
+the suite.</p><p><strong>Return</strong> is what
+<a href="./common_test#Module:all-0">common_test#Module:all-0</a>
+returned, that is, a list of test cases and groups to be
+executed, or a tuple <strong>{skip,Reason}</strong>.</p><p><strong>GroupDefs</strong> is what
+<a href="./common_test#Module:groups-0">common_test#Module:groups-0</a>
+or the <strong>post_groups/2</strong> hook returned, that is, a list
+of group definitions.</p><p><strong>NewReturn</strong> is the possibly modified version of <strong>Return</strong>.</p><p>This function is called only if the CTH is added before
+<strong>init_per_suite</strong> is run. For details, see section
+<a href="./ct_hooks_chapter#scope">CTH Scope</a>
+in the User's Guide.</p><p>Notice that for CTHs that are installed by means of the
+<a href="./common_test#Module:suite-0">common_test#Module:suite-0</a>
+function, <strong>post_all/2</strong> is called before
+the <a href="#Module:init-2">Module:init-2</a>
+hook function. However, for CTHs that are installed by means
+of the CT start flag,
+the <a href="#Module:init-2">Module:init-2</a>
+function is called first.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Prior to each test execution, Common Test does a
+simulated test run in order to count test suites, groups
+and cases for logging purposes. This causes
+the <strong>post_all/3</strong> hook function to always be called
+twice. For this reason, side effects are best avoided in
+this callback.</p></div><h2>Module:pre_init_per_suite(SuiteName, InitData, CTHState) -&gt; Result</h2><p>Called before init_per_suite.</p><ul><li><span class="v">SuiteName = atom()</span></li><li><span class="v">InitData = Config | SkipOrFail</span></li><li><span class="v">Config = NewConfig = [{Key,Value}]</span></li><li><span class="v">CTHState = NewCTHState = term()</span></li><li><span class="v">Result = {Return, NewCTHState}</span></li><li><span class="v">Return = NewConfig | SkipOrFail</span></li><li><span class="v">SkipOrFail = {fail, Reason} | {skip, Reason}</span></li><li><span class="v">Key = atom()</span></li><li><span class="v">Value = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>OPTIONAL</p><p>This function is called before
+<a href="./common_test#Module:init_per_suite-1">common_test#Module:init_per_suite-1</a>
+if it exists. It typically contains initialization/logging that must
+be done before <strong>init_per_suite</strong> is called. If
+<strong>{skip,Reason}</strong> or <strong>{fail,Reason}</strong> is returned,
+<strong>init_per_suite</strong> and all test cases of the suite are skipped
+and <strong>Reason</strong> printed in the overview log of the suite.</p><p><strong>SuiteName</strong> is the name of the suite to be run.</p><p><strong>InitData</strong> is the original configuration list of the test
+suite, or a <strong>SkipOrFail</strong> tuple if a previous CTH has returned
+this.</p><p><strong>CTHState</strong> is the current internal state of the CTH.</p><p><strong>Return</strong> is the result of the <strong>init_per_suite</strong> function.
+If it is <strong>{skip,Reason}</strong> or <strong>{fail,Reason}</strong>, 
+<a href="./common_test#Module:init_per_suite-1">common_test#Module:init_per_suite-1</a>
+is never called, instead the initiation is considered to be
+skipped or failed, respectively. If a <strong>NewConfig</strong> list is
+returned,
+<a href="./common_test#Module:init_per_suite-1">common_test#Module:init_per_suite-1</a>
+is called with that <strong>NewConfig</strong> list. For more details, see
+section <a href="./ct_hooks_chapter#pre">Pre Hooks</a>
+in the User's Guide.</p><p>This function is called only if the CTH is added before
+<strong>init_per_suite is run</strong>. For details, see section
+<a href="./ct_hooks_chapter#scope">CTH Scope</a>
+in the User's Guide.</p><h2>Module:post_init_per_suite(SuiteName, Config, Return, CTHState) -&gt; Result</h2><p>Called after init_per_suite.</p><ul><li><span class="v">SuiteName = atom()</span></li><li><span class="v">Config = [{Key,Value}]</span></li><li><span class="v">Return = NewReturn = Config | SkipOrFail | term()</span></li><li><span class="v">SkipOrFail = {fail, Reason} | {skip, Reason} | term()</span></li><li><span class="v">CTHState = NewCTHState = term()</span></li><li><span class="v">Result = {NewReturn, NewCTHState}</span></li><li><span class="v">Key = atom()</span></li><li><span class="v">Value = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>OPTIONAL</p><p>This function is called after
+<a href="./common_test#Module:init_per_suite-1">common_test#Module:init_per_suite-1</a>
+if it exists. It typically contains extra checks to ensure that all
+the correct dependencies are started correctly.</p><p><strong>Return</strong> is what
+<a href="./common_test#Module:init_per_suite-1">common_test#Module:init_per_suite-1</a>
+returned, that is, <strong>{fail,Reason}</strong>, <strong>{skip,Reason}</strong>, a
+<strong>Config</strong> list, or a term describing how
+<a href="./common_test#Module:init_per_suite-1">common_test#Module:init_per_suite-1</a>
+failed.</p><p><strong>NewReturn</strong> is the possibly modified return value of
+<a href="./common_test#Module:init_per_suite-1">common_test#Module:init_per_suite-1</a>.
+To recover from a failure in
+<a href="./common_test#Module:init_per_suite-1">common_test#Module:init_per_suite-1</a>,
+return <strong>ConfigList</strong> with the <strong>tc_status</strong> element removed.
+For more details, see
+<a href="./ct_hooks_chapter#post"> Post Hooks</a> in
+section "Manipulating Tests" in the User's Guide.</p><p><strong>CTHState</strong> is the current internal state of the CTH.</p><p>This function is called only if the CTH is added before or in
+<strong>init_per_suite</strong>. For details, see section
+<a href="./ct_hooks_chapter#scope">CTH Scope</a>
+in the User's Guide.</p><h2>Module:pre_init_per_group(SuiteName, GroupName, InitData, CTHState) -&gt; Result</h2><p>Called before init_per_group.</p><ul><li><span class="v">SuiteName = atom()</span></li><li><span class="v">GroupName = atom()</span></li><li><span class="v">InitData = Config | SkipOrFail</span></li><li><span class="v">Config = NewConfig = [{Key,Value}]</span></li><li><span class="v">CTHState = NewCTHState = term()</span></li><li><span class="v">Result = {NewConfig | SkipOrFail, NewCTHState}</span></li><li><span class="v">SkipOrFail = {fail,Reason} | {skip, Reason}</span></li><li><span class="v">Key = atom()</span></li><li><span class="v">Value = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>OPTIONAL</p><p>This function is called before
+<a href="./common_test#Module:init_per_group-2">common_test#Module:init_per_group-2</a>
+if it exists. It behaves the same way as
+<a href="./ct_hooks#Module:pre_init_per_suite-3">ct_hooks#Module:pre_init_per_suite-3</a>,
+but for function
+<a href="./common_test#Module:init_per_group-2">common_test#Module:init_per_group-2</a>
+instead.</p><p>If <strong>Module:pre_init_per_group/4</strong> is not exported, common_test
+will attempt to call <strong>Module:pre_init_per_group(GroupName, InitData, CTHState)</strong> instead. This is for backwards
+compatibility.</p><h2>Module:post_init_per_group(SuiteName, GroupName, Config, Return, CTHState) -&gt; Result</h2><p>Called after init_per_group.</p><ul><li><span class="v">SuiteName = atom()</span></li><li><span class="v">GroupName = atom()</span></li><li><span class="v">Config = [{Key,Value}]</span></li><li><span class="v">Return = NewReturn = Config | SkipOrFail | term()</span></li><li><span class="v">SkipOrFail = {fail,Reason} | {skip, Reason}</span></li><li><span class="v">CTHState = NewCTHState = term()</span></li><li><span class="v">Result = {NewReturn, NewCTHState}</span></li><li><span class="v">Key = atom()</span></li><li><span class="v">Value = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>OPTIONAL</p><p>This function is called after
+<a href="./common_test#Module:init_per_group-2">common_test#Module:init_per_group-2</a>
+if it exists. It behaves the same way as
+<a href="./ct_hooks#Module:post_init_per_suite-4">ct_hooks#Module:post_init_per_suite-4</a>,
+but for function
+<a href="./common_test#Module:init_per_group-2">common_test#Module:init_per_group-2</a>
+instead.</p><p>If <strong>Module:post_init_per_group/5</strong> is not exported, common_test
+will attempt to call <strong>Module:post_init_per_group(GroupName, Config, Return, CTHState)</strong> instead. This is for backwards
+compatibility.</p><h2>Module:pre_init_per_testcase(SuiteName, TestcaseName, InitData, CTHState) -&gt; Result</h2><p>Called before init_per_testcase.</p><ul><li><span class="v">SuiteName = atom()</span></li><li><span class="v">TestcaseName = atom()</span></li><li><span class="v">InitData = Config | SkipOrFail</span></li><li><span class="v">Config = NewConfig = [{Key,Value}]</span></li><li><span class="v">CTHState = NewCTHState = term()</span></li><li><span class="v">Result = {NewConfig | SkipOrFail, NewCTHState}</span></li><li><span class="v">SkipOrFail = {fail,Reason} | {skip, Reason}</span></li><li><span class="v">Key = atom()</span></li><li><span class="v">Value = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>OPTIONAL</p><p>This function is called before
+<a href="./common_test#Module:init_per_testcase-2">common_test#Module:init_per_testcase-2</a>
+if it exists. It behaves the same way as
+<a href="./ct_hooks#Module:pre_init_per_suite-3">ct_hooks#Module:pre_init_per_suite-3</a>,
+but for function
+<a href="./common_test#Module:init_per_testcase-2">common_test#Module:init_per_testcase-2</a>
+instead.</p><p>If <strong>Module:pre_init_per_testcase/4</strong> is not exported, common_test
+will attempt to call <strong>Module:pre_init_per_testcase(TestcaseName, InitData, CTHState)</strong> instead. This is for backwards
+compatibility.</p><p>CTHs cannot be added here right now. That feature may be added in
+a later release, but it would right now break backwards
+compatibility.</p><h2>Module:post_init_per_testcase(SuiteName, TestcaseName, Config, Return, CTHState) -&gt; Result</h2><p>Called after init_per_testcase.</p><ul><li><span class="v">SuiteName = atom()</span></li><li><span class="v">TestcaseName = atom()</span></li><li><span class="v">Config = [{Key,Value}]</span></li><li><span class="v">Return = NewReturn = Config | SkipOrFail | term()</span></li><li><span class="v">SkipOrFail = {fail,Reason} | {skip, Reason}</span></li><li><span class="v">CTHState = NewCTHState = term()</span></li><li><span class="v">Result = {NewReturn, NewCTHState}</span></li><li><span class="v">Key = atom()</span></li><li><span class="v">Value = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>OPTIONAL</p><p>This function is called after
+<a href="./common_test#Module:init_per_testcase-2">common_test#Module:init_per_testcase-2</a>
+if it exists. It behaves the same way as
+<a href="./ct_hooks#Module:post_init_per_suite-4">ct_hooks#Module:post_init_per_suite-4</a>,
+but for function
+<a href="./common_test#Module:init_per_testcase-2">common_test#Module:init_per_testcase-2</a>
+instead.</p><p>If <strong>Module:post_init_per_testcase/5</strong> is not exported, common_test
+will attempt to call <strong>Module:post_init_per_testcase(TestcaseName, Config, Return, CTHState)</strong> instead. This is for backwards
+compatibility.</p><h2>Module:pre_end_per_testcase(SuiteName, TestcaseName, EndData, CTHState) -&gt; Result</h2><p>Called before end_per_testcase.</p><ul><li><span class="v">SuiteName = atom()</span></li><li><span class="v">TestcaseName = atom()</span></li><li><span class="v">EndData = Config</span></li><li><span class="v">Config = NewConfig = [{Key,Value}]</span></li><li><span class="v">CTHState = NewCTHState = term()</span></li><li><span class="v">Result = {NewConfig, NewCTHState}</span></li><li><span class="v">Key = atom()</span></li><li><span class="v">Value = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>OPTIONAL</p><p>This function is called before
+<a href="./common_test#Module:end_per_testcase-2">common_test#Module:end_per_testcase-2</a>
+if it exists. It behaves the same way as
+<a href="./ct_hooks#Module:pre_end_per_suite-3">ct_hooks#Module:pre_end_per_suite-3</a>,
+but for function
+<a href="./common_test#Module:end_per_testcase-2">common_test#Module:end_per_testcase-2</a>
+instead.</p><p>This function cannot change the result of the test case by returning skip or fail
+tuples, but it may insert items in <strong>Config</strong> that can be read in
+<strong>end_per_testcase/2</strong> or in <strong>post_end_per_testcase/5</strong>.</p><p>If <strong>Module:pre_end_per_testcase/4</strong> is not exported, common_test
+will attempt to call <strong>Module:pre_end_per_testcase(TestcaseName, EndData, CTHState)</strong> instead. This is for backwards
+compatibility.</p><h2>Module:post_end_per_testcase(SuiteName, TestcaseName, Config, Return, CTHState) -&gt; Result</h2><p>Called after end_per_testcase.</p><ul><li><span class="v">SuiteName = atom()</span></li><li><span class="v">TestcaseName = atom()</span></li><li><span class="v">Config = [{Key,Value}]</span></li><li><span class="v">Return = NewReturn = Config | SkipOrFail | term()</span></li><li><span class="v">SkipOrFail = {fail,Reason} | {skip, Reason}</span></li><li><span class="v">CTHState = NewCTHState = term()</span></li><li><span class="v">Result = {NewReturn, NewCTHState}</span></li><li><span class="v">Key = atom()</span></li><li><span class="v">Value = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>OPTIONAL</p><p>This function is called after
+<a href="./common_test#Module:end_per_testcase-2">common_test#Module:end_per_testcase-2</a>
+if it exists. It behaves the same way as
+<a href="./ct_hooks#Module:post_end_per_suite-4">ct_hooks#Module:post_end_per_suite-4</a>,
+but for function
+<a href="./common_test#Module:end_per_testcase-2">common_test#Module:end_per_testcase-2</a>
+instead.</p><p>If <strong>Module:post_end_per_testcase/5</strong> is not exported, common_test
+will attempt to call <strong>Module:post_end_per_testcase(TestcaseName, Config, Return, CTHState)</strong> instead. This is for backwards
+compatibility.</p><h2>Module:pre_end_per_group(SuiteName, GroupName, EndData, CTHState) -&gt; Result</h2><p>Called before end_per_group.</p><ul><li><span class="v">SuiteName = atom()</span></li><li><span class="v">GroupName = atom()</span></li><li><span class="v">EndData = Config | SkipOrFail</span></li><li><span class="v">Config = NewConfig = [{Key,Value}]</span></li><li><span class="v">CTHState = NewCTHState = term()</span></li><li><span class="v">Result = {NewConfig | SkipOrFail, NewCTHState}</span></li><li><span class="v">SkipOrFail = {fail,Reason} | {skip, Reason}</span></li><li><span class="v">Key = atom()</span></li><li><span class="v">Value = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>OPTIONAL</p><p>This function is called before
+<a href="./common_test#Module:end_per_group-2">common_test#Module:end_per_group-2</a>
+if it exists. It behaves the same way as
+<a href="./ct_hooks#Module:pre_init_per_suite-3">ct_hooks#Module:pre_init_per_suite-3</a>,
+but for function
+<a href="./common_test#Module:end_per_group-2">common_test#Module:end_per_group-2</a>
+instead.</p><p>If <strong>Module:pre_end_per_group/4</strong> is not exported, common_test
+will attempt to call <strong>Module:pre_end_per_group(GroupName, EndData, CTHState)</strong> instead. This is for backwards
+compatibility.</p><h2>Module:post_end_per_group(SuiteName, GroupName, Config, Return, CTHState) -&gt; Result</h2><p>Called after end_per_group.</p><ul><li><span class="v">SuiteName = atom()</span></li><li><span class="v">GroupName = atom()</span></li><li><span class="v">Config = [{Key,Value}]</span></li><li><span class="v">Return = NewReturn = Config | SkipOrFail | term()</span></li><li><span class="v">SkipOrFail = {fail,Reason} | {skip, Reason}</span></li><li><span class="v">CTHState = NewCTHState = term()</span></li><li><span class="v">Result = {NewReturn, NewCTHState}</span></li><li><span class="v">Key = atom()</span></li><li><span class="v">Value = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>OPTIONAL</p><p>This function is called after
+<a href="./common_test#Module:end_per_group-2">common_test#Module:end_per_group-2</a>
+if it exists. It behaves the same way as
+<a href="./ct_hooks#Module:post_init_per_suite-4">ct_hooks#Module:post_init_per_suite-4</a>,
+but for function
+<a href="./common_test#Module:end_per_group-2">end_per_group</a>
+instead.</p><p>If <strong>Module:post_end_per_group/5</strong> is not exported, common_test
+will attempt to call <strong>Module:post_end_per_group(GroupName, Config, Return, CTHState)</strong> instead. This is for backwards
+compatibility.</p><h2>Module:pre_end_per_suite(SuiteName, EndData, CTHState) -&gt; Result</h2><p>Called before end_per_suite.</p><ul><li><span class="v">SuiteName = atom()</span></li><li><span class="v">EndData = Config | SkipOrFail</span></li><li><span class="v">Config = NewConfig = [{Key,Value}]</span></li><li><span class="v">CTHState = NewCTHState = term()</span></li><li><span class="v">Result = {NewConfig | SkipOrFail, NewCTHState}</span></li><li><span class="v">SkipOrFail = {fail,Reason} | {skip, Reason}</span></li><li><span class="v">Key = atom()</span></li><li><span class="v">Value = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>OPTIONAL</p><p>This function is called before
+<a href="./common_test#Module:end_per_suite-1">common_test#Module:end_per_suite-1</a>
+if it exists. It behaves the same way as
+<a href="./ct_hooks#Module:pre_init_per_suite-3">ct_hooks#Module:pre_init_per_suite-3</a>,
+but for function
+<a href="./common_test#Module:end_per_suite-1">common_test#Module:end_per_suite-1</a>
+instead.</p><h2>Module:post_end_per_suite(SuiteName, Config, Return, CTHState) -&gt; Result</h2><p>Called after end_per_suite.</p><ul><li><span class="v">SuiteName = atom()</span></li><li><span class="v">Config = [{Key,Value}]</span></li><li><span class="v">Return = NewReturn = Config | SkipOrFail | term()</span></li><li><span class="v">SkipOrFail = {fail,Reason} | {skip, Reason}</span></li><li><span class="v">CTHState = NewCTHState = term()</span></li><li><span class="v">Result = {NewReturn, NewCTHState}</span></li><li><span class="v">Key = atom()</span></li><li><span class="v">Value = term()</span></li><li><span class="v">Reason = term()</span></li></ul><p>OPTIONAL</p><p>This function is called after
+<a href="./common_test#Module:end_per_suite-1">common_test#Module:end_per_suite-1</a>
+if it exists. It behaves the same way as
+<a href="./ct_hooks#Module:post_init_per_suite-4">ct_hooks#Module:post_init_per_suite-4</a>,
+but for function
+<a href="./common_test#Module:end_per_suite-1">common_test#Module:end_per_suite-1</a>
+instead.</p><h2>Module:on_tc_fail(SuiteName, TestName, Reason, CTHState) -&gt; NewCTHState</h2><p>Called after the CTH scope ends.</p><ul><li><span class="v">SuiteName = atom()</span></li><li><span class="v">TestName = init_per_suite | end_per_suite | {init_per_group,GroupName} | {end_per_group,GroupName} | {FuncName,GroupName} | FuncName</span></li><li><span class="v">FuncName = atom()</span></li><li><span class="v">GroupName = atom()</span></li><li><span class="v">Reason = term()</span></li><li><span class="v">CTHState = NewCTHState = term()</span></li></ul><p>OPTIONAL</p><p>This function is called whenever a test case (or configuration
+function) fails. It is called after the post function is called
+for the failed test case, that is:</p><ul><li><p>If <strong>init_per_suite</strong> fails, this function is called after
+<a href="#Module:post_init_per_suite-4">Module:post_init_per_suite-4</a>.</p></li><li><p>If a test case fails, this funcion is called after
+<a href="#Module:post_end_per_testcase-5">Module:post_end_per_testcase-5</a>.</p></li></ul><p>If the failed test case belongs to a test case group, the first
+argument is a tuple <strong>{FuncName,GroupName}</strong>, otherwise only
+the function name.</p><p>The data that comes with <strong>Reason</strong> follows the same format as
+<a href="./event_handler_chapter#failreason">event_handler_chapter#failreason</a>
+in event
+<a href="./event_handler_chapter#tc_done">event_handler_chapter#tc_done</a>.
+For details, see section
+<a href="./event_handler_chapter#events">Event Handling</a>
+in the User's Guide.</p><p>If <strong>Module:on_tc_fail/4</strong> is not exported, common_test
+will attempt to call <strong>Module:on_tc_fail(TestName, Reason, CTHState)</strong> instead. This is for backwards
+compatibility.</p><h2>Module:on_tc_skip(SuiteName, TestName, Reason, CTHState) -&gt; NewCTHState</h2><p>Called after the CTH scope ends.</p><ul><li><span class="v">SuiteName = atom()</span></li><li><span class="v">TestName = init_per_suite | end_per_suite | {init_per_group,GroupName} | {end_per_group,GroupName} | {FuncName,GroupName} | FuncName</span></li><li><span class="v">FuncName = atom()</span></li><li><span class="v">GroupName = atom()</span></li><li><span class="v">Reason = {tc_auto_skip | tc_user_skip, term()}</span></li><li><span class="v">CTHState = NewCTHState = term()</span></li></ul><p>OPTIONAL</p><p>This function is called whenever a test case (or configuration
+function) is skipped. It is called after the post function is called
+for the skipped test case, that is:</p><ul><li><p>If <strong>init_per_group</strong> is skipped, this function is
+called after 
+<a href="#Module:post_init_per_group-5">Module:post_init_per_group-5</a>.</p></li><li><p>If a test case is skipped, this function is called after
+<a href="#Module:post_end_per_testcase-5">Module:post_end_per_testcase-5</a>.</p></li></ul><p>If the skipped test case belongs to a test case group, the first
+argument is a tuple <strong>{FuncName,GroupName}</strong>, otherwise only
+the function name.</p><p>The data that comes with <strong>Reason</strong> follows the same format as
+events
+<a href="./event_handler_chapter#tc_auto_skip">event_handler_chapter#tc_auto_skip</a>
+and
+<a href="./event_handler_chapter#tc_user_skip">event_handler_chapter#tc_user_skip</a>
+For details, see section
+<a href="./event_handler_chapter#events">Event Handling</a>
+in the User's Guide.</p><p>If <strong>Module:on_tc_skip/4</strong> is not exported, common_test
+will attempt to call <strong>Module:on_tc_skip(TestName, Reason, CTHState)</strong> instead. This is for backwards
+compatibility.</p><h2>Module:terminate(CTHState)</h2><p>Called after the CTH scope ends.</p><ul><li><span class="v">CTHState = term()</span></li></ul><p>OPTIONAL</p><p>This function is called at the end of a CTH
+<a href="./ct_hooks_chapter#scope">scope</a>.</p><h2>Module:id(Opts) -&gt; Id</h2><p>Called before the init function of a CTH.</p><ul><li><span class="v">Opts = term()</span></li><li><span class="v">Id = term()</span></li></ul><p>OPTIONAL</p><p>The <strong>Id</strong> identifies a CTH instance uniquely. If two CTHs return
+the same <strong>Id</strong>, the second CTH is ignored and subsequent calls to
+the CTH are only made to the first instance. For details, see section
+<a href="./ct_hooks_chapter#installing">Installing a CTH</a>
+in the User's Guide.</p><p>This function is <em>not</em> to have any side effects, as it can 
+be called multiple times by <strong>Common Test</strong>.</p><p>If not implemented, the CTH acts as if this function returned a call
+to <strong>make_ref/0</strong>.</p></body></html>

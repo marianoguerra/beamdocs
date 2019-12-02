@@ -1,0 +1,34 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>make</h1><h1>make</h1><p>A Make Utility for Erlang</p><p>The module <strong>make</strong> provides a set of functions similar to
+the UNIX type <strong>Make</strong> functions.</p><h1>Functions</h1><h2>all() -&gt; up_to_date | error</h2><h2>all(Options) -&gt; up_to_date | error</h2><p>Compile a set of modules.</p><ul><li><span class="v">Options = [Option]</span></li><li><span class="v">Â Option = noexec | load | netload | {emake, Emake} | &lt;compiler option&gt;</span></li></ul><p>This function determines the set of modules to compile and the
+compile options to use, by first looking for the <strong>emake</strong> make
+option, if not present reads the configuration from a file named
+<strong>Emakefile</strong> (see below). If no such file is found, the
+set of modules to compile defaults to all modules in the
+current working directory.</p><p>Traversing the set of modules, it then recompiles every module for
+which at least one of the following conditions apply:</p><ul><li>there is no object file, or</li><li>the source file has been modified since it was last compiled, or,</li><li>an include file has been modified since the source file was last compiled.</li></ul><p>As a side effect, the function prints the name of each module it
+tries to compile. If compilation fails for a module, the make
+procedure stops and <strong>error</strong> is returned.</p><p><strong>Options</strong> is a list of make- and compiler options.
+The following make options exist:</p><ul><li><strong>noexec</strong>          <br/> No execution mode. Just prints the name of each module that needs to be compiled.</li><li><strong>load</strong>          <br/> Load mode. Loads all recompiled modules.</li><li><strong>netload</strong>          <br/> Net load mode. Loads all recompiled modules on all known nodes.</li><li><strong>{emake, Emake}</strong>          <br/> Rather than reading the <strong>Emakefile</strong> specify configuration explicitly.</li></ul><p>All items in <strong>Options</strong> that are not make options are assumed
+to be compiler options and are passed as-is to
+<strong>compile:file/2</strong>. <strong>Options</strong> defaults to <strong>[]</strong>.</p><h2>files(ModFiles) -&gt; up_to_date | error</h2><h2>files(ModFiles, Options) -&gt; up_to_date | error</h2><p>Compile a set of modules.</p><ul><li><span class="v">ModFiles = [Module | File]</span></li><li><span class="v">Â Module = atom()</span></li><li><span class="v">Â File = string()</span></li><li><span class="v">Options = [Option]</span></li><li><span class="v">Â Option = noexec | load | netload | &lt;compiler option&gt;</span></li></ul><p><strong>files/1,2</strong> does exactly the same thing as <strong>all/0,1</strong> but
+for the specified <strong>ModFiles</strong>, which is a list of module or
+file names. The file extension <strong>.erl</strong> may be omitted.</p><p>The <strong>Emakefile</strong> (if it exists) in the current
+directory is searched for compiler options for each module. If
+a given module does not exist in <strong>Emakefile</strong> or if
+<strong>Emakefile</strong> does not exist, the module is still compiled.</p><h2>Emakefile</h2><p><strong>make:all/0,1</strong> and <strong>make:files/1,2</strong> first looks for
+<strong>{emake, Emake}</strong> in options, then in the current working directory
+for a file named <strong>Emakefile</strong>. If present <strong>Emake</strong> should
+contain elements like this:</p><pre><code class="">
+Modules.
+{Modules,Options}.    </code></pre><p><strong>Modules</strong> is an atom or a list of atoms. It can be 
+</p><ul><li>a module name, e.g. <strong>file1</strong></li><li>a module name in another directory, e.g. <strong>../foo/file3</strong></li><li>a set of modules specified with a wildcards, e.g. <strong>'file*'</strong></li><li>a wildcard indicating all modules in current directory, i.e. <strong>'*'</strong></li><li>a list of any of the above, e.g. <strong>['file*','../foo/file3','File4']</strong></li></ul><p><strong>Options</strong> is a list of compiler options.
+</p><p><strong>Emakefile</strong> is read from top to bottom. If a module
+matches more than one entry, the first match is valid. For
+example, the following <strong>Emakefile</strong> means that <strong>file1</strong>
+shall be compiled with the options
+<strong>[debug_info,{i,"../foo"}]</strong>, while all other files in the
+current directory shall be compiled with only the
+<strong>debug_info</strong> flag.</p><pre><code class="">
+{'file1',[debug_info,{i,"../foo"}]}.
+{'*',[debug_info]}.    </code></pre><h2>See Also</h2><p><a href="./compile">compiler/compile</a></p></body></html>

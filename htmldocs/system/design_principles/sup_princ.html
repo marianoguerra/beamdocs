@@ -1,0 +1,256 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Supervisor Behaviour</h1><p>This section should be read with the
+<a href="./supervisor">supervisor(3)</a> manual page
+in STDLIB, where all details about the supervisor
+behaviour is given.</p><h2>Supervision Principles</h2><p>A supervisor is responsible for starting, stopping, and
+monitoring its child processes. The basic idea of a supervisor is
+that it is to keep its child processes alive by restarting them
+when necessary.</p><p>Which child processes to start and monitor is specified by a
+list of <a href="#spec">child specifications</a>.
+The child processes are started in the order specified by this
+list, and terminated in the reversed order.</p><h2>Example</h2><p>The callback module for a supervisor starting the server from
+<a href="./gen_server_concepts#ex">gen_server Behaviour</a>
+can look as follows:</p><a name="ex"></a><pre><code class="">
+-module(ch_sup).
+-behaviour(supervisor).
+
+-export([start_link/0]).
+-export([init/1]).
+
+start_link() -&gt;
+    supervisor:start_link(ch_sup, []).
+
+init(_Args) -&gt;
+    SupFlags = #{strategy =&gt; one_for_one, intensity =&gt; 1, period =&gt; 5},
+    ChildSpecs = [#{id =&gt; ch3,
+                    start =&gt; {ch3, start_link, []},
+                    restart =&gt; permanent,
+                    shutdown =&gt; brutal_kill,
+                    type =&gt; worker,
+                    modules =&gt; [cg3]}],
+    {ok, {SupFlags, ChildSpecs}}.</code></pre><p>The <strong>SupFlags</strong> variable in the return value
+from <strong>init/1</strong> represents
+the <a href="#flags">supervisor flags</a>.</p><p>The <strong>ChildSpecs</strong> variable in the return value
+from <strong>init/1</strong> is a list of <a href="#spec">child specifications</a>.</p><a name="flags"></a><h2>Supervisor Flags</h2><p>This is the type definition for the supervisor flags:</p><pre><code class="">
+sup_flags() = #{strategy =&gt; strategy(),         % optional
+                intensity =&gt; non_neg_integer(), % optional
+                period =&gt; pos_integer()}        % optional
+    strategy() = one_for_all
+               | one_for_one
+               | rest_for_one
+               | simple_one_for_one</code></pre><ul><li> <p><strong>strategy</strong> specifies
+the <a href="#strategy">restart strategy</a>.</p> </li><li> <p><strong>intensity</strong> and <strong>period</strong> specify
+the <a href="#max_intensity">maximum restart intensity</a>.</p> </li></ul><a name="strategy"></a><h2>Restart Strategy</h2><p> The restart strategy is specified by
+the <strong>strategy</strong> key in the supervisor flags map returned by
+the callback function <strong>init</strong>:</p><pre><code class="">
+SupFlags = #{strategy =&gt; Strategy, ...}</code></pre><p>The <strong>strategy</strong> key is optional in this map. If it is not
+given, it defaults to <strong>one_for_one</strong>.</p><h2>one_for_one</h2><p>If a child process terminates, only that process is restarted.</p><a name="sup4"></a><img src="../design_principles/sup4.gif" title="One_For_One Supervision"></img><h2>one_for_all</h2><p>If a child process terminates, all other child processes are
+terminated, and then all child processes, including
+the terminated one, are restarted.</p><a name="sup5"></a><img src="../design_principles/sup5.gif" title="One_For_All Supervision"></img><h2>rest_for_one</h2><p>If a child process terminates, the rest of the child
+processes (that is, the child processes after the terminated
+process in start order) are terminated. Then the terminated
+child process and the rest of the child processes are restarted.</p><h2>simple_one_for_one</h2><p>See <a href="#simple">simple-one-for-one supervisors</a>.</p><a name="max_intensity"></a><h2>Maximum Restart Intensity</h2><p>The supervisors have a built-in mechanism to limit the number of
+restarts which can occur in a given time interval. This is
+specified by the two keys <strong>intensity</strong> and
+<strong>period</strong> in the supervisor flags map returned by the
+callback function <strong>init</strong>:</p><pre><code class="">
+SupFlags = #{intensity =&gt; MaxR, period =&gt; MaxT, ...}</code></pre><p>If more than <strong>MaxR</strong> number of restarts occur in the last
+<strong>MaxT</strong> seconds, the supervisor terminates all the child
+processes and then itself.
+The termination reason for the supervisor itself in that case will be
+<strong>shutdown</strong>.</p><p>When the supervisor terminates, then the next higher-level
+supervisor takes some action. It either restarts the terminated
+supervisor or terminates itself.</p><p>The intention of the restart mechanism is to prevent a situation
+where a process repeatedly dies for the same reason, only to be
+restarted again.</p><p>The keys <strong>intensity</strong> and <strong>period</strong> are optional in the
+supervisor flags map. If they are not given, they default
+to <strong>1</strong> and <strong>5</strong>, respectively.</p><h2>Tuning the intensity and period</h2><p>The default values are 1 restart per 5 seconds. This was chosen to
+be safe for most systems, even with deep supervision hierarchies,
+but you will probably want to tune the settings for your particular
+use case.</p><p>First, the intensity decides how big bursts of restarts you want
+to tolerate. For example, you might want to accept a burst of at
+most 5 or 10 attempts, even within the same second, if it results
+in a successful restart.</p><p>Second, you need to consider the sustained failure rate, if
+crashes keep happening but not often enough to make the supervisor
+give up. If you set intensity to 10 and set the period as low as 1,
+the supervisor will allow child processes to keep restarting up to
+10 times per second, forever, filling your logs with crash reports
+until someone intervenes manually.</p><p>You should therefore set the period to be long enough that you can
+accept that the supervisor keeps going at that rate. For example,
+if you have picked an intensity value of 5, then setting the period
+to 30 seconds will give you at most one restart per 6 seconds for
+any longer period of time, which means that your logs won't fill up
+too quickly, and you will have a chance to observe the failures and
+apply a fix.</p><p>These choices depend a lot on your problem domain. If you don't
+have real time monitoring and ability to fix problems quickly, for
+example in an embedded system, you might want to accept at most
+one restart per minute before the supervisor should give up and
+escalate to the next level to try to clear the error automatically.
+On the other hand, if it is more important that you keep trying
+even at a high failure rate, you might want a sustained rate of as
+much as 1-2 restarts per second.</p><p>Avoiding common mistakes:</p><ul><li> <p>Do not forget to consider the burst rate. If you set intensity
+to 1 and period to 6, it gives the same sustained error rate as
+5/30 or 10/60, but will not allow even 2 restart attempts in
+quick succession. This is probably not what you wanted.</p> </li><li> <p>Do not set the period to a very high value if you want to
+tolerate bursts. If you set intensity to 5 and period to 3600
+(one hour), the supervisor will allow a short burst of 5
+restarts, but then gives up if it sees another single restart
+almost an hour later. You probably want to regard those crashes
+as separate incidents, so setting the period to 5 or 10 minutes
+will be more reasonable.</p> </li><li> <p>If your application has multiple levels of supervision, then
+do not simply set the restart intensities to the same values on
+all levels. Keep in mind that the total number of restarts
+(before the top level supervisor gives up and terminates the
+application) will be the product of the intensity values of all
+the supervisors above the failing child process.</p> <p>For example, if the top level allows 10 restarts, and the next
+level also allows 10, a crashing child below that level will be
+restarted 100 times, which is probably excessive. Allowing at
+most 3 restarts for the top level supervisor might be a better
+choice in this case.</p> </li></ul><a name="spec"></a><h2>Child Specification</h2><p>The type definition for a child specification is as follows:</p><pre><code class="">
+child_spec() = #{id =&gt; child_id(),       % mandatory
+                 start =&gt; mfargs(),      % mandatory
+                 restart =&gt; restart(),   % optional
+                 shutdown =&gt; shutdown(), % optional
+                 type =&gt; worker(),       % optional
+                 modules =&gt; modules()}   % optional
+    child_id() = term()
+    mfargs() = {M :: module(), F :: atom(), A :: [term()]}
+    modules() = [module()] | dynamic
+    restart() = permanent | transient | temporary
+    shutdown() = brutal_kill | timeout()
+    worker() = worker | supervisor</code></pre><ul><li> <p><strong>id</strong> is used to identify the child
+specification internally by the supervisor.</p> <p>The <strong>id</strong> key is mandatory.</p> <p>Note that this identifier occasionally has been called
+"name". As far as possible, the terms "identifier" or "id"
+are now used but in order to keep backwards compatibility,
+some occurences of "name" can still be found, for example
+in error messages.</p> </li><li> <p><strong>start</strong> defines the function call used to start
+the child process. It is a module-function-arguments tuple
+used as <strong>apply(M, F, A)</strong>.</p> <p>It is to be (or result in) a call to any of the following:</p> <ul><li><strong>supervisor:start_link</strong></li><li><strong>gen_server:start_link</strong></li><li><strong>gen_statem:start_link</strong></li><li><strong>gen_event:start_link</strong></li><li>A function compliant with these functions. For details, see the <strong>supervisor(3)</strong> manual page.</li></ul> <p>The <strong>start</strong> key is mandatory.</p> </li><li> <p><strong>restart</strong> defines when a terminated child process is to
+be restarted.</p> <ul><li>A <strong>permanent</strong> child process is always restarted.</li><li>A <strong>temporary</strong> child process is never restarted (not even when the supervisor restart strategy is <strong>rest_for_one</strong> or <strong>one_for_all</strong> and a sibling death causes the temporary process to be terminated).</li><li>A <strong>transient</strong> child process is restarted only if it terminates abnormally, that is, with an exit reason other than <strong>normal</strong>, <strong>shutdown</strong>, or <strong>{shutdown,Term}</strong>.</li></ul> <p>The <strong>restart</strong> key is optional. If it is not given, the
+default value <strong>permanent</strong> will be used.</p> </li><li> <a name="shutdown"></a> <p><strong>shutdown</strong> defines how a child process is to be
+terminated.</p> <ul><li><strong>brutal_kill</strong> means that the child process is unconditionally terminated using <strong>exit(Child, kill)</strong>.</li><li>An integer time-out value means that the supervisor tells the child process to terminate by calling <strong>exit(Child, shutdown)</strong> and then waits for an exit signal back. If no exit signal is received within the specified time, the child process is unconditionally terminated using <strong>exit(Child, kill)</strong>.</li><li>If the child process is another supervisor, it must be set to <strong>infinity</strong> to give the subtree enough time to shut down. It is also allowed to set it to <strong>infinity</strong>, if the child process is a worker. See the warning below:</li></ul> <div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>Setting the shutdown time to anything other
+than <strong>infinity</strong> for a child of type <strong>supervisor</strong>
+can cause a race condition where the child in question
+unlinks its own children, but fails to terminate them
+before it is killed.</p><p>Be careful when setting the shutdown time to
+<strong>infinity</strong> when the child process is a worker. Because, in this
+situation, the termination of the supervision tree depends on the
+child process; it must be implemented in a safe way and its cleanup
+procedure must always return.</p></div> <p>The <strong>shutdown</strong> key is optional. If it is not given,
+and the child is of type <strong>worker</strong>, the default value
+<strong>5000</strong> will be used; if the child is of type
+<strong>supervisor</strong>, the default value <strong>infinity</strong> will be
+used.</p> </li><li> <p><strong>type</strong> specifies if the child process is a supervisor or
+a worker.</p> <p>The <strong>type</strong> key is optional. If it is not given, the
+default value <strong>worker</strong> will be used.</p> </li><li> <p><strong>modules</strong> are to be a list with one element
+<strong>[Module]</strong>, where <strong>Module</strong> is the name of
+the callback module, if the child process is a supervisor,
+gen_server, gen_statem.
+If the child process is a gen_event,
+the value shall be <strong>dynamic</strong>.</p> <p>This information is used by the release handler during
+upgrades and downgrades, see
+<a href="release_handling">Release Handling</a>.</p> <p>The <strong>modules</strong> key is optional. If it is not given, it
+defaults to <strong>[M]</strong>, where <strong>M</strong> comes from the
+child's start <strong>{M,F,A}</strong>.</p> </li></ul><p><em>Example:</em> The child specification to start the server
+<strong>ch3</strong> in the previous example look as follows:</p><pre><code class="">
+#{id =&gt; ch3,
+  start =&gt; {ch3, start_link, []},
+  restart =&gt; permanent,
+  shutdown =&gt; brutal_kill,
+  type =&gt; worker,
+  modules =&gt; [ch3]}</code></pre><p>or simplified, relying on the default values:</p><pre><code class="">
+#{id =&gt; ch3,
+  start =&gt; {ch3, start_link, []}
+  shutdown =&gt; brutal_kill}</code></pre><p>Example: A child specification to start the event manager from
+the chapter about
+<a href="./events#mgr">gen_event</a>:</p><pre><code class="">
+#{id =&gt; error_man,
+  start =&gt; {gen_event, start_link, [{local, error_man}]},
+  modules =&gt; dynamic}</code></pre><p>Both server and event manager are registered processes which
+can be expected to be always accessible. Thus they are
+specified to be <strong>permanent</strong>.</p><p><strong>ch3</strong> does not need to do any cleaning up before
+termination. Thus, no shutdown time is needed, but
+<strong>brutal_kill</strong> is sufficient. <strong>error_man</strong> can
+need some time for the event handlers to clean up, thus
+the shutdown time is set to 5000 ms (which is the default
+value).</p><p>Example: A child specification to start another supervisor:</p><pre><code class="">
+#{id =&gt; sup,
+  start =&gt; {sup, start_link, []},
+  restart =&gt; transient,
+  type =&gt; supervisor} % will cause default shutdown=&gt;infinity</code></pre><a name="super_tree"></a><h2>Starting a Supervisor</h2><p>In the previous example, the supervisor is started by calling
+<strong>ch_sup:start_link()</strong>:</p><pre><code class="">
+start_link() -&gt;
+    supervisor:start_link(ch_sup, []).</code></pre><p><strong>ch_sup:start_link</strong> calls function
+<strong>supervisor:start_link/2</strong>, which spawns and links to a new
+process, a supervisor.</p><ul><li>The first argument, <strong>ch_sup</strong>, is the name of the callback module, that is, the module where the <strong>init</strong> callback function is located.</li><li>The second argument, <strong>[]</strong>, is a term that is passed as is to the callback function <strong>init</strong>. Here, <strong>init</strong> does not need any indata and ignores the argument.</li></ul><p>In this case, the supervisor is not registered. Instead its pid
+must be used. A name can be specified by calling
+<strong>supervisor:start_link({local, Name}, Module, Args)</strong> or
+<strong>supervisor:start_link({global, Name}, Module, Args)</strong>.</p><p>The new supervisor process calls the callback function
+<strong>ch_sup:init([])</strong>. <strong>init</strong> shall return
+<strong>{ok, {SupFlags, ChildSpecs}}</strong>:</p><pre><code class="">
+init(_Args) -&gt;
+    SupFlags = #{},
+    ChildSpecs = [#{id =&gt; ch3,
+                    start =&gt; {ch3, start_link, []},
+                    shutdown =&gt; brutal_kill}],
+    {ok, {SupFlags, ChildSpecs}}.</code></pre><p>The supervisor then starts all its child processes according to
+the child specifications in the start specification. In this case
+there is one child process, <strong>ch3</strong>.</p><p><strong>supervisor:start_link</strong> is synchronous. It does
+not return until all child processes have been started.</p><h2>Adding a Child Process</h2><p>In addition to the static supervision tree, dynamic child
+processes can be added to an existing supervisor with the following
+call:</p><pre><code class="">
+supervisor:start_child(Sup, ChildSpec)</code></pre><p><strong>Sup</strong> is the pid, or name, of the supervisor.
+<strong>ChildSpec</strong> is a
+<a href="#spec">child specification</a>.</p><p>Child processes added using <strong>start_child/2</strong> behave in
+the same way as the other child processes, with the an important
+exception: if a supervisor dies and is recreated, then
+all child processes that were dynamically added to the supervisor
+are lost.</p><h2>Stopping a Child Process</h2><p>Any child process, static or dynamic, can be stopped in
+accordance with the shutdown specification:</p><pre><code class="">
+supervisor:terminate_child(Sup, Id)</code></pre><p>The child specification for a stopped child process is deleted
+with the following call:</p><pre><code class="">
+supervisor:delete_child(Sup, Id)</code></pre><p><strong>Sup</strong> is the pid, or name, of the supervisor.
+<strong>Id</strong> is the value associated with the <strong>id</strong> key in
+the <a href="#spec">child specification</a>.</p><p>As with dynamically added child processes, the effects of
+deleting a static child process is lost if the supervisor itself
+restarts.</p><a name="simple"></a><h2>Simplified one_for_one Supervisors</h2><p>A supervisor with restart strategy <strong>simple_one_for_one</strong> is
+a simplified <strong>one_for_one</strong> supervisor, where all child
+processes are dynamically added instances of the same process.</p><p>The following is an example of a callback module for a
+<strong>simple_one_for_one</strong> supervisor:</p><pre><code class="">
+-module(simple_sup).
+-behaviour(supervisor).
+
+-export([start_link/0]).
+-export([init/1]).
+
+start_link() -&gt;
+    supervisor:start_link(simple_sup, []).
+
+init(_Args) -&gt;
+    SupFlags = #{strategy =&gt; simple_one_for_one,
+                 intensity =&gt; 0,
+                 period =&gt; 1},
+    ChildSpecs = [#{id =&gt; call,
+                    start =&gt; {call, start_link, []},
+                    shutdown =&gt; brutal_kill}],
+    {ok, {SupFlags, ChildSpecs}}.</code></pre><p>When started, the supervisor does not start any child processes.
+Instead, all child processes are added dynamically by calling:</p><pre><code class="">
+supervisor:start_child(Sup, List)</code></pre><p><strong>Sup</strong> is the pid, or name, of the supervisor.
+<strong>List</strong> is an arbitrary list of terms, which are added to
+the list of arguments specified in the child specification. If
+the start function is specified as <strong>{M, F, A}</strong>,
+the child process is started by calling
+<strong>apply(M, F, A++List)</strong>.</p><p>For example, adding a child to <strong>simple_sup</strong> above:</p><pre><code class="">
+supervisor:start_child(Pid, [id1])</code></pre><p>The result is that the child process is started by calling
+<strong>apply(call, start_link, []++[id1])</strong>, or actually:</p><pre><code class="">
+call:start_link(id1)</code></pre><p>A child under a <strong>simple_one_for_one</strong> supervisor can be
+terminated with the following:</p><pre><code class="">
+supervisor:terminate_child(Sup, Pid)</code></pre><p><strong>Sup</strong> is the pid, or name, of the supervisor and
+<strong>Pid</strong> is the pid of the child.</p><p>Because a <strong>simple_one_for_one</strong> supervisor can have many
+children, it shuts them all down asynchronously. This means that
+the children will do their cleanup in parallel and therefore the
+order in which they are stopped is not defined.</p><h2>Stopping</h2><p>Since the supervisor is part of a supervision tree, it is
+automatically terminated by its supervisor. When asked to
+shut down, it terminates all child processes in reversed start
+order according to the respective shutdown specifications, and
+then terminates itself.</p></body></html>

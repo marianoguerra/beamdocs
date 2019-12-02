@@ -1,0 +1,57 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>erl_recomment</h1><h1>erl_recomment</h1><p>Inserting comments into abstract Erlang syntax trees.</p><p>Inserting comments into abstract Erlang syntax treesThis module contains functions for inserting comments, described
+by position, indentation and text, as attachments on an abstract
+syntax tree, at the correct places.</p><h2>DATA TYPES</h2><a name="types"></a><dl><dt><a name="type-syntaxTree"></a>syntaxTree() = <a href="./erl_syntax#type-syntaxTree">erl_syntax:syntaxTree()</a></dt><dd> <p>An abstract syntax
+tree. See the <a href="erl_syntax">erl_syntax</a> module for details.</p> </dd></dl><h1>Functions</h1><h2>quick_recomment_forms(Tree::Forms, Comments::[Comment]) -&gt;</h2><p>Like recomment_forms/2, but only inserts top-level comments.</p><ul><li><span class="v">Forms =  | []</span></li><li><span class="v">Comment = {Line, Column, Indentation, Text}</span></li><li><span class="v">Line = integer()</span></li><li><span class="v">Column = integer()</span></li><li><span class="v">Indentation = integer()</span></li><li><span class="v">Text = [string()]</span></li></ul><a name="quick_recomment_forms-2"></a><p>Like <a href="#recomment_forms-2">recomment_forms/2</a>, but only inserts top-level
+comments. Comments within function definitions or declarations
+("forms") are simply ignored.</p><h2>recomment_forms(Tree::Forms, Comments::[Comment]) -&gt;</h2><p>Attaches comments to the syntax tree/trees representing a program.</p><ul><li><span class="v">Forms =  | []</span></li><li><span class="v">Comment = {Line, Column, Indentation, Text}</span></li><li><span class="v">Line = integer()</span></li><li><span class="v">Column = integer()</span></li><li><span class="v">Indentation = integer()</span></li><li><span class="v">Text = [string()]</span></li></ul><a name="recomment_forms-2"></a><p>Attaches comments to the syntax tree/trees representing a
+program. The given <strong>Forms</strong> should be a single syntax tree
+of type <strong>form_list</strong>, or a list of syntax trees
+representing "program forms". The syntax trees must contain valid
+position information (for details, see
+<strong>recomment_tree/2</strong>). The result is a corresponding syntax
+tree of type <strong>form_list</strong> in which all comments in the list
+<strong>Comments</strong> have been attached at the proper places.</p><p>Assuming <strong>Forms</strong> represents a program (or any sequence
+of "program forms"), any comments whose first lines are not directly
+associated with a specific program form will become standalone
+comments inserted between the neighbouring program forms.
+Furthermore, comments whose column position is less than or equal to
+one will not be attached to a program form that begins at a
+conflicting line number (this can happen with preprocessor-generated
+<strong>line</strong>-attributes).</p><p>If <strong>Forms</strong> is a syntax tree of some other type than
+<strong>form_list</strong>, the comments will be inserted directly using
+<strong>recomment_tree/2</strong>, and any comments left over from that
+process are added as postcomments on the result.</p><p>Entries in <strong>Comments</strong> represent multi-line comments.
+For each entry, <strong>Line</strong> is the line number and
+<strong>Column</strong> the left column of the comment (the column of the
+first comment-introducing "<strong>%</strong>" character).
+<strong>Indentation</strong> is the number of character positions between
+the last non-whitespace character before the comment (or the left
+margin) and the left column of the comment. <strong>Text</strong> is a
+list of strings representing the consecutive comment lines in
+top-down order, where each string contains all characters following
+(but not including) the comment-introducing "<strong>%</strong>" and up
+to (but not including) the terminating newline. (Cf. module
+<strong>erl_comment_scan</strong>.)</p><p>Evaluation exits with reason <strong>{bad_position, Pos}</strong> if
+the associated position information <strong>Pos</strong> of some subtree
+in the input does not have a recognizable format, or with reason
+<strong>{bad_tree, L, C}</strong> if insertion of a comment at line
+<strong>L</strong>, column <strong>C</strong>, fails because the tree
+structure is ill-formed.</p><p><em>See also:</em> <a href="erl_comment_scan">erl_comment_scan</a>, <a href="#quick_recomment_forms-2">quick_recomment_forms/2</a>, <a href="#recomment_tree-2">recomment_tree/2</a>.</p><h2>recomment_tree(Tree::, Comments::[Comment]) -&gt; {, [Comment]}</h2><p>Attaches comments to a syntax tree.</p><ul><li><span class="v">Comment = {Line, Column, Indentation, Text}</span></li><li><span class="v">Line = integer()</span></li><li><span class="v">Column = integer()</span></li><li><span class="v">Indentation = integer()</span></li><li><span class="v">Text = [string()]</span></li></ul><a name="recomment_tree-2"></a><p>Attaches comments to a syntax tree. The result is a pair
+<strong>{NewTree, Remainder}</strong> where <strong>NewTree</strong> is the
+given <strong>Tree</strong> where comments from the list
+<strong>Comments</strong> have been attached at the proper places.
+<strong>Remainder</strong> is the list of entries in
+<strong>Comments</strong> which have not been inserted, because their
+line numbers are greater than those of any node in the tree. The
+entries in <strong>Comments</strong> are inserted in order; if two  
+comments become attached to the same node, they will appear in the  
+same order in the program text.</p><p>The nodes of the syntax tree must contain valid position
+information. This can be single integers, assumed to represent a line
+number, or 2- or 3-tuples where the first or second element is an
+integer, in which case the leftmost integer element is assumed to
+represent the line number. Line numbers less than one are ignored
+(usually, the default line number for newly created nodes is
+zero).</p><p>For details on the <strong>Line</strong>, <strong>Column</strong> and
+<strong>Indentation</strong> fields, and the behaviour in case of errors,
+see <strong>recomment_forms/2</strong>.</p><p><em>See also:</em> <a href="#recomment_forms-2">recomment_forms/2</a>.</p><h1>Authors</h1><span class="aname">Richard Carlsson</span><span class="email">carlsson.richard@gmail.com</span></body></html>

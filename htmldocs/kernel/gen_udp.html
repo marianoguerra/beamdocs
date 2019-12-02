@@ -1,0 +1,84 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>gen_udp</h1><h1>gen_udp</h1><p>Interface to UDP sockets.</p><p>This module provides functions for communicating
+with sockets using the UDP protocol.</p><h1>Data Types</h1><span class="name">option</span><span class="name">option_name</span><span class="name">socket()</span><p>As returned by
+<a href="#open/1">open/1</a>.</p><h1>Functions</h1><h2>close/1</h2><p>Close a UDP socket.</p><p>Closes a UDP socket.</p><h2>controlling_process/2</h2><p>Change controlling process of a socket.</p><p>Assigns a new controlling process <strong><span class="anno">Pid</span></strong> to
+<strong><span class="anno">Socket</span></strong>. The controlling process is the process
+that receives messages from the socket. If called by any other
+process than the current controlling process,
+<strong>{error, not_owner}</strong> is returned. If the process identified
+by <strong><span class="anno">Pid</span></strong> is not an existing local pid,
+<strong>{error, badarg}</strong> is returned. <strong>{error, badarg}</strong> may also
+be returned in some cases when <strong><span class="anno">Socket</span></strong> is closed
+during the execution of this function.</p><h2>open/1</h2><h2>open/2</h2><p>Associate a UDP port number with the process calling it.</p><p>Associates a UDP port number (<strong><span class="anno">Port</span></strong>) with the
+calling process.</p><p>The following options are available:</p><dl><dt><strong>list</strong></dt><dd><p>Received <strong>Packet</strong> is delivered as a list.</p></dd><dt><strong>binary</strong></dt><dd><p>Received <strong>Packet</strong> is delivered as a binary.</p></dd><dt><strong>{ip, Address}</strong></dt><dd><p>If the host has many network interfaces, this option
+specifies which one to use.</p></dd><dt><strong>{ifaddr, Address}</strong></dt><dd><p>Same as <strong>{ip, Address}</strong>. If the host has many
+network interfaces, this option specifies which one to
+use.</p></dd><dt><strong>{fd, integer() &gt;= 0}</strong></dt><dd><p>If a socket has somehow been opened without using
+<strong>gen_udp</strong>, use this option to pass the file descriptor
+for it. If <strong><span class="anno">Port</span></strong> is not set to <strong>0</strong> and/or
+<strong>{ip, ip_address()}</strong> is combined with this option, the
+<strong>fd</strong> is bound to the specified interface and port after it is
+being opened. If these options are not specified, it is assumed that
+the <strong>fd</strong> is already bound appropriately.</p></dd><dt><strong>inet6</strong></dt><dd><p>Sets up the socket for IPv6.</p></dd><dt><strong>inet</strong></dt><dd><p>Sets up the socket for IPv4.</p></dd><dt><strong>local</strong></dt><dd> <p>
+Sets up a Unix Domain Socket. See
+<a href="./inet#type-local_address">inet#type-local_address</a>
+</p> </dd><dt><strong>{udp_module, module()}</strong></dt><dd><p>Overrides which callback module is used. Defaults to
+<strong>inet_udp</strong> for IPv4 and <strong>inet6_udp</strong> for IPv6.</p></dd><dt><strong>{multicast_if, Address}</strong></dt><dd><p>Sets the local device for a multicast socket.</p></dd><dt><strong>{multicast_loop, true | false}</strong></dt><dd><p>When <strong>true</strong>, sent multicast packets are looped back to
+the local sockets.</p></dd><dt><strong>{multicast_ttl, Integer}</strong></dt><dd><p>Option <strong>multicast_ttl</strong> changes the time-to-live (TTL)
+for outgoing multicast datagrams to control the scope of the
+multicasts.</p> <p>Datagrams with a TTL of 1 are not forwarded beyond the local
+network. Defaults to <strong>1</strong>.</p></dd><dt><strong>{add_membership, {MultiAddress, InterfaceAddress}}</strong></dt><dd><p>Joins a multicast group.</p></dd><dt><strong>{drop_membership, {MultiAddress, InterfaceAddress}}</strong></dt><dd><p>Leaves a multicast group.</p></dd><dt><strong>Opt</strong></dt><dd><p>See
+<a href="./inet#setopts/2">inet#setopts/2</a>.
+</p></dd></dl><p>The returned socket <strong><span class="anno">Socket</span></strong> is used to send
+packets from this port with
+<a href="#send/4">send/4</a>.
+When UDP packets arrive
+at the opened port, if the socket is in an active mode, the packets
+are delivered as messages to the controlling process:</p><pre><code class="">
+{udp, Socket, IP, InPortNo, Packet} % Without ancillary data
+{udp, Socket, IP, InPortNo, AncData, Packet} % With ancillary data
+	</code></pre><p>
+The message contains an <strong>AncData</strong> field
+if any of the socket
+<a href="#type-option">options</a>
+<a href="./inet#option-recvtos">inet#option-recvtos</a>,
+<a href="./inet#option-recvtclass">inet#option-recvtclass</a>
+or
+<a href="./inet#option-recvttl">inet#option-recvttl</a>
+are active, otherwise it does not.
+</p><p>
+</p><p>If the socket is not in an active mode, data can be
+retrieved through the
+<a href="#recv/2">recv/2</a> calls.
+Notice that arriving UDP packets that are longer than
+the receive buffer option specifies can be truncated
+without warning.</p><p>When a socket in <strong>{active, N}</strong> mode (see
+<a href="./inet#setopts/2">inet#setopts/2</a>
+for details), transitions to passive (<strong>{active, false}</strong>) mode,
+the controlling process is notified by a message of the following
+form:</p><pre><code class="">
+{udp_passive, Socket}</code></pre><p><strong>IP</strong> and <strong>InPortNo</strong> define the address from which
+<strong>Packet</strong> comes. <strong>Packet</strong> is a list of bytes if
+option <strong>list</strong> is specified. <strong>Packet</strong> is a
+binary if option <strong>binary</strong> is specified.</p><p>Default value for the receive buffer option is
+<strong>{recbuf, 8192}</strong>.</p><p>If <strong><span class="anno">Port</span> == 0</strong>, the underlying OS assigns a free
+UDP port, use
+<a href="./inet#port/1">inet#port/1</a>
+to retrieve it.</p><h2>recv/2</h2><h2>recv/3</h2><p>Receive a packet from a passive socket.</p><p>
+Receives a packet from a socket in passive mode. Optional parameter
+<strong><span class="anno">Timeout</span></strong> specifies a time-out in milliseconds.
+Defaults to <strong>infinity</strong>.
+</p><p>
+If any of the socket
+<a href="#type-option">options</a>
+<a href="./inet#option-recvtos">inet#option-recvtos</a>,
+<a href="./inet#option-recvtclass">inet#option-recvtclass</a>
+or
+<a href="./inet#option-recvttl">inet#option-recvttl</a>
+are active, the <strong><span class="anno">RecvData</span></strong> tuple contains an
+<strong><span class="anno">AncData</span></strong> field,
+otherwise it does not.
+</p><h2>send/4</h2><p>Send a packet.</p><p>
+Sends a packet to the specified address and port. Argument
+<strong><span class="anno">Address</span></strong> can be a hostname or a socket address.
+</p></body></html>

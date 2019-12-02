@@ -1,0 +1,36 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>snmpm_network_interface_filter</h1><h1>snmpm_network_interface_filter</h1><p>Behaviour module for the SNMP manager network-interface filter.</p><p>This module defines the behaviour of the manager network interface
+filter. A <strong>snmpm_network_interface_filter</strong> compliant module 
+must export the following functions: <ul><li> <p><a href="#accept_recv">accept_recv/2</a></p> </li><li> <p><a href="#accept_send">accept_send/2</a></p> </li><li> <p><a href="#accept_recv_pdu">accept_recv_pdu/3</a></p> </li><li> <p><a href="#accept_send_pdu">accept_send_pdu/2</a></p> </li></ul>The semantics of them and their exact signatures are explained
+below. The purpose of the network interface filter is to allow for filtering
+of messages (accept or reject) receive and send. This is done 
+on two levels: <ul><li> <p>The first level is at the UDP entry / exit point, i.e. 
+immediately after the receipt of the message, before any message 
+processing is done (accept_recv) and 
+immediately before sending the message, after all message 
+processing is done (accept_send).</p> </li><li> <p>The second level is at the MPD entry / exit point, i.e.
+immediately after the basic message processing (accept_recv_pdu) / 
+immediately before the basic message processing (accept_send_pdu).</p> </li></ul>Note that the network interface filter is something which is used 
+by the network interface implementation provided by the application 
+(<strong>snmpm_net_if</strong> and <strong>snmpm_net_if_mt</strong>). 
+The default filter accepts all messages.A network interface filter can e.g. be used during testing or for load 
+regulation. Legacy network interface filter modules used arguments on the form
+<strong>(IpAddr, PortNumber,...)</strong> instead of
+<strong>(Domain, Addr, ...)</strong>, and if the SNMP manager is run without
+changing the configuration to use transport domains
+the network interface filter will still get
+the old arguments and work as before.</p><h2>DATA TYPES</h2><pre><code class="">
+port() = integer() &gt; 0
+pdu_type() = 'get-request' | 'get-next-request' | 'get-response' | 
+             'set-request' | trap | 'get-bulk-request' | 'inform-request' | 
+             report | trappdu
+    </code></pre><p>See also the <a href="./snmpa_conf#types"> data types in </a>.</p><a name="accept_recv"></a><h1>Functions</h1><h2>accept_recv(Domain, Addr) -&gt; boolean()</h2><p>Shall the received message be accepted</p><ul><li><span class="v">Domain = transportDomain()</span></li><li><span class="v">Addr = transportAddressWithPort()</span></li></ul><p>Called at the reception of a message (before <em>any</em> processing 
+has been done).</p><p>For the message to be rejected, the function <em>must</em> return
+<em>false</em>. </p><a name="accept_send"></a><h2>accept_send(Domain, Addr) -&gt; boolean()</h2><p>Shall the message be sent</p><ul><li><span class="v">Domain = transportDomain()</span></li><li><span class="v">Addr = transportAddressWithPort()</span></li></ul><p>Called before the sending of a message (after <em>all</em> processing 
+has been done).</p><p>For the message to be rejected, the function <em>must</em> return
+<em>false</em>. </p><a name="accept_recv_pdu"></a><h2>accept_recv_pdu(Domain, Addr, PduType) -&gt; boolean()</h2><p>Shall the received pdu be accepted</p><ul><li><span class="v">Domain = transportDomain()</span></li><li><span class="v">Addr = transportAddressWithPort()</span></li><li><span class="v">PduType = pdu_type()</span></li></ul><p>Called after the basic message processing (MPD) has been done, 
+but before the pdu is handed over to the server for primary 
+processing.</p><p>For the pdu to be rejected, the function <em>must</em> return
+<em>false</em>. </p><a name="accept_send_pdu"></a><h2>accept_send_pdu(Domain, Addr, PduType) -&gt; boolean()</h2><p>Shall the pdu be sent</p><ul><li><span class="v">Domain = transportDomain()</span></li><li><span class="v">Addr = transportAddressWithPort()</span></li><li><span class="v">PduType = pdu_type() &gt; 0</span></li></ul><p>Called before the basic message processing (MPD) is done, 
+when a pdu has been received from the master-agent.</p><p>For the message to be rejected, the function <em>must</em> return 
+<em>false</em>. </p></body></html>

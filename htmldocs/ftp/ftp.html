@@ -1,0 +1,147 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>ftp</h1><h1>ftp</h1><p>A File Transfer Protocol client.</p><p>This module implements a client for file transfer
+according to a subset of the File Transfer Protocol (FTP), see
+<a href="http://www.ietf.org/rfc/rfc959.txt">RFC 959</a>.The FTP client always tries to use passive FTP mode and only resort
+to active FTP mode if this fails. This default behavior can be 
+changed by start option <a href="#mode">mode</a>.<a name="two_start"></a>An FTP client can be started in two ways. One is using the 
+<a href="#service_start">service_start</a> function,
+the other is to start it directly as a standalone process
+using function <a href="#open">open</a>.For a simple example of an FTP session, see 
+<a href="ftp_client">FTP User's Guide</a>.In addition to the ordinary functions for receiving and sending
+files (see <strong>recv/2</strong>, <strong>recv/3</strong>, <strong>send/2</strong>, and
+<strong>send/3</strong>) there are functions for receiving remote files as
+binaries (see <strong>recv_bin/2</strong>) and for sending binaries to be
+stored as remote files (see <strong>send_bin/3</strong>).A set of functions is provvided for sending and receiving
+contiguous parts of a file to be stored in a remote file. For send,
+see <strong>send_chunk_start/2</strong>, <strong>send_chunk/2</strong>, and
+<strong>send_chunk_end/1</strong>. For receive, see
+<strong>recv_chunk_start/2</strong> and <strong>recv_chunk/</strong>).The return values of the following functions depend
+much on the implementation of the FTP server at the remote
+host. In particular, the results from <strong>ls</strong> and <strong>nlist</strong>
+varies. Often real errors are not reported as errors by <strong>ls</strong>,
+even if, for example, a file or directory does not
+exist. <strong>nlist</strong> is usually more strict, but some
+implementations have the peculiar behaviour of responding with an
+error if the request is a listing of the contents of a directory
+that exists but is empty.<a name="service_start"></a></p><h2>FTP CLIENT SERVICE START/STOP</h2><p>The FTP client can be started and stopped dynamically in runtime by
+calling the <strong>ftp</strong> application API
+<strong>ftp:start_service(ServiceConfig)</strong> and
+<strong>ftp:stop_service(Pid)</strong>.</p><p>The available configuration options are as follows:</p><dl><dt>{host, Host}</dt><dd> <a name="host"></a> <p>Host = <strong>string() | ip_address()</strong></p> </dd><dt>{port, Port}</dt><dd> <a name="port"></a> <p>Port = <strong>integer() &gt; 0</strong></p> <p>Default is <strong>21</strong>.</p> </dd><dt>{mode, Mode}</dt><dd> <a name="mode"></a> <p>Mode = <strong>active | passive</strong></p> <p>Default is <strong>passive</strong>.</p>  </dd><dt>{verbose, Verbose}</dt><dd> <a name="verbose"></a> <p>Verbose = <strong>boolean()</strong> </p> <p>Determines if the FTP communication is to be
+verbose or not.</p> <p>Default is <strong>false</strong>.</p> </dd><dt>{debug, Debug}</dt><dd> <a name="debug"></a> <p>Debug = <strong>trace | debug | disable</strong> </p> <p>Debugging using the dbg toolkit. </p> <p>Default is <strong>disable</strong>.</p> </dd><dt>{ipfamily, IpFamily}</dt><dd> <a name="ipfamily"></a> <p>IpFamily = <strong>inet | inet6 | inet6fb4</strong> </p> <p>With <strong>inet6fb4</strong> the client behaves as before, that is, 
+tries to use IPv6, and only if that does not work it
+uses IPv4).</p> <p>Default is <strong>inet</strong> (IPv4).</p> </dd><dt>{timeout, Timeout}</dt><dd> <a name="timeout"></a> <p>Timeout = <strong>non_neg_integer()</strong></p> <p>Connection time-out.</p> <p>Default is <strong>60000</strong> (milliseconds).</p> </dd><dt>{dtimeout, DTimeout}</dt><dd> <a name="dtimeout"></a> <p>DTimeout = <strong>non_neg_integer() | infinity</strong> </p> <p>Data connect time-out. 
+The time the client waits for the server to connect to the 
+data socket.</p> <p>Default is <strong>infinity</strong>. </p> </dd><dt>{progress, Progress}</dt><dd> <a name="progress"></a> <p>Progress = <strong>ignore | {CBModule, CBFunction, InitProgress}</strong></p> <p><strong>CBModule = atom()</strong>, <strong>CBFunction = atom()</strong></p> <p><strong>InitProgress = term()</strong></p> <p>Default is <strong>ignore</strong>.</p> </dd></dl><p>Option <strong>progress</strong> is intended to be used by applications that
+want to create some type of progress report, such as a progress bar in
+a GUI. Default for the progress option is <strong>ignore</strong>,
+that is, the option is not used. When the progress option is
+specified, the following happens when <strong>ftp:send/[3,4]</strong> or
+<strong>ftp:recv/[3,4]</strong> are called:</p><ul><li> <p>Before a file is transferred, the following call is
+made to indicate the start of the file transfer and how large
+the file is. The return value of the callback function
+is to be a new value for the <strong>UserProgressTerm</strong> that will
+be used as input the next time the callback function is
+called.</p> <p><strong> CBModule:CBFunction(InitProgress, File, {file_size, FileSize}) </strong></p> </li><li> <p>Every time a chunk of bytes is transferred the
+following call is made:</p> <p><strong> CBModule:CBFunction(UserProgressTerm, File, {transfer_size, TransferSize}) </strong></p> </li><li> <p>At the end of the file the following call is
+made to indicate the end of the transfer:</p> <p><strong> CBModule:CBFunction(UserProgressTerm, File, {transfer_size, 0})       </strong></p> </li></ul><p>The callback function is to be defined as follows:</p><p><strong> CBModule:CBFunction(UserProgressTerm, File, Size) -&gt; UserProgressTerm </strong></p><p><strong> CBModule = CBFunction = atom() </strong></p><p><strong> UserProgressTerm = term() </strong></p><p><strong> File = string() </strong></p><p><strong> Size = {transfer_size, integer()} | {file_size, integer()} | {file_size, unknown} </strong></p><p>For remote files, <strong>ftp</strong> cannot determine the
+file size in a platform independent way. In this case the size
+becomes <strong>unknown</strong> and it is left to the application to
+determine the size.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The callback is made by a middleman process, hence the
+file transfer is not affected by the code in the progress
+callback function. If the callback crashes, this is
+detected by the FTP connection process, which then prints an
+info-report and goes on as if the progress option was set
+to <strong>ignore</strong>.</p></div><p>The file transfer type is set to the default of the FTP server
+when the session is opened. This is usually ASCCI mode.
+</p><p>The current local working directory (compare <strong>lpwd/1</strong>) is set 
+to the value reported by <strong>file:get_cwd/1</strong>, the wanted
+local directory.
+</p><p>The return value <strong>Pid</strong> is used as a reference to the
+newly created FTP client in all other functions, and they are to
+be called by the process that created the connection. The FTP
+client process monitors the process that created it and
+terminates if that process terminates.</p><h2>DATA TYPES</h2><p>The following type definitions are used by more than one
+function in the FTP client API:</p><p><strong>pid()</strong> = identifier of an FTP connection</p><p><strong>string()</strong> = list of ASCII characters</p><p><strong>shortage_reason()</strong> = <strong>etnospc | epnospc</strong></p><p><strong>restriction_reason()</strong> = <strong>epath | efnamena | elogin | enotbinary</strong>
+-  all restrictions are not always relevant to all functions
+</p><p><strong>common_reason()</strong> = <strong>econn | eclosed | term()</strong> 
+- some explanation of what went wrong</p><a name="account"></a><h1>Functions</h1><h2>account(Pid, Account) -&gt; ok | {error, Reason}</h2><p>Specifies which account to use.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Account = string()</span></li><li><span class="v">Reason = eacct | common_reason()</span></li></ul><p>Sets the account for an operation, if needed.</p><a name="append"></a><a name="append2"></a><a name="append3"></a><h2>append(Pid, LocalFile) -&gt;</h2><h2>append(Pid, LocalFile, RemoteFile) -&gt; ok | {error, Reason}</h2><p>Transfers a file to remote server, and appends it to  <strong>Remotefile</strong>.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">LocalFile = RemoteFile = string()</span></li><li><span class="v">Reason = epath | elogin | etnospc | epnospc | efnamena | common_reason</span></li></ul><p>Transfers the file <strong>LocalFile</strong> to the remote server. If 
+<strong>RemoteFile</strong> is specified, the name of the remote file that the
+file is appended to is set to <strong>RemoteFile</strong>, otherwise 
+to <strong>LocalFile</strong>. If the file does not exists,
+it is created.</p><a name="append_bin"></a><h2>append_bin(Pid, Bin, RemoteFile) -&gt; ok | {error, Reason}</h2><p>Transfers a binary into a remote file.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">RemoteFile = string()</span></li><li><span class="v">Reason = restriction_reason()| shortage_reason() | common_reason()</span></li></ul><p>Transfers the binary <strong>Bin</strong> to the remote server and appends 
+it to the file <strong>RemoteFile</strong>. If the file does not exist, it 
+is created.</p><a name="append_chunk"></a><h2>append_chunk(Pid, Bin) -&gt; ok | {error, Reason}</h2><p>Appends a chunk to the remote file.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">Reason = echunk | restriction_reason() | common_reason()</span></li></ul><p>Transfers the chunk <strong>Bin</strong> to the remote server, which 
+appends it to the file specified in the call to 
+<strong>append_chunk_start/2</strong>.</p><p>For some errors, for example, file system full, it is 
+necessary to call <strong>append_chunk_end</strong> to get the 
+proper reason.</p><a name="append_chunk_start"></a><h2>append_chunk_start(Pid, File) -&gt; ok | {error, Reason}</h2><p>Starts transfer of file chunks for appending to <strong>File</strong>.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">File = string()</span></li><li><span class="v">Reason = restriction_reason() | common_reason()</span></li></ul><p>Starts the transfer of chunks for appending to the file 
+<strong>File</strong> at the remote server. If the file does not exist, 
+it is created.</p><a name="append_chunk_end"></a><h2>append_chunk_end(Pid) -&gt; ok | {error, Reason}</h2><p>Stops transfer of chunks for appending.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Reason = echunk | restriction_reason() | shortage_reason() </span></li></ul><p>Stops transfer of chunks for appending to the remote server. 
+The file at the remote server, specified in the call to 
+<strong>append_chunk_start/2</strong>, is closed by the server.</p><a name="cd"></a><h2>cd(Pid, Dir) -&gt; ok | {error, Reason}</h2><p>Changes remote working directory.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Dir = string()</span></li><li><span class="v">Reason = restriction_reason() | common_reason() </span></li></ul><p>Changes the working directory at the remote server to 
+<strong>Dir</strong>.</p><a name="close"></a><h2>close(Pid) -&gt; ok</h2><p>Ends the FTP session.</p><ul><li><span class="v">Pid = pid()</span></li></ul><p>Ends an FTP session, created using function
+<a href="#open">open</a>.</p><a name="delete"></a><h2>delete(Pid, File) -&gt; ok | {error, Reason}</h2><p>Deletes a file at the remote server.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">File = string()</span></li><li><span class="v">Reason = restriction_reason() | common_reason()</span></li></ul><p>Deletes the file <strong>File</strong> at the remote server.</p><a name="append"></a><h2>formaterror(Tag) -&gt; string()</h2><p>Returns error diagnostics.</p><ul><li><span class="v">Tag = {error, atom()} | atom()</span></li></ul><p>Given an error return value <strong>{error, AtomReason}</strong>,
+this function returns a readable string describing the error.</p><a name="lcd"></a><h2>lcd(Pid, Dir) -&gt; ok | {error, Reason}</h2><p>Changes local working directory.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Dir = string()</span></li><li><span class="v">Reason = restriction_reason()</span></li></ul><p>Changes the working directory to <strong>Dir</strong> for the local client.</p><a name="lpwd"></a><h2>lpwd(Pid) -&gt; {ok, Dir}</h2><p>Gets local current working directory.</p><ul><li><span class="v">Pid = pid()</span></li></ul><p>Returns the current working directory at the local client.</p><a name="ls"></a><a name="ls1"></a><a name="ls2"></a><h2>ls(Pid) -&gt;</h2><h2>ls(Pid, Pathname) -&gt; {ok, Listing} | {error, Reason}</h2><p>List of files.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Pathname = string()</span></li><li><span class="v">Listing = string()</span></li><li><span class="v">Reason = restriction_reason() | common_reason()</span></li></ul><p>Returns a list of files in long format.</p><p><strong>Pathname</strong> can be a directory, a group of files, or 
+a file. The <strong>Pathname</strong> string can contain wildcards.</p><p><strong>ls/1</strong> implies the current remote directory of the user.</p><p>The format of <strong>Listing</strong> depends on the operating system. 
+On UNIX, it is typically produced from the output of the 
+<strong>ls -l</strong> shell command.</p><a name="mkdir"></a><h2>mkdir(Pid, Dir) -&gt; ok | {error, Reason}</h2><p>Creates a remote directory.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Dir = string()</span></li><li><span class="v">Reason = restriction_reason() | common_reason()</span></li></ul><p>Creates the directory <strong>Dir</strong> at the remote server.</p><a name="nlist"></a><a name="nlist1"></a><a name="nlist2"></a><h2>nlist(Pid) -&gt;</h2><h2>nlist(Pid, Pathname) -&gt; {ok, Listing} | {error, Reason}</h2><p>List of files.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Pathname = string()</span></li><li><span class="v">Listing = string()</span></li><li><span class="v">Reason = restriction_reason() | common_reason()</span></li></ul><p>Returns a list of files in short format.</p><p><strong>Pathname</strong> can be a directory, a group of files, or 
+a file. The <strong>Pathname</strong> string can contain wildcards.</p><p><strong>nlist/1</strong> implies the current remote directory of the user.</p><p>The format of <strong>Listing</strong> is a stream of
+filenames where each filename is separated by &lt;CRLF&gt; or
+&lt;NL&gt;. Contrary to function <strong>ls</strong>, the purpose of
+<strong>nlist</strong> is to enable a program to
+process filename information automatically.</p><a name="open"></a><h2>open(Host) -&gt; {ok, Pid} | {error, Reason}</h2><h2>open(Host, Opts) -&gt; {ok, Pid} | {error, Reason}</h2><p>Starts a standalone FTP client.</p><ul><li><span class="v">Host = string() | ip_address()</span></li><li><span class="v">Opts = options()</span></li><li><span class="v">options() = [option()]</span></li><li><span class="v">option() = start_option() | open_option()</span></li><li><span class="v">start_option() = {verbose, verbose()} | {debug, debug()}</span></li><li><span class="v">verbose() = boolean() (default is false)</span></li><li><span class="v">debug() = disable | debug | trace (default is disable)</span></li><li><span class="v">open_option() = {ipfamily, ipfamily()} | {port, port()} | {mode, mode()} | {tls, tls_options()} | {timeout, timeout()} | {dtimeout, dtimeout()} | {progress, progress() | {sock_ctrl, sock_opts()} | {sock_data_act, sock_opts()} | {sock_data_pass, sock_opts()} }</span></li><li><span class="v">ipfamily() = inet | inet6 | inet6fb4 (default is inet)</span></li><li><span class="v">port() = integer() &gt; 0 (default is 21)</span></li><li><span class="v">mode() = active | passive (default is passive)</span></li><li><span class="v">tls_options() = []</span></li><li><span class="v">sock_opts() = [ except for ipv6_v6only, active, packet, mode, packet_size and header</span></li><li><span class="v">timeout() = integer() &gt; 0 (default is 60000 milliseconds)</span></li><li><span class="v">dtimeout() = integer() &gt; 0 | infinity (default is infinity)</span></li><li><span class="v">pogress() = ignore | {module(), function(), initial_data()} (default is ignore)</span></li><li><span class="v">module() = atom()</span></li><li><span class="v">function() = atom()</span></li><li><span class="v">initial_data() = term()</span></li><li><span class="v">Reason = ehost | term()</span></li></ul><p>Starts a standalone FTP client process 
+(without the <strong>ftp</strong> service framework) and
+opens a session with the FTP server at <strong>Host</strong>. </p><p>If option <strong>{tls, tls_options()}</strong> is present, the FTP session 
+is transported over <strong>tls</strong> (<strong>ftps</strong>, see 
+<a href="http://www.ietf.org/rfc/rfc4217.txt">RFC 4217</a>). 
+The list <strong>tls_options()</strong> can be empty. The function 
+<a href="../ssl/ssl#connect/3">ssl/ssl#connect/3</a> 
+is used for securing both the control connection and the data sessions.
+</p><p>The options <strong>sock_ctrl</strong>, <strong>sock_data_act</strong> and <strong>sock_data_pass</strong> passes options down to 
+the underlying transport layer (tcp). The default value for <strong>sock_ctrl</strong> is <strong>[]</strong>. Both 
+<strong>sock_data_act</strong> and <strong>sock_data_pass</strong> uses the value of <strong>sock_ctrl</strong> as default value.
+</p><p>A session opened in this way is closed using function
+<a href="#close">close</a>.</p><a name="pwd"></a><h2>pwd(Pid) -&gt; {ok, Dir} | {error, Reason}</h2><p>Gets the remote current working directory.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Reason = restriction_reason() | common_reason()</span></li></ul><p>Returns the current working directory at the remote server.</p><a name="recv"></a><a name="recv2"></a><a name="recv3"></a><h2>recv(Pid, RemoteFile) -&gt;</h2><h2>recv(Pid, RemoteFile, LocalFile) -&gt; ok | {error, Reason}</h2><p>Transfers a file from remote server.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">RemoteFile = LocalFile = string()</span></li><li><span class="v">Reason = restriction_reason() | common_reason() | file_write_error_reason() </span></li><li><span class="v">file_write_error_reason() = see file:write/2</span></li></ul><p>Transfers the file <strong>RemoteFile</strong> from the remote server
+to the file system of the local client. If
+<strong>LocalFile</strong> is specified, the local file will be
+<strong>LocalFile</strong>, otherwise
+<strong>RemoteFile</strong>.</p><p>If the file write fails (for example, <strong>enospc</strong>), the command is 
+aborted and <strong>{error, file_write_error_reason()}</strong> is returned. 
+However, the file is <em>not</em> removed.</p><a name="recv_bin"></a><h2>recv_bin(Pid, RemoteFile) -&gt; {ok, Bin} | {error, Reason}</h2><p>Transfers a file from remote server as a binary.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">RemoteFile = string()</span></li><li><span class="v">Reason = restriction_reason() | common_reason()</span></li></ul><p>Transfers the file <strong>RemoteFile</strong> from the remote server and 
+receives it as a binary.</p><a name="recv_chunk_start"></a><h2>recv_chunk_start(Pid, RemoteFile) -&gt; ok | {error, Reason}</h2><p>Starts chunk-reading of the remote file.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">RemoteFile = string()</span></li><li><span class="v">Reason = restriction_reason() | common_reason()</span></li></ul><p>Starts transfer of the file <strong>RemoteFile</strong> from the
+remote server.</p><a name="recv_chunk"></a><h2>recv_chunk(Pid) -&gt; ok | {ok, Bin} | {error, Reason}</h2><p>Receives a chunk of the remote file.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">Reason = restriction_reason() | common_reason()</span></li></ul><p>Receives a chunk of the remote file (<strong>RemoteFile</strong> of 
+<strong>recv_chunk_start</strong>). The return values have the following 
+meaning:</p><ul><li><strong>ok</strong> = the transfer is complete.</li><li><strong>{ok, Bin}</strong> = just another chunk of the file.</li><li><strong>{error, Reason}</strong> = transfer failed.</li></ul><a name="rename"></a><h2>rename(Pid, Old, New) -&gt; ok | {error, Reason}</h2><p>Renames a file at the remote server.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">CurrFile = NewFile = string()</span></li><li><span class="v">Reason = restriction_reason() | common_reason()</span></li></ul><p>Renames <strong>Old</strong> to <strong>New</strong> at the remote server.</p><a name="rmdir"></a><h2>rmdir(Pid, Dir) -&gt; ok | {error, Reason}</h2><p>Removes a remote directory.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Dir = string()</span></li><li><span class="v">Reason = restriction_reason() | common_reason()</span></li></ul><p>Removes directory <strong>Dir</strong> at the remote server.</p><a name="send"></a><a name="send2"></a><a name="send3"></a><h2>send(Pid, LocalFile) -&gt;</h2><h2>send(Pid, LocalFile, RemoteFile) -&gt; ok | {error, Reason}</h2><p>Transfers a file to the remote server.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">LocalFile = RemoteFile = string()</span></li><li><span class="v">Reason = restriction_reason() | common_reason() | shortage_reason()</span></li></ul><p>Transfers the file <strong>LocalFile</strong> to the remote server. If 
+<strong>RemoteFile</strong> is specified, the name of the remote file is set
+to <strong>RemoteFile</strong>, otherwise to <strong>LocalFile</strong>.</p><a name="send_bin"></a><h2>send_bin(Pid, Bin, RemoteFile) -&gt; ok | {error, Reason}</h2><p>Transfers a binary into a remote file.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">RemoteFile = string()</span></li><li><span class="v">Reason = restriction_reason() | common_reason() | shortage_reason()</span></li></ul><p>Transfers the binary <strong>Bin</strong> into the file <strong>RemoteFile</strong> 
+at the remote server.</p><a name="send_chunk"></a><h2>send_chunk(Pid, Bin) -&gt; ok | {error, Reason}</h2><p>Writes a chunk to the remote file.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Bin = binary()</span></li><li><span class="v">Reason = echunk | restriction_reason() | common_reason()</span></li></ul><p>Transfers the chunk <strong>Bin</strong> to the remote server, which 
+writes it into the file specified in the call to 
+<strong>send_chunk_start/2</strong>.</p><p>For some errors, for example, file system full, it is 
+necessary to to call <strong>send_chunk_end</strong> to get the 
+proper reason.</p><a name="send_chunk_start"></a><h2>send_chunk_start(Pid, File) -&gt; ok | {error, Reason}</h2><p>Starts transfer of file chunks.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">File = string()</span></li><li><span class="v">Reason = restriction_reason() | common_reason()</span></li></ul><p>Starts transfer of chunks into the file <strong>File</strong> at the 
+remote server.</p><a name="send_chunk_end"></a><h2>send_chunk_end(Pid) -&gt; ok | {error, Reason}</h2><p>Stops transfer of chunks.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Reason = restriction_reason() | common_reason() | shortage_reason()</span></li></ul><p>Stops transfer of chunks to the remote server. The file at the
+remote server, specified in the call to <strong>send_chunk_start/2</strong> 
+is closed by the server.</p><a name="type"></a><h2>start_service(ServiceConfig) -&gt; {ok, Pid} | {error, Reason}</h2><p>Dynamically starts an <strong>FTP</strong> session after the <strong>ftp</strong> application has been started.</p><ul><li><span class="v">ServiceConfig = [{Option, Value}]</span></li><li><span class="v">Option = property()</span></li><li><span class="v">Value = term()</span></li></ul><p>Dynamically starts an <strong>FTP</strong> session after the <strong>ftp</strong>
+application has been started.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>As long as the <strong>ftp</strong> application is operational,
+the FTP sessions are supervised and can be soft code upgraded.</p></div><h2>stop_service(Reference) -&gt; ok | {error, Reason}</h2><p>Stops an FTP session.</p><ul><li><span class="v">Reference = pid() | term() - service-specified reference</span></li><li><span class="v">Reason = term()</span></li></ul><p>Stops a started FTP session.</p><h2>type(Pid, Type) -&gt; ok | {error, Reason}</h2><p>Sets transfer type to <strong>ascii</strong>or <strong>binary</strong>.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Type = ascii | binary</span></li><li><span class="v">Reason = etype | restriction_reason() | common_reason()</span></li></ul><p>Sets the file transfer type to <strong>ascii</strong> or <strong>binary</strong>. When
+an FTP session is opened, the default transfer type of the
+server is used, most often <strong>ascii</strong>, which is default
+according to <a href="http://www.ietf.org/rfc/rfc959.txt">RFC 959</a>.</p><a name="user3"></a><h2>user(Pid, User, Password) -&gt; ok | {error, Reason}</h2><p>User login.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">User = Password = string()</span></li><li><span class="v">Reason = euser | common_reason()</span></li></ul><p>Performs login of <strong>User</strong> with <strong>Password</strong>.</p><a name="user4"></a><h2>user(Pid, User, Password, Account) -&gt; ok | {error, Reason}</h2><p>User login.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">User = Password = string()</span></li><li><span class="v">Reason = euser | common_reason() </span></li></ul><p>Performs login of <strong>User</strong> with <strong>Password</strong> to the account 
+specified by <strong>Account</strong>.</p><a name="quote"></a><h2>quote(Pid, Command) -&gt; [FTPLine]</h2><p>Sends an arbitrary FTP command.</p><ul><li><span class="v">Pid = pid()</span></li><li><span class="v">Command = string()</span></li><li><span class="v">FTPLine = string(</span></li></ul><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>The telnet end of line characters, from the FTP 
+protocol definition, CRLF, for example, "\\r\\n" has been removed.</p></div><p>Sends an arbitrary FTP command and returns verbatim a list
+of the lines sent back by the FTP server. This function is
+intended to give application accesses to FTP commands
+that are server-specific or that cannot be provided by
+this FTP client.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>FTP commands requiring a data connection cannot be
+successfully issued with this function.</p></div><h2>ERRORS</h2><p>The possible error reasons and the corresponding diagnostic strings 
+returned by <strong>formaterror/1</strong> are as follows:
+</p><dl><dt><strong>echunk</strong></dt><dd> <p>Synchronization error during chunk sending according to one 
+of the following:
+</p><ul><li>A call is made to <strong>send_chunk/2</strong> or <strong>send_chunk_end/1</strong> before a call to <strong>send_chunk_start/2</strong>.</li><li>A call has been made to another transfer function during chunk  sending, that is, before a call to <strong>send_chunk_end/1</strong>.</li></ul> </dd><dt><strong>eclosed</strong></dt><dd> <p>The session is closed.</p> </dd><dt><strong>econn</strong></dt><dd> <p>Connection to the remote server is prematurely closed.</p> </dd><dt><strong>ehost</strong></dt><dd> <p>Host is not found, FTP server is not found, or connection is rejected
+by FTP server.</p> </dd><dt><strong>elogin</strong></dt><dd> <p>User is not logged in.</p> </dd><dt><strong>enotbinary</strong></dt><dd> <p>Term is not a binary.</p> </dd><dt><strong>epath</strong></dt><dd> <p>No such file or directory, or directory already exists, or
+permission denied.</p> </dd><dt><strong>etype</strong></dt><dd> <p>No such type.</p> </dd><dt><strong>euser</strong></dt><dd> <p>Invalid username or password.</p> </dd><dt><strong>etnospc</strong></dt><dd> <p>Insufficient storage space in system [452].</p> </dd><dt><strong>epnospc</strong></dt><dd> <p>Exceeded storage allocation (for current directory or
+dataset) [552].</p> </dd><dt><strong>efnamena</strong></dt><dd> <p>Filename not allowed [553].</p> </dd></dl><h2>SEE ALSO</h2><p><a href="./file">file(3)</a>
+<a href="./filename">filename(3)</a>
+and J. Postel and J. Reynolds: File Transfer Protocol
+(<a href="http://www.ietf.org/rfc/rfc959.txt">RFC 959</a>).
+</p></body></html>

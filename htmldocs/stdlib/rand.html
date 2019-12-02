@@ -1,0 +1,267 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>rand</h1><h1>rand</h1><p>Pseudo random number generation.</p><p>
+This module provides a pseudo random number generator.
+The module contains a number of algorithms.
+The uniform distribution algorithms are based on the
+<a href="http://xorshift.di.unimi.it"> Xoroshiro and Xorshift algorithms </a>
+by Sebastiano Vigna.
+The normal distribution algorithm uses the
+<a href="http://www.jstatsoft.org/v05/i08"> Ziggurat Method by Marsaglia and Tsang </a>
+on top of the uniform distribution algorithm.
+
+For most algorithms, jump functions are provided for generating
+non-overlapping sequences for parallel computations.
+The jump functions perform calculations
+equivalent to perform a large number of repeated calls
+for calculating new states.
+The following algorithms are provided:<dl><dt><strong>exsss</strong></dt><dd> <p>Xorshift116**, 58 bits precision and period of 2^116-1</p> <p>Jump function: equivalent to 2^64 calls</p> <p>
+This is the Xorshift116 generator combined with the StarStar scrambler
+from the 2018 paper by David Blackman and Sebastiano Vigna:
+<a href="http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf"> Scrambled Linear Pseudorandom Number Generators </a>
+</p> <p>
+The generator does not need 58-bit rotates so it is faster
+than the Xoroshiro116 generator, and when combined with
+the StarStar scrambler it does not have any weak low bits
+like <strong>exrop</strong> (Xoroshiro116+).
+</p> <p>
+Alas, this combination is about 10% slower than <strong>exrop</strong>,
+but is despite that the default algorithm thanks to its
+statistical qualities.
+</p> </dd><dt><strong>exro928ss</strong></dt><dd> <p>Xoroshiro928**, 58 bits precision and a period of 2^928-1</p> <p>Jump function: equivalent to 2^512 calls</p> <p>
+This is a 58 bit version of Xoroshiro1024**,
+from the 2018 paper by David Blackman and Sebastiano Vigna:
+<a href="http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf"> Scrambled Linear Pseudorandom Number Generators </a>
+that on a 64 bit Erlang system executes only about 40% slower than
+the default <strong>exsss</strong> algorithm but with much longer period
+and better statistical properties, and on the flip side
+a larger state.
+</p> <p>
+Many thanks to Sebastiano Vigna for his help with
+the 58 bit adaption.
+</p> </dd><dt><strong>exrop</strong></dt><dd> <p>Xoroshiro116+, 58 bits precision and period of 2^116-1</p> <p>Jump function: equivalent to 2^64 calls</p> </dd><dt><strong>exs1024s</strong></dt><dd> <p>Xorshift1024*, 64 bits precision and a period of 2^1024-1</p> <p>Jump function: equivalent to 2^512 calls</p> </dd><dt><strong>exsp</strong></dt><dd> <p>Xorshift116+, 58 bits precision and period of 2^116-1</p> <p>Jump function: equivalent to 2^64 calls</p> <p>
+This is a corrected version of the previous default algorithm,
+that now has been superseded by Xoroshiro116+ (<strong>exrop</strong>).
+Since there is no native 58 bit rotate instruction this
+algorithm executes a little (say &lt; 15%) faster than <strong>exrop</strong>.
+See the 
+<a href="http://xorshift.di.unimi.it">algorithms' homepage</a>.
+</p> </dd></dl>
+The default algorithm is <strong>exsss</strong> (Xorshift116**).
+If a specific algorithm is
+required, ensure to always use <a href="#seed-1">seed-1</a> to initialize the state.
+
+Undocumented (old) algorithms are deprecated but still implemented
+so old code relying on them will produce
+the same pseudo random sequences as before.
+Every time a random number is requested, a state is used to
+calculate it and a new state is produced. The state can either be
+implicit or be an explicit argument and return value.The functions with implicit state use the process dictionary
+variable <strong>rand_seed</strong> to remember the current state.If a process calls
+<a href="#uniform-0">uniform-0</a>,
+<a href="#uniform-1">uniform-1</a> or
+<a href="#uniform_real-0">uniform_real-0</a> without
+setting a seed first, <a href="#seed-1">seed-1</a>
+is called automatically with the default algorithm and creates a
+non-constant seed.The functions with explicit state never use the process dictionary.<em>Examples:</em>Simple use; creates and seeds the default algorithm
+with a non-constant seed if not already done:<pre>
+R0 = rand:uniform(),
+R1 = rand:uniform(),</pre>Use a specified algorithm:<pre>
+_ = rand:seed(exs928ss),
+R2 = rand:uniform(),</pre>Use a specified algorithm with a constant seed:<pre>
+_ = rand:seed(exs928ss, {123, 123534, 345345}),
+R3 = rand:uniform(),</pre>Use the functional API with a non-constant seed:<pre>
+S0 = rand:seed_s(exsss),
+{R4, S1} = rand:uniform_s(S0),</pre>Textbook basic form Box-Muller standard normal deviate<pre>
+R5 = rand:uniform_real(),
+R6 = rand:uniform(),
+SND0 = math:sqrt(-2 * math:log(R5)) * math:cos(math:pi() * R6)</pre>Create a standard normal deviate:<pre>
+{SND1, S2} = rand:normal_s(S1),</pre>Create a normal deviate with mean -3 and variance 0.5:<pre>
+{ND0, S3} = rand:normal_s(-3, 0.5, S2),</pre>
+For all these generators except <strong>exro928ss</strong> and <strong>exsss</strong>
+the lowest bit(s) has got a slightly less
+random behaviour than all other bits.
+1 bit for <strong>exrop</strong> (and <strong>exsp</strong>),
+and 3 bits for <strong>exs1024s</strong>.
+See for example the explanation in the
+<a href="http://xoroshiro.di.unimi.it/xoroshiro128plus.c"> Xoroshiro128+ </a>
+generator source code:
+<pre>
+Beside passing BigCrush, this generator passes the PractRand test suite
+up to (and included) 16TB, with the exception of binary rank tests,
+which fail due to the lowest bit being an LFSR; all other bits pass all
+tests. We suggest to use a sign test to extract a random Boolean value.</pre>
+If this is a problem; to generate a boolean with these algorithms
+use something like this:
+<pre>(rand:uniform(16) &gt; 8)</pre>
+And for a general range, with <strong>N = 1</strong> for <strong>exrop</strong>,
+and <strong>N = 3</strong> for <strong>exs1024s</strong>:
+<pre>(((rand:uniform(Range bsl N) - 1) bsr N) + 1)</pre>
+The floating point generating functions in this module
+waste the lowest bits when converting from an integer
+so they avoid this snag.
+</p><h1>Data Types</h1><span class="name">builtin_alg</span><span class="name">alg</span><span class="name">alg_handler</span><span class="name">alg_state</span><span class="name">state</span><p>Algorithm-dependent state.</p><span class="name">export_state</span><p>
+Algorithm-dependent state that can be printed or saved to file.
+</p><span class="name">seed</span><p>
+A seed value for the generator.
+</p><p>
+A list of integers sets the generator's internal state directly,
+after algorithm-dependent checks of the value
+and masking to the proper word size.
+</p><p>
+An integer is used as the initial state for a SplitMix64 generator.
+The output values of that is then used for setting
+the generator's internal state
+after masking to the proper word size
+and if needed avoiding zero values.
+</p><p>
+A traditional 3-tuple of integers seed is passed through
+algorithm-dependent hashing functions to create
+the generator's initial state.
+</p><span class="name">exsplus_state</span><p>Algorithm specific internal state</p><span class="name">exro928_state</span><p>Algorithm specific internal state</p><span class="name">exrop_state</span><p>Algorithm specific internal state</p><span class="name">exs1024_state</span><p>Algorithm specific internal state</p><span class="name">exs64_state</span><p>Algorithm specific internal state</p><h1>Functions</h1><h2>export_seed/0</h2><p>Export the random number generation state.</p><a name="export_seed-0"></a><p>Returns the random number state in an external format.
+To be used with <a href="#seed-1">seed-1</a>.</p><h2>export_seed_s/1</h2><p>Export the random number generation state.</p><a name="export_seed_s-1"></a><p>Returns the random number generator state in an external format.
+To be used with <a href="#seed-1">seed-1</a>.</p><h2>jump/0</h2><p>Return the seed after performing jump calculation to the state in the process dictionary.</p><a name="jump-0"></a><p>Returns the state
+after performing jump calculation
+to the state in the process dictionary.</p><p>This function generates a <strong>not_implemented</strong> error exception
+when the jump function is not implemented for
+the algorithm specified in the state
+in the process dictionary.</p><h2>jump/1</h2><p>Return the seed after performing jump calculation.</p><a name="jump-1"></a><p>Returns the state after performing jump calculation
+to the given state. </p><p>This function generates a <strong>not_implemented</strong> error exception
+when the jump function is not implemented for
+the algorithm specified in the state.</p><h2>normal/0</h2><p>Return a standard normal distributed random float.</p><p>Returns a standard normal deviate float (that is, the mean
+is 0 and the standard deviation is 1) and updates the state in
+the process dictionary.</p><h2>normal/2</h2><p>Return a normal distributed random float.</p><p>Returns a normal N(Mean, Variance) deviate float
+and updates the state in the process dictionary.</p><h2>normal_s/1</h2><p>Return a standard normal distributed random float.</p><p>Returns, for a specified state, a standard normal
+deviate float (that is, the mean is 0 and the standard
+deviation is 1) and a new state.</p><h2>normal_s/3</h2><p>Return a normal distributed random float.</p><p>Returns, for a specified state, a normal N(Mean, Variance)
+deviate float and a new state.</p><h2>seed/1</h2><p>Seed random number generator.</p><a name="seed-1"></a><p>
+Seeds random number generation with the specifed algorithm and
+time-dependent data if <strong><span class="anno">AlgOrStateOrExpState</span></strong>
+is an algorithm.
+</p><p>Otherwise recreates the exported seed in the process dictionary,
+and returns the state. See also
+<a href="#export_seed-0">export_seed-0</a>.</p><h2>seed/2</h2><p>Seed the random number generation.</p><p>Seeds random number generation with the specified algorithm and
+integers in the process dictionary and returns the state.</p><h2>seed_s/1</h2><p>Seed random number generator.</p><p>
+Seeds random number generation with the specifed algorithm and
+time-dependent data if <strong><span class="anno">AlgOrStateOrExpState</span></strong>
+is an algorithm.
+</p><p>Otherwise recreates the exported seed and returns the state.
+See also <a href="#export_seed-0">export_seed-0</a>.</p><h2>seed_s/2</h2><p>Seed the random number generation.</p><p>Seeds random number generation with the specified algorithm and
+integers and returns the state.</p><h2>uniform/0</h2><p>Return a random float.</p><a name="uniform-0"></a><p>
+Returns a random float uniformly distributed in the value
+range <strong>0.0 =&lt; <span class="anno">X</span> &lt; 1.0</strong> and
+updates the state in the process dictionary.
+</p><p>
+The generated numbers are on the form N * 2.0^(-53),
+that is; equally spaced in the interval.
+</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>
+This function may return exactly <strong>0.0</strong> which can be
+fatal for certain applications.  If that is undesired
+you can use <strong>(1.0 - rand:uniform())</strong> to get the
+interval <strong>0.0 &lt; <span class="anno">X</span> =&lt; 1.0</strong>, or instead use
+<a href="#uniform_real-0">uniform_real-0</a>.
+</p><p>
+If neither endpoint is desired you can test and re-try
+like this:
+</p><pre>
+my_uniform() -&gt;
+    case rand:uniform() of
+        0.0 -&gt; my_uniform();
+	X -&gt; X
+    end
+end.</pre></div><h2>uniform_real/0</h2><p>Return a random float.</p><a name="uniform_real-0"></a><p>
+Returns a random float
+uniformly distributed in the value range
+<strong>DBL_MIN =&lt; <span class="anno">X</span> &lt; 1.0</strong>
+and updates the state in the process dictionary.
+</p><p>
+Conceptually, a random real number <strong>R</strong> is generated
+from the interval <strong>0 =&lt; R &lt; 1</strong> and then the
+closest rounded down normalized number
+in the IEEE 754 Double precision format
+is returned.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+The generated numbers from this function has got better
+granularity for small numbers than the regular
+<a href="#uniform-0">uniform-0</a>
+because all bits in the mantissa are random.
+This property, in combination with the fact that exactly zero
+is never returned is useful for algoritms doing for example
+<strong>1.0 / <span class="anno">X</span></strong> or <strong>math:log(<span class="anno">X</span>)</strong>.
+</p></div><p>
+See
+<a href="#uniform_real_s-1">uniform_real_s-1</a>
+for more explanation.
+</p><h2>uniform/1</h2><p>Return a random integer.</p><a name="uniform-1"></a><p>Returns, for a specified integer <strong><span class="anno">N</span> &gt;= 1</strong>,
+a random integer uniformly distributed in the value range
+<strong>1 =&lt; <span class="anno">X</span> =&lt; <span class="anno">N</span></strong> and
+updates the state in the process dictionary.</p><h2>uniform_s/1</h2><p>Return a random float.</p><p>
+Returns, for a specified state, random float
+uniformly distributed in the value range <strong>0.0 =&lt; <span class="anno">X</span> &lt; 1.0</strong> and a new state.
+</p><p>
+The generated numbers are on the form N * 2.0^(-53),
+that is; equally spaced in the interval.
+</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>
+This function may return exactly <strong>0.0</strong> which can be
+fatal for certain applications.  If that is undesired
+you can use <strong>(1.0 - rand:uniform(State))</strong> to get the
+interval <strong>0.0 &lt; <span class="anno">X</span> =&lt; 1.0</strong>, or instead use
+<a href="#uniform_real_s-1">uniform_real_s-1</a>.
+</p><p>
+If neither endpoint is desired you can test and re-try
+like this:
+</p><pre>
+my_uniform(State) -&gt;
+    case rand:uniform(State) of
+        {0.0, NewState} -&gt; my_uniform(NewState);
+	Result -&gt; Result
+    end
+end.</pre></div><h2>uniform_real_s/1</h2><p>Return a random float.</p><p>
+Returns, for a specified state, a random float
+uniformly distributed in the value range
+<strong>DBL_MIN =&lt; <span class="anno">X</span> &lt; 1.0</strong>
+and updates the state in the process dictionary.
+</p><p>
+Conceptually, a random real number <strong>R</strong> is generated
+from the interval <strong>0 =&lt; R &lt; 1</strong> and then the
+closest rounded down normalized number
+in the IEEE 754 Double precision format
+is returned.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>
+The generated numbers from this function has got better
+granularity for small numbers than the regular
+<a href="#uniform_s-1">uniform_s-1</a>
+because all bits in the mantissa are random.
+This property, in combination with the fact that exactly zero
+is never returned is useful for algoritms doing for example
+<strong>1.0 / <span class="anno">X</span></strong> or <strong>math:log(<span class="anno">X</span>)</strong>.
+</p></div><p>
+The concept implicates that the probability to get
+exactly zero is extremely low; so low that this function
+is in fact guaranteed to never return zero.  The smallest
+number that it might return is <strong>DBL_MIN</strong>, which is
+2.0^(-1022).
+</p><p>
+The value range stated at the top of this function
+description is technically correct, but
+<strong>0.0 =&lt; <span class="anno">X</span> &lt; 1.0</strong>
+is a better description of the generated numbers'
+statistical distribution.  Except that exactly 0.0
+is never returned, which is not possible to observe
+statistically.
+</p><p>
+For example; for all sub ranges
+<strong>N*2.0^(-53) =&lt; X &lt; (N+1)*2.0^(-53)</strong>
+where
+<strong>0 =&lt; integer(N) &lt; 2.0^53</strong>
+the probability is the same.
+Compare that with the form of the numbers generated by
+<a href="#uniform_s-1">uniform_s-1</a>.
+</p><p>
+Having to generate extra random bits for
+small numbers costs a little performance.
+This function is about 20% slower than the regular
+<a href="#uniform_s-1">uniform_s-1</a>
+</p><h2>uniform_s/2</h2><p>Return a random integer.</p><p>Returns, for a specified integer <strong><span class="anno">N</span> &gt;= 1</strong>
+and a state, a random integer uniformly distributed in the value
+range <strong>1 =&lt; <span class="anno">X</span> =&lt; <span class="anno">N</span></strong> and a
+new state.</p></body></html>

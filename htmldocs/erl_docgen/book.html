@@ -1,0 +1,806 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Erl_Docgen</h1><h1>erl_docgen</h1><p><em>Erl_Docgen</em> provides functionality for generating HTML/PDF/man
+documentation for Erlang modules and Erlang/OTP applications
+from XML source code and/or EDoc comments in Erlang source code.</p><h4>Utilities to prepare XML files</h4><h4>Create XML files from code</h4><p>
+If there are EDoc comments in a module, the escript <strong>xml_from_edoc.escript</strong>
+can be used to generate an XML file according to the <strong>erlref</strong> DTD 
+for this module.
+</p><p>
+Example:
+</p><pre><code class="">
+
+	1&gt; escript $(ERL_TOP)/lib/erl_docgen/priv/bin/xml_from_edoc.escript ex1.erl
+      </code></pre><h4>Include code in XML</h4><p>If there are OTP DTD <em>codeinclude</em> tags in the source XML file, the escript
+<strong>codeline_preprocessing.escript</strong> can be used to include the code and produce
+an XML file according to the OTP DTDs. 
+</p><p>
+Example:
+</p><pre><code class="">
+
+	1&gt; escript $(ERL_TOP)/lib/erl_docgen/priv/bin/codeline_preprocessing.escript \
+	   ex1.xmlsrc ex1.xml
+      </code></pre><h4>Use xsltproc to generate different output formats</h4><h4>Parameters used in all the the XSL transformations</h4><p>
+These parameters to <strong>xsltproc</strong> are used for all the supported output formats.
+</p><dl><dt><strong>docgen</strong></dt><dd> Path to erl_docgen's top directory. </dd><dt><strong>gendate</strong></dt><dd> The date string that will be used in the documentation. </dd><dt><strong>appname</strong></dt><dd> The name of the application.&gt; </dd><dt><strong>appver</strong></dt><dd> The version of the application. </dd></dl><h4>Generate HTML output</h4><p>
+When generating HTML one also needs these three pramaters to <strong>xsltproc</strong>.
+</p><dl><dt><strong>outdir</strong></dt><dd> Output directory for the produced html files. </dd><dt><strong>topdocdir</strong></dt><dd> If one builds a standalone documentation for an application this should be set to ".". </dd><dt><strong>pdfdir</strong></dt><dd> Relative path from the html directory to where the pdf file are placed. </dd></dl><p>
+Example:
+</p><pre><code class="">
+	
+	1&gt; xsltproc --noout --stringparam outdir /tmp/myhtmldoc \
+	      --stringparam docgen $(ERL_TOP)/lib/erl_docgen \
+              --stringparam topdocdir . \
+              --stringparam pdfdir "$(PDFDIR)" \
+              --xinclude \
+	      --stringparam gendate "December 5 2011" \
+              --stringparam appname MyApp \
+              --stringparam appver 0.1 \
+              -path $ERL_TOP/lib/erl_docgen/priv/dtd \
+              -path $ERL_TOP/lib/erl_docgen/priv/dtd_html_entities \
+	      $ERL_TOP/lib/erl_docgen/priv/xsl/db_html.xsl mybook.xml
+      </code></pre><h4>Generate PDF</h4><p>
+The generation of the PDF file is done in two steps. First is <strong>xsltproc</strong> used to generate a <strong>.fo</strong> file 
+which is used as input to the <strong>fop</strong> command to produce th PDF file.
+</p><p>
+Example:
+</p><pre><code class="">
+
+	1&gt; xsltproc --output MyApp.fo \
+             --stringparam docgen $ERL_TOP/lib/erl_docgen \
+	     --stringparam gendate  "December 5 2011" \
+             --stringparam appname MyApp \
+             --stringparam appver 0.1 \
+             --xinclude \
+             -path $ERL_TOP/lib/erl_docgen/priv/dtd \
+             -path $ERL_TOP/lib/erl_docgen/priv/dtd_html_entities \
+	     $ERL_TOP/lib/erl_docgen/priv/xsl/db_pdf.xsl mybook.xml
+
+
+        2&gt; fop -fo MyApp.fo -pdf MyApp.pdf
+      </code></pre><h4>Generate man pages</h4><p>
+Unix man pages can be generated with <strong>xsltproc</strong> from XML files written according to 
+the different OTP ref type DTDs. 
+</p><p>
+Example:
+</p><pre><code class="">
+
+	1&gt; xsltproc --output  my_module.3\
+	      --stringparam docgen $ERL_TOP/lib/erl_docgen \
+	      --stringparam gendate  "December 5 2011" \
+	      --stringparam appname MyApp \
+	      --stringparam appver 0.1 \
+	      --xinclude -path $ERL_TOP/lib/erl_docgen/priv/dtd  \
+              -path $ERL_TOP/lib/erl_docgen/priv/dtd_man_entities \
+              $ERL_TOP/lib/erl_docgen/priv/xsl/db_man.xsl my_refpage.xml
+      </code></pre><h4>Upcoming changes</h4><p>
+The output from the <strong>erl_docgen</strong> documentation build process is now just the OTP style. 
+But in a near future we will for example add the possibility to change logo, color in the PDF and 
+style sheet for the HTML.
+</p><h4>DTD Suite</h4><p>Input is written as XML according to one of the DTDs and output
+is corresponding HTML. Documentation for an Erlang/OTP application
+is usually organized as follows:</p><dl><dt><em>User's Guide</em></dt><dd> <p>(DTD:
+<a href="./user_guide_dtds#partDTD">part</a>)
+A collection of chapters
+(<a href="./user_guide_dtds#chapterDTD">chapter</a>).
+</p> </dd><dt><em>Reference Manual</em></dt><dd> <p>(DTD:
+<a href="./refman_dtds#applicationDTD">application</a>
+A collection of manual pages for modules
+(<a href="./refman_dtds#erlrefDTD">erlref</a>),
+applications
+(<a href="./refman_dtds#apprefDTD">appref</a>),
+commands
+(<a href="./refman_dtds#comrefDTD">comref</a>),
+C libraries
+(<a href="./refman_dtds#crefDTD">cref</a>) and
+files
+(<a href="./refman_dtds#filerefDTD">fileref</a>).
+</p> </dd><dt><em>Release Notes</em></dt><dd> <p>Same structure as the User's Guide.</p> </dd></dl><p>In some cases, one or more of the User's Guide, Reference Manual
+and Release Notes are omitted. Also, it is possible to use either
+the <strong>application</strong> or <strong>part</strong> DTD to write other types
+of documentation for the application.</p><p>The structure of the different documents and the meaning of the 
+tags are explained. There are numerous examples of documentation 
+source code.</p><p>For readability and simplicity, the examples have been kept as
+short as possible. For an example of what the generated HTML
+will look like, it is recommended to look at the documentation of 
+an OTP application.</p><h4>Basic Tags</h4><p>All DTDs in the OTP DTD suite share a basic set of tags.
+An author can easily switch from one DTD to another and still use
+the same basic tags. It is furthermore easy to copy pieces of
+information from one document to another, even though they do not
+use the same DTD.</p><p>The basic set of tags are divided into two categories:
+<a href="block_tags">block tags</a> and
+<a href="inline_tags">inline tags</a>. Block tags
+typically define a separate block of information, like a
+paragraph or a list. Inline tags are typically used within block
+tags, for example a highlighted word within a paragraph.</p><a name="partDTD"></a><h4>The part DTD</h4><p>The <strong>part</strong> DTD is intended for a "normal" document, like
+the User's Guide or Release Notes. First are some paragraphs
+introducing the main contents. After that follows chapters,
+written in separate files with
+the <a href="#chapterDTD">chapter</a> DTD.</p><p>Example:</p><pre>
+&lt;?xml version="1.0" encoding="latin1" ?&gt;
+&lt;!DOCTYPE part SYSTEM "part.dtd"&gt;
+&lt;part&gt;
+  &lt;header&gt;
+    &lt;title&gt;The chapter title&lt;/title&gt;
+    &lt;prepared&gt;The author&lt;/prepared&gt;
+    &lt;docno/&gt;
+    &lt;date/&gt;
+    &lt;rev/&gt;
+  &lt;/header&gt;
+
+  &lt;description&gt;
+    &lt;p&gt;Some text..&lt;/p&gt;
+  &lt;/description&gt;
+
+  &lt;include file="file1"&gt;&lt;/include&gt;
+  &lt;include file="file2"&gt;&lt;/include&gt;
+&lt;/part&gt;
+    </pre><a name="partTAG"></a><h4>&lt;part&gt;</h4><p>The top level tag of a <strong>part</strong> DTD.</p><p>Contains a
+<a href="header_tags">&lt;header&gt;</a>,
+an optional
+<a href="#descriptionTAG">&lt;description&gt;</a>,
+followed by one or more
+<a href="#includeTAG">&lt;include&gt;</a>.</p><a name="descriptionTAG"></a><h4>&lt;description&gt;</h4><p>The introduction after the title and before the bulk of
+included chapters/manual pages.</p><p>Contains any combination and any number
+of <a href="block_tags">block tags</a> except
+<strong>&lt;image&gt;</strong> and <strong>&lt;table&gt;</strong>.</p><a name="includeTAG"></a><h4>&lt;include&gt;</h4><p>An empty tag. The attribute <strong>file</strong> specifies a file to
+include. The <strong>.xml</strong> file extension should be omitted.</p><p>Example:</p><pre>
+&lt;include file="notes"&gt;&lt;/include&gt;
+    </pre><a name="chapterDTD"></a><h4>The chapter DTD</h4><p>The <strong>chapter</strong> DTD is intended for a chapter in a User's
+Guide or similar with text divided into sections, which can be
+nested.</p><p>Example:</p><pre>
+&lt;?xml version="1.0" encoding="latin1" ?&gt;
+&lt;!DOCTYPE chapter SYSTEM "chapter.dtd"&gt;
+&lt;chapter&gt;
+  &lt;header&gt;
+    &lt;title&gt;Title on first level&lt;/title&gt;
+    &lt;prepared/&gt;
+    &lt;docno/&gt;
+    &lt;date/&gt;
+    &lt;rev/&gt;
+  &lt;/header&gt;
+  
+  &lt;p&gt;Introduction...&lt;/p&gt;
+
+  &lt;section&gt;
+    &lt;title&gt;Title on second level&lt;/title&gt;
+
+    &lt;p&gt;First paragraph.&lt;/p&gt;
+
+    &lt;p&gt;Second paragraph etc.&lt;/p&gt;
+
+    &lt;section&gt;
+      &lt;title&gt;Title on third level&lt;/title&gt;
+
+      &lt;p&gt;...&lt;/p&gt;
+    &lt;/section&gt;
+  &lt;/section&gt;
+
+  ...
+&lt;/chapter&gt;
+    </pre><a name="chapterTAG"></a><h4>&lt;chapter&gt;</h4><p>The top level tag of a <strong>chapter</strong> DTD.</p><p>Contains a
+<a href="header_tags">&lt;header&gt;</a>,
+an optional introduction consisting of any combination of
+<a href="block_tags">block tags</a>,
+followed by one or more
+<a href="#sectionTAG">&lt;section&gt;</a>.</p><a name="sectionTAG"></a><h4>&lt;section&gt;</h4><p>Subdivision of a chapter.</p><p>Contains an optional
+<a href="./inline_tags#markerTAG">&lt;marker&gt;</a>,
+a <a href="#titleTAG">&lt;title&gt;</a>,
+followed by any combination and any number of
+<a href="block_tags">block tags</a> and
+<strong>&lt;section ghlink="maint/lib/erl_docgen/doc/src/user_guide_dtds.xml#L172"&gt;</strong>.</p><a name="titleTAG"></a><h4>&lt;title&gt;</h4><p>Section title, contains plain text.</p><p>There are five DTDs for writing manual pages about applications,
+shell commands, C libraries, Erlang modules and files, all with a
+similar structure:</p><ul><li>A header.</li><li>Name of the application/command/library/module/file.</li><li>Short summary (one line).</li><li>A longer description.</li><li>"Formal" definitions of functions or commands.</li><li>Optional sections of free text.</li><li>Optional section with the name(s) and email(s) of the author(s).</li></ul><p>The differences between the DTDs are the tags for the name,
+the short summary and some tags inside the "formal" definitions.</p><a name="applicationDTD"></a><h4>The application DTD</h4><p>The <strong>application</strong> DTD is intended for a Reference Manual and
+groups a set of manual pages into one unit. The structure is
+similar to the part DTD: first an introduction and then the manual
+pages, written in separate files with the
+<a href="#apprefDTD">appref</a>,
+<a href="#comrefDTD">comref</a>,
+<a href="#crefDTD">cref</a>,
+<a href="#erlrefDTD">erlref</a>, or
+<a href="#filerefDTD">fileref</a> DTD.</p><p>Example:</p><pre>
+&lt;?xml version="1.0" encoding="latin1" ?&gt;
+&lt;!DOCTYPE application SYSTEM "application.dtd"&gt;
+&lt;application&gt;
+  &lt;header&gt;
+    &lt;title&gt;Application name&lt;/title&gt;
+    &lt;prepared/&gt;
+    &lt;docno/&gt;
+    &lt;date/&gt;
+    &lt;rev/&gt;
+  &lt;/header&gt;
+
+  &lt;description&gt;
+    &lt;p&gt;Application description...&lt;/p&gt;
+  &lt;/description&gt;
+  
+  &lt;include file="module1"&gt;
+  &lt;include file="module2"&gt;
+&lt;/application&gt;
+    </pre><a name="applicationTAG"></a><h4>&lt;application&gt;</h4><p>The top level tag of an <strong>application</strong> DTD.</p><p>Contains a
+<a href="header_tags">&lt;header&gt;</a>,
+an optional
+<a href="./user_guide_dtds#descriptionTAG">&lt;description&gt;</a>,
+followed by one or more
+<a href="./user_guide_dtds#includeTAG">&lt;include&gt;</a>.
+</p><a name="apprefDTD"></a><h4>The appref DTD</h4><p>This is the DTD for writing an application manual page.</p><p>Example:</p><pre>
+&lt;?xml version="1.0" encoding="latin1" ?&gt;
+&lt;!DOCTYPE appref SYSTEM "appref.dtd"&gt;
+&lt;appref&gt;
+  &lt;header&gt;
+    &lt;title&gt;Application name&lt;/title&gt;
+    &lt;prepared/&gt;
+    &lt;docno/&gt;
+    &lt;date/&gt;
+    &lt;rev/&gt;
+  &lt;/header&gt;
+
+  &lt;app&gt;Application name&lt;/app&gt;
+
+  &lt;appsummary&gt;A short application summary.&lt;/appsummary&gt;
+
+  &lt;description&gt;
+    &lt;p&gt;A longer description of the application.&lt;/p&gt;
+  &lt;/description&gt;
+  
+  &lt;section&gt;
+    &lt;title&gt;Configuration&lt;/title&gt;
+
+      &lt;p&gt;...&lt;/p&gt;
+  &lt;/section&gt;
+
+  ...
+  
+  &lt;authors&gt;
+    &lt;aname&gt;Name of author&lt;/aname&gt;
+    &lt;email&gt;Email of author&lt;/email&gt;
+  &lt;/authors&gt;
+&lt;/appref&gt;
+    </pre><a name="apprefTAG"></a><h4>&lt;appref&gt;</h4><p>The top level tag of an <strong>appref</strong> DTD.</p><p>Contains
+<a href="./header_tags#headerTAG">&lt;header&gt;</a>,
+<a href="#appTAG">&lt;app&gt;</a>,
+<a href="#appsummaryTAG">&lt;appsummary&gt;</a>,
+<a href="#descriptionTAG">&lt;description&gt;</a>,
+zero or more
+<a href="#sectionTAG">&lt;section&gt;</a> and
+<a href="#funcsTAG">&lt;funcs&gt;</a>, 
+followed by zero or more 
+<a href="#authorsTAG">&lt;authors&gt;</a>.</p><a name="appTAG"></a><h4>&lt;app&gt;</h4><p>The application name. Contains plain text.</p><a name="appsummaryTAG"></a><h4>&lt;appsummary&gt;</h4><p>Short summary. Contains plain text.</p><a name="comrefDTD"></a><h4>The comref DTD</h4><p>This is the DTD for writing a command manual page.</p><p>Example:</p><pre>
+&lt;?xml version="1.0" encoding="latin1" ?&gt;
+&lt;!DOCTYPE comref SYSTEM "comref.dtd"&gt;
+&lt;comref&gt;
+  &lt;header&gt;
+    &lt;title&gt;Command name&lt;/title&gt;
+    &lt;prepared/&gt;
+    &lt;docno/&gt;
+    &lt;date/&gt;
+    &lt;rev/&gt;
+  &lt;/header&gt;
+
+  &lt;com&gt;Command name&lt;/com&gt;
+
+  &lt;comsummary&gt;A short command summary.&lt;/comsummary&gt;
+
+  &lt;description&gt;
+    &lt;p&gt;A long description of the command.&lt;/p&gt;
+  &lt;/description&gt;
+  
+  &lt;funcs&gt;
+    &lt;func&gt;
+      &lt;name&gt;command&lt;/name&gt;
+      &lt;name&gt;command -flag &lt;arg&gt;&lt;/name&gt;
+      &lt;fsummary&gt;A short command summary (max 40 characters).&lt;/fsummary&gt;
+      &lt;desc&gt;
+        &lt;p&gt;An extended command description.
+      &lt;/desc&gt;
+    &lt;/func&gt;
+  &lt;/funcs&gt;
+
+  &lt;section&gt;
+    &lt;title&gt;Options&lt;/title&gt;
+
+    &lt;p&gt;...&lt;/p&gt;
+  &lt;/section&gt;
+  
+  &lt;authors&gt;
+    &lt;aname&gt;Name of author&lt;/aname&gt;
+    &lt;email&gt;Email of author&lt;/email&gt;
+  &lt;/authors&gt;
+&lt;/comref&gt;
+    </pre><a name="comrefTAG"></a><h4>&lt;comref&gt;</h4><p>The top level tag for a <strong>comref</strong> DTD.</p><p>Contains
+<a href="./header_tags#headerTAG">&lt;header&gt;</a>,
+<a href="#comTAG">&lt;com&gt;</a>,
+<a href="#comsummaryTAG">&lt;comsummary&gt;</a>,
+<a href="#descriptionTAG">&lt;description&gt;</a>,
+zero or more
+<a href="#sectionTAG">&lt;section&gt;</a> and
+<a href="#funcsTAG">&lt;funcs&gt;</a>, 
+followed by zero or more
+<a href="#authorsTAG">&lt;authors&gt;</a>.</p><a name="comTAG"></a><h4>&lt;com&gt;</h4><p>The command name. Contains plain text.</p><a name="comsummaryTAG"></a><h4>&lt;comsummary&gt;</h4><p>Short summary. Contains plain text.</p><a name="crefDTD"></a><h4>The cref DTD</h4><p>This is the DTD for writing a C library manual page.</p><p>Example:</p><pre>
+&lt;?xml version="1.0" encoding="latin1" ?&gt;
+&lt;!DOCTYPE cref SYSTEM "cref.dtd"&gt;
+&lt;cref&gt;
+  &lt;header&gt;
+    &lt;title&gt;C library name&lt;/title&gt;
+    &lt;prepared/&gt;
+    &lt;docno/&gt;
+    &lt;date/&gt;
+    &lt;rev/&gt;
+  &lt;/header&gt;
+
+  &lt;lib&gt;C library name&lt;/lib&gt;
+
+  &lt;libsummary&gt;A short C library summary.&lt;/libsummary&gt;
+
+  &lt;description ghlink="maint/lib/erl_docgen/doc/src/refman_dtds.xml#L285"&gt;
+    &lt;p&gt;A longer description of the C library.&lt;/p&gt;
+  &lt;/description&gt;
+  
+  &lt;funcs&gt;
+    &lt;func ghlink="maint/lib/erl_docgen/doc/src/refman_dtds.xml#L290"&gt;
+      &lt;name&gt;&lt;ret&gt;void&lt;/ret&gt;&lt;nametext&gt;start(bar)&lt;/nametext&gt;&lt;/name&gt;
+      &lt;name&gt;&lt;ret&gt;void&lt;/ret&gt;&lt;nametext&gt;start(foo)&lt;/nametext&gt;&lt;/name&gt;
+      &lt;fsummary&gt;A short function summary (max 40 characters).&lt;/fsummary&gt;
+      &lt;type&gt;
+        &lt;v&gt;char bar&lt;/v&gt;
+        &lt;v&gt;int foo&lt;/v&gt;
+      &lt;/type&gt;
+      &lt;desc&gt;
+        &lt;p&gt;An extended function description.&lt;/p&gt;
+      &lt;/desc&gt;
+    &lt;/func&gt;
+
+    ...
+  &lt;/funcs&gt;
+
+  &lt;section ghlink="maint/lib/erl_docgen/doc/src/refman_dtds.xml#L306"&gt;
+    &lt;title&gt;A title&lt;/title&gt;
+
+    &lt;p&gt;Some text...&lt;/p&gt;
+  &lt;/section&gt;
+  
+  
+&lt;/cref&gt;
+    </pre><a name="crefTAG"></a><h4>&lt;cref&gt;</h4><p>The top level tag for a <strong>cref</strong> DTD.</p><p>Contains
+<a href="./header_tags#headerTAG">&lt;header&gt;</a>,
+<a href="#libTAG">&lt;lib&gt;</a>,
+<a href="#libsummaryTAG">&lt;libsummary&gt;</a>,
+<a href="#descriptionTAG">&lt;description&gt;</a>,
+zero or more
+<a href="#sectionTAG">&lt;section&gt;</a> and
+<a href="#funcsTAG">&lt;funcs&gt;</a>, followed by
+zero or more
+<a href="#authorsTAG">&lt;authors&gt;</a>.</p><a name="libTAG"></a><h4>&lt;lib&gt;</h4><p>The C library name or acronym. Contains plain text.</p><a name="libsummaryTAG"></a><h4>&lt;libsummary&gt;</h4><p>Short summary. Contains plain text.</p><a name="erlrefDTD"></a><h4>The erlref DTD</h4><p>This is the DTD for writing Erlang module manual pages.</p><p>Example:</p><pre>
+&lt;?xml version="1.0" encoding="latin1" ?&gt;
+&lt;!DOCTYPE erlref SYSTEM "erlref.dtd"&gt;
+&lt;erlref&gt;
+  &lt;header&gt;
+    &lt;title&gt;Module name&lt;/title&gt;
+    &lt;prepared/&gt;
+    &lt;docno/&gt;
+    &lt;date/&gt;
+    &lt;rev/&gt;
+  &lt;/header&gt;
+
+  &lt;module&gt;Module name&lt;/module&gt;
+
+  &lt;modulesummary&gt;A short module summary.&lt;/modulesummary&gt;
+
+  &lt;description&gt;
+    &lt;p&gt;A longer description of the module.&lt;/p&gt;
+  &lt;/description&gt;
+  
+  &lt;funcs&gt;
+    &lt;func&gt;
+      &lt;name&gt;start() -&gt; Result&lt;/name&gt;
+      &lt;name&gt;start(N) -&gt; Result&lt;/name&gt;
+      &lt;fsummary&gt;A short function summary (max 40 characters).&lt;/fsummary&gt;
+      &lt;type&gt;
+        &lt;v&gt;Pid = pid()&lt;/v&gt;
+        &lt;v&gt;N = int()&lt;/v&gt;
+        &lt;v&gt;Result = {ok, Pid} | {error, Reason}&lt;/v&gt;
+        &lt;v&gt;Reason = term()&lt;/v&gt;
+        &lt;d&gt;A parameter description.&lt;/d&gt;
+      &lt;/type&gt;
+      &lt;desc&gt;
+        &lt;p&gt;An extended function description.&lt;/p&gt;
+      &lt;/desc&gt;
+    &lt;/func&gt;
+
+    ...
+  &lt;/funcs&gt;
+
+  &lt;section&gt;
+    &lt;title&gt;Some Title&lt;/title&gt;
+    &lt;p&gt;Some text...&lt;/p&gt;
+  &lt;/section&gt;
+  
+  &lt;authors&gt;
+    &lt;aname&gt;Name of author&lt;/aname&gt;
+    &lt;email&gt;Email of author&lt;/email&gt;
+  &lt;/authors&gt;
+&lt;/erlref&gt;
+    </pre><a name="erlrefTAG"></a><h4>&lt;erlref&gt;</h4><p>The top level tag for an <strong>erlref</strong> DTD.</p><p>Contains
+<a href="./header_tags#headerTAG">&lt;header&gt;</a>,
+<a href="#moduleTAG">&lt;module&gt;</a>,
+<a href="#modulesummaryTAG">&lt;modulesummary&gt;</a>,
+<a href="#descriptionTAG">&lt;description&gt;</a>,
+zero or more
+<a href="#sectionTAG">&lt;section&gt;</a> and
+<a href="#funcsTAG">&lt;funcs&gt;</a>, 
+followed by zero or more
+<a href="#authorsTAG">&lt;authors&gt;</a>.</p><a name="moduleTAG"></a><h4>&lt;module&gt;</h4><p>The module name. Contains plain text.</p><a name="modulesummaryTAG"></a><h4>&lt;modulesummary&gt;</h4><p>Short summary. Contains plain text.</p><a name="filerefDTD"></a><h4>The fileref DTD</h4><p>This is the DTD for writing file manual pages. In OTP, this DTD
+is used for defining the format of for example <strong>.rel</strong> and
+<strong>.app</strong> files.</p><p>Example:</p><pre>
+&lt;?xml version="1.0" encoding="latin1" ?&gt;
+&lt;!DOCTYPE fileref SYSTEM "fileref.dtd"&gt;
+&lt;fileref&gt;
+  &lt;header&gt;
+    &lt;title&gt;File name&lt;/title&gt;
+    &lt;prepared/&gt;
+    &lt;docno/&gt;
+    &lt;date/&gt;
+    &lt;rev/&gt;
+  &lt;/header&gt;
+
+  &lt;file&gt;fileref&lt;/file&gt;
+
+  &lt;filesummary&gt;A short file summary.&lt;/filesummary&gt;
+
+  &lt;description&gt;
+    &lt;p&gt;A longer description of the file.&lt;/p&gt;
+  &lt;/description&gt;
+  
+  &lt;section&gt;
+    &lt;title&gt;File format&lt;/title&gt;
+
+    &lt;p&gt;...&lt;/p&gt;
+  &lt;/section&gt;
+  
+  &lt;authors&gt;
+    &lt;aname&gt;Name of author&lt;/aname&gt;
+    &lt;email&gt;Email of author&lt;/email&gt;
+  &lt;/authors&gt;
+&lt;/fileref&gt;
+    </pre><p>The file reference manual can also contain function definitions,
+similar to the <strong>erlref</strong> DTD.</p><a name="filerefTAG"></a><h4>&lt;fileref&gt;</h4><p>The top level tag for a <strong>fileref</strong> DTD.</p><p>Contains
+<a href="./header_tags#headerTAG">&lt;header&gt;</a>,
+<a href="#fileTAG">&lt;file&gt;</a>,
+<a href="#filesummaryTAG">&lt;filesummary&gt;</a>,
+<a href="#descriptionTAG">&lt;description&gt;</a>,
+zero or more
+<a href="#sectionTAG">&lt;section&gt;</a> and
+<a href="#funcsTAG">&lt;funcs&gt;</a>, 
+followed by zero or more
+<a href="#authorsTAG">&lt;authors&gt;</a>.</p><a name="fileTAG"></a><h4>&lt;file&gt;</h4><p>The name of the file or file type. Contains plain text.</p><a name="filesummaryTAG"></a><h4>&lt;filesummary&gt;</h4><p>Short summary. Contains plain text.</p><a name="descriptionTAG"></a><h4>&lt;description&gt;</h4><p>The introduction after the title and before sections and
+"formal" definitions.</p><p>Contains any combination and any number of
+<a href="block_tags">block tags</a> except
+<strong>&lt;image&gt;</strong> and <strong>&lt;table&gt;</strong>.</p><a name="sectionTAG"></a><h4>&lt;section&gt;</h4><p>Subdivisions of the document. Contains an optional
+<a href="./inline_tags#markerTAG">&lt;marker&gt;</a>,
+a <a href="./user_guide_dtds#titleTAG">&lt;title&gt;</a>,
+followed by any combination and any number of
+<a href="block_tags">block tags</a> except
+<strong>&lt;image&gt;</strong> and <strong>&lt;table&gt;</strong>.</p><a name="funcsTAG"></a><h4>&lt;funcs&gt;</h4><p>A group of "formal" function definitions.</p><p>Contains one or more
+<a href="#funcTAG">&lt;func&gt;</a>.</p><a name="funcTAG"></a><h4>&lt;func&gt;</h4><p>A "formal" function definition.</p><p>Contains one or more
+<a href="#nameTAG">&lt;name&gt;</a>, followed by
+<a href="#fsummaryTAG">&lt;fsummary&gt;</a>,
+<a href="#typeTAG">&lt;type&gt;</a> (optional) and
+<a href="#descTAG">&lt;desc&gt;</a> (optional).</p><a name="nameTAG"></a><h4>&lt;name&gt;</h4><p>Function/command signature with name, arguments and return value.
+Contains plain text, except for the <strong>cref</strong> DTD where it
+contains a <strong>&lt;ret&gt;</strong> (return type, plain text) and
+a <strong>&lt;nametext&gt;</strong> (function name and arguments,
+plain text).</p><p>In the case of an <strong>erlref</strong> DTD, it will
+automatically be added a
+<a href="./inline_tags#markerTAG">marker</a>,
+<strong>&lt;marker id="Name/Arity"&gt;</strong> or
+<strong>&lt;marker id="Name"&gt;</strong>, based on the contents of
+this tag before the function definition.</p><p>Example: Consider the following name definition</p><pre>
+&lt;name&gt;foo(Arg1, Arg2) -&gt; ok | {error, Reason}&lt;/name&gt;
+    </pre><p>Then a marker like this will be added
+<strong>&lt;marker id="foo/2"&gt;</strong> before the function
+definition in the generated HTML. That is, referring to
+the function using
+<strong>&lt;seealso marker="#foo/2"&gt;foo/2&lt;/seealso&gt;</strong> will
+automatically work.</p><a name="fsummaryTAG"></a><h4>&lt;fsummary&gt;</h4><p>Function/command summary. Contains plain text,
+<a href="./inline_tags#cTAG">&lt;c&gt;</a> and
+<a href="./inline_tags#emTAG">&lt;em&gt;</a>.</p><a name="typeTAG"></a><h4>&lt;type&gt;</h4><p>Type declarations for the function/command.</p><p>Contains one or more pairs of
+<a href="#vTAG">&lt;v&gt;</a> and
+<a href="#dTAG">&lt;d&gt;</a> (optional).</p><a name="vTAG"></a><h4>&lt;v&gt;</h4><p>Type declaration for an argument or return value. Contains plain
+text.</p><a name="dTAG"></a><h4>&lt;d&gt;</h4><p>Description for an argument or return value. Contains plain text,
+<a href="./inline_tags#cTAG">&lt;c&gt;</a> and
+<a href="./inline_tags#emTAG">&lt;em&gt;</a>.</p><a name="descTAG"></a><h4>&lt;desc&gt;</h4><p>Function/command description. Contains
+<a href="block_tags">block tags</a> except
+<strong>&lt;image&gt;</strong> and <strong>&lt;table&gt;</strong>.</p><a name="authorsTAG"></a><h4>&lt;authors&gt;</h4><p>Authors of the manual page. The <strong>authors</strong> element is  optional.</p><p>Contains one or more pairs of
+<a href="#anameTAG">&lt;aname&gt;</a> and
+<a href="#emailTAG">&lt;email&gt;</a>.</p><a name="anameTAG"></a><h4>&lt;aname&gt;</h4><p>Author name. Contains plain text.</p><a name="emailTAG"></a><h4>&lt;email&gt;</h4><p>Author email address. Contains plain text.</p><p>Each document begins with a header part, which looks the same for
+all DTDs. Here the title of the document is specified, as well as
+administrative data like who is responsible for the document, which
+version is it, when was it last changed and such.</p><p>An full header looks like:</p><pre>
+&lt;header&gt;
+  &lt;copyright&gt;...&lt;/copyright&gt;
+  &lt;legalnotice&gt;...&lt;/legalnotice&gt;
+  &lt;title&gt;...&lt;/title&gt;
+  &lt;prepared&gt;...&lt;/prepared&gt;
+  &lt;responsible&gt;...&lt;/responsible&gt;
+  &lt;docno&gt;...&lt;/docno&gt;
+  &lt;approved&gt;...&lt;/approved&gt;
+  &lt;checked&gt;...&lt;/checked&gt;
+  &lt;date&gt;...&lt;/date&gt;
+  &lt;rev&gt;...&lt;/rev&gt;
+  &lt;file&gt;...&lt;/file&gt;
+&lt;/header&gt;
+  </pre><a name="headerTAG"></a><h4>&lt;header&gt;</h4><p>Top level tag for the header part.</p><a name="copyrightTAG"></a><h4>&lt;copyright&gt;</h4><p>The <strong>copyright</strong> element holds information about date(s) and holder(s) of
+a document copyright. The <strong>copyright</strong> element is optional.
+The <strong>copyright</strong> element has an inner structure containing one or 
+more 
+<strong>year</strong> elements followed by zero of more <strong>holder</strong> elements.<br/> 
+See example below:
+</p><pre><code class="">
+    &lt;copyright&gt;
+      &lt;year&gt;1997&lt;/year&gt;
+      &lt;year&gt;2007&lt;/year&gt;
+      &lt;holder&gt;Ericsson AB&lt;/holder&gt;
+    &lt;/copyright&gt;
+    </code></pre><a name="legalnoticeTAG"></a><h4>&lt;legalnotice&gt;</h4><p>The <strong>legalnotice</strong> element is used to express copyright, trademark,
+license, and other legal formalities of a document. The element contains
+only PCDATA in the same manner as <strong>code</strong> and <strong>pre</strong>.
+</p><a name="titleTAG"></a><h4>&lt;title&gt;</h4><p>For <strong>part</strong> and <strong>application</strong> documents, this will be
+the title of the document, visible in the left frame and on
+the front page.</p><p>For <strong>chapter</strong> documents, this will be the chapter name.</p><p>For reference manual documents, this tag is ignored.</p><h4>&lt;shorttitle&gt;</h4><p>This optional tag is ignored. It will likely be
+removed in the future.</p><a name="preparedTAG"></a><h4>&lt;prepared&gt;</h4><p>This tag is intended for administrative use and is ignored.</p><a name="responsibleTAG"></a><h4>&lt;responsible&gt;</h4><p>This optional tag is intended for administrative use and is
+ignored.</p><a name="docnoTAG"></a><h4>&lt;docno&gt;</h4><p>Document number.</p><p>For <strong>part</strong> and <strong>application</strong> documents, the document
+number is visible in the left frame and on the front page.</p><p>For other types of documents, this tag is ignored.</p><a name="approvedTAG"></a><h4>&lt;approved&gt;</h4><p>This optional tag is intended for administrative use and is
+ignored.</p><a name="checkedTAG"></a><h4>&lt;checked&gt;</h4><p>This optional tag is intended for administrative use and is
+ignored.</p><a name="dateTAG"></a><h4>&lt;date&gt;</h4><p>This tag is intended for administrative use and is ignored.</p><a name="revTAG"></a><h4>&lt;rev&gt;</h4><p>Document version.</p><p>For <strong>part</strong> and <strong>application</strong> documents, the document
+version is visible in the left frame and on the front page.</p><p>For other types of documents, this tag is ignored.</p><a name="fileTAG"></a><h4>&lt;file&gt;</h4><p>This optional tag is intended for administrative use and is
+ignored.</p><p>Block tags typically define a separate block of information, such
+as a paragraph or a list.</p><p>The following subset of block tags are common for all DTDs in
+the OTP DTD suite:
+<a name="block_subset"></a>
+<a href="#pTAG">&lt;p&gt;</a>,
+<a href="#preTAG">&lt;pre&gt;</a>,
+<a href="#codeTAG">&lt;code&gt;</a>,
+<a href="#listTAG">&lt;list&gt;</a>,
+<a href="#taglistTAG">&lt;taglist&gt;</a>,
+<a href="#codeincludeTAG">&lt;codeinclude&gt;</a> and
+<a href="#erlevalTAG">&lt;erleval&gt;</a>.
+</p><a name="brTAG"></a><h4>&lt;br&gt; - Line Break</h4><p>Forces a newline. Example:</p><pre>
+Eat yourself&lt;br/&gt;senseless!
+    </pre><p>results in:</p><p>Eat yourself<br/>senseless!</p><p>The <strong>&lt;br&gt;</strong> tag is both a block- and an inline
+tag.</p><a name="codeTAG"></a><h4>&lt;code&gt; - Code Example</h4><p>Highlight code examples. Example:</p><pre>
+&lt;code&gt;
+sum([H|T]) -&gt;
+    H + sum(T);
+sum([]) -&gt;
+    0.
+&lt;/code&gt;
+    </pre><p>results in:</p><pre><code class="">
+sum([H|T]) -&gt;
+    H + sum(T);
+sum([]) -&gt;
+    0.
+    </code></pre><p>There is an attribute <strong>type = "erl" | "c" | "none"</strong>, but
+currently this attribute is ignored. Default value
+is <strong>"none"</strong></p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>No tags are allowed within the tag and no
+<a href="character_entities">character entities</a> are expanded.</p></div><a name="codeincludeTAG"></a><h4>&lt;codeinclude&gt; - Code Inclusion</h4><p>Include external code snippets. The attribute <strong>file</strong>
+gives the file name and <strong>tag</strong> defines a string which
+delimits the code snippet. Example:</p><pre>
+&lt;codeinclude file="example.txt" tag="%% Erlang example"/&gt;
+    </pre><p>results in:</p><p>provided there is a file named <strong>examples.txt</strong> looking like this:
+</p><pre><code class="">
+...
+
+%% Erlang example
+-module(example).
+
+start() -&gt;
+    {error,"Pid required!"}.
+start(Pid) -&gt;
+    spawn(fun() -&gt; init(Pid) end).
+%% Erlang example
+
+...
+    </code></pre><p>If the <strong>tag</strong> attribute is omitted, the whole file is
+included.</p><p>There is also an attribute <strong>type = "erl" | "c" | "none"</strong>, but
+currently this attribute is ignored. Default value
+is <strong>"none"</strong></p><a name="erlevalTAG"></a><h4>&lt;erleval&gt; - Erlang Evaluation</h4><p>Include the result from evaluating an Erlang expression. Example:
+</p><pre><code class="">
+&lt;erleval expr="{A,b,C}={a,b,c}. "/&gt;
+      </code></pre><p>results in:</p><p>Note the '.' and space after the expression.</p><a name="listTAG"></a><h4>&lt;list&gt; - List</h4><p>The attribute <strong>type = "ordered"|"bulleted"</strong> decides if
+the list is numbered or bulleted. Default is <strong>"bulleted"</strong>.
+</p><p>Lists contains list items, tag <strong>&lt;item&gt;</strong>, which
+can contain plain text,
+the <a href="#block_subset">common subset of block tags</a> and <a href="inline_tags">inline tags</a>. Example:</p><pre>
+&lt;list type="ordered"&gt;
+  &lt;item&gt;Askosal:
+    &lt;list&gt;
+      &lt;item&gt;Nullalisis&lt;/item&gt;
+      &lt;item&gt;Facilisis&lt;/item&gt;
+    &lt;/list&gt;
+  &lt;/item&gt;
+  &lt;item&gt;Ankara&lt;/item&gt;
+&lt;/list&gt;
+    </pre><p>results in:</p><ul><li> <p>Askosal:</p> <ul><li>Nullalisis</li><li>Facilisis</li></ul> </li><li>Ankara</li></ul><a name="markerTAG"></a><h4>&lt;marker&gt; - Marker</h4><p>Used as an anchor for hypertext references. The
+<strong>&lt;marker&gt;</strong> tag is both a block- and an inline
+tag and is described in
+the <a href="./inline_tags#markerTAG">Inline Tags</a>
+section.</p><a name="pTAG"></a><h4>&lt;p&gt; - Paragraph</h4><p>Paragraphs contain plain text and
+<a href="inline_tags">inline tags</a>. Example:</p><pre>
+&lt;p&gt;I call specific attention to
+  the authority given by the &lt;em&gt;21st Amendment&lt;/em&gt;
+  to the Constitution to prohibit transportation
+  or importation of intoxicating liquors into
+  any State in violation of the laws of such
+  State.&lt;/p&gt;
+    </pre><p>results in:</p><p>I call specific attention to
+the authority given by the <em>21st Amendment</em>
+to the Constitution to prohibit transportation
+or importation of intoxicating liquors into
+any State in violation of the laws of such
+State.</p><a name="noteTAG"></a><h4>&lt;note&gt; - Note</h4><p>Highlights a note. Can contain block tags except
+<strong>&lt;note&gt;</strong>, <strong>&lt;warning&gt;</strong>,
+<strong>&lt;image&gt;</strong> and <strong>&lt;table&gt;</strong>.
+Example:</p><pre>
+&lt;note&gt;
+  &lt;p&gt;This function is mainly intended for debugging.&lt;/p&gt;
+&lt;/note&gt;
+  </pre><p>results in:</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>This function is mainly intended for debugging.</p></div><a name="preTAG"></a><h4>&lt;pre&gt; - Pre-formatted Text</h4><p>Used for documentation of system interaction. Can contain text,
+<a href="./inline_tags#seealsoTAG">seealso</a>,  
+<a href="./inline_tags#urlTAG">url</a> and
+<strong>&lt;input&gt;</strong> tags.</p><p>The <strong>&lt;input&gt;</strong> tag is used to highlight user
+input. Example:</p><pre>
+&lt;pre&gt;
+$ &lt;input&gt;erl&lt;/input&gt;
+Erlang (BEAM) emulator version 5.5.3 [async-threads:0] [hipe] [kernel-poll:false]
+
+Eshell V5.5.3  (abort with ^G)
+1&gt; &lt;input&gt;pwd().&lt;/input&gt;
+/home/user
+2&gt; &lt;input&gt;halt().&lt;/input&gt;
+&lt;/pre&gt;
+    </pre><p> results in:</p><pre>
+$ <span class="input">erl</span>
+Erlang (BEAM) emulator version 5.5.3 [async-threads:0] [hipe] [kernel-poll:false]
+
+Eshell V5.5.3  (abort with ^G)
+1&gt; <span class="input">pwd().</span>
+/home/user
+2&gt; <span class="input">halt().</span>
+    </pre><p>All <a href="character_entities">character entities</a> are expanded.</p><a name="quoteTAG"></a><h4>&lt;quote&gt; - Quotation</h4><p>Highlight quotations from other works, or dialog spoken by
+characters in a narrative. Contains one or more
+<a href="#pTAG">&lt;p&gt;</a> tags. Example:</p><pre>
+&lt;p&gt;Whereas Section 217(a) of the Act of Congress entitled
+"An Act ..." approved June 16, 1933, provides as follows:&lt;/p&gt;
+&lt;quote&gt;
+  &lt;p&gt;Section 217(a) The President shall proclaim the law.&lt;/p&gt;
+&lt;/quote&gt;
+    </pre><p>results in:</p><p>Whereas Section 217(a) of the Act of Congress entitled
+"An Act ..." approved June 16, 1933, provides as follows:</p><p>Section 217(a) The President shall proclaim the law.</p><a name="taglistTAG"></a><a name="tagTAG"></a><h4>&lt;taglist&gt; - Definition List</h4><p>Definition lists contains pairs of tags,
+<strong>&lt;tag&gt;</strong>, and list items,
+<strong>&lt;item&gt;</strong>.</p><p><strong>&lt;tag&gt;</strong> can contain plain text,
+<a href="./inline_tags#cTAG">&lt;c&gt;</a>,
+<a href="./inline_tags#emTAG">&lt;em&gt;</a>,
+<a href="./inline_tags#seealsoTAG">&lt;seealso&gt;</a>
+and <a href="./inline_tags#urlTAG">&lt;url&gt;</a>
+tags.</p><p><strong>&lt;item&gt;</strong> can contain plain text,
+the <a href="#block_subset">common subset of block tags</a> and <a href="inline_tags">inline tags</a>. Example:</p><pre>
+&lt;taglist&gt;
+  &lt;tag&gt;&lt;c&gt;eacces&lt;/c&gt;&lt;/tag&gt;
+  &lt;item&gt;Permission denied.&lt;/item&gt;
+  &lt;tag&gt;&lt;c&gt;enoent&lt;/c&gt;&lt;/tag&gt;
+  &lt;item&gt;No such file or directory.&lt;/item&gt;
+&lt;/taglist&gt;
+    </pre><p>results in:</p><dl><dt><strong>eacces</strong></dt><dd>Permission denied.</dd><dt><strong>enoent</strong></dt><dd>No such file or directory.</dd></dl><a name="warningTAG"></a><h4>&lt;warning&gt; - Warning</h4><p>Highlights a warning. Can contain block tags except
+<strong>&lt;note&gt;</strong>, <strong>&lt;warning&gt;</strong>,
+<strong>&lt;image&gt;</strong> and <strong>&lt;table&gt;</strong>.
+Example:</p><pre>
+&lt;warning&gt;
+  &lt;p&gt;This function might be removed in a future version without
+    prior warning.&lt;/p&gt;
+&lt;/warning&gt;
+  </pre><p>results in:</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>This function might be removed in a future version without
+prior warning.</p></div><a name="imageTAG"></a><a name="icaptionTAG"></a><h4>&lt;image&gt; - Image</h4><p>Graphics is imported using the <strong>&lt;image&gt;</strong> tag.
+An image caption <strong>&lt;icaption&gt;</strong>, containing plain
+text, must be supplied. Example:</p><pre>
+&lt;image file="man"&gt;
+  &lt;icaption&gt;A Silly Man&lt;/icaption&gt;
+&lt;/image&gt;
+    </pre><p>results in:</p><img src="man.gif" title="A Silly Man"></img><p>This assumes that <strong>man.gif</strong> exists in the current directory.
+</p><a name="tableTAG"></a><a name="rowTAG"></a><a name="cellTAG"></a><a name="tcaptionTAG"></a><h4>&lt;table&gt; - Table</h4><p>The table format is similar to how tables are described in HTML
+3.2. A table contains one or more rows, <strong>&lt;row&gt;</strong>,
+and a table caption <strong>&lt;tcaption&gt;</strong>, containing
+plain text.</p><p>Each row contains one or more cells, <strong>&lt;cell&gt;</strong>.
+The attributes <strong>align = "left"|"center"|"right"</strong> and
+<strong>valign = "top"|"middle"|"bottom"</strong> decides how text is
+aligned in the cell horizontally and vertically. Default is
+"<strong>left</strong>" and "<strong>middle</strong>".</p><p>Each cell contains plain text and
+<a href="inline_tags">inline tags</a>. Example:</p><pre>
+    &lt;table&gt;
+      &lt;row&gt;
+        &lt;cell align="left" valign="top"&gt;&lt;em&gt;Boys&lt;/em&gt;&lt;/cell&gt;
+        &lt;cell align="center" valign="middle"&gt;&lt;em&gt;Girls&lt;/em&gt;&lt;/cell&gt;
+      &lt;/row&gt;
+      &lt;row&gt;
+        &lt;cell align="left" valign="middle"&gt;Juda&lt;/cell&gt;
+        &lt;cell align="right" valign="bottom"&gt;Susy&lt;/cell&gt;
+      &lt;/row&gt;
+      &lt;row&gt;
+        &lt;cell align="left" valign="middle"&gt;Anders&lt;/cell&gt;
+        &lt;cell align="left" valign="middle"&gt;Victoria&lt;/cell&gt;
+      &lt;/row&gt;
+      &lt;tcaption&gt;A table caption&lt;/tcaption&gt;
+    &lt;/table&gt;
+    </pre><p>results in:</p><table class="table table-bordered table-hover table-striped"><caption>A table caption</caption><tbody><tr><td><em>Boys</em></td><td><em>Girls</em></td></tr><tr><td>Juda</td><td>Susy</td></tr><tr><td>Anders</td><td>Victoria</td></tr></tbody></table><p>Inline tags are typically used within block tags, for example to
+highlight a word within a paragraph.</p><a name="brTAG"></a><h4>&lt;br&gt; - Line Break</h4><p>Forces a newline. The <strong>&lt;br&gt;</strong> tag is both a
+block- and an inline tag and is described in
+the <a href="./block_tags#brTAG">Block Tags</a>
+section.</p><a name="cTAG"></a><h4>&lt;c&gt; - Code</h4><p>Highlights things like variables and file names in a text flow.
+Can contain plain text only. Newlines and tabs are ignored as
+opposed to the <a href="./block_tags#codeTAG">code</a>
+tag. All <a href="character_entities">character entities</a> are expanded. Example:</p><pre>
+&lt;p&gt;Returns &lt;c&gt;true&lt;/c&gt; if &lt;c&gt;Term&lt;/c&gt; is an integer.&lt;/p&gt;
+    </pre><p>results in:</p><p>Returns <strong>true</strong> if <strong>Term</strong> is an integer.</p><a name="emTAG"></a><h4>&lt;em&gt; - Emphasis</h4><p>Highlights words which are important within a text flow. Example:
+</p><pre>
+&lt;p&gt;The application &lt;em&gt;must&lt;/em&gt; be up and running.&lt;/p&gt;
+    </pre><p>results in:</p><p>The application <em>must</em> be up and running.</p><p>Contains plain text or a
+<a href="#cTAG">&lt;c&gt;</a> tag.</p><a name="markerTAG"></a><h4>&lt;marker&gt; - Marker</h4><p>Used as an anchor for hypertext references. The <strong>id</strong>
+attribute defines the name of the marker. Example:</p><a name="marker_example"></a><pre>
+&lt;marker id="marker_example"/&gt;
+    </pre><p>The <a href="#seealsoTAG">&lt;seealso&gt;</a> tag
+is used to refer to the marker.</p><p>The <strong>&lt;marker&gt;</strong> tag is both a block- and an
+inline tag.</p><a name="seealsoTAG"></a><h4>&lt;seealso&gt; - Local Cross Reference</h4><p>A cross reference (hypertext link) to a marker in the same file,
+a marker in another file, or (the top of) another file, given by
+the <strong>marker</strong> attribute. Must contain plain text. Examples:
+</p><pre>
+      &lt;seealso marker="#marker_example"&gt;marker example&lt;/seealso&gt;
+    </pre><p>results in:
+<a href="#marker_example">marker example</a>
+(a hypertext link to the marker example above).</p><pre>
+      &lt;seealso marker="block_tags#markerTAG"&gt;marker tag&lt;/seealso&gt;
+    </pre><p>results in:
+<a href="./block_tags#markerTAG">marker tag</a>
+(a hypertext link to the marker section in the Block Tags
+chapter).</p><pre>
+      &lt;seealso marker="overview"&gt;Overview&lt;/seealso&gt;
+    </pre><p>results in:
+<a href="overview">Overview</a>
+(a hypertext link to the Overview chapter).</p><p>Note the use of "#" before the name of the marker. Note also
+that the filename extension <strong>.html</strong> is omitted. This is
+because the default behavior is to translate
+<strong>&lt;seealso marker="File#Marker"&gt;text&lt;/seealso&gt;</strong>
+to <strong>&lt;A HREF="File.html#Marker"&gt;text&lt;/A&gt;</strong>.</p><a name="urlTAG"></a><h4>&lt;url&gt; - Non-Local Cross Reference</h4><p>A reference to a file outside the documentation, a web address or
+similar, given by the <strong>href</strong> attribute. Must contain plain
+text. Example:</p><pre>
+&lt;url href="http://www.erlang.org"&gt;erlang.org&lt;/url&gt;
+    </pre><p>results in: <a href="http://www.erlang.org">erlang.org</a>
+</p><a name="termTAG"></a><a name="termdefTAG"></a><h4>&lt;term&gt;, &lt;termdef&gt; - Glossary</h4><p>Used to highlight a term with a local (for this document only) or
+global definition. The identity of the term is given by
+the <strong>id</strong> attribute.</p><p>For a locally defined term, the tag contains a
+<strong>&lt;termdef&gt;</strong>, which in turn contains an explanation of
+the term as plain text. Example:</p><pre>
+&lt;term id="HTML"&gt;&lt;termdef&gt;Hyper-Text Markup Language&lt;/termdef&gt;&lt;/term&gt;
+      </pre><p>In the generated HTML, it is the term name which will be visible.
+For locally defined terms, the id and the name are the same.
+The name has a hypertext link to the definition in the glossary.
+Example:</p><pre>
+&lt;term id="HTML"&gt;&lt;termdef&gt;Hyper-Text Markup Language&lt;/termdef&gt;&lt;/term&gt;
+      </pre><p>results in: <span class="term">Hyper-Text Markup Language</span>
+</p><p>If a term is defined both locally and globally, the global
+definition takes precedence.</p><a name="citeTAG"></a><a name="citedefTAG"></a><h4>&lt;cite&gt;, &lt;citedef&gt; - Bibliography</h4><p>Works the same way as <strong>&lt;term&gt;</strong> and
+<strong>&lt;termdef&gt;</strong>, but for a bibliography list rather than
+a glossary.</p><h4>Added Latin 1</h4><p>The OTP DTD suite uses the same character entities as
+defined in HTML 3.2
+(<strong>ISO 8879-1986//ENTITIES Added Latin 1//EN//HTML</strong>). That is:
+for an &amp; (ampersand), use the entity: <strong>&amp;amp;</strong>, for
+Ã¶ use the entity <strong>&amp;ouml;</strong> and so on.</p><table class="table table-bordered table-hover table-striped"><caption>Accented Latin-1 alphabetic characters.</caption><tbody><tr><td><em>Character</em></td><td><em>Entity</em></td><td><em>Description</em></td></tr><tr><td>&amp;</td><td>&amp;amp;</td><td>ampersand</td></tr><tr><td>&gt;</td><td>&amp;gt;</td><td>greater than</td></tr><tr><td>&lt;</td><td>&amp;lt;</td><td>less than</td></tr><tr><td>Â </td><td>&amp;nbsp;</td><td>no-break space</td></tr><tr><td>Â¡</td><td>&amp;iexcl;</td><td>inverted exclamation mark</td></tr><tr><td>Â¢</td><td>&amp;cent;</td><td>cent sign</td></tr><tr><td>Â£</td><td>&amp;pound;</td><td>pound sterling sign</td></tr><tr><td>Â¤</td><td>&amp;curren;</td><td>general currency sign</td></tr><tr><td>Â¥</td><td>&amp;yen;</td><td>yen sign</td></tr><tr><td>Â¦</td><td>&amp;brvbar;</td><td>broken (vertical) bar</td></tr><tr><td>Â§</td><td>&amp;sect;</td><td>section sign</td></tr><tr><td>Â¨</td><td>&amp;uml;</td><td>umlaut (dieresis)</td></tr><tr><td>Â©</td><td>&amp;copy;</td><td>copyright sign</td></tr><tr><td>Âª</td><td>&amp;ordf;</td><td>ordinal indicator, feminine</td></tr><tr><td>Â«</td><td>&amp;laquo;</td><td>angle quotation mark, left</td></tr><tr><td>Â¬</td><td>&amp;not;</td><td>not sign</td></tr><tr><td></td><td>&amp;shy;</td><td>soft hyphen</td></tr><tr><td>Â®</td><td>&amp;reg;</td><td>registered sign</td></tr><tr><td>Â¯</td><td>&amp;macr;</td><td>macron</td></tr><tr><td>Â°</td><td>&amp;deg;</td><td>degree sign</td></tr><tr><td>Â±</td><td>&amp;plusmn;</td><td>plus-or-minus</td></tr><tr><td>Â²</td><td>&amp;sup2;</td><td>superscript two</td></tr><tr><td>Â³</td><td>&amp;sup3;</td><td>superscript three</td></tr><tr><td>Â´</td><td>&amp;acute;</td><td>acute accent</td></tr><tr><td>Âµ</td><td>&amp;micro;</td><td>micro sign</td></tr><tr><td>Â¶</td><td>&amp;para;</td><td>pilcrow (paragraph sign)</td></tr><tr><td>Â·</td><td>&amp;middot;</td><td>middle dot</td></tr><tr><td>Â¸</td><td>&amp;cedil;</td><td>cedilla</td></tr><tr><td>Â¹</td><td>&amp;sup1;</td><td>superscript one</td></tr><tr><td>Âº</td><td>&amp;ordm;</td><td>ordinal indicator, masculine</td></tr><tr><td>Â»</td><td>&amp;raquo;</td><td>angle quotation mark, right</td></tr><tr><td>Â¼</td><td>&amp;frac14;</td><td>fraction one-quarter</td></tr><tr><td>Â½</td><td>&amp;frac12;</td><td>fraction one-half</td></tr><tr><td>Â¾</td><td>&amp;frac34;</td><td>fraction three-quarters</td></tr><tr><td>Â¿</td><td>&amp;iquest;</td><td>inverted question mark</td></tr><tr><td>Ã</td><td>&amp;Agrave;</td><td>capital A, grave accent</td></tr><tr><td>Ã</td><td>&amp;Aacute;</td><td>capital A, acute accent</td></tr><tr><td>Ã</td><td>&amp;Acirc;</td><td>capital A, circumflex accent</td></tr><tr><td>Ã</td><td>&amp;Atilde;</td><td>capital A, tilde</td></tr><tr><td>Ã</td><td>&amp;Auml;</td><td>capital A, dieresis or umlaut mark</td></tr><tr><td>Ã</td><td>&amp;Aring;</td><td>capital A, ring</td></tr><tr><td>Ã</td><td>&amp;AElig;</td><td>capital AE diphthong (ligature)</td></tr><tr><td>Ã</td><td>&amp;Ccedil;</td><td>capital C, cedilla</td></tr><tr><td>Ã</td><td>&amp;Egrave;</td><td>capital E, grave accent</td></tr><tr><td>Ã</td><td>&amp;Eacute;</td><td>capital E, acute accen</td></tr><tr><td>Ã</td><td>&amp;Ecirc;</td><td>capital E, circumflex accent</td></tr><tr><td>Ã</td><td>&amp;Euml;</td><td>capital E, dieresis or umlaut mark</td></tr><tr><td>Ã</td><td>&amp;Igrave;</td><td>capital I, grave accent</td></tr><tr><td>Ã</td><td>&amp;Iacute;</td><td>capital I, acute accent</td></tr><tr><td>Ã</td><td>&amp;Icirc;</td><td>capital I, circumflex accent</td></tr><tr><td>Ã</td><td>&amp;Iuml;</td><td>capital I, dieresis or umlaut mark</td></tr><tr><td>Ã</td><td>&amp;ETH;</td><td>capital Eth, Icelandic</td></tr><tr><td>Ã</td><td>&amp;Ntilde;</td><td>capital N, tilde</td></tr><tr><td>Ã</td><td>&amp;Ograve;</td><td>capital O, grave accent</td></tr><tr><td>Ã</td><td>&amp;Oacute;</td><td>capital O, acute accent</td></tr><tr><td>Ã</td><td>&amp;Ocirc;</td><td>capital O, circumflex accent</td></tr><tr><td>Ã</td><td>&amp;Otilde;</td><td>capital O, tilde</td></tr><tr><td>Ã</td><td>&amp;Ouml;</td><td>capital O, dieresis or umlaut mark</td></tr><tr><td>Ã</td><td>&amp;times;</td><td>multiply sign</td></tr><tr><td>Ã</td><td>&amp;Oslash;</td><td>capital O, slash</td></tr><tr><td>Ã</td><td>&amp;Ugrave;</td><td>capital U, grave accent</td></tr><tr><td>Ã</td><td>&amp;Uacute;</td><td>capital U, acute accent</td></tr><tr><td>Ã</td><td>&amp;Ucirc;</td><td>capital U, circumflex accent</td></tr><tr><td>Ã</td><td>&amp;Uuml;</td><td>capital U, dieresis or umlaut mark</td></tr><tr><td>Ã</td><td>&amp;Yacute;</td><td>capital Y, acute accent</td></tr><tr><td>Ã</td><td>&amp;THORN;</td><td>capital THORN, Icelandic</td></tr><tr><td>Ã</td><td>&amp;szlig;</td><td>small sharp s, German (sz ligature)</td></tr><tr><td>Ã </td><td>&amp;agrave;</td><td>small a, grave accent</td></tr><tr><td>Ã¡</td><td>&amp;aacute;</td><td>small a, acute accent</td></tr><tr><td>Ã¢</td><td>&amp;acirc;</td><td>small a, circumflex accent</td></tr><tr><td>Ã£</td><td>&amp;atilde;</td><td>small a, tilde</td></tr><tr><td>Ã¤</td><td>&amp;auml;</td><td>small a, dieresis or umlaut mark</td></tr><tr><td>Ã¥</td><td>&amp;aring;</td><td>small a, ring</td></tr><tr><td>Ã¦</td><td>&amp;aelig;</td><td>small ae diphthong (ligature)</td></tr><tr><td>Ã§</td><td>&amp;ccedil;</td><td>small c, cedilla</td></tr><tr><td>Ã¨</td><td>&amp;egrave;</td><td>small e, grave accent</td></tr><tr><td>Ã©</td><td>&amp;eacute;</td><td>small e, acute accent</td></tr><tr><td>Ãª</td><td>&amp;ecirc;</td><td>small e, circumflex accent</td></tr><tr><td>Ã«</td><td>&amp;euml;</td><td>small e, dieresis or umlaut mark</td></tr><tr><td>Ã¬</td><td>&amp;igrave;</td><td>small i, grave accent</td></tr><tr><td>Ã­</td><td>&amp;iacute;</td><td>small i, acute accent</td></tr><tr><td>Ã®</td><td>&amp;icirc;</td><td>small i, circumflex accent</td></tr><tr><td>Ã¯</td><td>&amp;iuml;</td><td>small i, dieresis or umlaut mark</td></tr><tr><td>Ã°</td><td>&amp;eth;</td><td>small eth, Icelandic</td></tr><tr><td>Ã±</td><td>&amp;ntilde;</td><td>small n, tilde</td></tr><tr><td>Ã²</td><td>&amp;ograve;</td><td>small o, grave accent</td></tr><tr><td>Ã³</td><td>&amp;oacute;</td><td>small o, acute accent</td></tr><tr><td>Ã´</td><td>&amp;ocirc;</td><td>small o, circumflex accent</td></tr><tr><td>Ãµ</td><td>&amp;otilde;</td><td>small o, tilde</td></tr><tr><td>Ã¶</td><td>&amp;ouml;</td><td>small o, dieresis or umlaut mark</td></tr><tr><td>Ã·</td><td>&amp;divide;</td><td>divide sign</td></tr><tr><td>Ã¸</td><td>&amp;oslash;</td><td>small o, slash</td></tr><tr><td>Ã¹</td><td>&amp;ugrave;</td><td>small u, grave accent</td></tr><tr><td>Ãº</td><td>&amp;uacute;</td><td>small u, acute accent</td></tr><tr><td>Ã»</td><td>&amp;ucirc;</td><td>small u, circumflex accent</td></tr><tr><td>Ã¼</td><td>&amp;uuml;</td><td>small u, dieresis or umlaut mark</td></tr><tr><td>Ã½</td><td>&amp;yacute;</td><td>small y, acute accent</td></tr><tr><td>Ã¾</td><td>&amp;thorn;</td><td>small thorn, Icelandic</td></tr><tr><td>Ã¿</td><td>&amp;yuml;</td><td>small y, dieresis or umlaut mark</td></tr></tbody></table><p>The <em>erl_docgen</em> supports the OTP documentation build.</p><h3>erl_docgen</h3><p>
+    The erl_docgen application is used to produce the OTP documentation.
+</p><p>
+The application consists of the following parts:<dl><dt>XSL</dt><dd> <p>
+A number of XSL files that is used to transform the xml files to html, pdf or man pages.
+</p> </dd><dt>DTDs</dt><dd> <p>
+The DTDs used for the OTP documentation.
+</p> </dd><dt>escripts</dt><dd> <p>
+Some scripts that is used to produce xml files according to OTP DTDs from some different input.
+</p> </dd><dt>misc</dt><dd> <p>
+Erlang logo, javascripts and css stylesheets used in the documentation.
+</p> </dd></dl></p></body></html>

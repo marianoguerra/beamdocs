@@ -1,0 +1,991 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Tools User's Guide</h1><p>The <em>Tools</em> application contains a number of stand-alone
+tools, which are useful when developing Erlang programs.<dl><dt><em>cover</em></dt><dd>A coverage analysis tool for Erlang.</dd><dt><em>cprof</em></dt><dd>A profiling tool that shows how many times each function is called. Uses a kind of local call trace breakpoints containing counters to achieve very low runtime performance degradation.</dd><dt><em>emacs - (erlang.el and erlang-start.el)</em></dt><dd>This package provides support for the programming language Erlang in Emacs. The package provides an editing mode with lots of bells and whistles, compilation support, and it makes it possible for the user to start Erlang shells that run inside Emacs.</dd><dt><em>eprof</em></dt><dd>A time profiling tool; measure how time is used in Erlang programs. Erlang programs. Predecessor of <em>fprof</em> (see below).</dd><dt><em>fprof</em></dt><dd>Another Erlang profiler; measure how time is used in your Erlang programs. Uses trace to file to minimize runtime performance impact, and displays time for calling and called  functions.</dd><dt><em>instrument</em></dt><dd>Utility functions for obtaining and analysing resource usage in an instrumented Erlang runtime system.</dd><dt><em>lcnt</em></dt><dd>A lock profiling tool for the Erlang runtime system.</dd><dt><em>make</em></dt><dd>A make utility for Erlang similar to UNIX make.</dd><dt><em>tags</em></dt><dd>A tool for generating Emacs TAGS files from Erlang source files.</dd><dt><em>xref</em></dt><dd>A cross reference tool. Can be used to check dependencies  between functions, modules, applications and releases.</dd></dl></p><h3>Introduction</h3><p>The module <strong>cover</strong> provides a set of functions for coverage
+analysis of Erlang programs, counting how many times each
+<a href="#lines">executable line</a> is executed.</p><p>Coverage analysis can be used to verify test cases, making sure all
+relevant code is covered, and may be helpful when looking for
+bottlenecks in the code.</p><h3>Getting Started With Cover</h3><h3>Example</h3><p>Assume that a test case for the following program should be
+verified:</p><pre><code class="">
+-module(channel).
+-behaviour(gen_server).
+
+-export([start_link/0,stop/0]).
+-export([alloc/0,free/1]). % client interface
+-export([init/1,handle_call/3,terminate/2]). % callback functions
+
+start_link() -&gt;
+    gen_server:start_link({local,channel},channel,[],[]).
+
+stop() -&gt;
+    gen_server:call(channel,stop).
+
+%%%-Client interface functions-------------------------------------------
+
+alloc() -&gt;
+    gen_server:call(channel,alloc).
+
+free(Channel) -&gt;
+    gen_server:call(channel,{free,Channel}).
+
+%%%-gen_server callback functions----------------------------------------
+
+init(_Arg) -&gt;
+    {ok,channels()}.
+
+handle_call(stop,Client,Channels) -&gt;
+    {stop,normal,ok,Channels};
+
+handle_call(alloc,Client,Channels) -&gt;
+    {Ch,Channels2} = alloc(Channels),
+    {reply,{ok,Ch},Channels2};
+
+handle_call({free,Channel},Client,Channels) -&gt;
+    Channels2 = free(Channel,Channels),
+    {reply,ok,Channels2}.
+
+terminate(_Reason,Channels) -&gt;
+    ok.
+
+%%%-Internal functions---------------------------------------------------
+
+channels() -&gt;
+    [ch1,ch2,ch3].
+
+alloc([Channel|Channels]) -&gt;
+    {Channel,Channels};
+alloc([]) -&gt;
+    false.
+
+free(Channel,Channels) -&gt;
+    [Channel|Channels].</code></pre><p>The test case is implemented as follows:</p><pre><code class="">
+-module(test).
+-export([s/0]).
+
+s() -&gt;
+    {ok,Pid} = channel:start_link(),
+    {ok,Ch1} = channel:alloc(),
+    ok = channel:free(Ch1),
+    ok = channel:stop().</code></pre><h3>Preparation</h3><p>First of all, Cover must be started. This spawns a process which
+owns the Cover database where all coverage data will be stored.</p><pre>
+1&gt; <span class="input">cover:start().</span>
+{ok,&lt;0.30.0&gt;}</pre><p>To include other nodes in the coverage analysis, use
+<strong>start/1</strong>. All cover compiled modules will then be loaded
+on all nodes, and data from all nodes will be summed up when
+analysing. For simplicity this example only involves the
+current node.</p><p>Before any analysis can take place, the involved modules must be
+<em>Cover compiled</em>. This means that some extra information is
+added to the module before it is compiled into a binary which then
+is <a href="#loading">loaded</a>. The source file of
+the module is not affected and no <strong>.beam</strong> file is created.</p><pre>
+2&gt; <span class="input">cover:compile_module(channel).</span>
+{ok,channel}</pre><p>Each time a function in the Cover compiled module <strong>channel</strong>
+is called, information about the call will be added to the Cover
+database. Run the test case:</p><pre>
+3&gt; <span class="input">test:s().</span>
+ok</pre><p>Cover analysis is performed by examining the contents of the Cover
+database. The output is determined by two parameters, <strong>Level</strong>
+and <strong>Analysis</strong>. <strong>Analysis</strong> is either <strong>coverage</strong> or
+<strong>calls</strong> and determines the type of the analysis. <strong>Level</strong>
+is either <strong>module</strong>, <strong>function</strong>, <strong>clause</strong>, or
+<strong>line</strong> and determines the level of the analysis.</p><h3>Coverage Analysis</h3><p>Analysis of type <strong>coverage</strong> is used to find out how much of
+the code has been executed and how much has not been executed.
+Coverage is represented by a tuple <strong>{Cov,NotCov}</strong>, where
+<strong>Cov</strong> is the number of executable lines that have been executed
+at least once and <strong>NotCov</strong> is the number of executable lines
+that have not been executed.</p><p>If the analysis is made on module level, the result is given for
+the entire module as a tuple <strong>{Module,{Cov,NotCov}}</strong>:</p><pre>
+4&gt; <span class="input">cover:analyse(channel,coverage,module).</span>
+{ok,{channel,{14,1}}}</pre><p>For <strong>channel</strong>, the result shows that 14 lines in the module
+are covered but one line is not covered.</p><p>If the analysis is made on function level, the result is given as
+a list of tuples <strong>{Function,{Cov,NotCov}}</strong>, one for each
+function in the module. A function is specified by its module name,
+function name and arity:</p><pre>
+5&gt; <span class="input">cover:analyse(channel,coverage,function).</span>
+{ok,[{{channel,start_link,0},{1,0}},
+     {{channel,stop,0},{1,0}},
+     {{channel,alloc,0},{1,0}},
+     {{channel,free,1},{1,0}},
+     {{channel,init,1},{1,0}},
+     {{channel,handle_call,3},{5,0}},
+     {{channel,terminate,2},{1,0}},
+     {{channel,channels,0},{1,0}},
+     {{channel,alloc,1},{1,1}},
+     {{channel,free,2},{1,0}}]}</pre><p>For <strong>channel</strong>, the result shows that the uncovered line is in
+the function <strong>channel:alloc/1</strong>.</p><p>If the analysis is made on clause level, the result is given as
+a list of tuples <strong>{Clause,{Cov,NotCov}}</strong>, one for each
+function clause in the module. A clause is specified by its module
+name, function name, arity and position within the function
+definition:</p><pre>
+6&gt; <span class="input">cover:analyse(channel,coverage,clause).</span>
+{ok,[{{channel,start_link,0,1},{1,0}},
+     {{channel,stop,0,1},{1,0}},
+     {{channel,alloc,0,1},{1,0}},
+     {{channel,free,1,1},{1,0}},
+     {{channel,init,1,1},{1,0}},
+     {{channel,handle_call,3,1},{1,0}},
+     {{channel,handle_call,3,2},{2,0}},
+     {{channel,handle_call,3,3},{2,0}},
+     {{channel,terminate,2,1},{1,0}},
+     {{channel,channels,0,1},{1,0}},
+     {{channel,alloc,1,1},{1,0}},
+     {{channel,alloc,1,2},{0,1}},
+     {{channel,free,2,1},{1,0}}]}</pre><p>For <strong>channel</strong>, the result shows that the uncovered line is in
+the second clause of <strong>channel:alloc/1</strong>.</p><p>Finally, if the analysis is made on line level, the result is given
+as a list of tuples <strong>{Line,{Cov,NotCov}}</strong>, one for each
+executable line in the source code. A line is specified by its
+module name and line number.</p><pre>
+7&gt; <span class="input">cover:analyse(channel,coverage,line).</span>
+{ok,[{{channel,9},{1,0}},
+     {{channel,12},{1,0}},
+     {{channel,17},{1,0}},
+     {{channel,20},{1,0}},
+     {{channel,25},{1,0}},
+     {{channel,28},{1,0}},
+     {{channel,31},{1,0}},
+     {{channel,32},{1,0}},
+     {{channel,35},{1,0}},
+     {{channel,36},{1,0}},
+     {{channel,39},{1,0}},
+     {{channel,44},{1,0}},
+     {{channel,47},{1,0}},
+     {{channel,49},{0,1}},
+     {{channel,52},{1,0}}]}</pre><p>For <strong>channel</strong>, the result shows that the uncovered line is
+line number 49.</p><h3>Call Statistics</h3><p>Analysis of type <strong>calls</strong> is used to find out how many times
+something has been called and is represented by an integer
+<strong>Calls</strong>.</p><p>If the analysis is made on module level, the result is given as a
+tuple <strong>{Module,Calls}</strong>. Here <strong>Calls</strong> is the total number
+of calls to functions in the module:</p><pre>
+8&gt; <span class="input">cover:analyse(channel,calls,module).</span>
+{ok,{channel,12}}</pre><p>For <strong>channel</strong>, the result shows that a total of twelve calls
+have been made to functions in the module.</p><p>If the analysis is made on function level, the result is given as
+a list of tuples <strong>{Function,Calls}</strong>. Here <strong>Calls</strong> is
+the number of calls to each function:</p><pre>
+9&gt; <span class="input">cover:analyse(channel,calls,function).</span>
+{ok,[{{channel,start_link,0},1},
+     {{channel,stop,0},1},
+     {{channel,alloc,0},1},
+     {{channel,free,1},1},
+     {{channel,init,1},1},
+     {{channel,handle_call,3},3},
+     {{channel,terminate,2},1},
+     {{channel,channels,0},1},
+     {{channel,alloc,1},1},
+     {{channel,free,2},1}]}</pre><p>For <strong>channel</strong>, the result shows that <strong>handle_call/3</strong> is
+the most called function in the module (three calls). All other
+functions have been called once.</p><p>If the analysis is made on clause level, the result is given as
+a list of tuples <strong>{Clause,Calls}</strong>. Here <strong>Calls</strong> is
+the number of calls to each function clause:</p><pre>
+10&gt; <span class="input">cover:analyse(channel,calls,clause).</span>
+{ok,[{{channel,start_link,0,1},1},
+     {{channel,stop,0,1},1},
+     {{channel,alloc,0,1},1},
+     {{channel,free,1,1},1},
+     {{channel,init,1,1},1},
+     {{channel,handle_call,3,1},1},
+     {{channel,handle_call,3,2},1},
+     {{channel,handle_call,3,3},1},
+     {{channel,terminate,2,1},1},
+     {{channel,channels,0,1},1},
+     {{channel,alloc,1,1},1},
+     {{channel,alloc,1,2},0},
+     {{channel,free,2,1},1}]}</pre><p>For <strong>channel</strong>, the result shows that all clauses have been
+called once, except the second clause of <strong>channel:alloc/1</strong>
+which has not been called at all.</p><p>Finally, if the analysis is made on line level, the result is given
+as a list of tuples <strong>{Line,Calls}</strong>. Here <strong>Calls</strong> is 
+the number of times each line has been executed:</p><pre>
+11&gt; <span class="input">cover:analyse(channel,calls,line).</span>
+{ok,[{{channel,9},1},
+     {{channel,12},1},
+     {{channel,17},1},
+     {{channel,20},1},
+     {{channel,25},1},
+     {{channel,28},1},
+     {{channel,31},1},
+     {{channel,32},1},
+     {{channel,35},1},
+     {{channel,36},1},
+     {{channel,39},1},
+     {{channel,44},1},
+     {{channel,47},1},
+     {{channel,49},0},
+     {{channel,52},1}]}</pre><p>For <strong>channel</strong>, the result shows that all lines have been
+executed once, except line number 49 which has not been executed at
+all.</p><h3>Analysis to File</h3><p>A line level calls analysis of <strong>channel</strong> can be written to
+a file using <strong>cover:analysis_to_file/1</strong>:</p><pre>
+12&gt; <span class="input">cover:analyse_to_file(channel).</span>
+{ok,"channel.COVER.out"}</pre><p>The function creates a copy of <strong>channel.erl</strong> where it for
+each executable line is specified how many times that line has been
+executed. The output file is called <strong>channel.COVER.out</strong>.</p><pre>
+File generated from channel.erl by COVER 2001-05-21 at 11:16:38
+
+****************************************************************************
+
+        |  -module(channel).
+        |  -behaviour(gen_server).
+        |  
+        |  -export([start_link/0,stop/0]).
+        |  -export([alloc/0,free/1]). % client interface
+        |  -export([init/1,handle_call/3,terminate/2]). % callback functions
+        |  
+        |  start_link() -&gt;
+     1..|      gen_server:start_link({local,channel},channel,[],[]).
+        |  
+        |  stop() -&gt;
+     1..|      gen_server:call(channel,stop).
+        |  
+        |  %%%-Client interface functions------------------------------------
+        |  
+        |  alloc() -&gt;
+     1..|      gen_server:call(channel,alloc).
+        |  
+        |  free(Channel) -&gt;
+     1..|      gen_server:call(channel,{free,Channel}).
+        |  
+        |  %%%-gen_server callback functions---------------------------------
+        |  
+        |  init(_Arg) -&gt;
+     1..|      {ok,channels()}.
+        |  
+        |  handle_call(stop,Client,Channels) -&gt;
+     1..|      {stop,normal,ok,Channels};
+        |  
+        |  handle_call(alloc,Client,Channels) -&gt;
+     1..|      {Ch,Channels2} = alloc(Channels),
+     1..|      {reply,{ok,Ch},Channels2};
+        |  
+        |  handle_call({free,Channel},Client,Channels) -&gt;
+     1..|      Channels2 = free(Channel,Channels),
+     1..|      {reply,ok,Channels2}.
+        |  
+        |  terminate(_Reason,Channels) -&gt;
+     1..|      ok.
+        |  
+        |  %%%-Internal functions--------------------------------------------
+        |  
+        |  channels() -&gt;
+     1..|      [ch1,ch2,ch3].
+        |  
+        |  alloc([Channel|Channels]) -&gt;
+     1..|      {Channel,Channels};
+        |  alloc([]) -&gt;
+     0..|      false.
+        |  
+        |  free(Channel,Channels) -&gt;
+     1..|      [Channel|Channels].</pre><h3>Conclusion</h3><p>By looking at the results from the analyses, it can be deducted
+that the test case does not cover the case when all channels are
+allocated and <strong>test.erl</strong> should be extended accordingly.        <br/>
+Incidentally, when the test case is corrected a bug in <strong>channel</strong>
+should indeed be discovered.</p><p>When the Cover analysis is ready, Cover is stopped and all Cover
+compiled modules are <a href="#loading">unloaded</a>.
+The code for <strong>channel</strong> is now loaded as usual from a
+<strong>.beam</strong> file in the current path.</p><pre>
+13&gt; <span class="input">code:which(channel).</span>
+cover_compiled
+14&gt; <span class="input">cover:stop().</span>
+ok
+15&gt; <span class="input">code:which(channel).</span>
+"./channel.beam"</pre><h3>Miscellaneous</h3><h3>Performance</h3><p>Execution of code in Cover compiled modules is slower and more
+memory consuming than for regularly compiled modules. As the Cover
+database contains information about each executable line in each
+Cover compiled module, performance decreases proportionally to
+the size and number of the Cover compiled modules.</p><p>To improve performance when analysing cover results it is possible
+to do multiple calls to <a href="./cover#analyse-1">analyse</a>
+and <a href="./cover#analyse_to_file-1">analyse_to_file</a>
+at once. You can also use the 
+<a href="./cover#async_analyse_to_file-1">async_analyse_to_file</a> 
+convenience function.
+</p><a name="lines"></a><h3>Executable Lines</h3><p>Cover uses the concept of <em>executable lines</em>, which is lines
+of code containing an executable expression such as a matching or
+a function call. A blank line or a line containing a comment,
+function head or pattern in a <strong>case</strong>- or <strong>receive</strong>
+statement is not executable.</p><p>In the example below, lines number 2,4,6,8 and 11 are executable
+lines:</p><pre>
+1: is_loaded(Module,Compiled) -&gt;
+2:   case get_file(Module,Compiled) of
+3:     {ok,File} -&gt;
+4:       case code:which(Module) of
+5:         ?TAG -&gt;
+6:           {loaded,File};
+7:         _ -&gt;
+8:           unloaded
+9:       end;
+10:    false -&gt;
+11:      false
+12:  end.</pre><a name="loading"></a><h3>Code Loading Mechanism</h3><p>When a module is Cover compiled, it is also loaded using the normal
+code loading mechanism of Erlang. This means that if a Cover
+compiled module is re-loaded during a Cover session, for example
+using <strong>c(Module)</strong>, it will no longer be Cover compiled.</p><p>Use <strong>cover:is_compiled/1</strong> or <strong>code:which/1</strong> to see if
+a module is Cover compiled (and still loaded) or not.</p><p>When Cover is stopped, all Cover compiled modules are unloaded.</p><p><strong>cprof</strong> is a profiling tool that can be used to get a picture of
+how often different functions in the system are called.
+</p><p><strong>cprof</strong> uses breakpoints similar to local call trace,
+but containing counters, to collect profiling
+data. Therfore there is no need for special compilation of any
+module to be profiled. 
+</p><p><strong>cprof</strong> presents all profiled modules in decreasing total
+call count order, and for each module presents all profiled
+functions also in decreasing call count order. A call count limit
+can be specified to filter out all functions below the limit.
+</p><p>Profiling is done in the following steps:</p><dl><dt><strong>cprof:start/0..3</strong></dt><dd>Starts profiling with zeroed call counters for specified functions by setting call count breakpoints on them. </dd><dt><strong>Mod:Fun()</strong></dt><dd>Runs the code to be profiled.</dd><dt><strong>cprof:pause/0..3</strong></dt><dd>Pauses the call counters for specified functions. This minimises the impact of code running in the background or in the shell that disturbs the profiling. Call counters are automatically paused when they  "hit the ceiling" of the host machine word size. For a 32 bit host the maximum counter value is 2147483647.</dd><dt><strong>cprof:analyse/0..2</strong></dt><dd>Collects call counters and computes the result.</dd><dt><strong>cprof:restart/0..3</strong></dt><dd>Restarts the call counters from zero for specified functions. Can be used to collect a new set of counters without  having to stop and start call count profiling.</dd><dt><strong>cprof:stop/0..3</strong></dt><dd>Stops profiling by removing call count breakpoints from specified functions.</dd></dl><p>Functions can be specified as either all in the system, all in one
+module, all arities of one function, one function, or all
+functions in all modules not yet loaded. As for now, BIFs cannot
+be call count traced.
+</p><p>The analysis result can either be for all modules, or for one
+module. In either case a call count limit can be given to filter
+out the functions with a call count below the limit. The all
+modules analysis does <em>not</em> contain the module <strong>cprof</strong>
+itself, it can only be analysed by specifying it as a single
+module to analyse.
+</p><p>Call count tracing is very lightweight compared to other forms of
+tracing since no trace message has to be generated. Some
+measurements indicates performance degradations in the vicinity of
+10 percent.
+</p><p>The following sections show some examples of profiling with
+<strong>cprof</strong>. See also 
+<a href="cprof">cprof(3)</a>.
+</p><h3>Example: Background work</h3><p>From the Erlang shell:</p><pre>
+1&gt; <span class="input">cprof:start(), cprof:pause(). % Stop counters just after start</span>
+3476
+2&gt; <span class="input">cprof:analyse().</span>
+{30,
+ [{erl_eval,11,
+            [{{erl_eval,expr,3},3},
+             {{erl_eval,'-merge_bindings/2-fun-0-',2},2},
+             {{erl_eval,expand_module_name,2},1},
+             {{erl_eval,merge_bindings,2},1},
+             {{erl_eval,binding,2},1},
+             {{erl_eval,expr_list,5},1},
+             {{erl_eval,expr_list,3},1},
+             {{erl_eval,exprs,4},1}]},
+  {orddict,8,
+           [{{orddict,find,2},6},
+            {{orddict,dict_to_list,1},1},
+            {{orddict,to_list,1},1}]},
+  {packages,7,[{{packages,is_segmented_1,1},6},
+               {{packages,is_segmented,1},1}]},
+  {lists,4,[{{lists,foldl,3},3},{{lists,reverse,1},1}]}]}
+3&gt; <span class="input">cprof:analyse(cprof).</span>
+{cprof,3,[{{cprof,tr,2},2},{{cprof,pause,0},1}]}
+4&gt; <span class="input">cprof:stop().</span>
+3476</pre><p>The example showed the background work that the shell performs
+just to interpret the first command line. Most work is done by
+<strong>erl_eval</strong> and <strong>orddict</strong>.
+</p><p>What is captured in this example is the part of the work the
+shell does while interpreting the command line that occurs
+between the actual calls to <strong>cprof:start()</strong> and
+<strong>cprof:analyse()</strong>.
+</p><h3>Example: One module</h3><p>From the Erlang shell:</p><pre>
+1&gt; <span class="input">cprof:start(),R=calendar:day_of_the_week(1896,4,27),cprof:pause(),R.</span>
+1
+2&gt; <span class="input">cprof:analyse(calendar).</span>
+{calendar,9,
+          [{{calendar,df,2},1},
+           {{calendar,dm,1},1},
+           {{calendar,dy,1},1},
+           {{calendar,last_day_of_the_month1,2},1},
+           {{calendar,last_day_of_the_month,2},1},
+           {{calendar,is_leap_year1,1},1},
+           {{calendar,is_leap_year,1},1},
+           {{calendar,day_of_the_week,3},1},
+           {{calendar,date_to_gregorian_days,3},1}]}
+3&gt; <span class="input">cprof:stop().</span>
+3271</pre><p>The example tells us that "Aktiebolaget LM Ericsson &amp; Co"
+was registered on a Monday (since the return value
+of the first command is 1), and that the <strong>calendar</strong> module
+needed 9 function calls to calculate that.
+</p><p>Using <strong>cprof:analyse()</strong> in this example also shows
+approximately the same background work as in the first example. 
+</p><h3>Example: In the code</h3><p>Write a module:</p><pre>
+-module(sort).
+      
+-export([do/1]).
+      
+do(N) -&gt;
+    cprof:stop(),
+    cprof:start(),
+    do(N, []).
+      
+do(0, L) -&gt;
+    R = lists:sort(L),
+    cprof:pause(),
+    R;
+do(N, L) -&gt;
+    do(N-1, [random:uniform(256)-1 | L]).</pre><p>From the Erlang shell:</p><pre>
+1&gt; <span class="input">c(sort).</span>
+{ok,sort}
+2&gt; <span class="input">l(random).</span>
+{module,random}
+3&gt; <span class="input">sort:do(1000).</span>
+[0,0,1,1,1,1,1,1,2,2,2,3,3,3,3,3,4,4,4,5,5,5,5,6,6,6,6,6,6|...]
+4&gt; <span class="input">cprof:analyse().</span>
+{9050,
+ [{lists_sort,6047,
+              [{{lists_sort,merge3_2,6},923},
+               {{lists_sort,merge3_1,6},879},
+               {{lists_sort,split_2,5},661},
+               {{lists_sort,rmerge3_1,6},580},
+               {{lists_sort,rmerge3_2,6},543},
+               {{lists_sort,merge3_12_3,6},531},
+               {{lists_sort,merge3_21_3,6},383},
+               {{lists_sort,split_2_1,6},338},
+               {{lists_sort,rmerge3_21_3,6},299},
+               {{lists_sort,rmerge3_12_3,6},205},
+               {{lists_sort,rmerge2_2,4},180},
+               {{lists_sort,rmerge2_1,4},171},
+               {{lists_sort,merge2_1,4},127},
+               {{lists_sort,merge2_2,4},121},
+               {{lists_sort,mergel,2},79},
+               {{lists_sort,rmergel,2},27}]},
+  {random,2001,
+          [{{random,uniform,1},1000},
+           {{random,uniform,0},1000},
+           {{random,seed0,0},1}]},
+  {sort,1001,[{{sort,do,2},1001}]},
+  {lists,1,[{{lists,sort,1},1}]}]}
+5&gt; <span class="input">cprof:stop().</span>
+5369</pre><p>The example shows some details of how <strong>lists:sort/1</strong>
+works. It used 6047 function calls in the module
+<strong>lists_sort</strong> to complete the work.
+</p><p>This time, since the shell was not involved, no other work was
+done in the system during the profiling. If you retry the same
+example with a freshly started Erlang emulator, but omit the
+command <strong>l(random)</strong>, the analysis will show a lot more
+function calls done by <strong>code_server</strong> and others to
+automatically load the module <strong>random</strong>.
+</p><h3>Purpose</h3><p>The purpose of this user guide is to introduce you to the
+Erlang mode for Emacs and gives some relevant background
+information of the functions and features. See also <a href="erlang.el">Erlang mode reference manual</a> The
+purpose of the Erlang mode itself is to facilitate the developing
+process for the Erlang programmer.</p><h3>Pre-requisites</h3><p>Basic knowledge of Emacs and Erlang/OTP. </p><h3>Elisp</h3><p>There are two Elisp modules included in this tool package
+for Emacs. There is erlang.el that defines the actual erlang mode
+and there is erlang-start.el that makes some nice initializations.</p><h3>Setup on UNIX</h3><p>To set up the Erlang Emacs mode on a UNIX systems, edit/create
+the file <strong>.emacs</strong> in the your home directory.</p><p>Below is a complete example of what should be added to a user's
+<strong>.emacs</strong> provided that OTP is installed in the directory
+<strong>/usr/local/otp </strong>: </p><pre><code class="">
+      (setq load-path (cons  "/usr/local/otp/lib/tools-&lt;ToolsVer&gt;/emacs"
+      load-path))
+      (setq erlang-root-dir "/usr/local/otp")
+      (setq exec-path (cons "/usr/local/otp/bin" exec-path))
+      (require 'erlang-start)
+    </code></pre><h3>Setup on Windows</h3><p>To set up the Erlang Emacs mode on a Windows systems,
+edit/create the file <strong>.emacs</strong>, the location of the file
+depends on the configuration of the system. If the <em>HOME</em>
+environment variable is set, Emacs will look for the
+<strong>.emacs</strong> file in the directory indicated by the
+<em>HOME</em> variable. If <em>HOME</em> is not set, Emacs
+will look for the <strong>.emacs</strong> file in <strong>C:\ </strong>.</p><p>Below is a complete example of what should be added to a user's
+<strong>.emacs</strong> provided that OTP is installed in the directory
+<strong>C:\Program Files\erl&lt;Ver&gt;</strong>: </p><pre><code class="">
+      (setq load-path (cons  "C:/Program Files/erl&lt;Ver&gt;/lib/tools-&lt;ToolsVer&gt;/emacs"
+      load-path))
+      (setq erlang-root-dir "C:/Program Files/erl&lt;Ver&gt;")
+      (setq exec-path (cons "C:/Program Files/erl&lt;Ver&gt;/bin" exec-path))
+      (require 'erlang-start)
+    </code></pre><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>In .emacs, the slash character "/" can be used as path
+separator. But if you decide to use the backslash character "\",
+please not that you must use double backslashes, since they are
+treated as escape characters by Emacs.</p></div><h3>Indentation</h3><p>The "Oxford Advanced Learners Dictionary of Current English" says the
+following about the word "indent":</p><p>"start (a line of print or writing) farther from
+the margin than the others".</p><p>The Erlang mode does, of course, provide this feature. The layout
+used is based on the common use of the language.</p><p>It is strongly recommend to use this feature and avoid to indent lines
+in a nonstandard way.  Some motivations are:</p><ul><li>Code using the same layout is easy to read and maintain. </li><li>Since several features of Erlang mode is based on the standard layout they might not work correctly if a nonstandard layout is used. </li></ul><p>The indentation features can be used to reindent large sections
+of a file.  If some lines use nonstandard indentation they will
+be reindented.</p><h3>Editing</h3><ul><li><em>M-x erlang-mode RET</em> - This command activates the Erlang major mode for the current buffer.  When this mode is active the mode line contain the word "Erlang".</li></ul><p>When the Erlang mode is correctly installed, it is
+automatically activated when a file ending in <strong>.erl</strong> or
+<strong>.hrl</strong> is opened in Emacs.</p><p>When a file is saved the name in the <strong>-module().</strong> line is
+checked against the file name. Should they mismatch Emacs can
+change the module specifier so that it matches the file name.
+By default, the user is asked before the change is performed.</p><p>An "electric" command is a character that in addition to just
+inserting the character performs some type of action.  For
+example the ";" character is typed in a situation where is ends
+a function clause a new function header is generated. The electric
+commands are as follows: </p><ul><li><em>erlang-electric-comma</em> - Insert a comma character and possibly a new indented line. </li><li><em>erlang-electric-semicolon</em> - Insert a semicolon character and possibly a prototype for the next line.</li><li><em>erlang-electric-gt</em> - "Insert a '&gt;'-sign and possible a new indented line.</li></ul><p>To disable all electric commands set the variable
+<strong>erlang-electric-commands</strong> to the empty list.  In short,
+place the following line in your <strong>.emacs</strong>-file:</p><pre><code class="">
+      (setq erlang-electric-commands '())</code></pre><h3>Syntax highlighting</h3><p>It is possible for Emacs to use colors when displaying a buffer. By
+"syntax highlighting", we mean that syntactic components, for example
+keywords and function names, will be colored.</p><p>The basic idea of syntax highlighting is to make the structure of a
+program clearer. For example, the highlighting will make it easier to
+spot simple bugs.  Have not you ever written a variable in lower-case
+only?  With syntax highlighting a variable will colored while atoms
+will be shown with the normal text color.</p><a name="tags"></a><h3>Tags</h3><p>Tags is a standard Emacs package used to record information
+about source files in large development projects. In addition to
+listing the files of a project, a tags file normally contains
+information about all functions and variables that are defined.
+By far, the most useful command of the tags system is its ability
+to find the definition of functions in any file in the project.
+However the Tags system is not limited to this feature, for
+example, it is possible to do a text search in all files in a
+project, or to perform a project-wide search and replace.</p><p>In order to use the Tags system a file named <strong>TAGS</strong> must be
+created.  The file can be seen as a database over all functions,
+records, and macros in all files in the project.  The
+<strong>TAGS</strong> file can be created using two different methods for
+Erlang.  The first is the standard Emacs utility "etags", the
+second is by using the Erlang module <strong>tags</strong>.</p><h3>Etags</h3><p><strong>etags</strong> is a program that is part of the Emacs
+distribution.  It is normally executed from a command line, like
+a unix shell or a DOS box.</p><p>The <strong>etags</strong> program of fairly modern versions of Emacs and XEmacs
+has native support for Erlang.  To check if your version does include
+this support, issue the command <strong>etags --help</strong> at a the command
+line prompt.  At the end of the help text there is a list of supported
+languages.  Unless Erlang is a member of this list I suggest that you
+should upgrade to a newer version of Emacs.</p><p>As seen in the help text -- unless you have not upgraded your
+Emacs yet (well, what are you waiting around here for?  Off you go and
+upgrade!)  -- <strong>etags</strong> associate the file extensions <strong>.erl</strong>
+and <strong>.hrl</strong> with Erlang.</p><p>Basically, the <strong>etags</strong> utility is ran using the following form:</p><pre><code class="">
+      etags file1.erl file2.erl</code></pre><p>This will create a file named <strong>TAGS</strong> in the current directory.</p><p>The <strong>etags</strong> utility can also read a list of files from its
+standard input by supplying a single dash in place of the file
+names.  This feature is useful when a project consists of a
+large number of files.  The standard UNIX command <strong>find</strong>
+can be used to generate the list of files, e.g:</p><pre><code class="">
+      find . -name "*.[he]rl" -print | etags -</code></pre><p>The above line will create a <strong>TAGS</strong> file covering all the
+Erlang source files in the current directory, and in the
+subdirectories below.</p><p>Please see the GNU Emacs Manual and the etags man page for more
+info.</p><h3>Shell</h3><p>The look and feel on an Erlang shell inside Emacs should be the
+same as in a normal Erlang shell.  There is just one major
+difference, the cursor keys will actually move the cursor around
+just like in any normal Emacs buffer. The command line history
+can be accessed by the following commands: </p><ul><li><em>C-up </em>  or <em>M-p </em> (<strong>comint-previous-input</strong>) - Move to the previous line in the input history.</li><li><em>C-down </em> or <em>M-n </em> (<strong>comint-next-input</strong>) - Move to the next line in the input history.</li></ul><p>If the Erlang shell buffer would be killed the command line
+history is saved to a file.  The command line history is
+automatically retrieved when a new Erlang shell is started.</p><h3>Compilation</h3><p>The classic edit-compile-bugfix cycle for Erlang is to edit the
+source file in an editor, save it to a file and switch to an
+Erlang shell. In the shell the compilation command is given.
+Should the compilation fail you have to bring out the editor and
+locate the correct line.</p><p>With the Erlang editing mode the entire edit-compile-bugfix cycle can
+be performed without leaving Emacs.  Emacs can order Erlang to compile
+a file and it can parse the error messages to automatically place the
+point on the erroneous lines.</p><p><strong>fprof</strong> is a profiling tool that can be used to get a picture of
+how much processing time different functions consumes and in which
+processes.
+</p><p><strong>fprof</strong> uses tracing with timestamps to collect profiling
+data. Therfore there is no need for special compilation of any
+module to be profiled.
+</p><p><strong>fprof</strong> presents wall clock times from the host machine OS,
+with the assumption that OS scheduling will randomly load the
+profiled functions in a fair way. Both <em>own time</em> i.e the
+time used by a function for its own execution, and
+<em>accumulated time</em> i.e execution time including called
+functions. 
+</p><p>Profiling is essentially done in 3 steps:</p><dl><dt><strong>1</strong></dt><dd>Tracing; to file, as mentioned in the previous paragraph.</dd><dt><strong>2</strong></dt><dd>Profiling; the trace file is read and raw profile data is collected into an internal RAM storage on the node. During this step the trace data may be dumped in text format to file or console.</dd><dt><strong>3</strong></dt><dd>Analysing; the raw profile data is sorted and dumped in text format either to file or console.</dd></dl><p>Since <strong>fprof</strong> uses trace to file, the runtime performance 
+degradation is minimized, but still far from negligible, 
+especially not for programs that use the filesystem heavily 
+by themselves. Where you place the trace file is also important, 
+e.g on Solaris <strong>/tmp</strong> is usually a good choice,
+while any NFS mounted disk is a lousy choice.
+</p><p>Fprof can also skip the file step and trace to a tracer process
+of its own that does the profiling in runtime.
+</p><p>The following sections show some examples of how to profile with
+Fprof. See also the reference manual 
+<a href="fprof">fprof(3)</a>.
+</p><h3>Profiling from the source code</h3><p>If you can edit and recompile the source code, it is convenient 
+to insert <strong>fprof:trace(start)</strong> and 
+<strong>fprof:trace(stop)</strong> before and after the code to be
+profiled. All spawned processes are also traced. If you want
+some other filename than the default try
+<strong>fprof:trace(start, "my_fprof.trace")</strong>.
+</p><p>Then read the trace file and create the raw profile data with 
+<strong>fprof:profile()</strong>, or perhaps 
+<strong>fprof:profile(file, "my_fprof.trace")</strong> for non-default
+filename. 
+</p><p>Finally create an informative table dumped on the console with
+<strong>fprof:analyse()</strong>, or on file with
+<strong>fprof:analyse(dest, [])</strong>, or perhaps even 
+<strong>fprof:analyse([{dest, "my_fprof.analysis"}, {cols, 120}])</strong>
+for a wider listing on non-default filename.
+</p><p>See the <a href="fprof">fprof(3)</a> manual page
+for more options and arguments to the functions
+<a href="./fprof#trace">trace</a>,
+<a href="./fprof#profile">profile</a>
+and 
+<a href="./fprof#analyse">analyse</a>.
+</p><h3>Profiling a function</h3><p>If you have one function that does the task that you want to
+profile, and the function returns when the profiling should
+stop, it is convenient to use 
+<strong>fprof:apply(Module, Function, Args)</strong> and related for the
+tracing step.
+</p><p>If the tracing should continue after the function returns, for
+example if it is a start function that spawns processes to be
+profiled, you can use 
+<strong>fprof:apply(M, F, Args, [continue | OtherOpts])</strong>. 
+The tracing has to be stopped at a suitable later time using
+<strong>fprof:trace(stop)</strong>.
+</p><h3>Immediate profiling</h3><p>It is also possible to trace immediately into the profiling
+process that creates the raw profile data, that is to short
+circuit the tracing and profiling steps so that the filesystem
+is not used.
+</p><p>Do something like this:</p><pre>
+{ok, Tracer} = fprof:profile(start),
+fprof:trace([start, {tracer, Tracer}]),
+%% Code to profile
+fprof:trace(stop);</pre><p>This puts less load on the filesystem, but much more on the
+Erlang runtime system.
+</p><p>
+Internally in the Erlang runtime system locks are used to protect resources from being updated from multiple threads in a fatal way. Locks are necessary
+to ensure that the runtime system works properly but it also introduces a couple of limitations. Lock contention and locking overhead.
+</p><p>
+With lock contention we mean when one thread locks a resource and another thread, or threads, tries to acquire the same resource at the same time. The lock will deny
+the other thread access to the resource and the thread will be blocked from continuing its execution. The second thread has to wait until the first thread has
+completed its access to the resource and unlocked it. The <strong>lcnt</strong> tool measures these lock conflicts.
+</p><p>
+Locks have an inherent cost in execution time and memory space. It takes time initialize, destroy, aquiring or releasing locks. To decrease lock contention it
+some times necessary to use finer grained locking strategies. This will usually also increase the locking overhead and hence there is a tradeoff
+between lock contention and overhead. In general, lock contention increases with the number of threads running concurrently. The <strong>lcnt</strong> tool does not measure locking overhead.
+</p><h3>Enabling lock-counting</h3><p>For investigation of locks in the emulator we use an internal tool called <strong>lcnt</strong> (short for lock-count). The VM needs to be compiled with this option enabled.
+To compile a lock-counting VM along with a normal VM, use:</p><pre>
+cd $ERL_TOP
+./configure --enable-lock-counter</pre><p>Start the lock-counting VM like this:</p><pre>
+$ERL_TOP/bin/erl -emu_type lcnt</pre><p>To verify that lock counting is enabled check that <strong>[lock-counting]</strong> appears in the status text when the VM is started.</p><pre>
+Erlang/OTP 20 [erts-9.0] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:10] [hipe]
+ [kernel-poll:false] [lock-counting]</pre><h3>Getting started</h3><p>Once you have a lock counting enabled VM the module <strong>lcnt</strong> can be used. The module is intended to be used from the current running nodes shell. To access remote nodes use <strong>lcnt:clear(Node)</strong> and <strong>lcnt:collect(Node)</strong>. </p><p>All locks are continuously monitored and its statistics updated. Use <strong>lcnt:clear/0</strong> to initially clear all counters before running any specific tests. This command will also reset the duration timer internally.</p><p>To retrieve lock statistics information, use <strong>lcnt:collect/0,1</strong>. The collect operation will start a <strong>lcnt</strong> server if it not already started. All collected data will be built into an Erlang term and uploaded to the server and a duration time will also be uploaded. This duration is the time between <strong>lcnt:clear/0,1</strong> and <strong>lcnt:collect/0,1</strong>.</p><p>Once the data is collected to the server it can be filtered, sorted and printed in many different ways.</p><p>See the <a href="lcnt">reference manual</a> for a description of each function.</p><h3>Example of usage</h3><p>From the Erlang shell:</p><pre>
+Erlang R13B03 (erts-5.7.4) [source] [smp:8:8] [rq:8] [async-threads:0] [hipe]
+ [kernel-poll:false] [lock-counting]
+1&gt; lcnt:rt_opt({copy_save, true}).
+false
+2&gt; lcnt:clear(), big:bang(1000), lcnt:collect().
+ok
+3&gt; lcnt:conflicts().
+                   lock   id  #tries  #collisions  collisions [%]  time [us]  duration [%]
+                  -----  --- ------- ------------ --------------- ---------- -------------
+         alcu_allocator   50 4113692       158921          3.8632     215464        4.4962
+               pix_lock  256 4007140         4882          0.1218      12221        0.2550
+              run_queue    8 2287246         6949          0.3038       9825        0.2050
+              proc_main 1029 3115778        25755          0.8266       1199        0.0250
+              proc_msgq 1029 2467022         1910          0.0774       1048        0.0219
+            proc_status 1029 5708439         2435          0.0427        706        0.0147
+ message_pre_alloc_lock    8 2008569          134          0.0067         90        0.0019
+              timeofday    1   54065            8          0.0148         22        0.0005
+                gc_info    1    7071            7          0.0990          5        0.0001
+ok
+</pre><p>
+Another way to to profile a specific function is to use <strong>lcnt:apply/3</strong> or <strong>lcnt:apply/1</strong>
+which does <strong>lcnt:clear/0</strong> before the function and <strong>lcnt:collect/0</strong> after its invocation.
+This method should only be used in micro-benchmarks since it sets <strong>copy_save</strong> to <strong>true</strong>
+for the duration of the function call, which may cause the emulator to run out of memory if
+attempted under load.
+</p><pre>
+Erlang R13B03 (erts-5.7.4) [source] [smp:8:8] [rq:8] [async-threads:0] [hipe]
+ [kernel-poll:false] [lock-counting]
+1&gt; lcnt:apply(fun() -&gt; big:bang(1000) end).
+4384.338
+2&gt; lcnt:conflicts().
+                   lock   id  #tries  #collisions  collisions [%]  time [us]  duration [%]
+                  -----  --- ------- ------------ --------------- ---------- -------------
+         alcu_allocator   50 4117913       183091          4.4462     234232        5.1490
+              run_queue    8 2050398         3801          0.1854       6700        0.1473
+               pix_lock  256 4007080         4943          0.1234       2847        0.0626
+              proc_main 1028 3000178        28247          0.9415       1022        0.0225
+              proc_msgq 1028 2293677         1352          0.0589        545        0.0120
+            proc_status 1028 5258029         1744          0.0332        442        0.0097
+ message_pre_alloc_lock    8 2009322          147          0.0073         82        0.0018
+              timeofday    1   48616            9          0.0185         13        0.0003
+                gc_info    1    7455           12          0.1610          9        0.0002
+ok
+</pre><p> The process locks are sorted after its class like all other locks. It is convenient to look at specific processes and ports as classes. We can do this by swapping class and class identifiers with <strong>lcnt:swap_pid_keys/0</strong>.  </p><pre>
+3&gt; lcnt:swap_pid_keys().
+ok
+4&gt; lcnt:conflicts([{print, [name, tries, ratio, time]}]).
+                   lock  #tries  collisions [%]  time [us]
+                  ----- ------- --------------- ----------
+         alcu_allocator 4117913          4.4462     234232
+              run_queue 2050398          0.1854       6700
+               pix_lock 4007080          0.1234       2847
+ message_pre_alloc_lock 2009322          0.0073         82
+  &lt;nonode@nohost.660.0&gt;   13493          1.4452         41
+  &lt;nonode@nohost.724.0&gt;   13504          1.1404         36
+  &lt;nonode@nohost.803.0&gt;   13181          1.6235         35
+  &lt;nonode@nohost.791.0&gt;   13534          0.8202         22
+   &lt;nonode@nohost.37.0&gt;    8744          5.8326         22
+  &lt;nonode@nohost.876.0&gt;   13335          1.1174         19
+  &lt;nonode@nohost.637.0&gt;   13452          1.3678         19
+  &lt;nonode@nohost.799.0&gt;   13497          1.8745         18
+  &lt;nonode@nohost.469.0&gt;   11009          2.5343         18
+  &lt;nonode@nohost.862.0&gt;   13131          1.2566         16
+  &lt;nonode@nohost.642.0&gt;   13216          1.7327         15
+  &lt;nonode@nohost.582.0&gt;   13156          1.1098         15
+  &lt;nonode@nohost.622.0&gt;   13420          0.7303         14
+  &lt;nonode@nohost.596.0&gt;   13141          1.6437         14
+  &lt;nonode@nohost.592.0&gt;   13346          1.2064         13
+  &lt;nonode@nohost.526.0&gt;   13076          1.1701         13
+ok
+</pre><h3>Example with Mnesia Transaction Benchmark</h3><p>From the Erlang shell:</p><pre>
+Erlang R13B03 (erts-5.7.4) [source] [smp:8:8] [rq:8] [async-threads:0] [hipe]
+ [kernel-poll:false] [lock-counting]
+
+Eshell V5.7.4  (abort with ^G)
+1&gt; Conf=[{db_nodes, [node()]}, {driver_nodes, [node()]}, {replica_nodes, [node()]},
+ {n_drivers_per_node, 10}, {n_branches, 1000}, {n_accounts_per_branch, 10},
+ {replica_type, ram_copies}, {stop_after, 60000}, {reuse_history_id, true}].
+[{db_nodes,[nonode@nohost]},
+ {driver_nodes,[nonode@nohost]},
+ {replica_nodes,[nonode@nohost]},
+ {n_drivers_per_node,10},
+ {n_branches,1000},
+ {n_accounts_per_branch,10},
+ {replica_type,ram_copies},
+ {stop_after,60000},
+ {reuse_history_id,true}]
+2&gt; mnesia_tpcb:init([{use_running_mnesia, false}|Conf]).
+ignore
+</pre><p>Initial configuring of the benchmark is done. It is time to profile the actual benchmark and Mnesia</p><pre>
+3&gt; lcnt:apply(fun() -&gt; {ok,{time, Tps,_,_,_,_}} = mnesia_tpcb:run([{use_running_mnesia,
+ true}|Conf]), Tps/60 end).
+12037.483333333334
+ok
+4&gt; lcnt:swap_pid_keys().
+ok
+</pre><p>The <strong>id</strong> header represents the number of unique identifiers under a class when the option <strong>{combine, true}</strong> is used (which is on by default). It will otherwise show the specific identifier.
+The <strong>db_tab</strong> listing shows 722287 unique locks, it is one for each ets-table created and Mnesia creates one for each transaction.
+</p><pre>
+5&gt; lcnt:conflicts().
+                   lock     id   #tries  #collisions  collisions [%]  time [us]  duration [%]
+                  -----    ---  ------- ------------ --------------- ---------- -------------
+         alcu_allocator     50 56355118       732662          1.3001    2934747        4.8862
+                 db_tab 722287 94513441        63203          0.0669    1958797        3.2613
+              timeofday      1  2701048       175854          6.5106    1746079        2.9071
+               pix_lock    256 24306168       163214          0.6715     918309        1.5289
+              run_queue      8 11813811       152637          1.2920     357040        0.5945
+ message_pre_alloc_lock      8 17671449        57203          0.3237     263043        0.4380
+          mnesia_locker      4 17477633      1618548          9.2607      97092        0.1617
+              mnesia_tm      4  9891408       463788          4.6888      86353        0.1438
+                gc_info      1   823460          628          0.0763      24826        0.0413
+     meta_main_tab_slot     16 41393400         7193          0.0174      11393        0.0190
+ &lt;nonode@nohost.1108.0&gt;      4  4331412          333          0.0077       7148        0.0119
+            timer_wheel      1   203185           30          0.0148       3108        0.0052
+ &lt;nonode@nohost.1110.0&gt;      4  4291098          210          0.0049        885        0.0015
+ &lt;nonode@nohost.1114.0&gt;      4  4294702          288          0.0067        442        0.0007
+ &lt;nonode@nohost.1113.0&gt;      4  4346066          235          0.0054        390        0.0006
+ &lt;nonode@nohost.1106.0&gt;      4  4348159          287          0.0066        379        0.0006
+ &lt;nonode@nohost.1111.0&gt;      4  4279309          290          0.0068        325        0.0005
+ &lt;nonode@nohost.1107.0&gt;      4  4292190          302          0.0070        315        0.0005
+ &lt;nonode@nohost.1112.0&gt;      4  4208858          265          0.0063        276        0.0005
+ &lt;nonode@nohost.1109.0&gt;      4  4377502          267          0.0061        276        0.0005
+ok
+</pre><p>The listing shows <strong>mnesia_locker</strong>, a process, has highly contended locks.</p><pre>
+6&gt; lcnt:inspect(mnesia_locker).
+          lock          id  #tries  #collisions  collisions [%]  time [us]  duration [%]
+         -----         --- ------- ------------ --------------- ---------- -------------
+ mnesia_locker   proc_msgq 5449930        59374          1.0894      69781        0.1162
+ mnesia_locker   proc_main 4462782      1487374         33.3284      14398        0.0240
+ mnesia_locker proc_status 7564921        71800          0.9491      12913        0.0215
+ mnesia_locker   proc_link       0            0          0.0000          0        0.0000
+ok
+</pre><p>Listing without class combiner.</p><pre>
+7&gt; lcnt:conflicts([{combine, false}, {print, [name, id, tries, ratio, time]}]).
+                   lock                        id   #tries  collisions [%]  time [us]
+                  -----                       ---  ------- --------------- ----------
+                 db_tab mnesia_transient_decision   722250          3.9463    1856852
+              timeofday                 undefined  2701048          6.5106    1746079
+         alcu_allocator                 ets_alloc  7490696          2.2737     692655
+         alcu_allocator                 ets_alloc  7081771          2.3294     664522
+         alcu_allocator                 ets_alloc  7047750          2.2520     658495
+         alcu_allocator                 ets_alloc  5883537          2.3177     610869
+               pix_lock                        58 11011355          1.1924     564808
+               pix_lock                        60  4426484          0.7120     262490
+         alcu_allocator                 ets_alloc  1897004          2.4248     219543
+ message_pre_alloc_lock                 undefined  4211267          0.3242     128299
+              run_queue                         3  2801555          1.3003     116792
+              run_queue                         2  2799988          1.2700     100091
+              run_queue                         1  2966183          1.2712      78834
+          mnesia_locker                 proc_msgq  5449930          1.0894      69781
+ message_pre_alloc_lock                 undefined  3495672          0.3262      65773
+ message_pre_alloc_lock                 undefined  4189752          0.3174      58607
+              mnesia_tm                 proc_msgq  2094144          1.7184      56361
+              run_queue                         4  2343585          1.3115      44300
+                 db_tab                    branch  1446529          0.5229      38244
+                gc_info                 undefined   823460          0.0763      24826
+ok
+</pre><p>
+In this scenario the lock that protects ets-table <strong>mnesia_transient_decision</strong> has spent most of its waiting for. That is 1.8 seconds in a test that run for 60 seconds. The time is also spread on eight different scheduler threads.
+</p><pre>
+8&gt; lcnt:inspect(db_tab, [{print, [name, id, tries, colls, ratio, duration]}]).
+   lock                        id  #tries  #collisions  collisions [%]  duration [%]
+  -----                       --- ------- ------------ --------------- -------------
+ db_tab mnesia_transient_decision  722250        28502          3.9463        3.0916
+ db_tab                    branch 1446529         7564          0.5229        0.0637
+ db_tab                   account 1464500         8203          0.5601        0.0357
+ db_tab                    teller 1464529         8110          0.5538        0.0291
+ db_tab                   history  722250         3767          0.5216        0.0232
+ db_tab              mnesia_stats  750332         7057          0.9405        0.0180
+ db_tab        mnesia_trans_store      61            0          0.0000        0.0000
+ db_tab        mnesia_trans_store      61            0          0.0000        0.0000
+ db_tab        mnesia_trans_store      53            0          0.0000        0.0000
+ db_tab        mnesia_trans_store      53            0          0.0000        0.0000
+ db_tab        mnesia_trans_store      53            0          0.0000        0.0000
+ db_tab        mnesia_trans_store      53            0          0.0000        0.0000
+ db_tab        mnesia_trans_store      53            0          0.0000        0.0000
+ db_tab        mnesia_trans_store      53            0          0.0000        0.0000
+ db_tab        mnesia_trans_store      53            0          0.0000        0.0000
+ db_tab        mnesia_trans_store      53            0          0.0000        0.0000
+ db_tab        mnesia_trans_store      53            0          0.0000        0.0000
+ db_tab        mnesia_trans_store      53            0          0.0000        0.0000
+ db_tab        mnesia_trans_store      53            0          0.0000        0.0000
+ db_tab        mnesia_trans_store      53            0          0.0000        0.0000
+ok
+</pre><h3>Deciphering the output</h3><p> Typically high <strong>time</strong> values are bad and this is often the thing to look for. However, one should also look for high lock acquisition frequencies (#tries) since locks generate overhead and because high frequency could become problematic if they begin to have conflicts even if it is not shown in a particular test.  </p><h3>See Also</h3><p> <a href="lcnt">LCNT Reference Manual</a></p><p>Xref is a cross reference tool that can be used for
+finding dependencies between functions, modules, applications
+and releases. It does so by analyzing the defined functions
+and the function calls.
+</p><p>In order to make Xref easy to use, there are predefined
+analyses that perform some common tasks. Typically, a module
+or a release can be checked for calls to undefined functions.
+For the somewhat more advanced user there is a small, but
+rather flexible, language that can be used for selecting parts
+of the analyzed system and for doing some simple graph
+analyses on selected calls.
+</p><p>The following sections show some features of Xref, beginning
+with a module check and a predefined analysis. Then follow
+examples that can be skipped on the first reading; not all of
+the concepts used are explained, and it is assumed that the
+<a href="xref">reference manual</a> has been at
+least skimmed.
+</p><h3>Module Check</h3><p>Assume we want to check the following module:
+</p><pre>
+    -module(my_module).
+
+    -export([t/1]).
+
+    t(A) -&gt;
+      my_module:t2(A).
+
+    t2(_) -&gt;
+      true.    </pre><p>Cross reference data are read from BEAM files, so the first
+step when checking an edited module is to compile it:
+</p><pre>
+    1&gt; <span class="input">c(my_module, debug_info).</span>
+    ./my_module.erl:10: Warning: function t2/1 is unused
+    {ok, my_module}    </pre><p>The <strong>debug_info</strong> option ensures that the BEAM file
+contains debug information, which makes it possible to find
+unused local functions.
+</p><p>The module can now be checked for calls to <a href="./xref#deprecated_function">deprecated functions</a>, calls to <a href="./xref#undefined_function">undefined functions</a>,
+and for unused local functions:
+</p><pre>
+    2&gt; <span class="input">xref:m(my_module)</span>
+    [{deprecated,[]},
+     {undefined,[{{my_module,t,1},{my_module,t2,1}}]},
+     {unused,[{my_module,t2,1}]}]    </pre><p><strong>m/1</strong> is also suitable for checking that the
+BEAM file of a module that is about to be loaded into a
+running a system does not call any undefined functions. In
+either case, the code path of the code server (see the module
+<strong>code</strong>) is used for finding modules that export externally
+called functions not exported by the checked module itself, so
+called <a href="./xref#library_module">library modules</a>.
+</p><h3>Predefined Analysis</h3><p>In the last example the module to analyze was given as an
+argument to <strong>m/1</strong>, and the code path was (implicitly)
+used as <a href="./xref#library_path">library path</a>. In this example an <a href="./xref#xref_server">xref server</a> will be used,
+which makes it possible to analyze applications and releases,
+and also to select the library path explicitly.
+</p><p>Each Xref server is referred to by a unique name. The name
+is given when creating the server:
+</p><pre>
+    1&gt; <span class="input">xref:start(s).</span>
+    {ok,&lt;0.27.0&gt;}    </pre><p>Next the system to be analyzed is added to the Xref server.
+Here the system will be OTP, so no library path will be needed.
+Otherwise, when analyzing a system that uses OTP, the OTP
+modules are typically made library modules by
+setting the library path to the default OTP code path (or to
+<strong>code_path</strong>, see the <a href="./xref#code_path">reference manual</a>). By
+default, the names of read BEAM files and warnings are output
+when adding analyzed modules, but these messages can be avoided
+by setting default values of some options:
+</p><pre>
+    2&gt; <span class="input">xref:set_default(s, [{verbose,false}, {warnings,false}]).</span>
+    ok
+    3&gt; <span class="input">xref:add_release(s, code:lib_dir(), {name, otp}).</span>
+    {ok,otp}    </pre><p><strong>add_release/3</strong> assumes that all subdirectories of the
+library directory returned by <strong>code:lib_dir()</strong> contain
+applications; the effect is that of reading all
+applications' BEAM files.
+</p><p>It is now easy to check the release for calls to undefined
+functions:
+</p><pre>
+    4&gt; <span class="input">xref:analyze(s, undefined_function_calls).</span>
+    {ok, [...]}    </pre><p>We can now continue with further analyses, or we can delete
+the Xref server:
+</p><pre>
+    5&gt; <span class="input">xref:stop(s).</span>    </pre><p>The check for calls to undefined functions is an example of a
+predefined analysis, probably the most useful one. Other
+examples are the analyses that find unused local
+functions, or functions that call some given functions. See
+the <a href="./xref#analyze">analyze/2,3</a>
+functions for a complete list of predefined analyses.
+</p><p>Each predefined analysis is a shorthand for a <a href="./xref#query">query</a>, a sentence of a tiny
+language providing cross reference data as
+values of <a href="./xref#predefined_variable">predefined variables</a>.
+The check for calls to undefined functions can thus be stated as
+a query:
+</p><pre>
+    4&gt; <span class="input">xref:q(s, "(XC - UC) || (XU - X - B)").</span>
+    {ok,[...]}    </pre><p>The query asks for the restriction of external calls except the
+unresolved calls to calls to functions that are externally used
+but neither exported nor built-in functions (the <strong>||</strong>
+operator restricts the used functions while the <strong>|</strong>
+operator restricts the calling functions). The <strong>-</strong> operator
+returns the difference of two sets, and the <strong>+</strong> operator to
+be used below returns the union of two sets.
+</p><p>The relationships between the predefined variables
+<strong>XU</strong>, <strong>X</strong>, <strong>B</strong> and a few
+others are worth elaborating upon. 
+The reference manual mentions two ways of expressing the set of
+all functions, one that focuses on how they are defined:
+<strong>XÂ +Â LÂ +Â BÂ +Â U</strong>, and one
+that focuses on how they are used:
+<strong>UUÂ +Â LUÂ +Â XU</strong>. 
+The reference also mentions some <a href="./xref#simple_facts">facts</a> about the
+variables:
+</p><ul><li><strong>F</strong> is equal to <strong>L + X</strong> (the defined functions are the local functions and the external functions);</li><li><strong>U</strong> is a subset of <strong>XU</strong> (the unknown functions are a subset of the externally used functions since the compiler ensures that locally used functions are defined);</li><li><strong>B</strong> is a subset of <strong>XU</strong> (calls to built-in functions are always external by definition, and unused built-in functions are ignored);</li><li><strong>LU</strong> is a subset of <strong>F</strong> (the locally used functions are either local functions or exported functions, again ensured by the compiler);</li><li><strong>UU</strong> is equal to <strong>FÂ -Â (XUÂ +Â LU)</strong> (the unused functions are defined functions that are neither used externally nor locally);</li><li><strong>UU</strong> is a subset of <strong>F</strong> (the unused functions are defined in analyzed modules).</li></ul><p>Using these facts, the two small circles in the picture below
+can be combined. 
+</p><img src="venn1.gif" title="Definition and use of functions"></img><p>It is often clarifying to mark the variables of a query in such
+a circle. This is illustrated in the picture below for some of
+the predefined analyses. Note that local functions used by local
+functions only are not marked in the <strong>locals_not_used</strong>
+circle.       <a name="venn2"></a>
+</p><img src="venn2.gif" title="Some predefined analyses as subsets of all functions"></img><h3>Expressions</h3><p>The module check and the predefined analyses are useful, but
+limited. Sometimes more flexibility is needed, for instance one
+might not need to apply a graph analysis on all calls, but some
+subset will do equally well. That flexibility is provided with 
+a simple language. Below are some expressions of the language
+with comments, focusing on elements of the language rather than
+providing useful examples. The analyzed system is assumed to be
+OTP, so in order to run the queries, first evaluate these calls:
+</p><pre>
+    xref:start(s).
+    xref:add_release(s, code:root_dir()).    </pre><dl><dt><strong>xref:q(s, "(Fun) xref : Mod").</strong></dt><dd>All functions of the <strong>xref</strong> module. </dd><dt><strong>xref:q(s, "xref : Mod * X").</strong></dt><dd>All exported functions of the <strong>xref</strong> module. The first operand of the intersection operator <strong>*</strong> is implicitly converted to the more special type of the second operand.</dd><dt><strong>xref:q(s, "(Mod) tools").</strong></dt><dd>All modules of the Tools application.</dd><dt><strong>xref:q(s, '"xref_.*" : Mod').</strong></dt><dd>All modules with a name beginning with <strong>xref_</strong>.</dd><dt><strong>xref:q(s, "# EÂ |Â XÂ ").</strong></dt><dd>Number of calls from exported functions.</dd><dt><strong>xref:q(s, "XCÂ ||Â LÂ ").</strong></dt><dd>All external calls to local functions.</dd><dt><strong>xref:q(s, "XCÂ *Â LC").</strong></dt><dd>All calls that have both an external and a local version.</dd><dt><strong>xref:q(s, "(LLin) (LC * XC)").</strong></dt><dd>The lines where the local calls of the last example are made.</dd><dt><strong>xref:q(s, "(XLin) (LC * XC)").</strong></dt><dd>The lines where the external calls of the example before last are made.</dd><dt><strong>xref:q(s, "XC * (ME - strict ME)").</strong></dt><dd>External calls within some module.</dd><dt><strong>xref:q(s, "EÂ |||Â kernel").</strong></dt><dd>All calls within the Kernel application. </dd><dt><strong>xref:q(s, "closureÂ EÂ |Â kernelÂ ||Â kernel").</strong></dt><dd>All direct and indirect calls within the Kernel application. Both the calling and the used functions of indirect calls are defined in modules of the kernel application, but it is possible that some functions outside the kernel application are used by indirect calls.</dd><dt><strong>xref:q(s, "{toolbar,debugger}:Mod of ME").</strong></dt><dd>A chain of module calls from <strong>toolbar</strong> to <strong>debugger</strong>, if there is such a chain, otherwise <strong>false</strong>. The chain of calls is represented by a list of modules, <strong>toolbar</strong> being the first element and <strong>debugger</strong>the last element.</dd><dt><strong>xref:q(s, "closure E | toolbar:Mod || debugger:Mod").</strong></dt><dd>All (in)direct calls from functions in <strong>toolbar</strong> to functions in <strong>debugger</strong>.</dd><dt><strong>xref:q(s, "(Fun) xref -&gt; xref_base").</strong></dt><dd>All function calls from <strong>xref</strong> to <strong>xref_base</strong>.</dd><dt><strong>xref:q(s, "E * xref -&gt; xref_base").</strong></dt><dd>Same interpretation as last expression.</dd><dt><strong>xref:q(s, "E || xref_base | xref").</strong></dt><dd>Same interpretation as last expression.</dd><dt><strong>xref:q(s, "E * [xref -&gt; lists, xref_base -&gt; digraph]").</strong></dt><dd>All function calls from <strong>xref</strong> to <strong>lists</strong>, and all function calls from <strong>xref_base</strong> to <strong>digraph</strong>.</dd><dt><strong>xref:q(s, "E | [xref, xref_base] || [lists, digraph]").</strong></dt><dd>All function calls from <strong>xref</strong> and <strong>xref_base</strong> to <strong>lists</strong> and <strong>digraph</strong>.</dd><dt><strong>xref:q(s, "components EE").</strong></dt><dd>All strongly connected components of the Inter Call Graph. Each component is a set of exported or unused local functions that call each other (in)directly.</dd><dt><strong>xref:q(s,  "X * digraph * range (closure (E | digraph) | (L * digraph))").</strong></dt><dd>All exported functions of the <strong>digraph</strong> module used (in)directly by some function in <strong>digraph</strong>.</dd><dt><strong>xref:q(s, "L * yeccparser:Mod - range (closure (E |</strong></dt><dd></dd><dt><strong>yeccparser:Mod) | (X * yeccparser:Mod))").</strong></dt><dd>The interpretation is left as an exercise. </dd></dl><h3>Graph Analysis</h3><p>The list <a href="./xref#representation">representation of graphs</a> is used analyzing direct calls,
+while the <strong>digraph</strong> representation is suited for analyzing
+indirect calls. The restriction operators (<strong>|</strong>, <strong>||</strong>
+and <strong>|||</strong>) are the only operators that accept both
+representations. This means that in order to analyze indirect
+calls using restriction, the <strong>closure</strong> operator (which creates the
+<strong>digraph</strong> representation of graphs) has to be
+applied explicitly.
+</p><p>As an example of analyzing indirect calls, the following Erlang
+function tries to answer the question:
+if we want to know which modules are used indirectly by some
+module(s), is it worth while using the <a href="./xref#call_graph">function graph</a> rather
+than the module graph? Recall that a module M1 is said to call
+a module M2 if there is some function in M1 that calls some
+function in M2. It would be nice if we could use the much
+smaller module graph, since it is available also in the light
+weight <strong>modules</strong><a href="./xref#mode">mode</a> of Xref servers.
+</p><pre><code class="erl">
+    t(S) -&gt;
+      {ok, _} = xref:q(S, "Eplus := closure E"),
+      {ok, Ms} = xref:q(S, "AM"),
+      Fun = fun(M, N) -&gt; 
+          Q = io_lib:format("# (Mod) (Eplus | ~p : Mod)", [M]),
+          {ok, N0} = xref:q(S, lists:flatten(Q)),
+          N + N0
+        end,
+      Sum = lists:foldl(Fun, 0, Ms),
+      ok = xref:forget(S, 'Eplus'),
+      {ok, Tot} = xref:q(S, "# (closure ME | AM)"),
+      100 * ((Tot - Sum) / Tot).    </code></pre><p>Comments on the code:
+</p><ul><li>We want to find the reduction of the closure of the function graph to modules.  The direct expression for doing that would be <strong>(Mod)Â (closureÂ EÂ |Â AM)</strong>, but then we would have to represent all of the transitive closure of E in memory. Instead the number of indirectly used modules is found for each analyzed module, and the sum over all modules is calculated. </li><li>A user variable is employed for holding the <strong>digraph</strong> representation of the function graph for use in many queries. The reason is efficiency. As opposed to the <strong>=</strong> operator, the <strong>:=</strong> operator saves a value for subsequent analyses.  Here might be the place to note that equal subexpressions within a query are evaluated only once; <strong>=</strong> cannot be used for speeding things up. </li><li><strong>Eplus | ~p : Mod</strong>. The <strong>|</strong> operator converts the second operand to the type of the first operand. In this case the module is converted to all functions of the module. It is necessary to assign a type to the module (<strong>:Â Mod</strong>), otherwise modules like <strong>kernel</strong> would be converted to all functions of the application with the same name; the most general constant is used in cases of ambiguity. </li><li>Since we are only interested in a ratio, the unary operator <strong>#</strong> that counts the elements of the operand is used. It cannot be applied to the <strong>digraph</strong> representation of graphs. </li><li>We could find the size of the closure of the module graph with a loop similar to one used for the function graph, but since the module graph is so much smaller, a more direct method is feasible. </li></ul><p>When the Erlang function <strong>t/1</strong> was applied to an Xref
+server loaded with the current version of OTP, the returned
+value was close to 84Â (percent). This means that the number
+of indirectly used modules is approximately six times greater
+when using the module graph.
+So the answer to the above stated question is that it is
+definitely worth while using the function graph for this
+particular analysis.
+Finally, note that in the presence of unresolved calls, the
+graphs may be incomplete, which means that there may be
+indirectly used modules that do not show up.
+</p></body></html>

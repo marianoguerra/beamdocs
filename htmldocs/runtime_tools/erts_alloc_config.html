@@ -1,0 +1,91 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>erts_alloc_config</h1><h1>erts_alloc_config</h1><p>Configuration tool for erts_alloc</p><p><a href="./erts_alloc">erts_alloc(3)</a> is an
+Erlang Run-Time System internal memory allocator library.
+<strong>erts_alloc_config</strong> is intended to be used to aid creation
+of an <a href="./erts_alloc">erts_alloc(3)</a>
+configuration that is suitable for a limited number of runtime
+scenarios. The configuration that <strong>erts_alloc_config</strong>
+produce is intended as a suggestion, and may need to be
+adjusted manually.The configuration is created based on information about a number
+of runtime scenarios. It is obviously impossible to foresee every
+runtime scenario that can occur. The important scenarios are
+those that cause maximum or minimum load on specific memory
+allocators. Load in this context is total size of memory blocks
+allocated.The current implementation of <strong>erts_alloc_config</strong> concentrate
+on configuration of multi-block carriers. Information gathered
+when a runtime scenario is saved is mainly current and maximum use
+of multi-block carriers. If a parameter that change the use of
+multi-block carriers is changed, a previously generated
+configuration is invalid and <strong>erts_alloc_config</strong> needs
+to be run again. It is mainly the single block carrier threshold
+that effects the use of multi-block carriers, but other
+single-block carrier parameters might as well. If another value of
+a single block carrier parameter than the default is desired, use
+the desired value when running <strong>erts_alloc_config</strong>.A configuration is created in the following way:<ul><li> <p>Pass the <a href="../erts/erts_alloc#Mea">+Mea config</a>
+command-line flag to the Erlang runtime system you are going
+to use for creation of the allocator configuration. It will
+disable features that prevent <strong>erts_alloc_config</strong> from
+doing its job. Note, you should <em>not</em> use this flag
+when using the created configuration. Also note that it is
+important that you use the same
+<a href="../erts/erl#+S">amount of schedulers</a>
+when creating the configuration as you are going the use on
+the system using the configuration.</p> </li><li> <p>Run your applications with different scenarios (the more
+the better) and save information about each scenario by calling
+<a href="#save_scenario/0">save_scenario/0</a>.
+It may be hard to know when the applications are at an (for
+<strong>erts_alloc_config</strong>) important runtime scenario. A good
+approach may therefore be to call
+<a href="#save_scenario/0">save_scenario/0</a>
+repeatedly, e.g. once every tenth second. Note that it is
+important that your applications reach the runtime scenarios
+that are important for <strong>erts_alloc_config</strong> when you are
+saving scenarios; otherwise, the configuration may perform
+bad.</p> </li><li> <p>When you have covered all scenarios, call
+<a href="#make_config/1">make_config/1</a>
+in order to create a configuration. The configuration is
+written to a file that you have chosen. This configuration
+file can later be read by an Erlang runtime-system at
+startup. Pass the command line argument 
+<a href="../erts/erl#args_file">-args_file FileName</a>
+to the <a href="./erl">erl(1)</a> command.</p> </li><li> <p>The configuration produced by <strong>erts_alloc_config</strong> may
+need to be manually adjusted as already stated. Do not modify the
+file produced by <strong>erts_alloc_config</strong>; instead, put your
+modifications in another file and load this file after the
+file produced by <strong>erts_alloc_config</strong>. That is, put the
+<a href="../erts/erl#args_file">-args_file FileName</a>
+argument that reads your modification file later on the
+command-line than the 
+<a href="../erts/erl#args_file">-args_file FileName</a>
+argument that reads the configuration file produced by
+<strong>erts_alloc_config</strong>. If a memory allocation parameter
+appear multiple times, the last version of will be used, i.e.,
+you can override parameters in the configuration file produced
+by <strong>erts_alloc_config</strong>. Doing it this way simplifies
+things when you want to rerun <strong>erts_alloc_config</strong>.</p> </li></ul><strong>erts_alloc_config</strong> saves information about runtime scenarios
+and performs computations in a server that is automatically
+started. The server register itself under the name
+<strong>'__erts_alloc_config__'</strong>.</p><h1>Functions</h1><h2>save_scenario() -&gt; ok | {error, Error}</h2><p>Saves information about current runtime scenario</p><ul><li><span class="v">Error = term()</span></li></ul><p><strong>save_scenario/0</strong> saves information about the current
+runtime scenario. This information will later be used when
+<a href="#make_config/0">make_config/0</a>,
+or <a href="#make_config/1">make_config/1</a>
+is called.</p><p>The first time <strong>save_scenario/0</strong> is called a server
+will be started. This server will save runtime scenarios. All
+saved scenarios can be removed by calling
+<a href="#make_config/0">stop/0</a>.</p><h2>make_config() -&gt; ok | {error, Error}</h2><p>Creates an erts_alloc configuration</p><ul><li><span class="v">Error = term()</span></li></ul><p>This is the same as calling
+<a href="#make_config/1">make_config(group_leader())</a>.</p><h2>make_config(FileNameOrIODev) -&gt; ok | {error, Error}</h2><p>Creates an erts_alloc configuration</p><ul><li><span class="v">FileNameOrIODev = string() | io_device()</span></li><li><span class="v">Error = term()</span></li></ul><p><strong>make_config/1</strong> uses the information previously saved by
+<a href="#save_scenario/0">save_scenario/0</a>
+in order to produce an <strong>erts_alloc</strong> configuration. At
+least one scenario have had to be saved. All scenarios
+previously saved will be used when creating the
+configuration.  </p><p>If <strong>FileNameOrIODev</strong> is a <strong>string()</strong>,
+<strong>make_config/1</strong> will use <strong>FileNameOrIODev</strong> as a
+filename. A file named <strong>FileNameOrIODev</strong> is created and
+the configuration will be written to that file. If
+<strong>FileNameOrIODev</strong> is an
+<a href="./io">io_device()</a> (see the
+documentation of the module
+<a href="./io">io</a>), the configuration
+will be written to the io device.</p><h2>stop() -&gt; ok | {error, Error}</h2><ul><li><span class="v">Error = term()</span></li></ul><p>Stops the server that saves runtime scenarios.</p><h2>See Also</h2><p><a href="./erts_alloc">erts_alloc(3)</a>,
+<a href="./erl">erl(1)</a>,
+<a href="./io">io(3)</a></p></body></html>

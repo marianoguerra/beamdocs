@@ -1,0 +1,38 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>snmp_pdus</h1><h1>snmp_pdus</h1><p>Encode and Decode Functions for SNMP PDUs</p><p>RFC1157, RFC1905 and/or RFC2272 should be studied carefully
+before using this module, <strong>snmp_pdus</strong>.
+The module <strong>snmp_pdus</strong> contains functions for encoding 
+and decoding of
+SNMP protocol data units (PDUs).  In short, this module converts a
+list of bytes to Erlang record representations and vice versa.
+The record definitions can be found in the file
+<strong>snmp/include/snmp_types.hrl</strong>.  If snmpv3 is used, the module
+that includes <strong>snmp_types.hrl</strong> must define the constant
+<strong>SNMP_USE_V3</strong> before the header file is included.  Example:<pre>
+-define(SNMP_USE_V3, true).
+-include_lib("snmp/include/snmp_types.hrl").    </pre>Encoding and decoding must be done explicitly when writing your
+own Net if process.
+</p><h1>Functions</h1><h2>dec_message([byte()]) -&gt; Message</h2><p>Decode an SNMP Message</p><ul><li><span class="v">Message = #message</span></li></ul><p>Decodes a list of bytes into an SNMP Message.  Note, if there
+is a v3 message, the <strong>msgSecurityParameters</strong> are not
+decoded.  They must be explicitly decoded by a call to a
+security model specific decoding function,
+e.g. <strong>dec_usm_security_parameters/1</strong>.  Also note, if
+the <strong>scopedPDU</strong> is encrypted, the OCTET STRING encoded
+<strong>encryptedPDU</strong> will be present in the <strong>data</strong> field.</p><h2>dec_message_only([byte()]) -&gt; Message</h2><p>Decode an SNMP Message, but not the data part</p><ul><li><span class="v">Message = #message</span></li></ul><p>Decodes a list of bytes into an SNMP Message, but does not
+decode the data part of the Message. That means, data is still
+a list of bytes, normally an encoded <strong>PDU</strong> (v1 and V2) or an
+encoded and possibly encrypted <strong>scopedPDU</strong> (v3).</p><h2>dec_pdu([byte()]) -&gt; Pdu</h2><p>Decode an SNMP Pdu</p><ul><li><span class="v">Pdu = #pdu</span></li></ul><p>Decodes a list of bytes into an SNMP Pdu.</p><h2>dec_scoped_pdu([byte()]) -&gt; ScopedPdu</h2><p>Decode an SNMP ScopedPdu</p><ul><li><span class="v">ScopedPdu = #scoped_pdu</span></li></ul><p>Decodes a list of bytes into an SNMP ScopedPdu.</p><h2>dec_scoped_pdu_data([byte()]) -&gt; ScopedPduData</h2><p>Decode an SNMP ScopedPduData</p><ul><li><span class="v">ScopedPduData = #scoped_pdu | EncryptedPDU</span></li><li><span class="v">EncryptedPDU = [byte()]</span></li></ul><p>Decodes a list of bytes into either a scoped pdu record, or
+- if the scoped pdu was encrypted - to a list of bytes.</p><h2>dec_usm_security_parameters([byte()]) -&gt; UsmSecParams</h2><p>Decode SNMP UsmSecurityParameters</p><ul><li><span class="v">UsmSecParams = #usmSecurityParameters</span></li></ul><p>Decodes a list of bytes into an SNMP UsmSecurityParameters</p><h2>enc_encrypted_scoped_pdu(EncryptedScopedPdu) -&gt; [byte()]</h2><p>Encode an encrypted SNMP scopedPDU</p><ul><li><span class="v">EncryptedScopedPdu = [byte()]</span></li></ul><p>Encodes an encrypted SNMP ScopedPdu into an OCTET STRING
+that can be used as the <strong>data</strong> field in a
+<strong>message</strong> record, that later can be encoded with a call
+to <strong>enc_message_only/1</strong>. 
+</p><p>This function should be used whenever the <strong>ScopedPDU</strong>
+is encrypted.</p><h2>enc_message(Message) -&gt; [byte()]</h2><p>Encode an SNMP Message</p><ul><li><span class="v">Message = #message</span></li></ul><p>Encodes a message record to a list of bytes.</p><h2>enc_message_only(Message) -&gt; [byte()]</h2><p>Encode an SNMP Message, but not the data part</p><ul><li><span class="v">Message = #message</span></li></ul><p><strong>Message</strong> is a record where the <strong>data</strong> field is
+assumed to be encoded (a list of bytes).  If there is a v1 or v2
+message, the <strong>data</strong> field is an encoded <strong>PDU</strong>, and if
+there is a v3 message, <strong>data</strong> is an encoded and possibly
+encrypted <strong>scopedPDU</strong>.</p><h2>enc_pdu(Pd) -&gt; [byte()]</h2><p>Encode an SNMP Pdu</p><ul><li><span class="v">Pdu = #pdu</span></li></ul><p>Encodes an SNMP Pdu into a list of bytes.</p><h2>enc_scoped_pdu(ScopedPdu) -&gt; [byte()]</h2><p>Encode an SNMP scopedPDU</p><ul><li><span class="v">ScopedPdu = #scoped_pdu</span></li></ul><p>Encodes an SNMP ScopedPdu into a list of bytes, which can be
+encrypted, and after encryption, encoded with
+a call to <strong>enc_encrypted_scoped_pdu/1</strong>; or it can be
+used as the <strong>data</strong> field in a <strong>message</strong> record, which
+then can be encoded with <strong>enc_message_only/1</strong>.</p><h2>enc_usm_security_parameters(UsmSecParams) -&gt; [byte()]</h2><p>Encode SNMP UsmSecurityParameters</p><ul><li><span class="v">UsmSecParams = #usmSecurityParameters</span></li></ul><p>Encodes SNMP UsmSecurityParameters into a list of bytes.</p></body></html>

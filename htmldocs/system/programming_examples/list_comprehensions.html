@@ -1,0 +1,96 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>List Comprehensions</h1><h2>Simple Examples</h2><p>This section starts with a simple example, showing a generator and a filter:</p><pre>
+&gt; <span class="input">[X || X &lt;- [1,2,a,3,4,b,5,6], X &gt; 3].</span>
+[a,4,b,5,6]</pre><p>This is read as follows: The list of X such that X is taken from the list
+<strong>[1,2,a,...]</strong> and X is greater than 3.</p><p>The notation <strong>X &lt;- [1,2,a,...]</strong> is a generator and
+the expression <strong>X &gt; 3</strong> is a filter.</p><p>An additional filter, <strong>integer(X)</strong>, can be added to restrict
+the result to integers:</p><pre>
+&gt; <span class="input">[X || X &lt;- [1,2,a,3,4,b,5,6], integer(X), X &gt; 3].</span>
+[4,5,6]</pre><p>Generators can be combined. For example, the Cartesian product
+of two lists can be written as follows:</p><pre>
+&gt; <span class="input">[{X, Y} || X &lt;- [1,2,3], Y &lt;- [a,b]].</span>
+[{1,a},{1,b},{2,a},{2,b},{3,a},{3,b}]</pre><h2>Quick Sort</h2><p>The well-known quick sort routine can be written as follows:</p><pre><code class="">
+sort([Pivot|T]) -&gt;
+    sort([ X || X &lt;- T, X &lt; Pivot]) ++
+    [Pivot] ++
+    sort([ X || X &lt;- T, X &gt;= Pivot]);
+sort([]) -&gt; [].</code></pre><p>The expression <strong>[X || X &lt;- T, X &lt; Pivot]</strong> is the list of
+all elements in <strong>T</strong> that are less than <strong>Pivot</strong>.</p><p><strong>[X || X &lt;- T, X &gt;= Pivot]</strong> is the list of all elements in
+<strong>T</strong> that are greater than or equal to <strong>Pivot</strong>.</p><p>A list sorted as follows:</p><ul><li>The first element in the list is isolated and the list is split into two sublists.</li><li>The first sublist contains all elements that are smaller than the first element in the list.</li><li>The second sublist contains all elements that are greater than, or equal to, the first element in the list.</li><li>Then the sublists are sorted and the results are combined.</li></ul><h2>Permutations</h2><p>The following example generates all permutations of
+the elements in a list:</p><pre><code class="">
+perms([]) -&gt; [[]];
+perms(L)  -&gt; [[H|T] || H &lt;- L, T &lt;- perms(L--[H])].</code></pre><p>This takes <strong>H</strong> from <strong>L</strong> in all possible ways.
+The result is the set of all lists <strong>[H|T]</strong>, where <strong>T</strong>
+is the set of all possible permutations of <strong>L</strong>, with
+<strong>H</strong> removed:</p><pre>
+&gt; <span class="input">perms([b,u,g]).</span>
+[[b,u,g],[b,g,u],[u,b,g],[u,g,b],[g,b,u],[g,u,b]]</pre><h2>Pythagorean Triplets</h2><p>Pythagorean triplets are sets of integers <strong>{A,B,C}</strong> such
+that <strong>A**2 + B**2 = C**2</strong>.</p><p>The function <strong>pyth(N)</strong> generates a list of all integers
+<strong>{A,B,C}</strong> such that <strong>A**2 + B**2 = C**2</strong> and where
+the sum of the sides is equal to, or less than, <strong>N</strong>:</p><pre><code class="">
+pyth(N) -&gt;
+    [ {A,B,C} ||
+        A &lt;- lists:seq(1,N),
+        B &lt;- lists:seq(1,N),
+        C &lt;- lists:seq(1,N),
+        A+B+C =&lt; N,
+        A*A+B*B == C*C 
+    ].</code></pre><pre>
+&gt; <span class="input">pyth(3).</span>
+[].
+&gt; <span class="input">pyth(11).</span>
+[].
+&gt; <span class="input">pyth(12).</span>
+[{3,4,5},{4,3,5}]
+&gt; <span class="input">pyth(50).</span>
+[{3,4,5},
+ {4,3,5},
+ {5,12,13},
+ {6,8,10},
+ {8,6,10},
+ {8,15,17},
+ {9,12,15},
+ {12,5,13},
+ {12,9,15},
+ {12,16,20},
+ {15,8,17},
+ {16,12,20}]</pre><p>The following code reduces the search space and is more
+efficient:</p><pre><code class="">
+pyth1(N) -&gt;
+   [{A,B,C} ||
+       A &lt;- lists:seq(1,N-2),
+       B &lt;- lists:seq(A+1,N-1),
+       C &lt;- lists:seq(B+1,N),
+       A+B+C =&lt; N,
+       A*A+B*B == C*C ].</code></pre><h2>Simplifications With List Comprehensions</h2><p>As an example, list comprehensions can be used to simplify some
+of the functions in <strong>lists.erl</strong>:</p><pre><code class="">
+append(L)   -&gt;  [X || L1 &lt;- L, X &lt;- L1].
+map(Fun, L) -&gt; [Fun(X) || X &lt;- L].
+filter(Pred, L) -&gt; [X || X &lt;- L, Pred(X)].</code></pre><h2>Variable Bindings in List Comprehensions</h2><p>The scope rules for variables that occur in list
+comprehensions are as follows:</p><ul><li>All variables that occur in a generator pattern are assumed to be "fresh" variables.</li><li>Any variables that are defined before the list comprehension, and that are used in filters, have the values they had before the list comprehension.</li><li>Variables cannot be exported from a list comprehension.</li></ul><p>As an example of these rules, suppose you want to write
+the function <strong>select</strong>, which selects certain elements from
+a list of tuples. Suppose you write
+<strong>select(X, L) -&gt;  [Y || {X, Y} &lt;- L].</strong> with the intention
+of extracting all tuples from <strong>L</strong>, where the first item is
+<strong>X</strong>.</p><p>Compiling this gives the following diagnostic:</p><pre><code class="">
+./FileName.erl:Line: Warning: variable 'X' shadowed in generate</code></pre><p>This diagnostic warns that the variable <strong>X</strong> in
+the pattern is not the same as the variable <strong>X</strong>
+that occurs in the function head.</p><p>Evaluating <strong>select</strong> gives the following result:</p><pre>
+&gt; <span class="input">select(b,[{a,1},{b,2},{c,3},{b,7}]).</span>
+[1,2,3,7]</pre><p>This is not the wanted result. To achieve the desired
+effect, <strong>select</strong> must be written as follows:</p><pre><code class="">
+select(X, L) -&gt;  [Y || {X1, Y} &lt;- L, X == X1].</code></pre><p>The generator now contains unbound variables and the test has
+been moved into the filter.</p><p>This now works as expected:</p><pre>
+&gt; <span class="input">select(b,[{a,1},{b,2},{c,3},{b,7}]).</span>
+[2,7]</pre><p>A consequence of the rules for importing variables into a
+list comprehensions is that certain pattern matching operations
+must be moved into the filters and cannot be written directly
+in the generators.</p><p>To illustrate this, do <em>not</em> write as follows:</p><pre><code class="">
+f(...) -&gt;
+    Y = ...
+    [ Expression || PatternInvolving Y  &lt;- Expr, ...]
+    ...</code></pre><p>Instead, write as follows:</p><pre><code class="">
+f(...) -&gt;
+    Y = ...
+    [ Expression || PatternInvolving Y1  &lt;- Expr, Y == Y1, ...]
+    ...</code></pre></body></html>

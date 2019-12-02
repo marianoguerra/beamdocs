@@ -1,0 +1,247 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>Instrumentation Functions</h1><p>A user-defined instrumentation function for each object attaches
+the managed objects to real resources. This function is called by
+the agent on a <strong>get</strong> or <strong>set</strong> operation. The function
+could read some hardware register, perform a calculation, or
+whatever is necessary to implement the semantics associated with the
+conceptual variable. These functions must be written both for scalar
+variables and for tables. They are specified in the association
+file, which is a text file. In this file, the <strong>OBJECT IDENTIFIER</strong>, or symbolic name for each managed object, is
+associated with an Erlang tuple <strong>{Module,</strong><strong>Function</strong>,
+<strong>ListOfExtraArguments}</strong>.
+</p><p>When a managed object is referenced in an SNMP operation, the
+associated <strong>{Module, Function, ListOfExtraArguments}</strong> is
+called. The function is applied to some standard arguments (for
+example, the operation type) and the extra arguments supplied by the
+user.
+</p><p>Instrumentation functions must be written for <strong>get</strong> and
+<strong>set</strong> for scalar variables and tables, and for <strong>get-next</strong>
+for tables only.  The <strong>get-bulk</strong> operation is translated into a
+series of calls to <strong>get-next</strong>.
+</p><h2>Instrumentation Functions</h2><p>The following sections describe how the instrumentation
+functions should be defined in Erlang for the different
+operations. In the following, <strong>RowIndex</strong> is a list of key
+values for the table, and <strong>Column</strong> is a column number.
+</p><p>These functions are described in detail in 
+<a href="snmp_def_instr_functions">Definition of Instrumentation Functions</a>.
+</p><h2>New / Delete Operations</h2><p>For scalar variables:
+</p><pre><code class="">
+variable_access(new [, ExtraArg1, ...])
+variable_access(delete [, ExtraArg1, ...])
+      </code></pre><p>For tables:
+</p><pre><code class="">
+table_access(new [, ExtraArg1, ...])
+table_access(delete [, ExtraArg1, ...])
+      </code></pre><p>These functions are called for each object in an MIB when the
+MIB is unloaded or loaded, respectively.</p><h2>Get Operation</h2><p>For scalar variables:
+</p><pre><code class="">
+variable_access(get [, ExtraArg1, ...])
+      </code></pre><p>For tables:
+</p><pre><code class="">
+table_access(get,RowIndex,Cols [,ExtraArg1, ...])
+      </code></pre><p><strong>Cols</strong> is a list of <strong>Column</strong>. The agent will sort
+incoming variables so that all operations on one row (same
+index) will be supplied at the same time. The reason for this is
+that a database normally retrieves information row by row.
+</p><p>These functions must return the current values of the
+associated variables.</p><h2>Set Operation</h2><p>For scalar variables:
+</p><pre><code class="">
+variable_access(set, NewValue [, ExtraArg1, ...])
+      </code></pre><p>For tables:
+</p><pre><code class="">
+table_access(set, RowIndex, Cols [, ExtraArg1,..])
+      </code></pre><p><strong>Cols</strong> is a list of tuples <strong>{Column, NewValue}</strong>.
+</p><p>These functions returns <strong>noError</strong> if the assignment was
+successful, otherwise an error code.</p><h2>Is-set-ok Operation</h2><p>As a complement to the <strong>set</strong> operation, it is possible
+to specify a test function. This function has the same syntax as
+the set operation above, except that the first argument is
+<strong>is_set_ok</strong> instead of <strong>set</strong>. This function is called
+before the variable is set. Its purpose is to ensure that it is
+permissible to set the variable to the new value.</p><pre><code class="">
+variable_access(is_set_ok, NewValue [, ExtraArg1, ...])
+      </code></pre><p>For tables:
+</p><pre><code class="">
+table_access(set, RowIndex, Cols [, ExtraArg1,..])
+      </code></pre><p><strong>Cols</strong> is a list of tuples <strong>{Column, NewValue}</strong>.
+</p><h2>Undo Operation</h2><p>A function which has been called with <strong>is_set_ok</strong> will
+be called again, either with <strong>set</strong> if there was no error,
+or with <strong>undo</strong>, if an error occurred. In this way,
+resources can be reserved in the <strong>is_set_ok</strong> operation,
+released in the <strong>undo</strong> operation, or made permanent in the
+<strong>set</strong> operation.</p><pre><code class="">
+variable_access(undo, NewValue [, ExtraArg1, ...])
+      </code></pre><p>For tables:
+</p><pre><code class="">
+table_access(set, RowIndex, Cols [, ExtraArg1,..])
+      </code></pre><p><strong>Cols</strong> is a list of tuples <strong>{Column, NewValue}</strong>.
+</p><h2>GetNext Operation</h2><p>The GetNext Operation operation should only be defined for 
+tables since the
+agent can find the next instance of plain variables in the MIB
+and call the instrumentation with the <strong>get</strong> operation.
+</p><pre><code class="">
+table_access(get_next, RowIndex, Cols [, ExtraArg1, ...])
+      </code></pre><p><strong>Cols</strong> is a list of integers, all greater than or equal
+to zero. This indicates that the instrumentation should find the
+next accessible instance. This function returns the tuple
+<strong>{NextOid, NextValue}</strong>, or
+<strong>endOfTable</strong>. <strong>NextOid</strong> should be the
+lexicographically next accessible instance of a managed object
+in the table. It should be a list of integers, where the first
+integer is the column, and the rest of the list is the indices
+for the next row. If <strong>endOfTable</strong> is returned, the agent
+continues to search for the next instance among the other
+variables and tables.
+</p><p><strong>RowIndex</strong> may be an empty list, an incompletely
+specified row index, or the index for an unspecified row.
+</p><p>This operation is best described with an example.
+</p><h2>GetNext Example</h2><p>A table called <strong>myTable</strong> has five columns. The first
+two are keys (not accessible), and the table has three
+rows. The instrumentation function for this table is called
+<strong>my_table</strong>.</p><a name="getnext1"></a><img src="getnext1.gif" title="Contents of my_table"></img><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>N/A means not accessible.</p></div><p>The manager issues the following <strong>getNext</strong> request:
+</p><pre><code class="">
+getNext{ myTable.myTableEntry.3.1.1,
+         myTable.myTableEntry.5.1.1 } 
+        </code></pre><p>Since both operations involve the 1.1 index, this is
+transformed into one call to <strong>my_table</strong>:
+</p><pre><code class="">
+my_table(get_next, [1, 1], [3, 5])
+        </code></pre><p>In this call, <strong>[1, 1]</strong> is the <strong>RowIndex</strong>, where
+key 1 has value 1, and key 2 has value 1, and <strong>[3, 5]</strong> is
+the list of requested columns. The function should now return
+the lexicographically next elements:
+</p><pre><code class="">
+[{[3, 1, 2], d}, {[5, 1, 2], f}]
+        </code></pre><p>This is illustrated in the following table:
+</p><a name="getnext2"></a><img src="getnext2.gif" title="GetNext from [3,1,1] and [5,1,1]."></img><p>The manager now issues the following <strong>getNext</strong> request:
+</p><pre><code class="">
+getNext{ myTable.myTableEntry.3.2.1,
+         myTable.myTableEntry.5.2.1 } 
+        </code></pre><p>This is transformed into one call to <strong>my_table</strong>:
+</p><pre><code class="">
+my_table(get_next, [2, 1], [3, 5])
+        </code></pre><p>The function should now return:
+</p><pre><code class="">
+[{[4, 1, 1], b}, endOfTable]
+        </code></pre><p>This is illustrated in the following table:
+</p><a name="getnext3"></a><img src="getnext3.gif" title="GetNext from [3,2,1] and [5,2,1]."></img><p>The manager now issues the following <strong>getNext</strong> request:
+</p><pre><code class="">
+getNext{ myTable.myTableEntry.3.1.2,
+         myTable.myTableEntry.4.1.2 } 
+        </code></pre><p>This will be transform into one call to <strong>my_table</strong>:
+</p><pre><code class="">
+my_table(get_next, [1, 2], [3, 4])
+        </code></pre><p>The function should now return:
+</p><pre><code class="">
+[{[3, 2, 1], g}, {[5, 1, 1], c}]
+        </code></pre><p>This is illustrated in the following table:
+</p><a name="getnext4"></a><img src="getnext4.gif" title="GetNext from [3,1,2] and [4,1,2]."></img><p>The manager now issues the following <strong>getNext</strong> request:
+</p><pre><code class="">
+getNext{ myTable.myTableEntry,
+         myTable.myTableEntry.1.3.2 } 
+        </code></pre><p>This will be transform into two calls to <strong>my_table</strong>:
+</p><pre><code class="">
+my_table(get_next, [], [0]) and
+my_table(get_next, [3, 2], [1])
+        </code></pre><p>The function should now return:
+</p><pre><code class="">
+[{[3, 1, 1], a}] and
+[{[3, 1, 1], a}]
+        </code></pre><p>In both cases, the first accessible element in the table
+should be returned. As the key columns are not accessible,
+this means that the third column is the first row.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Normally, the functions described above behave exactly as
+shown, but they are free to perform other actions. For
+example, a get-request may have side effects such as setting
+some other variable, perhaps a global <strong>lastAccessed</strong>
+variable.</p></div><h2>Using the ExtraArgument</h2><p>The <strong>ListOfExtraArguments</strong> can be used to write generic
+functions. This list is appended to the standard arguments for
+each function. Consider two read-only variables for a device,
+<strong>ipAdr</strong> and <strong>name</strong> with object identifiers 1.1.23.4 and
+1.1.7 respectively. To access these variables, one could implement
+the two Erlang functions <strong>ip_access</strong> and <strong>name_access</strong>,
+which will be in the MIB. The functions could be specified in a
+text file as follows:
+</p><pre><code class="">
+{ipAdr, {my_module, ip_access, []}}.
+% Or using the oid syntax for 'name'
+{[1,1,7], {my_module, name_access, []}}.
+    </code></pre><p>The <strong>ExtraArgument</strong> parameter is the empty list. For
+example, when the agent receives a get-request for the
+<strong>ipAdr</strong> variable, a call will be made to
+<strong>ip_access(get)</strong>. The value returned by this function is the
+answer to the get-request.
+</p><p>If <strong>ip_access</strong> and <strong>name_access</strong> are implemented
+similarly, we could write a <strong>generic_access</strong> function using
+the <strong>ListOfExtraArguments</strong>:
+</p><pre><code class="">
+{ipAdr, {my_module, generic_access, ['IPADR']}}.
+% The mnemonic 'name' is more convenient than 1.1.7
+{name, {my_module, generic_access, ['NAME']}}.
+    </code></pre><p>When the agent receives the same get-request as above, a call
+will be made to <strong>generic_access(get, </strong>'<strong>IPADR')</strong>.
+</p><p>Yet another possibility, closer to the hardware, could be:
+</p><pre><code class="">
+{ipAdr, {my_module, generic_access, [16#2543]}}.
+{name, {my_module, generic_access, [16#A2B3]}}.
+    </code></pre><h2>Default Instrumentation</h2><a name="snmp_3"></a><p>When the MIB definition work is finished, there are two major
+issues left.
+</p><ul><li>Implementing the MIB </li><li>Implementing a Manager Application.</li></ul><p>Implementing an MIB can be a tedious task. Most probably, there
+is a need to test the agent before all tables and variables are
+implemented. In this case, the default instrumentation functions
+are useful. The toolkit can generate default instrumentation
+functions for variables as well as for tables. Consequently, a
+running prototype agent, which can handle <strong>set</strong>, <strong>get</strong>,
+<strong>get-next</strong> and table operations, is generated without any
+programming.
+</p><p>The agent stores the values in an internal volatile database,
+which is based on the standard module <strong>ets</strong>. However, it is
+possible to let the MIB compiler generate functions which use an
+internal, persistent database, or the Mnesia DBMS. Refer to the
+Mnesia User Guide and the Reference Manual, section SNMP, module
+<strong>snmp_generic</strong> for more information.
+</p><p>When parts of the MIB are implemented, you recompile it and
+continue on by using default functions. With this approach, the
+SNMP agent can be developed incrementally.
+</p><p>The default instrumentation allows the application on the
+manager side to be developed and tested simultaneously with the
+agent. As soon as the ASN.1 file is completed, let the MIB
+compiler generate a default implementation and develop the
+management application from this.
+</p><h2>Table Operations</h2><p>The generation of default functions for tables works for
+tables which use the <strong>RowStatus</strong> textual convention from
+SNMPv2, defined in STANDARD-MIB and SNMPv2-TC.
+</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>We strongly encourage the use of the <strong>RowStatus</strong>
+convention for every table that can be modified from the
+manager, even for newly designed SNMPv1 MIBs. In SNMPv1,
+everybody has invented their own scheme for emulating table
+operations, which has led to numerous inconsistencies. The
+convention in SNMPv2 is flexible and powerful and has been
+tested successfully. If the table is read only, no RowStatus
+column should be used.
+</p></div><h2>Atomic Set</h2><p>In SNMP, the <strong>set</strong> operation is atomic. Either all
+variables which are specified in a <strong>set</strong> operation are
+changed, or none are changed. Therefore, the <strong>set</strong> operation
+is divided into two phases. In the first phase, the new value of
+each variable is checked against the definition of the variable in
+the MIB. The following definitions are checked:
+</p><ul><li>the type</li><li>the length</li><li>the range</li><li>the variable is writable and within the MIB view. </li></ul><p>At
+the end of phase one, the user defined <strong>is_set_ok</strong> functions
+are called for each scalar variable, and for each group of table
+operations.
+</p><p>If no error occurs, the second phase is performed. This phase
+calls the user defined <strong>set</strong> function for all variables.
+</p><p>If an error occurs, either in the <strong>is_set_ok</strong> phase, or in
+the <strong>set</strong> phase, all functions which were called with
+<strong>is_set_ok</strong> but not <strong>set</strong>, are called with <strong>undo</strong>.
+</p><p>There are limitations with this transaction mechanism. If
+complex dependencies exist between variables, for example between
+<strong>month</strong> and <strong>day</strong>, another mechanism is needed. Setting
+the date to 'Feb 31' can be avoided by a somewhat more generic
+transaction mechanism. You can continue and find more and more
+complex situations and construct an N-phase set-mechanism. This
+toolkit only contains a trivial mechanism.
+</p><p>The most common application of transaction mechanisms is to
+keep row operations together. Since our agent sorts row
+operations, the mechanism implemented in combination with the
+RowStatus (particularly 'createAndWait' value) solve most
+problems elegantly.
+</p></body></html>

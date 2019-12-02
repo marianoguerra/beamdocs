@@ -1,0 +1,692 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css"></head><body style="margin: 4em 10%"><h1>file</h1><h1>file</h1><p>File interface module.</p><p>This module provides an interface to the file system.Regarding filename encoding, the Erlang VM can operate in
+two modes. The current mode can be queried using function
+<a href="#native_name_encoding/0">native_name_encoding/0</a>.
+It returns <strong>latin1</strong> or <strong>utf8</strong>.In <strong>latin1</strong> mode, the Erlang VM does not change the
+encoding of filenames. In <strong>utf8</strong> mode, filenames can
+contain Unicode characters greater than 255 and the VM
+converts filenames back and forth to the native filename encoding
+(usually UTF-8, but UTF-16 on Windows).The default mode depends on the operating system. Windows and
+MacOS X enforce consistent filename encoding and therefore the
+VM uses <strong>utf8</strong> mode.On operating systems with transparent naming (for example, all Unix
+systems except MacOS X), default is <strong>utf8</strong> if the
+terminal supports UTF-8, otherwise <strong>latin1</strong>. The default can
+be overridden using <strong>+fnl</strong> (to force <strong>latin1</strong> mode)
+or <strong>+fnu</strong> (to force <strong>utf8</strong> mode) when starting
+<a href="./erl">erts/erl</a>.On operating systems with transparent naming, files can be
+inconsistently named, for example, some files are encoded in UTF-8 while
+others are encoded in ISO Latin-1. The concept of <em>raw filenames</em> is
+introduced to handle file systems with inconsistent naming when running in
+<strong>utf8</strong> mode.A <em>raw filename</em> is a filename specified as a binary. The Erlang VM
+does not translate a filename specified as a binary on
+systems with transparent naming.When running in <strong>utf8</strong> mode, functions
+<a href="#list_dir/1">list_dir/1</a> and
+<a href="#read_link/1">read_link/1</a>
+never return raw filenames. To return all filenames including raw filenames,
+use functions
+<a href="#list_dir_all">list_dir_all</a> and
+<a href="#read_link_all">read_link_all</a>.See also section <a href="../stdlib/unicode_usage#notes-about-raw-filenames">Notes About Raw Filenames</a> in the STDLIB User's Guide.</p><h1>Data Types</h1><span class="name">deep_list</span><span class="name">fd()</span><p>A file descriptor representing a file opened in
+<a href="#raw">raw</a> mode.</p><span class="name">filename</span><p>
+See also the documentation of the
+<a href="#type-name_all">type-name_all</a> type.
+</p><span class="name">filename_all</span><p>
+See also the documentation of the
+<a href="#type-name_all">type-name_all</a> type.
+</p><span class="name">io_device</span><p>As returned by
+<a href="#open/2">open/2</a>;
+<strong>pid()</strong> is a process handling I/O-protocols.</p><span class="name">name</span><p>If VM is in Unicode filename mode, <strong>string()</strong> and <strong>char()</strong>
+are allowed to be &gt; 255. See also the documentation of the
+<a href="#type-name_all">type-name_all</a> type.
+</p><span class="name">name_all</span><p>If VM is in Unicode filename mode, characters
+are allowed to be &gt; 255.
+<strong><span class="anno">RawFilename</span></strong> is a filename not subject to
+Unicode translation,
+meaning that it can contain characters not conforming to
+the Unicode encoding expected from the file system
+(that is, non-UTF-8 characters although the VM is started
+in Unicode filename mode). Null characters (integer value zero)
+are <em>not</em> allowed in filenames (not even at the end).
+</p><span class="name">posix</span><p>An atom that is named from the POSIX error codes used in
+Unix, and in the runtime libraries of most C compilers.</p><span class="name">date_time</span><p>Must denote a valid date and time.</p><span class="name">file_info</span><span class="name">location</span><span class="name">mode</span><span class="name">file_info_option</span><h1>Functions</h1><h2>advise/4</h2><p>Predeclare an access pattern for file data.</p><ul><li>posix_file_advise</li></ul><p><strong>advise/4</strong> can be used to announce an intention to access file
+data in a specific pattern in the future, thus allowing the
+operating system to perform appropriate optimizations.</p><p>On some platforms, this function might have no effect.</p><h2>allocate/3</h2><p>Allocate file space.</p><p><strong>allocate/3</strong> can be used to preallocate space for a file.</p><p>This function only succeeds in platforms that provide this
+feature. When it succeeds, space is preallocated for the file but
+the file size might not be updated. This behaviour depends on the
+preallocation implementation. To guarantee that the file size is updated,
+truncate the file to the new size.</p><h2>change_group/2</h2><p>Change group of a file.</p><p>Changes group of a file. See
+<a href="#write_file_info/2">write_file_info/2</a>.</p><h2>change_mode/2</h2><p>Change permissions of a file.</p><p>Changes permissions of a file. See
+<a href="#write_file_info/2">write_file_info/2</a>.</p><h2>change_owner/2</h2><p>Change owner of a file.</p><p>Changes owner of a file. See
+<a href="#write_file_info/2">write_file_info/2</a>.</p><h2>change_owner/3</h2><p>Change owner and group of a file.</p><p>Changes owner and group of a file. See
+<a href="#write_file_info/2">write_file_info/2</a>.</p><h2>change_time/2</h2><p>Change the modification time of a file.</p><p>Changes the modification and access times of a file. See
+<a href="#write_file_info/2">write_file_info/2</a>.</p><h2>change_time/3</h2><p>Change the modification and last access time of a file.</p><p>Changes the modification and last access times of a file. See
+<a href="#write_file_info/2">write_file_info/2</a>.</p><h2>close/1</h2><p>Close a file.</p><p>Closes the file referenced by <strong><span class="anno">IoDevice</span></strong>. It mostly
+returns <strong>ok</strong>, except for some severe errors such as out
+of memory.</p><p>Notice that if option <strong>delayed_write</strong> was
+used when opening the file, <strong>close/1</strong> can return an
+old write error and not even try to close the file. See
+<a href="#open/2">open/2</a>.</p><h2>consult/1</h2><p>Read Erlang terms from a file.</p><p>Reads Erlang terms, separated by '.', from
+<strong><span class="anno">Filename</span></strong>. Returns one of the following:</p><dl><dt><strong>{ok, <span class="anno">Terms</span>}</strong></dt><dd> <p>The file was successfully read.</p> </dd><dt><strong>{error, atom()}</strong></dt><dd> <p>An error occurred when opening the file or reading it.
+For a list of typical error codes, see
+<a href="#open/2">open/2</a>.</p> </dd><dt><strong>{error, {<span class="anno">Line</span>, <span class="anno">Mod</span>, <span class="anno">Term</span>}}</strong></dt><dd> <p>An error occurred when interpreting the Erlang terms in
+the file. To convert the three-element tuple to an English
+description of the error, use
+<a href="#format_error/1">format_error/1</a>.</p> </dd></dl><p><em>Example:</em></p><pre><code class="">
+f.txt:  {person, "kalle", 25}.
+        {person, "pelle", 30}.</code></pre><pre>
+1&gt; <span class="input">file:consult("f.txt").</span>
+{ok,[{person,"kalle",25},{person,"pelle",30}]}</pre><p>The encoding of <strong><span class="anno">Filename</span></strong> can be set
+by a comment, as described in
+<a href="../stdlib/epp#encoding">stdlib/epp#encoding</a>.</p><h2>copy/2</h2><h2>copy/3</h2><p>Copy file contents.</p><p>Copies <strong><span class="anno">ByteCount</span></strong> bytes from
+<strong><span class="anno">Source</span></strong> to <strong><span class="anno">Destination</span></strong>.
+<strong><span class="anno">Source</span></strong> and <strong><span class="anno">Destination</span></strong> refer
+to either filenames or IO devices from, for example, <strong>open/2</strong>.
+<strong><span class="anno">ByteCount</span></strong> defaults to <strong>infinity</strong>, denoting an
+infinite number of bytes.</p><p>Argument <strong><span class="anno">Modes</span></strong> is a list of possible modes,
+see <a href="#open/2">open/2</a>, and defaults to
+<strong>[]</strong>.</p><p>If both <strong><span class="anno">Source</span></strong> and
+<strong><span class="anno">Destination</span></strong> refer to
+filenames, the files are opened with <strong>[read, binary]</strong>
+and <strong>[write, binary]</strong> prepended to their mode lists,
+respectively, to optimize the copy.</p><p>If <strong><span class="anno">Source</span></strong> refers to a filename, it is opened with
+<strong>read</strong> mode prepended to the mode list before the copy,
+and closed when done.</p><p>If <strong><span class="anno">Destination</span></strong> refers to a filename, it is opened
+with <strong>write</strong> mode prepended to the mode list before
+the copy, and closed when done.</p><p>Returns <strong>{ok, <span class="anno">BytesCopied</span>}</strong>, where
+<strong><span class="anno">BytesCopied</span></strong> is
+the number of bytes that was copied, which can be
+less than <strong><span class="anno">ByteCount</span></strong> if end of file was
+encountered on the source. If the operation fails,
+<strong>{error, <span class="anno">Reason</span>}</strong> is returned.</p><p>Typical error reasons: as for
+<a href="#open/2">open/2</a> if a file
+had to be opened, and as for
+<a href="#read/2">read/2</a> and
+<a href="#write/2">write/2</a>.</p><h2>datasync/1</h2><p>Synchronize the in-memory data of a file, ignoring most of its metadata, with that on the physical medium.</p><p>Ensures that any buffers kept by the operating system
+(not by the Erlang runtime system) are written to disk. In
+many ways it resembles <strong>fsync</strong> but it does not update
+some of the metadata of the file, such as the access time. On
+some platforms this function has no effect.</p><p>Applications that access databases or log files often write
+a tiny data fragment (for example, one line in a log file) and then
+call <strong>fsync()</strong> immediately to ensure that the written
+data is physically stored on the hard disk. Unfortunately, <strong>fsync()</strong>
+always initiates two write operations: one for the newly
+written data and another one to update the modification
+time stored in the <strong>inode</strong>. If the modification time is not a part
+of the transaction concept, <strong>fdatasync()</strong> can be used to avoid
+unnecessary <strong>inode</strong> disk write operations.</p><p>Available only in some POSIX systems, this call results in a
+call to <strong>fsync()</strong>, or has no effect in systems not providing
+the <strong>fdatasync()</strong> syscall.</p><h2>del_dir/1</h2><p>Delete a directory.</p><p>Tries to delete directory <strong><span class="anno">Dir</span></strong>.
+The directory must
+be empty before it can be deleted. Returns <strong>ok</strong> if
+successful.</p><p>Typical error reasons:</p><dl><dt><strong>eacces</strong></dt><dd> <p>Missing search or write permissions for the parent
+directories of <strong><span class="anno">Dir</span></strong>.</p> </dd><dt><strong>eexist</strong></dt><dd> <p>The directory is not empty.</p> </dd><dt><strong>enoent</strong></dt><dd> <p>The directory does not exist.</p> </dd><dt><strong>enotdir</strong></dt><dd> <p>A component of <strong><span class="anno">Dir</span></strong> is not a directory.
+On some platforms, <strong>enoent</strong> is returned instead.</p> </dd><dt><strong>einval</strong></dt><dd> <p>Attempt to delete the current directory. On some
+platforms, <strong>eacces</strong> is returned instead.</p> </dd></dl><h2>delete/1</h2><p>Delete a file.</p><p>Tries to delete file <strong><span class="anno">Filename</span></strong>.
+Returns <strong>ok</strong> if successful.</p><p>Typical error reasons:</p><dl><dt><strong>enoent</strong></dt><dd> <p>The file does not exist.</p> </dd><dt><strong>eacces</strong></dt><dd> <p>Missing permission for the file or one of its parents.</p> </dd><dt><strong>eperm</strong></dt><dd> <p>The file is a directory and the user is not superuser.</p> </dd><dt><strong>enotdir</strong></dt><dd> <p>A component of the filename is not a directory. On some
+platforms, <strong>enoent</strong> is returned instead.</p> </dd><dt><strong>einval</strong></dt><dd> <p><strong><span class="anno">Filename</span></strong> has an improper type, such as tuple.</p> </dd></dl><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>In a future release, a bad type for argument
+<strong><span class="anno">Filename</span></strong> will probably generate
+an exception.</p></div><h2>eval/1</h2><p>Evaluate Erlang expressions in a file.</p><p>Reads and evaluates Erlang expressions, separated by '.' (or
+',', a sequence of expressions is also an expression) from
+<strong><span class="anno">Filename</span></strong>. The result of the evaluation
+is not returned; any expression sequence in the file must be there
+for its side effect. Returns one of the following:</p><dl><dt><strong>ok</strong></dt><dd> <p>The file was read and evaluated.</p> </dd><dt><strong>{error, atom()}</strong></dt><dd> <p>An error occurred when opening the file or reading it.
+For a list of typical error codes, see
+<a href="#open/2">open/2</a>.</p> </dd><dt><strong>{error, {<span class="anno">Line</span>, <span class="anno">Mod</span>, <span class="anno">Term</span>}}</strong></dt><dd> <p>An error occurred when interpreting the Erlang
+expressions in the file. To convert the three-element tuple
+to an English description of the error, use
+<a href="#format_error/1">format_error/1</a>.</p> </dd></dl><p>The encoding of <strong><span class="anno">Filename</span></strong> can be set
+by a comment, as described in
+<a href="../stdlib/epp#encoding">stdlib/epp#encoding</a>.</p><h2>eval/2</h2><p>Evaluate Erlang expressions in a file.</p><p>The same as <strong>eval/1</strong>, but the variable bindings
+<strong><span class="anno">Bindings</span></strong> are used in the evaluation. For information
+about the variable bindings, see
+<a href="./erl_eval">stdlib/erl_eval</a>.</p><h2>format_error/1</h2><p>Return a descriptive string for an error reason.</p><p>Given the error reason returned by any function in this
+module, returns a descriptive string of the error in English.</p><h2>get_cwd/0</h2><p>Get the current working directory.</p><p>Returns <strong>{ok, <span class="anno">Dir</span>}</strong>, where <strong><span class="anno">Dir</span></strong>
+is the current
+working directory of the file server.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>In rare circumstances, this function can fail on Unix.
+It can occur if read permission does not exist for
+the parent directories of the current directory.</p></div><p>A typical error reason:</p><dl><dt><strong>eacces</strong></dt><dd> <p>Missing read permission for one of the parents of
+the current directory.</p> </dd></dl><h2>get_cwd/1</h2><p>Get the current working directory for the specified drive.</p><p>Returns <strong>{ok, <span class="anno">Dir</span>}</strong> or
+<strong>{error, <span class="anno">Reason</span>}</strong>, where <strong><span class="anno">Dir</span></strong>
+is the current working directory of the specified drive.</p><p><strong><span class="anno">Drive</span></strong> is to be of the form
+"<strong>Letter</strong><strong>:</strong>", for example, "c:".</p><p>Returns <strong>{error, enotsup}</strong> on platforms
+that have no concept of current drive (Unix, for example).</p><p>Typical error reasons:</p><dl><dt><strong>enotsup</strong></dt><dd> <p>The operating system has no concept of drives.</p> </dd><dt><strong>eacces</strong></dt><dd> <p>The drive does not exist.</p> </dd><dt><strong>einval</strong></dt><dd> <p>The format of <strong><span class="anno">Drive</span></strong> is invalid.</p> </dd></dl><h2>list_dir/1</h2><p>List files in a directory.</p><p>Lists all files in a directory, <em>except</em> files
+with raw filenames. Returns
+<strong>{ok, <span class="anno">Filenames</span>}</strong> if successful,
+otherwise <strong>{error, <span class="anno">Reason</span>}</strong>.
+<strong><span class="anno">Filenames</span></strong> is a list of
+the names of all the files in the directory. The names are
+not sorted.</p><p>Typical error reasons:</p><dl><dt><strong>eacces</strong></dt><dd> <p>Missing search or write permissions for <strong><span class="anno">Dir</span></strong>
+or one of its parent directories.</p> </dd><dt><strong>enoent</strong></dt><dd> <p>The directory does not exist.</p> </dd><dt><strong>{no_translation, <span class="anno">Filename</span>}</strong></dt><dd> <p><strong><span class="anno">Filename</span></strong> is a <strong>binary()</strong> with
+characters coded in ISO Latin-1 and the VM was started
+with parameter <strong>+fnue</strong>.</p> </dd></dl><h2>list_dir_all/1</h2><p>List all files in a directory.</p><p><a name="list_dir_all"></a>Lists all the files in a directory,
+including files with raw filenames.
+Returns <strong>{ok, <span class="anno">Filenames</span>}</strong> if successful,
+otherwise <strong>{error, <span class="anno">Reason</span>}</strong>.
+<strong><span class="anno">Filenames</span></strong> is a list of
+the names of all the files in the directory. The names are
+not sorted.</p><p>Typical error reasons:</p><dl><dt><strong>eacces</strong></dt><dd> <p>Missing search or write permissions for <strong><span class="anno">Dir</span></strong>
+or one of its parent directories.</p> </dd><dt><strong>enoent</strong></dt><dd> <p>The directory does not exist.</p> </dd></dl><h2>make_dir/1</h2><p>Make a directory.</p><p>Tries to create directory <strong><span class="anno">Dir</span></strong>. Missing parent
+directories are <em>not</em> created. Returns <strong>ok</strong> if
+successful.</p><p>Typical error reasons:</p><dl><dt><strong>eacces</strong></dt><dd> <p>Missing search or write permissions for the parent
+directories of <strong><span class="anno">Dir</span></strong>.</p> </dd><dt><strong>eexist</strong></dt><dd> <p>A file or directory named <strong><span class="anno">Dir</span></strong> exists already.</p> </dd><dt><strong>enoent</strong></dt><dd> <p>A component of <strong><span class="anno">Dir</span></strong> does not exist.</p> </dd><dt><strong>enospc</strong></dt><dd> <p>No space is left on the device.</p> </dd><dt><strong>enotdir</strong></dt><dd> <p>A component of <strong><span class="anno">Dir</span></strong> is not a directory.
+On some platforms, <strong>enoent</strong> is returned instead.</p> </dd></dl><h2>make_link/2</h2><p>Make a hard link to a file.</p><p>Makes a hard link from <strong><span class="anno">Existing</span></strong> to
+<strong><span class="anno">New</span></strong> on
+platforms supporting links (Unix and Windows). This function returns
+<strong>ok</strong> if the link was successfully created, otherwise
+<strong>{error, <span class="anno">Reason</span>}</strong>. On platforms not supporting
+links, <strong>{error,enotsup}</strong> is returned.</p><p>Typical error reasons:</p><dl><dt><strong>eacces</strong></dt><dd> <p>Missing read or write permissions for the parent
+directories of <strong><span class="anno">Existing</span></strong> or
+<strong><span class="anno">New</span></strong>.</p> </dd><dt><strong>eexist</strong></dt><dd> <p><strong><span class="anno">New</span></strong> already exists.</p> </dd><dt><strong>enotsup</strong></dt><dd> <p>Hard links are not supported on this platform.</p> </dd></dl><h2>make_symlink/2</h2><p>Make a symbolic link to a file or directory.</p><p>Creates a symbolic link <strong><span class="anno">New</span></strong> to
+the file or directory <strong><span class="anno">Existing</span></strong> on platforms
+supporting symbolic links (most Unix systems and Windows, beginning with
+Vista).
+<strong><span class="anno">Existing</span></strong> does not need to exist.
+Returns <strong>ok</strong> if the link is
+successfully created, otherwise <strong>{error, <span class="anno">Reason</span>}</strong>.
+On platforms not supporting symbolic links, <strong>{error, enotsup}</strong>
+is returned.</p><p>Typical error reasons:</p><dl><dt><strong>eacces</strong></dt><dd> <p>Missing read or write permissions for the parent directories
+of <strong><span class="anno">Existing</span></strong> or <strong><span class="anno">New</span></strong>.</p> </dd><dt><strong>eexist</strong></dt><dd> <p><strong><span class="anno">New</span></strong> already exists.</p> </dd><dt><strong>enotsup</strong></dt><dd> <p>Symbolic links are not supported on this platform.</p> </dd><dt><strong>eperm</strong></dt><dd> <p>User does not have privileges to create symbolic links
+(<strong>SeCreateSymbolicLinkPrivilege</strong> on Windows).</p> </dd></dl><h2>native_name_encoding/0</h2><p>Return the configured filename encoding of the VM.</p><p><a name="native_name_encoding"></a>Returns
+the filename encoding mode. If it is <strong>latin1</strong>, the
+system translates no filenames. If it is
+<strong>utf8</strong>, filenames are converted back and forth to
+the native filename encoding (usually UTF-8, but UTF-16 on
+Windows).</p><h2>open/2</h2><p>Open a file.</p><p>Opens file <strong><span class="anno">File</span></strong> in the mode determined
+by <strong><span class="anno">Modes</span></strong>, which can contain one or more of the
+following options:</p><dl><dt><strong>read</strong></dt><dd> <p>The file, which must exist, is opened for reading.</p> </dd><dt><strong>write</strong></dt><dd> <p>The file is opened for writing. It is created if it does
+not exist. If the file exists and <strong>write</strong> is not
+combined with <strong>read</strong>, the file is truncated.</p> </dd><dt><strong>append</strong></dt><dd> <p>The file is opened for writing. It is created if it does
+not exist. Every write operation to a file opened with
+<strong>append</strong> takes place at the end of the file.</p> </dd><dt><strong>exclusive</strong></dt><dd> <p>The file is opened for writing. It is created if it does
+not exist. If the file exists, <strong>{error, eexist}</strong>
+is returned.</p> <div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>This option does not guarantee exclusiveness on
+file systems not supporting <strong>O_EXCL</strong> properly,
+such as NFS. Do not depend on this option unless you
+know that the file system supports it (in general, local
+file systems are safe).</p></div> </dd><dt><strong>raw</strong></dt><dd> <p><a name="raw"></a>
+Allows faster access to a file,
+as no Erlang process is needed to handle the file.
+However, a file opened in this way has the following
+limitations:</p> <ul><li><p>The functions in the <strong>io</strong> module cannot be used,
+as they can only talk to an Erlang process.
+Instead, use functions
+<a href="#read/2">read/2</a>,
+<a href="#read_line/1">read_line/1</a>, and
+<a href="#write/2">write/2</a>.</p></li><li><p>Especially if <strong>read_line/1</strong> is to be used on a <strong>raw</strong>
+file, it is recommended to combine this option with option
+<strong>{read_ahead, Size}</strong> as line-oriented I/O is inefficient
+without buffering.</p></li><li><p>Only the Erlang process that opened the file can use
+it.</p></li><li><p>A remote Erlang file server cannot be used.
+The computer on which the Erlang node is running must
+have access to the file system (directly or through
+NFS).</p></li></ul> </dd><dt><strong>binary</strong></dt><dd> <p>Read operations on the file return binaries rather than lists.</p> </dd><dt><strong>{delayed_write, Size, Delay}</strong></dt><dd> <p>Data in subsequent
+<strong>write/2</strong> calls is buffered until at least
+<strong>Size</strong> bytes are buffered, or until the oldest buffered
+data is <strong>Delay</strong> milliseconds old. Then all buffered
+data is written in one operating system call.
+The buffered data is also flushed before some other file
+operation than <strong>write/2</strong> is executed.</p> <p>The purpose of this option is to increase performance
+by reducing the number of operating system calls. Thus, the
+<strong>write/2</strong> calls must be for sizes significantly
+less than <strong>Size</strong>, and not interspersed by too many
+other file operations.</p> <p>When this option is used, the result of <strong>write/2</strong>
+calls can prematurely be reported as successful, and if
+a write error occurs, the error is reported as the result
+of the next file operation, which is not executed.</p> <p>For example, when <strong>delayed_write</strong> is used, after a
+number of <strong>write/2</strong> calls, <strong>close/1</strong> can
+return <strong>{error, enospc}</strong>, as there is not enough
+space on the disc for previously written data.
+<strong>close/1</strong> must probably be called again, as the
+file is still open.</p> </dd><dt><strong>delayed_write</strong></dt><dd> <p>The same as <strong>{delayed_write, Size, Delay}</strong> with
+reasonable default values for <strong>Size</strong> and
+<strong>Delay</strong> (roughly some 64 KB, 2 seconds).</p> </dd><dt><strong>{read_ahead, Size}</strong></dt><dd> <p>Activates read data buffering. If
+<strong>read/2</strong> calls are for significantly less than
+<strong>Size</strong> bytes, read operations to the operating
+system are still performed for blocks of <strong>Size</strong>
+bytes. The extra data is buffered and returned in
+subsequent <strong>read/2</strong> calls, giving a performance gain
+as the number of operating system calls is reduced.</p> <p>The <strong>read_ahead</strong> buffer is also highly used
+by function <strong>read_line/1</strong> in <strong>raw</strong> mode,
+therefore this option is recommended
+(for performance reasons)
+when accessing raw files using that function.</p> <p>If <strong>read/2</strong> calls are for sizes not significantly
+less than, or even greater than <strong>Size</strong> bytes, no
+performance gain can be expected.</p> </dd><dt><strong>read_ahead</strong></dt><dd> <p>The same as <strong>{read_ahead, Size}</strong> with a reasonable
+default value for <strong>Size</strong> (roughly some 64 KB).</p> </dd><dt><strong>compressed</strong></dt><dd> <p>Makes it possible to read or write gzip compressed
+files. Option <strong>compressed</strong> must be combined
+with <strong>read</strong> or <strong>write</strong>, but not both.
+Notice that the file size obtained with
+<a href="#read_file_info/1">read_file_info/1</a>
+does probably not match the number of bytes that can be
+read from a compressed file.</p> </dd><dt><strong>{encoding, Encoding}</strong></dt><dd> <p>Makes the file perform automatic translation of characters to
+and from a specific (Unicode) encoding. Notice that the data supplied
+to
+<a href="#write/2">write/2</a>
+or returned by
+<a href="#read/2">read/2</a>
+still is byte-oriented; this option
+denotes only how data is stored in the disk file.</p> <p>Depending on the encoding, different methods of reading and writing
+data is preferred. The default encoding of <strong>latin1</strong> implies using
+this module (<strong>file</strong>) for reading and writing data as the interfaces
+provided here work with byte-oriented data. Using other (Unicode)
+encodings makes the
+<a href="./io">stdlib/io</a> functions
+<strong>get_chars</strong>, <strong>get_line</strong>, and <strong>put_chars</strong> more suitable,
+as they can work with the full Unicode range.</p> <p>If data is sent to an <strong>io_device()</strong> in a format that cannot be
+converted to the specified encoding, or if data is read by a function
+that returns data in a format that cannot cope with the character range
+of the data, an error occurs and the file is closed.</p> <p>Allowed values for <strong>Encoding</strong>:</p> <dl><dt><strong>latin1</strong></dt><dd> <p>The default encoding. Bytes supplied to the file, that is,
+<a href="#write/2">write/2</a>
+are written "as is" on the file. Likewise, bytes read from the file,
+that is,
+<a href="#read/2">read/2</a> are
+returned "as is". If module
+<a href="./io">stdlib/io</a> is used for
+writing, the file can only cope with Unicode characters up to code point
+255 (the ISO Latin-1 range).</p> </dd><dt><strong>unicode or utf8</strong></dt><dd> <p>Characters are translated to and from UTF-8 encoding before they are
+written to or read from the file. A file opened in this way can be
+readable using function
+<a href="#read/2">read/2</a>,
+as long as no data stored on
+the file lies beyond the ISO Latin-1 range (0..255), but failure occurs
+if the data contains Unicode code points beyond that range. The file is
+best read with the functions in the Unicode aware module
+<a href="./io">stdlib/io</a>.</p> <p>Bytes written to the file by any means are translated to UTF-8 encoding
+before being stored on the disk file.</p> </dd><dt><strong>utf16 or {utf16,big}</strong></dt><dd> <p>Works like <strong>unicode</strong>, but translation is done to and from big
+endian UTF-16 instead of UTF-8.</p> </dd><dt><strong>{utf16,little}</strong></dt><dd> <p>Works like <strong>unicode</strong>, but translation is done to and from little
+endian UTF-16 instead of UTF-8.</p> </dd><dt><strong>utf32 or {utf32,big}</strong></dt><dd> <p>Works like <strong>unicode</strong>, but translation is done to and from big
+endian UTF-32 instead of UTF-8.</p> </dd><dt><strong>{utf32,little}</strong></dt><dd> <p>Works like <strong>unicode</strong>, but translation is done to and from little
+endian UTF-32 instead of UTF-8.</p> </dd></dl> <p>The Encoding can be changed for a file "on the fly" by using function
+<a href="../stdlib/io#setopts/2">stdlib/io#setopts/2</a>.
+So a file can be analyzed in latin1 encoding for, for example, a BOM,
+positioned beyond the BOM and then be set for the right encoding before
+further reading. For functions identifying BOMs, see module
+<a href="./unicode">stdlib/unicode</a>. </p> <p>This option is not allowed on <strong>raw</strong> files.</p> </dd><dt><strong>ram</strong></dt><dd> <p><strong>File</strong> must be <strong>iodata()</strong>. Returns an <strong>fd()</strong>, which lets
+module <strong>file</strong> operate on the data in-memory as if it is a file.</p> </dd><dt><strong>sync</strong></dt><dd> <p>On platforms supporting it, enables the POSIX <strong>O_SYNC</strong> synchronous
+I/O flag or its platform-dependent equivalent (for example,
+<strong>FILE_FLAG_WRITE_THROUGH</strong> on Windows) so that writes to the file
+block until the data is physically written to disk. However, be aware
+that the exact semantics of this flag differ from platform to
+platform. For example, none of Linux or Windows guarantees that all file
+metadata are also written before the call returns. For precise semantics,
+check the details of your platform documentation. On platforms with no
+support for POSIX <strong>O_SYNC</strong> or equivalent, use of the <strong>sync</strong>
+flag causes <strong>open</strong> to return <strong>{error, enotsup}</strong>.</p> </dd></dl><p>Returns:</p><dl><dt><strong>{ok, <span class="anno">IoDevice</span>}</strong></dt><dd> <p>The file is opened in the requested mode.
+<strong><span class="anno">IoDevice</span></strong> is a reference to the file.</p> </dd><dt><strong>{error, <span class="anno">Reason</span>}</strong></dt><dd> <p>The file cannot be opened.</p> </dd></dl><p><strong><span class="anno">IoDevice</span></strong> is really the pid of the process that
+handles the file. This process is linked to the process
+that originally opened the file. If any process to which
+the <strong><span class="anno">IoDevice</span></strong> is linked terminates, the file is
+closed and the process itself is terminated.
+An <strong><span class="anno">IoDevice</span></strong> returned from this call can be used
+as an argument to the I/O functions (see
+<a href="./io">stdlib/io</a>).</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>In previous versions of <strong>file</strong>, modes were specified
+as one of the atoms <strong>read</strong>, <strong>write</strong>, or
+<strong>read_write</strong> instead of a list. This is still allowed
+for reasons of backwards compatibility, but is not to be
+used for new code. Also note that <strong>read_write</strong> is not
+allowed in a mode list.</p></div><p>Typical error reasons:</p><dl><dt><strong>enoent</strong></dt><dd> <p>The file does not exist.</p> </dd><dt><strong>eacces</strong></dt><dd> <p>Missing permission for reading the file or searching one
+of the parent directories.</p> </dd><dt><strong>eisdir</strong></dt><dd> <p>The named file is a directory.</p> </dd><dt><strong>enotdir</strong></dt><dd> <p>A component of the filename is not a directory. On some
+platforms, <strong>enoent</strong> is returned instead.</p> </dd><dt><strong>enospc</strong></dt><dd> <p>There is no space left on the device (if <strong>write</strong>
+access was specified).</p> </dd></dl><h2>path_consult/2</h2><p>Read Erlang terms from a file.</p><p>Searches the path <strong><span class="anno">Path</span></strong> (a list of directory
+names) until the file <strong><span class="anno">Filename</span></strong> is found.
+If <strong><span class="anno">Filename</span></strong>
+is an absolute filename, <strong><span class="anno">Path</span></strong> is ignored.
+Then reads Erlang terms, separated by '.', from the file.</p><p>Returns one of the following:</p><dl><dt><strong>{ok, <span class="anno">Terms</span>, <span class="anno">FullName</span>}</strong></dt><dd> <p>The file is successfully read. <strong><span class="anno">FullName</span></strong> is
+the full name of the file.</p> </dd><dt><strong>{error, enoent}</strong></dt><dd> <p>The file cannot be found in any of the directories in
+<strong><span class="anno">Path</span></strong>.</p> </dd><dt><strong>{error, atom()}</strong></dt><dd> <p>An error occurred when opening the file or reading it.
+For a list of typical error codes, see
+<a href="#open/2">open/2</a>.</p> </dd><dt><strong>{error, {<span class="anno">Line</span>, <span class="anno">Mod</span>, <span class="anno">Term</span>}}</strong></dt><dd> <p>An error occurred when interpreting the Erlang terms in
+the file. Use
+<a href="#format_error/1">format_error/1</a>
+to convert the three-element tuple to an English description of
+the error.</p> </dd></dl><p>The encoding of <strong><span class="anno">Filename</span></strong> can be set
+by a comment as described in
+<a href="../stdlib/epp#encoding">stdlib/epp#encoding</a>.</p><h2>path_eval/2</h2><p>Evaluate Erlang expressions in a file.</p><p>Searches the path <strong><span class="anno">Path</span></strong> (a list of directory
+names) until the file <strong><span class="anno">Filename</span></strong> is found.
+If <strong><span class="anno">Filename</span></strong> is an absolute filename,
+<strong><span class="anno">Path</span></strong> is ignored. Then reads
+and evaluates Erlang expressions, separated by '.' (or ',', a
+sequence of expressions is also an expression), from the file.
+The result of evaluation is not returned; any
+expression sequence in the file must be there for its side
+effect.</p><p>Returns one of the following:</p><dl><dt><strong>{ok, <span class="anno">FullName</span>}</strong></dt><dd> <p>The file is read and evaluated. <strong><span class="anno">FullName</span></strong> is
+the full name of the file.</p> </dd><dt><strong>{error, enoent}</strong></dt><dd> <p>The file cannot be found in any of the directories in
+<strong><span class="anno">Path</span></strong>.</p> </dd><dt><strong>{error, atom()}</strong></dt><dd> <p>An error occurred when opening the file or reading it.
+For a list of typical error codes, see
+<a href="#open/2">open/2</a>.</p> </dd><dt><strong>{error, {<span class="anno">Line</span>, <span class="anno">Mod</span>, <span class="anno">Term</span>}}</strong></dt><dd> <p>An error occurred when interpreting the Erlang
+expressions in the file. Use
+<a href="#format_error/1">format_error/1</a>
+to convert the three-element tuple to an English description
+of the error.</p> </dd></dl><p>The encoding of <strong><span class="anno">Filename</span></strong> can be set
+by a comment as described in
+<a href="../stdlib/epp#encoding">stdlib/epp#encoding</a>.</p><h2>path_open/3</h2><p>Open a file.</p><p>Searches the path <strong><span class="anno">Path</span></strong> (a list of directory
+names) until the file <strong><span class="anno">Filename</span></strong> is found.
+If <strong><span class="anno">Filename</span></strong>
+is an absolute filename, <strong><span class="anno">Path</span></strong> is ignored.
+Then opens the file in the mode determined by <strong><span class="anno">Modes</span></strong>.</p><p>Returns one of the following:</p><dl><dt><strong>{ok, <span class="anno">IoDevice</span>, <span class="anno">FullName</span>}</strong></dt><dd> <p>The file is opened in the requested mode.
+<strong><span class="anno">IoDevice</span></strong> is a reference to the file and
+<strong><span class="anno">FullName</span></strong> is the full name of the file.</p> </dd><dt><strong>{error, enoent}</strong></dt><dd> <p>The file cannot be found in any of the directories in
+<strong><span class="anno">Path</span></strong>.</p> </dd><dt><strong>{error, atom()}</strong></dt><dd> <p>The file cannot be opened.</p> </dd></dl><h2>path_script/2</h2><p>Evaluate and return the value of Erlang expressions in a file.</p><p>Searches the path <strong><span class="anno">Path</span></strong> (a list of directory
+names) until the file <strong><span class="anno">Filename</span></strong> is found.
+If <strong><span class="anno">Filename</span></strong> is an absolute filename,
+<strong><span class="anno">Path</span></strong> is ignored. Then reads
+and evaluates Erlang expressions, separated by '.' (or ',', a
+sequence of expressions is also an expression), from the file.</p><p>Returns one of the following:</p><dl><dt><strong>{ok, <span class="anno">Value</span>, <span class="anno">FullName</span>}</strong></dt><dd> <p>The file is read and evaluated. <strong><span class="anno">FullName</span></strong> is
+the full name of the file and <strong><span class="anno">Value</span></strong> the value of
+the last expression.</p> </dd><dt><strong>{error, enoent}</strong></dt><dd> <p>The file cannot be found in any of the directories in
+<strong><span class="anno">Path</span></strong>.</p> </dd><dt><strong>{error, atom()}</strong></dt><dd> <p>An error occurred when opening the file or reading it.
+For a list of typical error codes, see
+<a href="#open/2">open/2</a>.</p> </dd><dt><strong>{error, {<span class="anno">Line</span>, <span class="anno">Mod</span>, <span class="anno">Term</span>}}</strong></dt><dd> <p>An error occurred when interpreting the Erlang
+expressions in the file. Use
+<a href="#format_error/1">format_error/1</a>
+to convert the three-element tuple to an English description
+of the error.</p> </dd></dl><p>The encoding of <strong><span class="anno">Filename</span></strong> can be set
+by a comment as described in
+<a href="../stdlib/epp#encoding">stdlib/epp#encoding</a>.</p><h2>path_script/3</h2><p>Evaluate and return the value of Erlang expressions in a file.</p><p>The same as <strong>path_script/2</strong> but the variable bindings
+<strong><span class="anno">Bindings</span></strong> are used in the evaluation. See
+<a href="./erl_eval">stdlib/erl_eval</a> about
+variable bindings.</p><h2>pid2name/1</h2><p>Return the name of the file handled by a pid.</p><p>If <strong><span class="anno">Pid</span></strong> is an I/O device, that is, a pid returned from
+<strong>open/2</strong>, this function returns the filename, or rather:</p><dl><dt><strong>{ok, <span class="anno">Filename</span>}</strong></dt><dd> <p>If the file server of this node is not a slave, the file was
+opened by the file server of this node (this implies that
+<strong><span class="anno">Pid</span></strong> must be a local pid) and the file is not
+closed. <strong><span class="anno">Filename</span></strong> is the filename in flat string
+format.</p> </dd><dt><strong>undefined</strong></dt><dd> <p>In all other cases.</p> </dd></dl><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>This function is intended for debugging only.</p></div><h2>position/2</h2><p>Set position in a file.</p><p>Sets the position of the file referenced by <strong><span class="anno">IoDevice</span></strong>
+to <strong><span class="anno">Location</span></strong>. Returns <strong>{ok, <span class="anno">NewPosition</span>}</strong>
+(as absolute offset) if successful, otherwise
+<strong>{error, <span class="anno">Reason</span>}</strong>. <strong><span class="anno">Location</span></strong> is
+one of the following:</p><dl><dt><strong>Offset</strong></dt><dd> <p>The same as <strong>{bof, Offset}</strong>.</p> </dd><dt><strong>{bof, Offset}</strong></dt><dd> <p>Absolute offset.</p> </dd><dt><strong>{cur, Offset}</strong></dt><dd> <p>Offset from the current position.</p> </dd><dt><strong>{eof, Offset}</strong></dt><dd> <p>Offset from the end of file.</p> </dd><dt><strong>bof | cur | eof</strong></dt><dd> <p>The same as above with <strong>Offset</strong> 0.</p> </dd></dl><p>Notice that offsets are counted in bytes, not in characters. If the file
+is opened using some other <strong>encoding</strong> than <strong>latin1</strong>, one byte
+does not correspond to one character. Positioning in such a file can only
+be done to known character boundaries. That is, to a position earlier retrieved
+by getting a current position, to the beginning/end of the file or to some
+other position <em>known</em> to be on a correct character boundary by some
+other means (typically beyond a byte order mark in the file, which has a
+known byte-size).</p><p>A typical error reason is:</p><dl><dt><strong>einval</strong></dt><dd> <p>Either <strong><span class="anno">Location</span></strong> is illegal, or it is
+evaluated to a
+negative offset in the file. Notice that if the resulting
+position is a negative value, the result is an error, and
+after the call the file position is undefined.</p> </dd></dl><h2>pread/2</h2><p>Read from a file at certain positions.</p><p>Performs a sequence of <strong>pread/3</strong> in one operation, 
+which is more efficient than calling them one at a time.
+Returns <strong>{ok, [<span class="anno">Data</span>, ...]}</strong> or
+<strong>{error, <span class="anno">Reason</span>}</strong>,
+where each <strong><span class="anno">Data</span></strong>, the result of the corresponding
+<strong>pread</strong>, is either a list or a binary depending on
+the mode of the file, or <strong>eof</strong> if the requested position
+is beyond end of file.</p><p>As the position is specified as a byte-offset, take special caution
+when working with files where <strong>encoding</strong> is set to something else
+than <strong>latin1</strong>, as not every byte position is a valid character
+boundary on such a file.</p><h2>pread/3</h2><p>Read from a file at a certain position.</p><p>Combines <strong>position/2</strong> and <strong>read/2</strong> in one
+operation, which is more efficient than calling them one at a
+time. If <strong><span class="anno">IoDevice</span></strong> is opened in <strong>raw</strong> mode,
+some restrictions apply:</p><ul><li><strong><span class="anno">Location</span></strong> is only allowed to be an integer.</li><li>The current position of the file is undefined after the operation.</li></ul><p>As the position is specified as a byte-offset, take special caution
+when working with files where <strong>encoding</strong> is set to something else
+than <strong>latin1</strong>, as not every byte position is a valid character
+boundary on such a file.</p><h2>pwrite/2</h2><p>Write to a file at certain positions.</p><p>Performs a sequence of <strong>pwrite/3</strong> in one operation, 
+which is more efficient than calling them one at a time.
+Returns <strong>ok</strong> or <strong>{error, {<span class="anno">N</span>, <span class="anno">Reason</span>}}</strong>, where
+<strong><span class="anno">N</span></strong> is the number of successful writes done
+before the failure.</p><p>When positioning in a file with other <strong>encoding</strong> than <strong>latin1</strong>,
+caution must be taken to set the position on a correct character boundary.
+For details, see <a href="#position/2">position/2</a>.</p><h2>pwrite/3</h2><p>Write to a file at a certain position.</p><p>Combines <strong>position/2</strong> and <strong>write/2</strong> in one
+operation, which is more efficient than calling them one at a
+time. If <strong><span class="anno">IoDevice</span></strong> has been opened in <strong>raw</strong> mode,
+some restrictions apply:</p><ul><li><strong><span class="anno">Location</span></strong> is only allowed to be an integer.</li><li>The current position of the file is undefined after the operation.</li></ul><p>When positioning in a file with other <strong>encoding</strong> than <strong>latin1</strong>,
+caution must be taken to set the position on a correct character boundary.
+For details, see <a href="#position/2">position/2</a>.</p><h2>read/2</h2><p>Read from a file.</p><p>Reads <strong><span class="anno">Number</span></strong> bytes/characters from the file
+referenced by <strong><span class="anno">IoDevice</span></strong>. The functions
+<a href="#read/2">read/2</a>,
+<a href="#pread/3">pread/3</a>, and
+<a href="#read_line/1">read_line/1</a>
+are the only ways to read from a file opened in <strong>raw</strong> mode
+(although they work for normally opened files, too).</p><p>For files where <strong>encoding</strong> is set to something else than <strong>latin1</strong>,
+one character can be represented by more than one byte on the file.
+The parameter <strong>Number</strong> always denotes the number of <em>characters</em>
+read from the file, while the position in the file can be moved much more than
+this number when reading a Unicode file.</p><p>Also, if <strong>encoding</strong> is set to something else than <strong>latin1</strong>,
+the <strong>read/3</strong> call fails if the data contains characters larger than 255,
+which is why module <a href="./io">stdlib/io</a>
+is to be preferred when reading such a file.</p><p>The function returns:</p><dl><dt><strong>{ok, <span class="anno">Data</span>}</strong></dt><dd> <p>If the file was opened in binary mode, the read bytes are
+returned in a binary, otherwise in a list. The list or
+binary is shorter than the number of bytes requested
+if end of file was reached.</p> </dd><dt><strong>eof</strong></dt><dd> <p>Returned if <strong><span class="anno">Number</span>&gt;0</strong> and end of file was
+reached before anything at all could be read.</p> </dd><dt><strong>{error, <span class="anno">Reason</span>}</strong></dt><dd> <p>An error occurred.</p> </dd></dl><p>Typical error reasons:</p><dl><dt><strong>ebadf</strong></dt><dd> <p>The file is not opened for reading.</p> </dd><dt><strong>{no_translation, unicode, latin1}</strong></dt><dd> <p>The file is opened with another <strong>encoding</strong> than <strong>latin1</strong> and
+the data in the file cannot be translated to the byte-oriented data that
+this function returns.</p> </dd></dl><h2>read_file/1</h2><p>Read a file.</p><p>Returns <strong>{ok, <span class="anno">Binary</span>}</strong>, where
+<strong><span class="anno">Binary</span></strong> is a binary
+data object that contains the contents of
+<strong><span class="anno">Filename</span></strong>, or
+<strong>{error, <span class="anno">Reason</span>}</strong> if an error occurs.</p><p>Typical error reasons:</p><dl><dt><strong>enoent</strong></dt><dd> <p>The file does not exist.</p> </dd><dt><strong>eacces</strong></dt><dd> <p>Missing permission for reading the file, or for
+searching one of the parent directories.</p> </dd><dt><strong>eisdir</strong></dt><dd> <p>The named file is a directory.</p> </dd><dt><strong>enotdir</strong></dt><dd> <p>A component of the filename is not a directory. On some
+platforms, <strong>enoent</strong> is returned instead.</p> </dd><dt><strong>enomem</strong></dt><dd> <p>There is not enough memory for the contents of the file.</p> </dd></dl><h2>read_file_info/1</h2><h2>read_file_info/2</h2><p>Retrieve information about a file.</p><p>Retrieves information about a file. Returns
+<strong>{ok, <span class="anno">FileInfo</span>}</strong> if successful, otherwise
+<strong>{error, <span class="anno">Reason</span>}</strong>. <strong><span class="anno">FileInfo</span></strong>
+is a record
+<strong>file_info</strong>, defined in the Kernel include file
+<strong>file.hrl</strong>. Include the following directive in the module
+from which the function is called:</p><pre><code class="">
+ -include_lib("kernel/include/file.hrl").</code></pre><p>The time type returned in <strong>atime</strong>, <strong>mtime</strong>, and <strong>ctime</strong>
+is dependent on the time type set in <strong>Opts :: {time, Type}</strong> as
+follows:</p><dl><dt><strong>local</strong></dt><dd><p>Returns local time.</p></dd><dt><strong>universal</strong></dt><dd><p>Returns universal time.</p></dd><dt><strong>posix</strong></dt><dd><p>Returns seconds since or before Unix time epoch,
+which is 1970-01-01 00:00 UTC.</p></dd></dl><p>Default is <strong>{time, local}</strong>.</p><p>If the option <strong>raw</strong> is set, the file server is not called and
+only information about local files is returned. Note that this will
+break this module's atomicity guarantees as it can race with a
+concurrent call to
+<a href="#write_file_info/2">write_file_info/2</a></p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>As file times are stored in POSIX time on most OS, it is faster to
+query file information with option <strong>posix</strong>.</p></div><p>The record <strong>file_info</strong> contains the following fields:</p><dl><dt><strong>size = integer() &gt;= 0</strong></dt><dd> <p>Size of file in bytes.</p> </dd><dt><strong>type = device | directory | other | regular | symlink</strong></dt><dd> <p>The type of the file.</p> </dd><dt><strong>access = read | write | read_write | none</strong></dt><dd> <p>The current system access to the file.</p> </dd><dt><strong>atime = </strong> <a href="#type-date_time">type-date_time</a><strong> | integer() &gt;= 0</strong></dt><dd> <p>The last time the file was read.</p> </dd><dt><strong>mtime = </strong> <a href="#type-date_time">type-date_time</a><strong> | integer() &gt;= 0</strong></dt><dd> <p>The last time the file was written.</p> </dd><dt><strong>ctime = </strong> <a href="#type-date_time">type-date_time</a><strong> | integer() &gt;=0</strong></dt><dd> <p>The interpretation of this time field depends on
+the operating system. On Unix, it is the last time
+the file or the <strong>inode</strong> was changed. In Windows, it is
+the create time.</p> </dd><dt><strong>mode = integer() &gt;= 0</strong></dt><dd> <p>The file permissions as the sum of the following bit
+values:</p> <dl><dt><strong>8#00400</strong></dt><dd><p>read permission: owner</p></dd><dt><strong>8#00200</strong></dt><dd><p>write permission: owner</p></dd><dt><strong>8#00100</strong></dt><dd><p>execute permission: owner</p></dd><dt><strong>8#00040</strong></dt><dd><p>read permission: group</p></dd><dt><strong>8#00020</strong></dt><dd><p>write permission: group</p></dd><dt><strong>8#00010</strong></dt><dd><p>execute permission: group</p></dd><dt><strong>8#00004</strong></dt><dd><p>read permission: other</p></dd><dt><strong>8#00002</strong></dt><dd><p>write permission: other</p></dd><dt><strong>8#00001</strong></dt><dd><p>execute permission: other</p></dd><dt><strong>16#800</strong></dt><dd><p>set user id on execution</p></dd><dt><strong>16#400</strong></dt><dd><p>set group id on execution</p></dd></dl> <p>On Unix platforms, other bits than those listed above
+may be set.</p> </dd><dt><strong>links = integer() &gt;= 0</strong></dt><dd> <p>Number of links to the file (this is always 1 for
+file systems that have no concept of links).</p> </dd><dt><strong>major_device = integer() &gt;= 0</strong></dt><dd> <p>Identifies the file system where the file is located.
+In Windows, the number indicates a drive as follows:
+0 means A:, 1 means B:, and so on.</p> </dd><dt><strong>minor_device = integer() &gt;= 0</strong></dt><dd> <p>Only valid for character devices on Unix. In all other
+cases, this field is zero.</p> </dd><dt><strong>inode = integer() &gt;= 0</strong></dt><dd> <p>Gives the <strong>inode</strong> number. On non-Unix file systems,
+this field is zero.</p> </dd><dt><strong>uid = integer() &gt;= 0</strong></dt><dd> <p>Indicates the owner of the file. On non-Unix file systems,
+this field is zero.</p> </dd><dt><strong>gid = integer() &gt;= 0</strong></dt><dd> <p>Gives the group that the owner of the file belongs to.
+On non-Unix file systems, this field is zero.</p> </dd></dl><p>Typical error reasons:</p><dl><dt><strong>eacces</strong></dt><dd> <p>Missing search permission for one of the parent
+directories of the file.</p> </dd><dt><strong>enoent</strong></dt><dd> <p>The file does not exist.</p> </dd><dt><strong>enotdir</strong></dt><dd> <p>A component of the filename is not a directory. On some
+platforms, <strong>enoent</strong> is returned instead.</p> </dd></dl><h2>read_line/1</h2><p>Read a line from a file.</p><p>Reads a line of bytes/characters from the file referenced by
+<strong><span class="anno">IoDevice</span></strong>. Lines are defined to be delimited by the
+linefeed (LF, <strong>\n</strong>) character, but any carriage return (CR, <strong>\r</strong>)
+followed by a newline is also treated as a single LF character (the carriage
+return is silently ignored). The line is returned <em>including</em> the LF,
+but excluding any CR immediately followed by an LF. This behaviour is
+consistent with the behaviour of
+<a href="../stdlib/io#get_line/2">stdlib/io#get_line/2</a>.
+If end of file is reached without any LF ending the last line, a line with no
+trailing LF is returned.</p><p>The function can be used on files opened in <strong>raw</strong> mode. However, it is
+inefficient to use it on <strong>raw</strong> files if the file is not opened with
+option <strong>{read_ahead, Size}</strong> specified. Thus, combining <strong>raw</strong> and
+<strong>{read_ahead, Size}</strong> is highly recommended when opening a text file for
+raw line-oriented reading.</p><p>If <strong>encoding</strong> is set to something else than <strong>latin1</strong>, the
+<strong>read_line/1</strong> call fails if the data contains characters larger than 255,
+why module <a href="./io">stdlib/io</a> is to be
+preferred when reading such a file.</p><p>The function returns:</p><dl><dt><strong>{ok, <span class="anno">Data</span>}</strong></dt><dd> <p>One line from the file is returned, including the trailing LF,
+but with CRLF sequences replaced by a single LF (see above).</p> <p>If the file is opened in binary mode, the read bytes are
+returned in a binary, otherwise in a list.</p> </dd><dt><strong>eof</strong></dt><dd> <p>Returned if end of file was reached
+before anything at all could be read.</p> </dd><dt><strong>{error, <span class="anno">Reason</span>}</strong></dt><dd> <p>An error occurred.</p> </dd></dl><p>Typical error reasons:</p><dl><dt><strong>ebadf</strong></dt><dd> <p>The file is not opened for reading.</p> </dd><dt><strong>{no_translation, unicode, latin1}</strong></dt><dd> <p>The file is opened with another <strong>encoding</strong> than <strong>latin1</strong> and
+the data on the file cannot be translated to the byte-oriented data that
+this function returns.</p> </dd></dl><h2>read_link/1</h2><p>See what a link is pointing to.</p><p><a name="read_link_all"></a>Returns
+<strong>{ok, <span class="anno">Filename</span>}</strong> if
+<strong><span class="anno">Name</span></strong> refers to a symbolic link that is
+not a raw filename, or <strong>{error, <span class="anno">Reason</span>}</strong>
+otherwise.
+On platforms that do not support symbolic links, the return
+value is <strong>{error,enotsup}</strong>.</p><p>Typical error reasons:</p><dl><dt><strong>einval</strong></dt><dd> <p><strong><span class="anno">Name</span></strong> does not refer to a symbolic link
+or the name of the file that it refers to does not conform
+to the expected encoding.</p> </dd><dt><strong>enoent</strong></dt><dd> <p>The file does not exist.</p> </dd><dt><strong>enotsup</strong></dt><dd> <p>Symbolic links are not supported on this platform.</p> </dd></dl><h2>read_link_all/1</h2><p>See what a link is pointing to.</p><p>Returns <strong>{ok, <span class="anno">Filename</span>}</strong> if
+<strong><span class="anno">Name</span></strong> refers to a symbolic link or
+<strong>{error, <span class="anno">Reason</span>}</strong> otherwise.
+On platforms that do not support symbolic links, the return
+value is <strong>{error,enotsup}</strong>.</p><p>Notice that <strong><span class="anno">Filename</span></strong> can be either a list
+or a binary.</p><p>Typical error reasons:</p><dl><dt><strong>einval</strong></dt><dd> <p><strong><span class="anno">Name</span></strong> does not refer to a symbolic link.</p> </dd><dt><strong>enoent</strong></dt><dd> <p>The file does not exist.</p> </dd><dt><strong>enotsup</strong></dt><dd> <p>Symbolic links are not supported on this platform.</p> </dd></dl><h2>read_link_info/1</h2><h2>read_link_info/2</h2><p>Retrieve information about a link or file.</p><p>Works like
+<a href="#read_file_info/2">read_file_info/2</a>
+except that if <strong><span class="anno">Name</span></strong> is a symbolic link, information
+about the link is returned in the <strong>file_info</strong> record and
+the <strong>type</strong> field of the record is set to <strong>symlink</strong>.</p><p>If the option <strong>raw</strong> is set, the file server is not called and
+only information about local files is returned. Note that this will
+break this module's atomicity guarantees as it can race with a
+concurrent call to
+<a href="#write_file_info/2">write_file_info/2</a></p><p>If <strong><span class="anno">Name</span></strong> is not a symbolic link, this function returns
+the same result as <strong>read_file_info/1</strong>.
+On platforms that do not support symbolic links, this function
+is always equivalent to <strong>read_file_info/1</strong>.</p><h2>rename/2</h2><p>Rename a file.</p><p>Tries to rename the file <strong><span class="anno">Source</span></strong> to
+<strong><span class="anno">Destination</span></strong>.
+It can be used to move files (and directories) between
+directories, but it is not sufficient to specify
+the destination only. The destination filename must also be
+specified. For example, if <strong>bar</strong> is a normal file and
+<strong>foo</strong> and <strong>baz</strong> are directories,
+<strong>rename("foo/bar", "baz")</strong> returns an error, but
+<strong>rename("foo/bar", "baz/bar")</strong> succeeds. Returns
+<strong>ok</strong> if it is successful.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Renaming of open files is not allowed on most platforms
+(see <strong>eacces</strong> below).</p></div><p>Typical error reasons:</p><dl><dt><strong>eacces</strong></dt><dd> <p>Missing read or write permissions for the parent
+directories of <strong><span class="anno">Source</span></strong> or
+<strong><span class="anno">Destination</span></strong>. On
+some platforms, this error is given if either
+<strong><span class="anno">Source</span></strong> or <strong><span class="anno">Destination</span></strong>
+is open.</p> </dd><dt><strong>eexist</strong></dt><dd> <p><strong><span class="anno">Destination</span></strong> is not an empty directory.
+On some platforms, also given when <strong><span class="anno">Source</span></strong> and
+<strong><span class="anno">Destination</span></strong> are not of the same type.</p> </dd><dt><strong>einval</strong></dt><dd> <p><strong><span class="anno">Source</span></strong> is a root directory, or
+<strong><span class="anno">Destination</span></strong>
+is a subdirectory of <strong><span class="anno">Source</span></strong>.</p> </dd><dt><strong>eisdir</strong></dt><dd> <p><strong><span class="anno">Destination</span></strong> is a directory, but
+<strong><span class="anno">Source</span></strong> is not.</p> </dd><dt><strong>enoent</strong></dt><dd> <p><strong>Source</strong> does not exist.</p> </dd><dt><strong>enotdir</strong></dt><dd> <p><strong><span class="anno">Source</span></strong> is a directory, but
+<strong><span class="anno">Destination</span></strong> is not.</p> </dd><dt><strong>exdev</strong></dt><dd> <p><strong><span class="anno">Source</span></strong> and <strong><span class="anno">Destination</span></strong>
+are on different file systems.</p> </dd></dl><h2>script/1</h2><p>Evaluate and return the value of Erlang expressions in a file.</p><p>Reads and evaluates Erlang expressions, separated by '.' (or
+',', a sequence of expressions is also an expression), from
+the file.</p><p>Returns one of the following:</p><dl><dt><strong>{ok, <span class="anno">Value</span>}</strong></dt><dd> <p>The file is read and evaluated. <strong><span class="anno">Value</span></strong> is
+the value of the last expression.</p> </dd><dt><strong>{error, atom()}</strong></dt><dd> <p>An error occurred when opening the file or reading it.
+For a list of typical error codes, see
+<a href="#open/2">open/2</a>.</p> </dd><dt><strong>{error, {<span class="anno">Line</span>, <span class="anno">Mod</span>, <span class="anno">Term</span>}}</strong></dt><dd> <p>An error occurred when interpreting the Erlang
+expressions in the file. Use
+<a href="#format_error/1">format_error/1</a>
+to convert the three-element tuple to an English description
+of the error.</p> </dd></dl><p>The encoding of <strong><span class="anno">Filename</span></strong> can be set
+by a comment as described in
+<a href="../stdlib/epp#encoding">stdlib/epp#encoding</a>.</p><h2>script/2</h2><p>Evaluate and return the value of Erlang expressions in a file.</p><p>The same as <strong>script/1</strong> but the variable bindings
+<strong><span class="anno">Bindings</span></strong> are used in the evaluation. See
+<a href="./erl_eval">stdlib/erl_eval</a> about
+variable bindings.</p><h2>sendfile/2</h2><p>Send a file to a socket.</p><p>Sends the file <strong>Filename</strong> to <strong>Socket</strong>.
+Returns <strong>{ok, BytesSent}</strong> if successful,
+otherwise <strong>{error, Reason}</strong>.</p><h2>sendfile/5</h2><p>Send a file to a socket.</p><ul><li>sendfile_option</li></ul><p>Sends <strong>Bytes</strong> from the file
+referenced by <strong>RawFile</strong> beginning at <strong>Offset</strong> to
+<strong>Socket</strong>.
+Returns <strong>{ok, BytesSent}</strong> if successful,
+otherwise <strong>{error, Reason}</strong>. If <strong>Bytes</strong> is set to
+<strong>0</strong> all data after the specified <strong>Offset</strong> is sent.</p><p>The file used must be opened using the <strong>raw</strong> flag, and the process
+calling <strong>sendfile</strong> must be the controlling process of the socket.
+See <a href="./gen_tcp#controlling_process-2">gen_tcp#controlling_process-2</a>.</p><p>If the OS used does not support non-blocking <strong>sendfile</strong>, an
+Erlang fallback using <a href="#read/2">read/2</a>
+and <a href="./gen_tcp#send/2">gen_tcp#send/2</a> is
+used.</p><p>The option list can contain the following options:</p><dl><dt><strong>chunk_size</strong></dt><dd><p>The chunk size used by the Erlang fallback to send
+data. If using the fallback, set this to a value
+that comfortably fits in the systems memory. Default is 20 MB.</p></dd></dl><h2>set_cwd/1</h2><p>Set the current working directory.</p><p>Sets the current working directory of the file server to
+<strong><span class="anno">Dir</span></strong>. Returns <strong>ok</strong> if successful.</p><p>The functions in the module <strong>file</strong> usually treat binaries
+as raw filenames, that is, they are passed "as is" even when the
+encoding of the binary does not agree with
+<a href="#native_name_encoding/0">native_name_encoding/0</a>.
+However, this function expects binaries to be encoded according to the
+value returned by <strong>native_name_encoding()</strong>.</p><p>Typical error reasons are:</p><dl><dt><strong>enoent</strong></dt><dd> <p>The directory does not exist.</p> </dd><dt><strong>enotdir</strong></dt><dd> <p>A component of <strong><span class="anno">Dir</span></strong> is not a directory.
+On some platforms, <strong>enoent</strong> is returned.</p> </dd><dt><strong>eacces</strong></dt><dd> <p>Missing permission for the directory or one of its
+parents.</p> </dd><dt><strong>badarg</strong></dt><dd> <p><strong><span class="anno">Dir</span></strong> has an improper type,
+such as tuple.</p> </dd><dt><strong>no_translation</strong></dt><dd> <p><strong><span class="anno">Dir</span></strong> is a <strong>binary()</strong> with
+characters coded in ISO-latin-1 and the VM is operating
+with unicode filename encoding.</p> </dd></dl><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>In a future release, a bad type for argument
+<strong><span class="anno">Dir</span></strong>
+will probably generate an exception.</p></div><h2>sync/1</h2><p>Synchronize the in-memory state of a file with that on the physical medium.</p><p>Ensures that any buffers kept by the operating system
+(not by the Erlang runtime system) are written to disk. On
+some platforms, this function might have no effect.</p><p>A typical error reason is:</p><dl><dt><strong>enospc</strong></dt><dd> <p>Not enough space left to write the file.</p> </dd></dl><h2>truncate/1</h2><p>Truncate a file.</p><p>Truncates the file referenced by <strong><span class="anno">IoDevice</span></strong> at
+the current position. Returns <strong>ok</strong> if successful,
+otherwise <strong>{error, <span class="anno">Reason</span>}</strong>.</p><h2>write/2</h2><p>Write to a file.</p><p>Writes <strong><span class="anno">Bytes</span></strong> to the file referenced by
+<strong><span class="anno">IoDevice</span></strong>. This function is the only way to write to a
+file opened in <strong>raw</strong> mode (although it works for normally opened
+files too). Returns <strong>ok</strong> if successful, and
+<strong>{error, <span class="anno">Reason</span>}</strong> otherwise.</p><p>If the file is opened with <strong>encoding</strong> set to something else than
+<strong>latin1</strong>, each byte written can result in many bytes being written to
+the file, as the byte range 0..255 can represent anything between one and
+four bytes depending on value and UTF encoding type.</p><p>Typical error reasons:</p><dl><dt><strong>ebadf</strong></dt><dd> <p>The file is not opened for writing.</p> </dd><dt><strong>enospc</strong></dt><dd> <p>No space is left on the device.</p> </dd></dl><h2>write_file/2</h2><p>Write a file.</p><p>Writes the contents of the <strong>iodata</strong> term <strong><span class="anno">Bytes</span></strong>
+to file <strong><span class="anno">Filename</span></strong>.
+The file is created if it does not exist.
+If it exists, the previous contents are overwritten.
+Returns <strong>ok</strong> if successful, otherwise
+<strong>{error, <span class="anno">Reason</span>}</strong>.</p><p>Typical error reasons:</p><dl><dt><strong>enoent</strong></dt><dd> <p>A component of the filename does not exist.</p> </dd><dt><strong>enotdir</strong></dt><dd> <p>A component of the filename is not a directory. On some
+platforms, <strong>enoent</strong> is returned instead.</p> </dd><dt><strong>enospc</strong></dt><dd> <p>No space is left on the device.</p> </dd><dt><strong>eacces</strong></dt><dd> <p>Missing permission for writing the file or searching one
+of the parent directories.</p> </dd><dt><strong>eisdir</strong></dt><dd> <p>The named file is a directory.</p> </dd></dl><h2>write_file/3</h2><p>Write a file.</p><p>Same as <strong>write_file/2</strong>, but takes a third argument
+<strong><span class="anno">Modes</span></strong>, a list of possible modes, see
+<a href="#open/2">open/2</a>. The mode flags
+<strong>binary</strong> and <strong>write</strong> are implicit, so they are
+not to be used.</p><h2>write_file_info/2</h2><h2>write_file_info/3</h2><p>Change file information.</p><p>Changes file information. Returns <strong>ok</strong> if successful,
+otherwise <strong>{error, <span class="anno">Reason</span>}</strong>.
+<strong><span class="anno">FileInfo</span></strong> is a record
+<strong>file_info</strong>, defined in the Kernel include file
+<strong>file.hrl</strong>. Include the following directive in the module
+from which the function is called:</p><pre><code class="">
+ -include_lib("kernel/include/file.hrl").</code></pre><p>The time type set in <strong>atime</strong>, <strong>mtime</strong>, and <strong>ctime</strong>
+depends on the time type set in <strong>Opts :: {time, Type}</strong> as
+follows:</p><dl><dt><strong>local</strong></dt><dd><p>Interprets the time set as local.</p></dd><dt><strong>universal</strong></dt><dd><p>Interprets it as universal time.</p></dd><dt><strong>posix</strong></dt><dd><p>Must be seconds since or before Unix time epoch,
+which is 1970-01-01 00:00 UTC.</p></dd></dl><p>Default is <strong>{time, local}</strong>.</p><p>If the option <strong>raw</strong> is set, the file server is not called
+and only information about local files is returned.</p><p>The following fields are used from the record, if they are
+specified:</p><dl><dt><strong>atime = </strong> <a href="#type-date_time">type-date_time</a><strong> | integer() &gt;= 0</strong></dt><dd> <p>The last time the file was read.</p> </dd><dt><strong>mtime = </strong> <a href="#type-date_time">type-date_time</a><strong> | integer() &gt;= 0</strong></dt><dd> <p>The last time the file was written.</p> </dd><dt><strong>ctime = </strong> <a href="#type-date_time">type-date_time</a><strong> | integer() &gt;= 0</strong></dt><dd> <p>On Unix, any value specified for this field is ignored
+(the "ctime" for the file is set to the current
+time). On Windows, this field is the new creation time to
+set for the file.</p> </dd><dt><strong>mode = integer() &gt;= 0</strong></dt><dd> <p>The file permissions as the sum of the following bit
+values:</p> <dl><dt><strong>8#00400</strong></dt><dd><p>Read permission: owner</p></dd><dt><strong>8#00200</strong></dt><dd><p>Write permission: owner</p></dd><dt><strong>8#00100</strong></dt><dd><p>Execute permission: owner</p></dd><dt><strong>8#00040</strong></dt><dd><p>Read permission: group</p></dd><dt><strong>8#00020</strong></dt><dd><p>Write permission: group</p></dd><dt><strong>8#00010</strong></dt><dd><p>Execute permission: group</p></dd><dt><strong>8#00004</strong></dt><dd><p>Read permission: other</p></dd><dt><strong>8#00002</strong></dt><dd><p>Write permission: other</p></dd><dt><strong>8#00001</strong></dt><dd><p>Execute permission: other</p></dd><dt><strong>16#800</strong></dt><dd><p>Set user id on execution</p></dd><dt><strong>16#400</strong></dt><dd><p>Set group id on execution</p></dd></dl> <p>On Unix platforms, other bits than those listed above
+may be set.</p> </dd><dt><strong>uid = integer() &gt;= 0</strong></dt><dd> <p>Indicates the file owner. Ignored for non-Unix
+file systems.</p> </dd><dt><strong>gid = integer() &gt;= 0</strong></dt><dd> <p>Gives the group that the file owner belongs to.
+Ignored for non-Unix file systems.</p> </dd></dl><p>Typical error reasons:</p><dl><dt><strong>eacces</strong></dt><dd> <p>Missing search permission for one of the parent
+directories of the file.</p> </dd><dt><strong>enoent</strong></dt><dd> <p>The file does not exist.</p> </dd><dt><strong>enotdir</strong></dt><dd> <p>A component of the filename is not a directory. On some
+platforms, <strong>enoent</strong> is returned instead.</p> </dd></dl><h2>POSIX Error Codes</h2><ul><li><strong>eacces</strong> - Permission denied</li><li><strong>eagain</strong> - Resource temporarily unavailable</li><li><strong>ebadf</strong> - Bad file number</li><li><strong>ebusy</strong> - File busy</li><li><strong>edquot</strong> - Disk quota exceeded</li><li><strong>eexist</strong> - File already exists</li><li><strong>efault</strong> - Bad address in system call argument</li><li><strong>efbig</strong> - File too large</li><li><strong>eintr</strong> - Interrupted system call</li><li><strong>einval</strong> - Invalid argument</li><li><strong>eio</strong> - I/O error</li><li><strong>eisdir</strong> - Illegal operation on a directory</li><li><strong>eloop</strong> - Too many levels of symbolic links</li><li><strong>emfile</strong> - Too many open files</li><li><strong>emlink</strong> - Too many links</li><li><strong>enametoolong</strong> - Filename too long</li><li><strong>enfile</strong> - File table overflow</li><li><strong>enodev</strong> - No such device</li><li><strong>enoent</strong> - No such file or directory</li><li><strong>enomem</strong> - Not enough memory</li><li><strong>enospc</strong> - No space left on device</li><li><strong>enotblk</strong> - Block device required</li><li><strong>enotdir</strong> - Not a directory</li><li><strong>enotsup</strong> - Operation not supported</li><li><strong>enxio</strong> - No such device or address</li><li><strong>eperm</strong> - Not owner</li><li><strong>epipe</strong> - Broken pipe</li><li><strong>erofs</strong> - Read-only file system</li><li><strong>espipe</strong> - Invalid seek</li><li><strong>esrch</strong> - No such process</li><li><strong>estale</strong> - Stale remote file handle</li><li><strong>exdev</strong> - Cross-domain link</li></ul><h2>Performance</h2><p>For increased performance, raw files are recommended.</p><p>A normal file is really a process so it can be used as an I/O
+device (see <a href="./io">stdlib/io</a>).
+Therefore, when data is written to a normal file, the sending of the
+data to the file process, copies all data that are not binaries. Opening
+the file in binary mode and writing binaries is therefore recommended.
+If the file is opened on another node, or if the file server runs as
+slave to the file server of another node, also binaries are copied.</p><div class="alert alert-info"><h4 class="alert-heading">Note</h4><p>Raw files use the file system of the host machine of the node.
+For normal files (non-raw), the file server is used to find the files,
+and if the node is running its file server as slave to the file server
+of another node, and the other node runs on some other host machine,
+they can have different file systems.
+However, this is seldom a problem.</p></div><p><a href="#open/2">open/2</a> can be given the
+options <strong>delayed_write</strong> and <strong>read_ahead</strong> to turn on caching,
+which will reduce the number of operating system calls and greatly
+improve performance for small reads and writes. However, the overhead
+won't disappear completely and it's best to keep the number of file
+operations to a minimum. As a contrived example, the following function
+writes 4MB in 2.5 seconds when tested:</p><pre><code class="">
+create_file_slow(Name) -&gt;
+    {ok, Fd} = file:open(Name, [raw, write, delayed_write, binary]),
+    create_file_slow_1(Fd, 4 bsl 20),
+    file:close(Fd).
+
+create_file_slow_1(_Fd, 0) -&gt;
+    ok;
+create_file_slow_1(Fd, M) -&gt;
+    ok = file:write(Fd, &lt;&lt;0&gt;&gt;),
+    create_file_slow_1(Fd, M - 1).</code></pre><p>The following functionally equivalent code writes 128 bytes per call
+to <a href="#write/2">write/2</a> and so does the
+same work in 0.08 seconds, which is roughly 30 times faster:</p><pre><code class="">
+create_file(Name) -&gt;
+    {ok, Fd} = file:open(Name, [raw, write, delayed_write, binary]),
+    create_file_1(Fd, 4 bsl 20),
+    file:close(Fd),
+    ok.
+
+create_file_1(_Fd, 0) -&gt;
+    ok;
+create_file_1(Fd, M) when M &gt;= 128 -&gt;
+    ok = file:write(Fd, &lt;&lt;0:(128)/unit:8&gt;&gt;),
+    create_file_1(Fd, M - 128);
+create_file_1(Fd, M) -&gt;
+    ok = file:write(Fd, &lt;&lt;0:(M)/unit:8&gt;&gt;),
+    create_file_1(Fd, M - 1).</code></pre><p>When writing data it's generally more efficient to write a list of
+binaries rather than a list of integers. It is not needed to
+flatten a deep list before writing. On Unix hosts, scatter output,
+which writes a set of buffers in one operation, is used when
+possible. In this way <strong>write(FD, [Bin1, Bin2 | Bin3])</strong>
+writes the contents of the binaries without copying the data
+at all, except for perhaps deep down in the operating system
+kernel.</p><div class="alert alert-warning"><h4 class="alert-heading">Warning</h4><p>If an error occurs when accessing an open file with module
+<a href="./io">stdlib/io</a>, the process
+handling the file exits. The dead file process can hang if a process
+tries to access it later. This will be fixed in a future release.
+</p></div><h2>See Also</h2><p><a href="./filename">stdlib/filename</a></p></body></html>
