@@ -14,8 +14,10 @@ so the stages are:
 
 * xml text
 * xml data (xmerl record)
-* erlang data (erldata)
-* erlang "abstract format tree" (aft)
+* data tags (tuples, maps and lists) (erldata)
+
+* "abstract tree" (ast)
+* "abstract format tree" (aft)
 
 and then for markdown:
 
@@ -23,6 +25,8 @@ and then for markdown:
 * md text
 
 you can dump the intermediate representations with the right command.
+
+I should clearly define and maybe consolidate some stages.
 
 Note: for now it explicitly ignores big files like book, ref_man, part and some
 heavy pages like wx/gl.

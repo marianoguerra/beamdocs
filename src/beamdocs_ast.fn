@@ -250,11 +250,11 @@ case (img, {ref=Ref}, Title), _Ctx:
 case (marker, {ref=Id}, _), _Ctx:
   a({name: Id}, [])
 case (link, {ref=Ref}, Childs), Ctx:
-  a({href: Ref}, inline(Childs, Ctx))
+  a({href: Ref}, inline_unwrap_safe(Childs, Ctx))
 case (em, _, Childs), Ctx:
-  em({}, inline(Childs, Ctx))
+  em({}, inline_unwrap_safe(Childs, Ctx))
 case (strong, _, Childs), Ctx:
-  strong({}, inline(Childs, Ctx))
+  strong({}, inline_unwrap_safe(Childs, Ctx))
 case (p, _, Childs), Ctx:
   p({}, inline(Childs, Ctx))
 case Text, _Ctx when is_binary(Text):
@@ -268,30 +268,31 @@ case List, Ctx when is_list(List):
   end
 
 case (span, {t=T}, Childs), Ctx:
-  span({type: T}, inline(Childs, Ctx))
+  span({type: T}, inline_unwrap_safe(Childs, Ctx))
 case (span, _, Childs), Ctx:
-  span({}, inline(Childs, Ctx))
+  span({}, inline_unwrap_safe(Childs, Ctx))
 case (li, _, Childs), Ctx:
-  ul(li(inline(Childs, Ctx)))
+  ul(li(inline_unwrap_safe(Childs, Ctx)))
 case (list, _, Items), Ctx:
-  ul((for (li, _, Item) in Items: li(inline(Item, Ctx)) end))
+  ul((for (li, _, Item) in Items: li(inline_unwrap_safe(Item, Ctx)) end))
 
 case (dl, _, Childs), Ctx:
   Items = for (dd, _, (Name, Desc)) in Childs:
-    [dt(to_ast(wrap_if_raw(Name), Ctx)), dd(inline(Desc, Ctx))]
+    [dt(to_ast(wrap_if_raw(Name), Ctx)), dd(inline_unwrap_safe(Desc, Ctx))]
   end
 
   dl({}, lists.flatten(Items))
 
 case (pre, _, Childs), Ctx:
   #_ "TODO: plain text childs"
-  pre(plain(Childs, Ctx))
+  pre(plain_unwrap_safe(Childs, Ctx))
 case (code, {lang=Lang}, Childs), Ctx:
   #_ "TODO: plain text childs"
-  code({lang: Lang}, plain(Childs, Ctx))
+  code({lang: Lang}, plain_unwrap_safe(Childs, Ctx))
 
 
-case (ignore, _, _), _Ctx:
+case (ignore, A, C), _Ctx:
+  io.format("ast:ignore: ~p ~p~n", [A, C])
   empty()
 
 case (br, _), _Ctx:
@@ -360,7 +361,8 @@ case (code, _, Childs), Ctx:
   plain(Childs, Ctx)
 
 
-case (ignore, _, _), _Ctx:
+case (ignore, A, C), _Ctx:
+  io.format("ast:ignore: ~p ~p~n", [A, C])
   empty()
 
 case (br, _), _Ctx:
@@ -375,6 +377,37 @@ case V, _Ctx when is_binary(V):
 case Other, _Ctx:
   io.format("wat??: ~p~n~n", [Other])
   span({}, 'WAT')
+end
+
+fn plain_unwrap_safe case Childs, Ctx:
+  x_unwrap_safe(Childs, Ctx, fn plain:2)
+end
+
+fn inline_unwrap_safe case Childs, Ctx:
+  x_unwrap_safe(Childs, Ctx, fn inline:2)
+end
+
+fn x_unwrap_safe
+case Childs, Ctx, Fn:
+  match Fn(Childs, Ctx):
+  case Items when is_list(Items):
+    for Item in Items: unwrap_safe(Item) end
+  case Item:
+    unwrap_safe(Item)
+  end
+end
+
+fn unwrap_safe
+case (div, Attrs, [Child]) when map_size(Attrs) is 0:
+  unwrap_safe(Child)
+case (span, Attrs, Child) when map_size(Attrs) is 0:
+  unwrap_safe(Child)
+case (span, Attrs, Childs) when map_size(Attrs) is 0:
+  (span, Attrs, (for Item in Childs: unwrap_safe(Item) end))
+case [V]:
+  unwrap_safe(V)
+case V:
+  V
 end
 
 fn childs
